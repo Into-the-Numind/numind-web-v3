@@ -140,7 +140,7 @@ jobs:
             docker run -d \
               --name numind-web-v3-dev \
               --network numind-network \
-              -p 8083:80 \
+              -p 9200:80 \
               --restart always \
               ${{ env.IMAGE_NAME }}:develop
             
@@ -172,7 +172,7 @@ jobs:
             docker run -d \
               --name numind-web-v3-qa \
               --network numind-network \
-              -p 8084:80 \
+              -p 9201:80 \
               --restart always \
               ${{ env.IMAGE_NAME }}:release
             
@@ -212,7 +212,7 @@ jobs:
             docker run -d \
               --name numind-web-v3 \
               --network numind-network \
-              -p 8080:80 \
+              -p 9200:80 \
               --restart always \
               ${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
