@@ -113,3 +113,107 @@ jobs:
           echo "✅ 镜像构建完成"
           echo "镜像: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}"
           echo "环境: ${{ steps.meta.outputs.environment }}"
+
+  # =====================================================
+  # 部署到 Dev 环境 (49.233.219.254)
+  # =====================================================
+  deploy_dev:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+    steps:
+      - name: Deploy to Dev Server (49.233.219.254)
+        uses: appleboy/ssh-action@master
+        with:
+          host: 49.233.219.254
+          username: root
+          password: ${{ secrets.DEV_SERVER_PASSWORD }}
+          script: |
+            echo "🚀 部署到 Dev 环境..."
+            docker pull ${{ env.IMAGE_NAME }}:develop
+            
+            # 停止并删除旧容器
+            docker rm -f numind-web-v3-dev 2>/dev/null || true
+            
+            # 启动新容器
+            docker run -d \
+              --name numind-web-v3-dev \
+              --network numind-network \
+              -p 8083:80 \
+              --restart always \
+              ${{ env.IMAGE_NAME }}:develop
+            
+            echo "✅ Dev 部署完成"
+
+  # =====================================================
+  # 部署到 QA 环境 (49.233.219.254)
+  # =====================================================
+  deploy_qa:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/release'
+    environment: qa
+    steps:
+      - name: Deploy to QA Server (49.233.219.254)
+        uses: appleboy/ssh-action@master
+        with:
+          host: 49.233.219.254
+          username: root
+          password: ${{ secrets.DEV_SERVER_PASSWORD }}
+          script: |
+            echo "🚀 部署到 QA 环境..."
+            docker pull ${{ env.IMAGE_NAME }}:release
+            
+            # 停止并删除旧容器
+            docker rm -f numind-web-v3-qa 2>/dev/null || true
+            
+            # 启动新容器
+            docker run -d \
+              --name numind-web-v3-qa \
+              --network numind-network \
+              -p 8084:80 \
+              --restart always \
+              ${{ env.IMAGE_NAME }}:release
+            
+            echo "✅ QA 部署完成"
+
+  # =====================================================
+  # 部署到 Prod 环境 (129.28.125.51)
+  # =====================================================
+  deploy_prod:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    steps:
+      - name: Deploy to Prod Server (129.28.125.51)
+        uses: appleboy/ssh-action@master
+        with:
+          host: 129.28.125.51
+          username: root
+          password: ${{ secrets.PROD_SERVER_PASSWORD }}
+          script: |
+            echo "🚀 部署到 Prod 环境..."
+            
+            # 根据触发方式确定镜像标签
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              IMAGE_TAG="${{ github.ref_name }}"
+            else
+              IMAGE_TAG="latest"
+            fi
+            
+            docker pull ${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            # 停止并删除旧容器
+            docker rm -f numind-web-v3 2>/dev/null || true
+            
+            # 启动新容器
+            docker run -d \
+              --name numind-web-v3 \
+              --network numind-network \
+              -p 8080:80 \
+              --restart always \
+              ${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            echo "✅ Prod 部署完成"
