@@ -9,7 +9,7 @@ RUN npm ci
 
 # 复制源码并构建
 COPY . .
-RUN npm run build
+RUN npm run build-only
 
 # 生产阶段
 FROM nginx:alpine
