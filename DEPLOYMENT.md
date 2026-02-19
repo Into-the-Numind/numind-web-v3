@@ -73,6 +73,26 @@ npm run dev  # http://localhost:5173
    docker-compose up -d numind-web-v3
    ```
 
+## V3 API 反代（关键）
+
+`numind-web-v3` 容器内统一走同源 `/api`，由容器 Nginx 转发到后端，避免浏览器 CORS。
+
+- 环境变量：`API_PROXY_PASS`
+- 说明：填写当前环境后端 API 的完整上游前缀（必须包含末尾 `/`）
+
+示例（请按你的实际后端地址替换）：
+
+```bash
+# dev（IP + 端口访问）
+docker run -e API_PROXY_PASS="http://<dev-backend-ip>:<port>/" ...
+
+# qa（IP + 端口访问）
+docker run -e API_PROXY_PASS="http://<qa-backend-ip>:<port>/" ...
+
+# prod（域名访问）
+docker run -e API_PROXY_PASS="https://youshu.asia/" ...
+```
+
 ## Nginx 共存配置
 
 ```nginx

@@ -10,9 +10,9 @@ server {
         return 200 "healthy\n";
     }
 
-    # 同源 API 反向代理，避免浏览器跨域（默认指向本机后端）
+    # 同源 API 反向代理，避免浏览器跨域；上游地址由环境变量注入
     location /api/ {
-        proxy_pass http://localhost:9091/;
+        proxy_pass ${API_PROXY_PASS};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
