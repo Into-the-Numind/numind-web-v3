@@ -3,12 +3,7 @@
     <div class="workspace-section">
       <div class="workspace-section-title">已上线</div>
       <div class="cards-grid">
-        <RouterLink
-          v-for="workflow in onlineWorkflows"
-          :key="workflow.title"
-          :to="workflow.path"
-          class="card"
-        >
+        <RouterLink v-for="workflow in onlineWorkflows" :key="workflow.title" :to="workflow.path" class="card">
           <svg class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
             <path
@@ -24,10 +19,6 @@
           </svg>
           <div class="card-title">{{ workflow.title }}</div>
           <div class="card-subtitle">{{ workflow.subtitle }}</div>
-          <div class="card-meta">
-            <span class="card-badge card-badge-active">{{ workflow.badge }}</span>
-            <span class="card-date">{{ workflow.date }}</span>
-          </div>
         </RouterLink>
       </div>
     </div>
@@ -51,9 +42,6 @@
           </svg>
           <div class="card-title">{{ workflow.title }}</div>
           <div class="card-subtitle">{{ workflow.subtitle }}</div>
-          <div class="card-meta">
-            <span class="card-badge card-badge-draft">即将上线</span>
-          </div>
         </div>
       </div>
     </div>
@@ -61,38 +49,58 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import request from '@/api/request'
 import MainLayout from '@/components/layout/MainLayout.vue'
 
-const onlineWorkflows = [
-  {
-    path: '/sales',
-    title: 'AI销售智能体',
-    subtitle: '智能话术引导，提升销售转化',
-    badge: 'active',
-    date: '2026-02-19'
-  },
-  {
-    path: '/sop',
-    title: 'SOP 运行记录',
-    subtitle: '查看流程执行状态与结果',
-    badge: 'active',
-    date: '2026-02-19'
-  },
-  {
-    path: '/archive',
-    title: '微信存档',
-    subtitle: '追踪客户沟通，回溯关键内容',
-    badge: 'active',
-    date: '2026-02-19'
-  },
-  {
-    path: '/settings',
-    title: '系统设置',
-    subtitle: '管理账号和系统配置',
-    badge: 'active',
-    date: '2026-02-19'
+interface SopTemplate {
+  ID?: number
+  id?: number
+  Id?: number
+  name?: string
+  description?: string
+}
+
+interface OnlineWorkflow {
+  path: string
+  title: string
+  subtitle: string
+}
+
+const templateWorkflows = ref<OnlineWorkflow[]>([])
+
+const salesWorkflow: OnlineWorkflow = {
+  path: '/sales',
+  title: '销售智能体',
+  subtitle: 'AI驱动的智能销售助手，支持客户管理和多风格回复'
+}
+
+const onlineWorkflows = computed<OnlineWorkflow[]>(() => [salesWorkflow, ...templateWorkflows.value])
+
+const fetchTemplates = async () => {
+  try {
+    const res = await request.get('/v1/sop/templates')
+    const payload = (res as any)?.data
+    const templates: SopTemplate[] = Array.isArray(payload?.templates)
+      ? payload.templates
+      : Array.isArray(payload)
+        ? payload
+        : []
+
+    templateWorkflows.value = templates.map((template) => ({
+      path: '/sop',
+      title: template.name || '未命名SOP',
+      subtitle: template.description || ''
+    }))
+  } catch (error) {
+    console.error('获取SOP模板失败:', error)
+    templateWorkflows.value = []
   }
-]
+}
+
+onMounted(() => {
+  void fetchTemplates()
+})
 
 const comingSoonWorkflows = [
   {
@@ -110,6 +118,26 @@ const comingSoonWorkflows = [
   {
     title: 'AI文稿创作：营销选题口播稿',
     subtitle: '打造置顶广告牌，精准捕捞成交'
+  },
+  {
+    title: 'AI文稿创作：人设选题口播稿',
+    subtitle: '用经历引共鸣，吸引同频客户'
+  },
+  {
+    title: 'AI文稿创作：案例选题口播稿',
+    subtitle: '拆解成功案例，让客户看见你的专业'
+  },
+  {
+    title: 'AI找选题',
+    subtitle: '挖掘跨行爆款，直接对标拿来即用'
+  },
+  {
+    title: 'AI生成图文笔记',
+    subtitle: '告别制作痛苦，一键生成获客图文'
+  },
+  {
+    title: 'AI私域发售全案策划',
+    subtitle: '全套发售SOP，引爆批量收钱'
   }
 ]
 </script>
@@ -209,39 +237,7 @@ const comingSoonWorkflows = [
 }
 
 .card-meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.card-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.card-badge-active {
-  background-color: hsl(158, 50%, 92%);
-  color: hsl(158, 64%, 50%);
-}
-
-.card-badge-draft {
-  background-color: var(--border-light);
-  color: var(--text-muted);
-}
-
-.card-date {
-  font-size: 11px;
-  color: var(--text-muted);
+  display: none;
 }
 
 @media (max-width: 1400px) {

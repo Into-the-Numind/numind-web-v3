@@ -62,7 +62,7 @@ const handleLogout = () => {
 <style scoped>
 .sidebar {
   width: 260px;
-  min-height: 100vh;
+  height: 100vh;
   background: #003811;
   border: none;
   border-radius: 0;
@@ -104,6 +104,7 @@ const handleLogout = () => {
 .nav-menu {
   flex: 1;
   padding: 0 12px 12px;
+  overflow: hidden;
 }
 
 .nav-item {
@@ -206,7 +207,7 @@ const handleLogout = () => {
 @media (max-width: 768px) {
   .sidebar {
     width: 100%;
-    min-height: auto;
+    height: auto;
     max-height: 260px;
   }
 

@@ -14,10 +14,11 @@ import Sidebar from './AppSidebar.vue'
 <style scoped>
 .layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg);
   gap: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 .main-content {
