@@ -107,7 +107,7 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
           build-args: |
             VITE_APP_ENV=${{ steps.meta.outputs.environment }}
-            VITE_API_BASE_URL=https://youshu.asia/dev
+            VITE_API_BASE_URL=/api
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -148,6 +148,7 @@ jobs:
               --name numind-web-v3-dev \
               --network numind-network \
               -p 9203:80 \
+              -e API_PROXY_PASS="https://youshu.asia/dev/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:develop
             
@@ -186,6 +187,7 @@ jobs:
               --name numind-web-v3-qa \
               --network numind-network \
               -p 9204:80 \
+              -e API_PROXY_PASS="https://youshu.asia/dev/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:release
             
@@ -230,6 +232,7 @@ jobs:
               --name numind-web-v3 \
               --network numind-network \
               -p 9205:80 \
+              -e API_PROXY_PASS="https://youshu.asia/dev/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:$IMAGE_TAG
             

@@ -26,9 +26,9 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/api': {
-          target: 'https://youshu.asia/dev',
+          target: 'https://youshu.asia',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '')
+          rewrite: (path) => path.replace(/^\/api/, '/dev')
         }
       }
     },

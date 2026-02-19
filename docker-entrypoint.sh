@@ -2,7 +2,7 @@
 set -eu
 
 # 按环境注入 API 反向代理上游地址
-API_PROXY_PASS="${API_PROXY_PASS:-http://127.0.0.1:9091/}"
+API_PROXY_PASS="${API_PROXY_PASS:-https://youshu.asia/dev/}"
 case "$API_PROXY_PASS" in
   */) ;;
   *) API_PROXY_PASS="${API_PROXY_PASS}/" ;;
