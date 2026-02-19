@@ -80,9 +80,10 @@ request.interceptors.response.use(
         case 500:
           return Promise.reject(new Error('服务器内部错误'))
           
-        default:
+        default: {
           const message = response.data?.message || response.data?.msg || `请求失败 (${response.status})`
           return Promise.reject(new Error(message))
+        }
       }
     }
     

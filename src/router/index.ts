@@ -97,7 +97,6 @@ router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
   const isLoggedIn = userStore.isLoggedIn
   const requiresAuth = to.meta.requiresAuth
-  const isPublic = to.meta.public
 
   // 需要登录但未登录，跳转到登录页
   if (requiresAuth && !isLoggedIn) {

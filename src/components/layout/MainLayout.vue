@@ -18,7 +18,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import Sidebar from './Sidebar.vue'
+import Sidebar from './AppSidebar.vue'
 
 const route = useRoute()
 
