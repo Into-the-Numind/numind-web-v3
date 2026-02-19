@@ -6,14 +6,14 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig(({ mode }) => {
   // 加载环境变量
   const env = loadEnv(mode, process.cwd(), '')
-  
-  // 根据环境设置 base 路径
-  // 生产环境 (main): /v3/ (部署到 youshu.asia/v3/)
-  // 开发/测试: / (部署到 IP:port)
-  const base = env.VITE_APP_ENV === 'production' ? '/v3/' : '/'
+
+  // 生产环境默认使用 /v3/ 子路径部署
+  const defaultBase = env.VITE_APP_ENV === 'production' ? '/v3/' : '/'
+  const rawBase = (env.VITE_APP_BASE_PATH || defaultBase).trim()
+  const normalizedBase = rawBase === '/' ? '/' : `/${rawBase.replace(/^\/+|\/+$/g, '')}/`
   
   return {
-    base,
+    base: normalizedBase,
     plugins: [
       vue(),
     ],
