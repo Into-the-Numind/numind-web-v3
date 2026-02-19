@@ -2,6 +2,7 @@
  * 主样式文件
  * ===================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&family=Inconsolata:wght@400;700&display=swap');
 @import './variables.css';
 
 /* CSS Reset - 温和重置 */
@@ -10,7 +11,6 @@
 *::after {
   box-sizing: border-box;
   margin: 0;
-  font-weight: normal;
 }
 
 html {
@@ -20,11 +20,14 @@ html {
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
   min-height: 100vh;
-  line-height: 1.6;
+  line-height: var(--line-height-normal);
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
 }
 
 #app {
