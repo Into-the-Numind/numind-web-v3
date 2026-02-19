@@ -1,11 +1,16 @@
-import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { defineStore } from 'pinia'
+import { login as loginApi, getUserInfo } from '@/api/auth'
 
 export interface UserInfo {
-  id: number
+  id: string | number
   username: string
   nickname?: string
   avatar?: string
+  email?: string
+  phone?: string
+  role?: string
+  [key: string]: any
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -15,36 +20,98 @@ export const useUserStore = defineStore('user', () => {
   const loading = ref(false)
 
   // Getters
-  const isLogin = computed(() => !!token.value)
-  const displayName = computed(() => userInfo.value?.nickname || userInfo.value?.username || '访客')
+  const isLoggedIn = computed(() => !!token.value)
+  const username = computed(() => userInfo.value?.username || '')
+  const nickname = computed(() => userInfo.value?.nickname || userInfo.value?.username || '')
 
   // Actions
-  function setToken(newToken: string) {
+  const setToken = (newToken: string) => {
     token.value = newToken
     localStorage.setItem('token', newToken)
   }
 
-  function setUserInfo(info: UserInfo) {
-    userInfo.value = info
-  }
-
-  function logout() {
+  const clearToken = () => {
     token.value = ''
     userInfo.value = null
     localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
   }
 
-  async function login(username: string, password: string) {
-    loading.value = true
+  const setUserInfo = (info: UserInfo) => {
+    userInfo.value = info
+    localStorage.setItem('userInfo', JSON.stringify(info))
+  }
+
+  // 登录
+  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      // TODO: 调用登录 API
-      console.log('登录:', username, password)
-      // 模拟成功
-      setToken('mock-token-' + Date.now())
-      setUserInfo({ id: 1, username, nickname: username })
-      return true
+      loading.value = true
+      const res = await loginApi({ username, password })
+      
+      if (res.code === 200 || res.code === 0) {
+        const { access_token, token: userToken, user } = res.data || {}
+        const actualToken = access_token || userToken
+        
+        if (actualToken) {
+          setToken(actualToken)
+          if (user) {
+            setUserInfo(user)
+          }
+          return { success: true }
+        } else {
+          return { success: false, message: '登录响应格式错误' }
+        }
+      } else {
+        return { success: false, message: res.message || res.msg || '登录失败' }
+      }
+    } catch (error: any) {
+      console.error('登录错误:', error)
+      return { 
+        success: false, 
+        message: error.message || '网络错误，请稍后重试'
+      }
     } finally {
       loading.value = false
+    }
+  }
+
+  // 获取用户信息
+  const fetchUserInfo = async (): Promise<boolean> => {
+    try {
+      if (!token.value) return false
+      
+      const res = await getUserInfo()
+      if (res.code === 200 || res.code === 0) {
+        setUserInfo(res.data)
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('获取用户信息失败:', error)
+      return false
+    }
+  }
+
+  // 退出登录
+  const logout = () => {
+    clearToken()
+  }
+
+  // 初始化（从本地存储恢复）
+  const init = () => {
+    const savedToken = localStorage.getItem('token')
+    const savedUserInfo = localStorage.getItem('userInfo')
+    
+    if (savedToken) {
+      token.value = savedToken
+    }
+    
+    if (savedUserInfo) {
+      try {
+        userInfo.value = JSON.parse(savedUserInfo)
+      } catch {
+        localStorage.removeItem('userInfo')
+      }
     }
   }
 
@@ -52,11 +119,14 @@ export const useUserStore = defineStore('user', () => {
     token,
     userInfo,
     loading,
-    isLogin,
-    displayName,
-    setToken,
-    setUserInfo,
+    isLoggedIn,
+    username,
+    nickname,
+    login,
     logout,
-    login
+    fetchUserInfo,
+    init,
+    setToken,
+    clearToken
   }
 })
