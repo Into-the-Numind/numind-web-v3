@@ -148,7 +148,7 @@ jobs:
               --name numind-web-v3-dev \
               --network numind-network \
               -p 9203:80 \
-              -e API_PROXY_PASS="https://youshu.asia/dev/" \
+              -e API_PROXY_PASS="http://49.233.219.254:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:develop
             
@@ -187,7 +187,7 @@ jobs:
               --name numind-web-v3-qa \
               --network numind-network \
               -p 9204:80 \
-              -e API_PROXY_PASS="https://youshu.asia/dev/" \
+              -e API_PROXY_PASS="http://49.233.219.254:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:release
             
@@ -232,7 +232,7 @@ jobs:
               --name numind-web-v3 \
               --network numind-network \
               -p 9205:80 \
-              -e API_PROXY_PASS="https://youshu.asia/dev/" \
+              -e API_PROXY_PASS="https://youshu.asia/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:$IMAGE_TAG
             

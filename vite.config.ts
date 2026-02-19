@@ -26,9 +26,10 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/api': {
-          target: 'https://youshu.asia',
+          // 本地开发默认直连 dev/qa 后端 API（返回 /v1 JSON）
+          target: 'http://49.233.219.254:9091',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '/dev')
+          rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
     },
