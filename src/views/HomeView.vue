@@ -3,7 +3,15 @@
     <div class="workspace-section">
       <div class="workspace-section-title">已上线</div>
       <div class="cards-grid">
-        <RouterLink v-for="workflow in onlineWorkflows" :key="workflow.title" :to="workflow.path" class="card">
+        <button
+          v-for="workflow in onlineWorkflows"
+          :key="workflow.key"
+          type="button"
+          class="card"
+          :class="{ loading: launchingWorkflowKey === workflow.key }"
+          :disabled="launchingWorkflowKey === workflow.key"
+          @click="handleWorkflowClick(workflow)"
+        >
           <svg class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
             <path
@@ -19,7 +27,7 @@
           </svg>
           <div class="card-title">{{ workflow.title }}</div>
           <div class="card-subtitle">{{ workflow.subtitle }}</div>
-        </RouterLink>
+        </button>
       </div>
     </div>
 
@@ -50,6 +58,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import request from '@/api/request'
 import MainLayout from '@/components/layout/MainLayout.vue'
 
@@ -62,20 +71,46 @@ interface SopTemplate {
 }
 
 interface OnlineWorkflow {
-  path: string
+  key: string
+  type: 'agent' | 'sop'
   title: string
   subtitle: string
+  templateId?: number
 }
 
+const router = useRouter()
+
 const templateWorkflows = ref<OnlineWorkflow[]>([])
+const launchingWorkflowKey = ref<string | null>(null)
 
 const salesWorkflow: OnlineWorkflow = {
-  path: '/sales',
+  key: 'agent-sales',
+  type: 'agent',
   title: '销售智能体',
   subtitle: 'AI驱动的智能销售助手，支持客户管理和多风格回复'
 }
 
 const onlineWorkflows = computed<OnlineWorkflow[]>(() => [salesWorkflow, ...templateWorkflows.value])
+
+const getTemplateId = (template: SopTemplate): number | null => {
+  const rawId = template.ID ?? template.id ?? template.Id
+  const numericId = Number(rawId)
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    return null
+  }
+  return numericId
+}
+
+const checkTemplatePermission = async (templateId: number): Promise<boolean> => {
+  try {
+    const res = await request.get(`/v1/sop/templates/${templateId}/check-permission`)
+    const permission = (res as any)?.data?.has_permission
+    return permission === true
+  } catch (error) {
+    console.error(`检查模板 ${templateId} 权限失败:`, error)
+    return false
+  }
+}
 
 const fetchTemplates = async () => {
   try {
@@ -87,14 +122,58 @@ const fetchTemplates = async () => {
         ? payload
         : []
 
-    templateWorkflows.value = templates.map((template) => ({
-      path: '/sop',
-      title: template.name || '未命名SOP',
-      subtitle: template.description || ''
-    }))
+    const workflows: OnlineWorkflow[] = []
+    for (const template of templates) {
+      const templateId = getTemplateId(template)
+      if (!templateId) {
+        continue
+      }
+
+      workflows.push({
+        key: `sop-${templateId}`,
+        type: 'sop',
+        title: template.name || '未命名SOP',
+        subtitle: template.description || '',
+        templateId
+      })
+    }
+
+    templateWorkflows.value = workflows
   } catch (error) {
     console.error('获取SOP模板失败:', error)
     templateWorkflows.value = []
+  }
+}
+
+const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
+  if (launchingWorkflowKey.value) {
+    return
+  }
+
+  launchingWorkflowKey.value = workflow.key
+
+  try {
+    if (workflow.type === 'agent') {
+      await router.push('/sales')
+      return
+    }
+
+    if (!workflow.templateId) {
+      return
+    }
+
+    const hasPermission = await checkTemplatePermission(workflow.templateId)
+    if (!hasPermission) {
+      window.alert('未开通该 SOP 的运行权限，请联系管理员')
+      return
+    }
+
+    await router.push({
+      path: '/sop',
+      query: { templateId: String(workflow.templateId) }
+    })
+  } finally {
+    launchingWorkflowKey.value = null
   }
 }
 
@@ -168,6 +247,7 @@ const comingSoonWorkflows = [
 }
 
 .card {
+  appearance: none;
   background-color: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
@@ -183,6 +263,8 @@ const comingSoonWorkflows = [
   justify-content: center;
   min-height: 180px;
   width: 100%;
+  text-align: center;
+  font-family: var(--font-sans);
 }
 
 .card:hover {
@@ -190,6 +272,11 @@ const comingSoonWorkflows = [
   box-shadow: var(--shadow-md);
   background-color: var(--accent-soft);
   border-color: var(--accent);
+}
+
+.card.loading {
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 .card.disabled {

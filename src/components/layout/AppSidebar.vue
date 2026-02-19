@@ -23,22 +23,17 @@
         <div class="run-count-value">--</div>
         <div class="run-count-label">加载中...</div>
       </div>
-      <button class="logout-btn" @click="handleLogout">退出登录</button>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const router = useRouter()
-const userStore = useUserStore()
 
 const menuItems = [
   { path: '/', title: '工作区' },
-  { path: '/sales', title: '销售智能体' },
   { path: '/sop', title: '运行记录' },
   { path: '/archive', title: '微信存档' },
   { path: '/settings', title: '设置' }
@@ -49,13 +44,6 @@ const isActive = (path: string) => {
     return route.path === '/'
   }
   return route.path === path || route.path.startsWith(`${path}/`)
-}
-
-const handleLogout = () => {
-  if (window.confirm('确定要退出登录吗？')) {
-    userStore.logout()
-    router.push('/login')
-  }
 }
 </script>
 
@@ -149,7 +137,7 @@ const handleLogout = () => {
   flex-direction: column;
   align-items: stretch;
   margin-top: auto;
-  gap: 12px;
+  gap: 0;
 }
 
 .run-count-card {
@@ -181,21 +169,6 @@ const handleLogout = () => {
 .run-count-label {
   font-size: 12px;
   color: hsl(150, 10%, 40%);
-}
-
-.logout-btn {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.logout-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
 }
 
 @media (max-width: 1024px) {
