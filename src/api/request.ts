@@ -45,7 +45,12 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
-    const res = response.data
+    const res = response.data as any
+
+    // 如果返回了 HTML 或其它非标准对象，通常是反向代理/网关配置问题
+    if (!res || typeof res !== 'object' || !Object.prototype.hasOwnProperty.call(res, 'code')) {
+      return Promise.reject(new Error('API响应格式异常，请检查代理配置'))
+    }
     
     // 如果响应成功，直接返回数据
     if (res.code === 200 || res.code === 0) {
