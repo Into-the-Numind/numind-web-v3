@@ -34,11 +34,38 @@ const request: AxiosInstance = axios.create({
   }
 })
 
-// 兜底基址候选：优先 /api，同步兼容根路径 /v1
+// 根据当前页面位置推断后端直连地址（用于 dev/qa 兜底）
+const resolveDirectBackendBase = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const host = window.location.hostname
+  if (host !== '49.233.219.254') {
+    return null
+  }
+
+  // dev: 9203 -> 9091, qa: 9204 -> 9093
+  const pagePort = window.location.port
+  const backendPort = pagePort === '9204' ? '9093' : '9091'
+  return `${window.location.protocol}//${host}:${backendPort}`
+}
+
+// 兜底基址候选：优先 /api，其次直连后端（避免误落到前端 /v1 路由）
 const getFallbackBaseCandidates = (currentBase: string): string[] => {
   const normalizedCurrent = (currentBase || '').trim()
-  const candidates = ['/api', '']
-  return candidates.filter((candidate) => candidate !== normalizedCurrent)
+  const candidates: string[] = []
+
+  if (normalizedCurrent !== '/api') {
+    candidates.push('/api')
+  }
+
+  const directBackendBase = resolveDirectBackendBase()
+  if (directBackendBase && directBackendBase !== normalizedCurrent) {
+    candidates.push(directBackendBase)
+  }
+
+  return candidates
 }
 
 const isLikelyHtml = (payload: unknown): boolean => {
