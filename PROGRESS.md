@@ -1,6 +1,6 @@
 # 前端重构进度追踪
 
-> 最后更新: 2026-02-19
+> 最后更新: 2026-02-20
 
 ---
 
@@ -12,14 +12,14 @@ Phase 1: CI/CD 配置  [██████████████████�
 Phase 2: 后端清理    [████████████████████] 100% ✅
 Phase 3: 部署验证    [████████████████████] 100% ✅
 Phase 4: 核心页面    [████████████████████] 100% ✅
-Phase 5: 销售智能体  [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
+Phase 5: 销售智能体  [█████░░░░░░░░░░░░░░░] 25% ⏳
 Phase 6: SOP 管理    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 7: 微信存档    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 8: 系统设置    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 9: 生产切换    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 45% (5/9 阶段)**
+**总体完成度: 53% (Phase 5 已启动)**
 
 ---
 
@@ -185,6 +185,26 @@ internal/controllers/wechat.go
 
 ---
 
+### Phase 5: 销售智能体迁移 (进行中 2026-02-20)
+
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| 分析 sales-agent.html 功能结构 | ✅ | 明确会话、消息、SOP、客户信息四大区块 |
+| 设计并落地组件拆分方案 | ✅ | ChatMessage / CustomerInfo / SOPSelector / QuickReply |
+| 创建独立销售页面 | ✅ | 新增 `src/views/SalesView.vue`，替换 `/sales` 路由占位页 |
+| 销售模块 API 封装 | ✅ | 新增 `src/api/sales.ts`（sessions/messages/templates/chat） |
+| 流式回复与实时状态 | ⏳ | 已接入 SSE 基础流式解析，待补齐 thinking/status 可视化 |
+
+**新增文件**:
+- `src/views/SalesView.vue`
+- `src/components/sales/ChatMessage.vue`
+- `src/components/sales/CustomerInfo.vue`
+- `src/components/sales/SOPSelector.vue`
+- `src/components/sales/QuickReply.vue`
+- `src/api/sales.ts`
+
+---
+
 ## 🔧 技术债务
 
 ### 已解决
@@ -192,6 +212,7 @@ internal/controllers/wechat.go
 - [x] ESLint 错误修复 (case 块声明、组件命名)
 - [x] Docker 构建环境变量传递
 - [x] Nginx 配置语法错误
+- [x] API 代理回退误命中前端 HTML（`/v1/*` 与 `/api/*` 兼容）
 
 ### 待处理
 
@@ -206,10 +227,10 @@ internal/controllers/wechat.go
 
 | 指标 | 数值 |
 |------|------|
-| 总文件数 | 25+ |
-| Vue 组件 | 8 |
-| TypeScript 文件 | 12 |
-| 代码行数 | ~3000 |
+| 总文件数 | 30+ |
+| Vue 组件 | 13 |
+| TypeScript 文件 | 13 |
+| 代码行数 | ~3800 |
 | 测试覆盖率 | 0% |
 
 ---
@@ -218,15 +239,15 @@ internal/controllers/wechat.go
 
 ### 近期 (本周)
 
-1. **销售智能体迁移**
-   - 分析 sales-agent.html 功能
-   - 设计组件拆分方案
-   - 实现对话界面
+1. **销售智能体迁移（继续）**
+   - 对接 SSE 流式回复，替换当前 chat 接口兜底逻辑
+   - 增加会话操作（重命名、删除、置顶）
+   - 完成客户档案弹窗与保存流程
 
-2. **测试验证**
-   - 使用真实账号登录测试
-   - 验证 API 连通性
-   - 移动端适配检查
+2. **联调验证**
+   - 使用真实账号验证 `/v1/sales-rag/*` 接口
+   - 验证 SOP 模板与销售会话联动
+   - 验证移动端布局与输入交互
 
 ### 中期 (本月)
 
@@ -255,6 +276,12 @@ internal/controllers/wechat.go
 ---
 
 ## 📝 变更日志
+
+### 2026-02-20
+- ✅ 修复 API 代理回退导致的 HTML 响应异常（`request.ts` + Nginx `/v1/*` 兼容）
+- ✅ 启动 Phase 5：完成销售页组件拆分与首版页面落地
+- ✅ 新增销售模块 API 封装（sessions/messages/templates/chat）
+- ✅ 接入销售聊天 SSE 基础流式读取（token 增量拼接）
 
 ### 2026-02-19
 - ✅ 完成 Phase 4: 核心页面迁移

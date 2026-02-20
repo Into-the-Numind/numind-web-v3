@@ -24,7 +24,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/sales',
     name: 'sales',
-    component: () => import('@/views/HomeView.vue'), // 临时使用 HomeView，后续替换
+    component: () => import('@/views/SalesView.vue'),
     meta: {
       title: '销售智能体',
       requiresAuth: true

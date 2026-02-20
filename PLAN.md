@@ -123,15 +123,16 @@
 ### Phase 5: 销售智能体迁移 ⏳
 **目标**: 迁移核心销售功能
 
-- [ ] 分析 sales-agent.html 功能结构
-- [ ] 设计 Vue 组件拆分方案
-  - ChatMessage 组件
-  - CustomerInfo 组件
-  - SOPSelector 组件
-  - QuickReply 组件
-- [ ] 对接销售智能体 API
-- [ ] 实现 WebSocket 实时消息
-- [ ] 实现客户信息管理
+- [x] 分析 sales-agent.html 功能结构
+- [x] 设计 Vue 组件拆分方案
+  - [x] ChatMessage 组件
+  - [x] CustomerInfo 组件
+  - [x] SOPSelector 组件
+  - [x] QuickReply 组件
+- [x] 创建 `/sales` 独立页面并替换占位路由
+- [ ] 对接销售智能体 API（已完成 sessions/messages/templates/chat 基础封装，需补齐完整状态事件）
+- [ ] 实现 SSE 实时消息（已接入 token 流式读取，待补齐 thinking/status 渲染）
+- [ ] 实现客户信息管理（当前为本地表单，待会话持久化）
 
 **验收标准**: 可在新系统完成完整的销售对话流程
 
