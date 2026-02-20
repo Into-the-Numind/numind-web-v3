@@ -12,14 +12,14 @@ Phase 1: CI/CD 配置  [██████████████████�
 Phase 2: 后端清理    [████████████████████] 100% ✅
 Phase 3: 部署验证    [████████████████████] 100% ✅
 Phase 4: 核心页面    [████████████████████] 100% ✅
-Phase 5: 销售智能体  [█████░░░░░░░░░░░░░░░] 25% ⏳
+Phase 5: 销售智能体  [███████░░░░░░░░░░░░░] 35% ⏳
 Phase 6: SOP 管理    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 7: 微信存档    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 8: 系统设置    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 9: 生产切换    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 53% (Phase 5 已启动)**
+**总体完成度: 56% (Phase 5 持续推进中)**
 
 ---
 
@@ -192,11 +192,18 @@ internal/controllers/wechat.go
 | 分析 sales-agent.html 功能结构 | ✅ | 明确会话、消息、SOP、客户信息四大区块 |
 | 设计并落地组件拆分方案 | ✅ | ChatMessage / CustomerInfo / SOPSelector / QuickReply |
 | 创建独立销售页面 | ✅ | 新增 `src/views/SalesView.vue`，替换 `/sales` 路由占位页 |
-| 销售模块 API 封装 | ✅ | 新增 `src/api/sales.ts`（sessions/messages/templates/chat） |
-| 流式回复与实时状态 | ⏳ | 已接入 SSE 基础流式解析，待补齐 thinking/status 可视化 |
+| 1:1 页面结构迁移 | ✅ | 引入原版 `sales-agent.html` DOM 到 `SalesView.vue` 模板（移除 `innerHTML` 壳注入） |
+| 1:1 样式迁移 | ✅ | 引入原版 `sales-agent.css`（`public/legacy/sales-agent-legacy.css`） |
+| Pinia 生命周期接管 | ✅ | `src/stores/salesAgent.ts` 统一接管 runtime 挂载/卸载与全局依赖注入 |
+| 1:1 交互逻辑迁移 | ⏳ | 复用原版 `sales-agent.js` 行为，持续清理 legacy 全局函数与模块边界 |
+| 流式回复与实时状态 | ⏳ | 已接入原版 SSE 逻辑，需继续验证细节一致性 |
 
 **新增文件**:
 - `src/views/SalesView.vue`
+- `src/stores/salesAgent.ts`
+- `src/legacy/sales-agent-shell.html`
+- `public/legacy/sales-agent-legacy.js`
+- `public/legacy/sales-agent-legacy.css`
 - `src/components/sales/ChatMessage.vue`
 - `src/components/sales/CustomerInfo.vue`
 - `src/components/sales/SOPSelector.vue`
@@ -282,6 +289,7 @@ internal/controllers/wechat.go
 - ✅ 启动 Phase 5：完成销售页组件拆分与首版页面落地
 - ✅ 新增销售模块 API 封装（sessions/messages/templates/chat）
 - ✅ 接入销售聊天 SSE 基础流式读取（token 增量拼接）
+- ✅ 按 1:1 策略引入 legacy 销售页 DOM/CSS/JS，并通过 Pinia 启动层管理运行环境
 
 ### 2026-02-19
 - ✅ 完成 Phase 4: 核心页面迁移

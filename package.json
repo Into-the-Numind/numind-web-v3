@@ -13,11 +13,14 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "vue": "^3.4.21",
-    "vue-router": "^4.3.0",
-    "pinia": "^2.1.7",
+    "@vueuse/core": "^10.9.0",
     "axios": "^1.6.8",
-    "@vueuse/core": "^10.9.0"
+    "highlight.js": "^11.11.1",
+    "lucide": "^0.575.0",
+    "marked": "^17.0.3",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.8.0",

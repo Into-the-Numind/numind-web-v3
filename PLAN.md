@@ -130,9 +130,12 @@
   - [x] SOPSelector 组件
   - [x] QuickReply 组件
 - [x] 创建 `/sales` 独立页面并替换占位路由
-- [ ] 对接销售智能体 API（已完成 sessions/messages/templates/chat 基础封装，需补齐完整状态事件）
-- [ ] 实现 SSE 实时消息（已接入 token 流式读取，待补齐 thinking/status 渲染）
-- [ ] 实现客户信息管理（当前为本地表单，待会话持久化）
+- [x] 迁移原版页面结构（`sales-agent.html`）到 Vue 容器
+- [x] 移除 `innerHTML` 壳注入，改为 `SalesView.vue` 直接承载原版 DOM 结构
+- [x] 迁移原版样式（`sales-agent.css`）到 v3 运行环境
+- [ ] 对接销售智能体 API（通过 legacy 交互已接入，需补齐全链路回归）
+- [ ] 实现 SSE 实时消息（legacy 逻辑已接入，需完成行为对齐验证）
+- [ ] 实现客户信息管理（legacy 逻辑已接入，需验证各步骤一致性）
 
 **验收标准**: 可在新系统完成完整的销售对话流程
 

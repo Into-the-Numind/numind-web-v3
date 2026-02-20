@@ -1,8 +1,7 @@
-<template>
 
     <div class="app-container">
         <!-- 1. SOP-Style Home Button (Top Left) -->
-        <a href="/" class="back-to-home-btn" title="返回首页" @click.prevent="goHome">
+        <a href="index.html" class="back-to-home-btn" title="返回首页">
             <i data-lucide="home"></i>
         </a>
 
@@ -395,6 +394,28 @@
         </div>
     </div>
 
+    <!-- Initialize Lucide Icons Immediately -->
+    <script>
+        // 确保图标在页面加载后立即初始化，不依赖于其他逻辑
+        function initLucideIcons() {
+            if (window.lucide) {
+                lucide.createIcons();
+                console.log('Lucide icons initialized');
+            } else {
+                // 如果Lucide还没加载，等待100ms后重试
+                console.warn('Waiting for Lucide to load...');
+                setTimeout(initLucideIcons, 100);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLucideIcons);
+        } else {
+            // DOM已经加载完成，立即初始化
+            initLucideIcons();
+        }
+    </script>
+
     <!-- Rename Session Modal -->
     <div class="modal-overlay" id="renameSessionModal">
         <div class="modal-card modal-card-simple">
@@ -565,69 +586,4 @@
     <!-- Toast 通知容器 -->
     <div id="toast-container"></div>
 
-    <div v-if="errorText" class="legacy-error">{{ errorText }}</div>
-</template>
-<script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSalesAgentStore } from '@/stores/salesAgent'
-
-const router = useRouter()
-const salesAgentStore = useSalesAgentStore()
-const errorText = ref('')
-
-const ensureRandomUUIDPolyfill = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return
-  }
-
-  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
-    return
-  }
-
-  // 与 legacy 页面保持一致，保证会话初始化在非安全上下文也可用
-  ;(crypto as any).randomUUID = function randomUUIDPolyfill() {
-    return ([1e7] as unknown as string).replace(/[018]/g, (c: string) =>
-      (
-        Number(c) ^
-        ((crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> (Number(c) / 4))
-      ).toString(16)
-    )
-  }
-}
-
-const goHome = async () => {
-  await router.push('/')
-}
-
-onMounted(async () => {
-  ensureRandomUUIDPolyfill()
-
-  try {
-    await salesAgentStore.mountLegacy()
-    errorText.value = ''
-  } catch (error) {
-    errorText.value = error instanceof Error ? error.message : '销售智能体初始化失败'
-  }
-})
-
-onBeforeUnmount(() => {
-  salesAgentStore.unmountLegacy()
-})
-</script>
-
-<style scoped>
-.legacy-error {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 9999;
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 13px;
-  max-width: 420px;
-}
-</style>
+    <script src="sales-agent.js?v=20260210e"></script>
