@@ -29,6 +29,20 @@ declare global {
 
 const LEGACY_CSS_ID = 'sales-agent-legacy-css'
 const LEGACY_SCRIPT_ID = 'sales-agent-legacy-script'
+const LEGACY_VENDOR_STYLE_LINKS: Array<{ id: string; href: string }> = [
+  {
+    id: 'sales-agent-highlight-style',
+    href: 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css'
+  },
+  {
+    id: 'sales-agent-easymde-style',
+    href: 'https://unpkg.com/easymde/dist/easymde.min.css'
+  },
+  {
+    id: 'sales-agent-fontawesome-style',
+    href: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
+  }
+]
 let legacyScriptPromise: Promise<void> | null = null
 
 const normalizeBaseURL = (raw: string | undefined): string => {
@@ -104,6 +118,29 @@ const removeLegacyCss = () => {
   }
 }
 
+const ensureLegacyVendorStyles = () => {
+  LEGACY_VENDOR_STYLE_LINKS.forEach(({ id, href }) => {
+    if (document.getElementById(id)) {
+      return
+    }
+
+    const link = document.createElement('link')
+    link.id = id
+    link.rel = 'stylesheet'
+    link.href = href
+    document.head.appendChild(link)
+  })
+}
+
+const removeLegacyVendorStyles = () => {
+  LEGACY_VENDOR_STYLE_LINKS.forEach(({ id }) => {
+    const link = document.getElementById(id)
+    if (link && link.parentNode) {
+      link.parentNode.removeChild(link)
+    }
+  })
+}
+
 const ensureLegacyScript = (): Promise<void> => {
   if (legacyScriptPromise) {
     return legacyScriptPromise
@@ -173,6 +210,7 @@ export const useSalesAgentStore = defineStore('salesAgent', {
       try {
         setupLegacyGlobals()
         ensureLegacyCss()
+        ensureLegacyVendorStyles()
         await ensureLegacyScript()
 
         if (window.lucide) {
@@ -193,7 +231,7 @@ export const useSalesAgentStore = defineStore('salesAgent', {
     },
     unmountLegacy() {
       removeLegacyCss()
+      removeLegacyVendorStyles()
     }
   }
 })
-

@@ -601,6 +601,7 @@ const goHome = async () => {
 }
 
 onMounted(async () => {
+  document.body.classList.add('sales-agent-route')
   ensureRandomUUIDPolyfill()
 
   try {
@@ -612,11 +613,25 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.body.classList.remove('sales-agent-route')
   salesAgentStore.unmountLegacy()
 })
 </script>
 
 <style scoped>
+:global(body.sales-agent-route) {
+  height: 100vh;
+  overflow: hidden;
+}
+
+:global(body.sales-agent-route #app) {
+  height: 100%;
+}
+
+.app-container {
+  height: 100%;
+}
+
 .legacy-error {
   position: fixed;
   right: 16px;

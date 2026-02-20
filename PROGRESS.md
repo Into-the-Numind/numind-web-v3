@@ -195,6 +195,7 @@ internal/controllers/wechat.go
 | 1:1 页面结构迁移 | ✅ | 引入原版 `sales-agent.html` DOM 到 `SalesView.vue` 模板（移除 `innerHTML` 壳注入） |
 | 1:1 样式迁移 | ✅ | 引入原版 `sales-agent.css`（`public/legacy/sales-agent-legacy.css`） |
 | Pinia 生命周期接管 | ✅ | `src/stores/salesAgent.ts` 统一接管 runtime 挂载/卸载与全局依赖注入 |
+| 布局高度链路对齐 | ✅ | `/sales` 路由挂载时设置 `body/#app` 高度与滚动策略，修复侧栏/输入区布局偏差 |
 | 1:1 交互逻辑迁移 | ⏳ | 复用原版 `sales-agent.js` 行为，持续清理 legacy 全局函数与模块边界 |
 | 流式回复与实时状态 | ⏳ | 已接入原版 SSE 逻辑，需继续验证细节一致性 |
 
