@@ -66,59 +66,6 @@
         </svg>
     </button>
 
-    <!-- 自定义确认对话框 -->
-    <div class="confirm-dialog-overlay" id="confirm-dialog-overlay" onclick="closeConfirmDialogOnOverlay(event)">
-        <div class="confirm-dialog" onclick="event.stopPropagation()">
-            <div class="confirm-dialog-title" id="confirm-dialog-title">确认操作</div>
-            <div class="confirm-dialog-message" id="confirm-dialog-message">确定要执行此操作吗？</div>
-            <div class="confirm-dialog-buttons">
-                <button class="confirm-dialog-btn confirm-dialog-btn-secondary"
-                    onclick="closeConfirmDialog()">取消</button>
-                <button class="confirm-dialog-btn confirm-dialog-btn-primary"
-                    id="confirm-dialog-confirm-btn">确定</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 历史记录弹窗 -->
-    <div class="history-modal-overlay" id="history-modal-overlay" onclick="closeHistoryModalOnOverlay(event)">
-        <div class="history-modal" onclick="event.stopPropagation()">
-            <div class="history-modal-header">
-                <div class="history-modal-title">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                        style="width: 20px; height: 20px; color: var(--accent);">
-                        <path
-                            d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                    任务记录
-                </div>
-                <button class="history-close-btn" onclick="closeHistoryModal()" title="关闭">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                        style="width: 20px; height: 20px;">
-                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round" />
-                    </svg>
-                </button>
-            </div>
-            <div class="history-modal-content" id="history-modal-content">
-                <div id="history-card-container">
-                    <!-- 历史记录卡片将由 JS 渲染在此处 -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 页面加载遮罩 -->
-    <div class="page-loading-overlay" id="page-loading-overlay">
-        <div class="loading-spinner">
-            <div class="spinner-dot"></div>
-            <div class="spinner-dot"></div>
-            <div class="spinner-dot"></div>
-        </div>
-        <div class="loading-text">刷新中...</div>
-    </div>
-
     <!-- 主内容区 -->
     <div class="main-content">
         <div class="content-wrapper">
@@ -551,6 +498,57 @@
 
     </div><!-- /sop-page-container -->
 
+    <!-- 弹窗层 — 放在 sop-page-container 外部，避免 flex 布局干扰 position:fixed -->
+    <div class="confirm-dialog-overlay" id="confirm-dialog-overlay" onclick="closeConfirmDialogOnOverlay(event)">
+        <div class="confirm-dialog" onclick="event.stopPropagation()">
+            <div class="confirm-dialog-title" id="confirm-dialog-title">确认操作</div>
+            <div class="confirm-dialog-message" id="confirm-dialog-message">确定要执行此操作吗？</div>
+            <div class="confirm-dialog-buttons">
+                <button class="confirm-dialog-btn confirm-dialog-btn-secondary"
+                    onclick="closeConfirmDialog()">取消</button>
+                <button class="confirm-dialog-btn confirm-dialog-btn-primary"
+                    id="confirm-dialog-confirm-btn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="history-modal-overlay" id="history-modal-overlay" onclick="closeHistoryModalOnOverlay(event)">
+        <div class="history-modal" onclick="event.stopPropagation()">
+            <div class="history-modal-header">
+                <div class="history-modal-title">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                        style="width: 20px; height: 20px; color: var(--accent);">
+                        <path
+                            d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    任务记录
+                </div>
+                <button class="history-close-btn" onclick="closeHistoryModal()" title="关闭">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                        style="width: 20px; height: 20px;">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="history-modal-content" id="history-modal-content">
+                <div id="history-card-container">
+                    <!-- 历史记录卡片将由 JS 渲染在此处 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-loading-overlay" id="page-loading-overlay">
+        <div class="loading-spinner">
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+        </div>
+        <div class="loading-text">刷新中...</div>
+    </div>
+
     <div v-if="errorText" class="legacy-error">{{ errorText }}</div>
 </template>
 
@@ -609,15 +607,26 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-/* Fallback: hide overlays even before legacy CSS loads */
-.sop-page-container :deep(.confirm-dialog-overlay),
-.sop-page-container :deep(.history-modal-overlay),
-.sop-page-container :deep(.page-loading-overlay) {
+/* Overlay 弹窗层 — 直接在 Vue 组件中保证样式，不依赖 legacy CSS 加载时机 */
+.confirm-dialog-overlay,
+.history-modal-overlay,
+.page-loading-overlay {
   display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
-.sop-page-container :deep(.confirm-dialog-overlay.show),
-.sop-page-container :deep(.history-modal-overlay.show),
-.sop-page-container :deep(.page-loading-overlay.show) {
+.confirm-dialog-overlay.show,
+.history-modal-overlay.show,
+.page-loading-overlay.show {
   display: flex !important;
 }
 
