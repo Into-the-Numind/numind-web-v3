@@ -499,7 +499,7 @@
     </div><!-- /sop-page-container -->
 
     <!-- 弹窗层 — 放在 sop-page-container 外部，避免 flex 布局干扰 position:fixed -->
-    <div class="confirm-dialog-overlay" id="confirm-dialog-overlay" onclick="closeConfirmDialogOnOverlay(event)">
+    <div class="confirm-dialog-overlay" id="confirm-dialog-overlay" style="display:none" onclick="closeConfirmDialogOnOverlay(event)">
         <div class="confirm-dialog" onclick="event.stopPropagation()">
             <div class="confirm-dialog-title" id="confirm-dialog-title">确认操作</div>
             <div class="confirm-dialog-message" id="confirm-dialog-message">确定要执行此操作吗？</div>
@@ -512,7 +512,7 @@
         </div>
     </div>
 
-    <div class="history-modal-overlay" id="history-modal-overlay" onclick="closeHistoryModalOnOverlay(event)">
+    <div class="history-modal-overlay" id="history-modal-overlay" style="display:none" onclick="closeHistoryModalOnOverlay(event)">
         <div class="history-modal" onclick="event.stopPropagation()">
             <div class="history-modal-header">
                 <div class="history-modal-title">
@@ -540,7 +540,7 @@
         </div>
     </div>
 
-    <div class="page-loading-overlay" id="page-loading-overlay">
+    <div class="page-loading-overlay" id="page-loading-overlay" style="display:none">
         <div class="loading-spinner">
             <div class="spinner-dot"></div>
             <div class="spinner-dot"></div>
@@ -607,10 +607,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-/* Overlay 弹窗层 — 直接在 Vue 组件中保证样式，不依赖 legacy CSS 加载时机 */
-.confirm-dialog-overlay,
-.history-modal-overlay,
-.page-loading-overlay {
+/* Overlay 弹窗层 — 用 :global 避免 scoped attribute 不匹配的问题 */
+:global(.confirm-dialog-overlay),
+:global(.history-modal-overlay),
+:global(.page-loading-overlay) {
   display: none;
   position: fixed;
   top: 0;
@@ -624,9 +624,9 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
-.confirm-dialog-overlay.show,
-.history-modal-overlay.show,
-.page-loading-overlay.show {
+:global(.confirm-dialog-overlay.show),
+:global(.history-modal-overlay.show),
+:global(.page-loading-overlay.show) {
   display: flex !important;
 }
 
