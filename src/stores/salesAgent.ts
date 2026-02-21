@@ -24,6 +24,8 @@ declare global {
       highlight: (code: string, config?: { language?: string }) => { value: string }
     }
     __salesAgentLegacyInit?: () => Promise<void>
+    __salesAgentLegacyCleanup?: () => void
+    _citationEscHandler?: ((e: KeyboardEvent) => void) | null
   }
 }
 
@@ -191,6 +193,18 @@ const setupLegacyGlobals = () => {
     async: false,
     pedantic: false
   })
+
+  // marked v17+ 不再支持 setOptions({ highlight })，需通过 renderer 集成 hljs
+  marked.use({
+    renderer: {
+      code({ text, lang }: { text: string; lang?: string }) {
+        const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
+        const highlighted = hljs.highlight(text, { language }).value
+        return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`
+      }
+    }
+  })
+
   window.marked = marked as unknown as Window['marked']
   window.hljs = hljs as unknown as Window['hljs']
 }
@@ -230,8 +244,17 @@ export const useSalesAgentStore = defineStore('salesAgent', {
       }
     },
     unmountLegacy() {
+      // 调用 legacy JS 的清理函数，移除 document 级事件监听器并重置状态
+      if (typeof window.__salesAgentLegacyCleanup === 'function') {
+        window.__salesAgentLegacyCleanup()
+      }
+
       removeLegacyCss()
       removeLegacyVendorStyles()
+
+      // 重置脚本加载状态，允许下次重新初始化
+      legacyScriptPromise = null
+      this.initialized = false
     }
   }
 })
