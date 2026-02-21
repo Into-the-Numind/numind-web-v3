@@ -604,8 +604,21 @@ onBeforeUnmount(() => {
 
 :global(body.sop-route #app) {
   height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* Fallback: hide overlays even before legacy CSS loads */
+.sop-page-container :deep(.confirm-dialog-overlay),
+.sop-page-container :deep(.history-modal-overlay),
+.sop-page-container :deep(.page-loading-overlay) {
+  display: none;
+}
+.sop-page-container :deep(.confirm-dialog-overlay.show),
+.sop-page-container :deep(.history-modal-overlay.show),
+.sop-page-container :deep(.page-loading-overlay.show) {
+  display: flex !important;
 }
 
 .sop-page-container {
