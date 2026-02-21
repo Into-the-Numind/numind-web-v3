@@ -604,10 +604,15 @@ onBeforeUnmount(() => {
 
 :global(body.sop-route #app) {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .sop-page-container {
   height: 100%;
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .legacy-loading {
