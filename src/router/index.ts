@@ -49,15 +49,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/archive',
-    name: 'archive',
-    component: () => import('@/views/HomeView.vue'),
-    meta: {
-      title: '微信存档',
-      requiresAuth: true
-    }
-  },
-  {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/HomeView.vue'),

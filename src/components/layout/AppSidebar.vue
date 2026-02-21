@@ -35,7 +35,6 @@ const route = useRoute()
 const menuItems = [
   { path: '/', title: '工作区' },
   { path: '/sop', title: '运行记录' },
-  { path: '/archive', title: '微信存档' },
   { path: '/settings', title: '设置' }
 ]
 
