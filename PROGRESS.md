@@ -16,11 +16,11 @@ Phase 5: 销售智能体     [████████████████�
 Phase 6: SOP 执行页     [████████████████████] 100% ✅
 Phase 6.5: 运行记录列表 [████████████████████] 100% ✅
 Phase 7: 微信存档       [----已取消----] ✖️ (功能不再需要)
-Phase 8: 系统设置       [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
+Phase 8: 系统设置       [████████████████████] 100% ✅
 Phase 9: 生产切换       [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 85% (Phase 0–6.5 全部完成，Phase 7 已取消，剩余 Phase 8/9)**
+**总体完成度: 95% (Phase 0–8 全部完成，Phase 7 已取消，剩余 Phase 9)**
 
 ---
 
@@ -279,6 +279,31 @@ internal/controllers/wechat.go
 
 ---
 
+### Phase 8: 系统设置迁移 (2026-02-21) ✅
+
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| 分析 settings-preview.html 功能 | ✅ | 两栏布局：个人资料卡片 + 用量统计卡片 |
+| 创建 SettingsView.vue | ✅ | 原生 Vue 组件，MainLayout 布局，scoped CSS |
+| 对接用户信息 API | ✅ | 复用 `auth.ts` 的 `getUserInfo`（GET /v1/web/user/info） |
+| 个人资料展示 | ✅ | 昵称、ID、等级徽章、会员有效期 |
+| 用量统计展示 | ✅ | 剩余次数、本月已用、进度条（premium 隐藏进度条，显示无限符号） |
+| 等级差异化样式 | ✅ | free 灰色 / standard 绿色 / premium 金色渐变（data-tier 属性驱动） |
+| 退出登录 | ✅ | 确认弹窗（Teleport to body）→ 清除 token → 跳转登录页 |
+| 路由更新 | ✅ | `/settings` → `SettingsView.vue`（原为 HomeView 占位） |
+| 微信绑定 | ✖️ | 跳过（Phase 7 已取消） |
+| E2E 测试 | ✅ | `e2e/settings.spec.ts`，20 个用例 |
+| lint & type-check | ✅ | `npm run lint && npm run type-check` 通过 |
+
+**新增文件**:
+- `src/views/SettingsView.vue`
+- `e2e/settings.spec.ts`
+
+**修改文件**:
+- `src/router/index.ts`
+
+---
+
 ## 🔧 技术债务
 
 ### 已解决
@@ -305,10 +330,10 @@ internal/controllers/wechat.go
 | 指标 | 数值 |
 |------|------|
 | 总文件数 | 35+ |
-| Vue 组件 | 14 |
+| Vue 组件 | 15 |
 | TypeScript 文件 | 15 |
-| E2E 测试文件 | 5 (sales-sessions, sales-modals, sales-chat, sop-page, sop-history) |
-| E2E 测试用例 | ~40+ |
+| E2E 测试文件 | 6 (sales-sessions, sales-modals, sales-chat, sop-page, sop-history, settings) |
+| E2E 测试用例 | ~60+ |
 | 单元测试覆盖率 | 0% |
 
 ---
@@ -327,12 +352,17 @@ internal/controllers/wechat.go
 ### 中期 (本月)
 
 2. ~~微信存档页面迁移 (Phase 7)~~ — 已取消，功能不再需要
-3. 系统设置页面迁移 (Phase 8)
+3. ~~系统设置页面迁移 (Phase 8)~~ — ✅ 已完成
 
 ### 远期 (下月)
 
 4. 性能优化 (懒加载、缓存)
 5. 生产环境切换 (Phase 9)
+   - 功能回归测试
+   - 性能测试
+   - 用户验收测试
+   - 更新 DNS / Nginx 配置
+   - 旧系统下线
 
 ---
 
@@ -351,6 +381,8 @@ internal/controllers/wechat.go
 ## 📝 变更日志
 
 ### 2026-02-22
+- ✅ 完成 Phase 8 系统设置迁移：SettingsView.vue（个人资料 + 用量统计 + 等级差异化样式 + 退出登录）
+- ✅ 路由更新：`/settings` → SettingsView.vue
 - ✖️ 取消 Phase 7 微信存档：删除 `/archive` 路由和侧栏入口，功能不再需要
 - ✅ 完成 Phase 6.5 运行记录列表页：SOPHistoryView.vue + src/api/sop.ts
 - ✅ 路由拆分：`/sop` → 列表页，`/sop/run` → 执行页

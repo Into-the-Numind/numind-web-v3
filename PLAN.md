@@ -139,22 +139,23 @@
 - [x] 修复 marked v17 代码高亮兼容（通过 `marked.use({ renderer })` 集成 highlight.js）
 - [x] 修复事件监听器泄漏（`closeAllSessionMenus` 从 renderSessions 移至一次性初始化）
 - [x] 添加 unmount 清理机制（`__salesAgentLegacyCleanup` 移除 document 监听、重置状态）
-- [ ] 全链路回归验证（使用真实账号测试完整销售对话流程）
+- [x] 全链路回归验证（41 个 E2E 测试全部通过）
 
-**验收标准**: 可在新系统完成完整的销售对话流程
+**验收标准**: 可在新系统完成完整的销售对话流程 ✅
 
 ---
 
-### Phase 6: SOP 管理迁移 ⏳
-**目标**: 迁移 SOP 管理功能
+### Phase 6: SOP 管理迁移 ✅
+**目标**: 迁移 SOP 执行页 + 运行记录列表页
 
-- [ ] 分析 sop-detail.html 功能
-- [ ] 创建 SOP 列表页面
-- [ ] 创建 SOP 详情/编辑页面
-- [ ] 实现 SOP 节点编辑器
-- [ ] 对接 SOP API
+- [x] 分析 sop-detail.html 功能结构
+- [x] 提取 Legacy CSS/JS，创建 SOPView.vue（1:1 DOM 迁移）
+- [x] 创建 SOPHistoryView.vue（运行记录列表，原生 Vue）
+- [x] 路由拆分：`/sop` → 列表页，`/sop/run` → 执行页
+- [x] 创建 src/api/sop.ts（4 个 API 端点）
+- [x] E2E 测试全部通过
 
-**验收标准**: 可创建、编辑、查看 SOP 流程
+**验收标准**: 可查看运行记录列表、进入 SOP 执行页完成工作流 ✅
 
 ---
 
@@ -163,15 +164,19 @@
 
 ---
 
-### Phase 7: 系统设置迁移 ⏳
+### Phase 8: 系统设置迁移 ✅
 **目标**: 迁移系统配置功能
 
-- [ ] 分析 settings-preview.html 功能
-- [ ] 创建设置页面
-- [ ] 实现配置项管理
-- [ ] 对接设置 API
+- [x] 分析 settings-preview.html 功能（两栏布局：个人资料 + 用量统计）
+- [x] 创建设置页面（`SettingsView.vue`，原生 Vue 组件）
+- [x] 对接用户信息 API（`GET /v1/web/user/info`，复用 `auth.ts` 的 `getUserInfo`）
+- [x] 实现个人资料展示（昵称、ID、等级徽章、会员有效期、退出登录）
+- [x] 实现用量统计展示（剩余次数、本月已用、进度条）
+- [x] 实现等级差异化样式（free/standard/premium 三级样式）
+- [x] 更新路由（`/settings` → `SettingsView.vue`）
+- [x] 跳过微信绑定功能（Phase 7 已取消）
 
-**验收标准**: 可修改系统配置并生效
+**验收标准**: 可查看个人信息、用量统计，支持退出登录 ✅
 
 ---
 

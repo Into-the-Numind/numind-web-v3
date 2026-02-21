@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/settings',
     name: 'settings',
-    component: () => import('@/views/HomeView.vue'),
+    component: () => import('@/views/SettingsView.vue'),
     meta: {
       title: '系统设置',
       requiresAuth: true
