@@ -18,23 +18,88 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="run-count-card">
-        <div class="run-count-title">运行次数</div>
-        <div class="run-count-value">--</div>
-        <div class="run-count-label">加载中...</div>
+      <div class="run-count-card" :class="tierClass">
+        <!-- Premium -->
+        <template v-if="tier === 'premium'">
+          <div class="run-count-header">
+            <span class="run-count-title">本月运行次数</span>
+            <span class="premium-badge">&infin; 无限次</span>
+          </div>
+          <div class="run-count-value">{{ monthlyRuns }}</div>
+          <div class="run-count-label premium">本月累计 &uarr;</div>
+        </template>
+        <!-- Standard -->
+        <template v-else-if="tier === 'standard'">
+          <div class="run-count-title">本月运行次数</div>
+          <div class="run-count-value">{{ standardUsed }}<span class="run-count-total">/{{ standardTotal }}</span></div>
+          <div class="run-count-label standard">剩余 {{ standardRemaining }} 次</div>
+          <div class="run-count-progress">
+            <div class="run-count-progress-bar" :class="progressClass" :style="{ width: standardPercent + '%' }"></div>
+          </div>
+        </template>
+        <!-- Free / loading -->
+        <template v-else>
+          <div class="run-count-title">运行次数</div>
+          <div class="run-count-value" :class="{ disabled: !loaded }">{{ loaded ? '--' : '--' }}</div>
+          <div class="run-count-label" :class="{ disabled: !loaded }">{{ loaded ? '升级会员解锁' : '加载中...' }}</div>
+        </template>
       </div>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getUserInfo } from '@/api/auth'
 
 const route = useRoute()
 const userStore = useUserStore()
 
+// ── Run Count Card ─────────────────────────────────────────────
+const loaded = ref(false)
+const tier = ref('free')
+const monthlyRuns = ref(0)
+const remainingRuns = ref(0)
+
+const standardTotal = 20
+const standardUsed = computed(() => Math.min(monthlyRuns.value, standardTotal))
+const standardRemaining = computed(() => {
+  if (remainingRuns.value >= 0) return remainingRuns.value
+  return standardTotal - standardUsed.value
+})
+const standardPercent = computed(() => Math.round((standardUsed.value / standardTotal) * 100))
+
+const tierClass = computed(() => {
+  if (tier.value === 'premium') return 'premium'
+  if (tier.value === 'standard') return 'standard'
+  return 'free'
+})
+
+const progressClass = computed(() => {
+  if (standardRemaining.value <= 3) return 'danger'
+  if (standardRemaining.value <= 8) return 'warning'
+  return ''
+})
+
+onMounted(async () => {
+  try {
+    const res = await getUserInfo()
+    if (res.code === 200 || res.code === 0) {
+      const d = res.data || {}
+      tier.value = d.user_tier || d.tier || 'free'
+      monthlyRuns.value = d.monthly_sop_runs || 0
+      remainingRuns.value = d.remaining_sop_runs ?? -1
+    }
+  } catch (e) {
+    console.error('侧栏运行次数加载失败:', e)
+  } finally {
+    loaded.value = true
+  }
+})
+
+// ── Menu Items ─────────────────────────────────────────────────
 const menuItems = computed(() => {
   const items = [
     { path: '/', title: '工作区' },
@@ -183,6 +248,83 @@ const isActive = (path: string) => {
 .run-count-label {
   font-size: 12px;
   color: hsl(150, 10%, 40%);
+}
+
+/* Run count header row (premium) */
+.run-count-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.run-count-header .run-count-title {
+  margin-bottom: 0;
+}
+
+.premium-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(45, 100%, 40%);
+  background: linear-gradient(135deg, hsl(45, 100%, 95%), hsl(45, 100%, 88%));
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.run-count-total {
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(150, 10%, 45%);
+}
+
+.run-count-label.premium {
+  color: hsl(45, 100%, 40%);
+}
+
+.run-count-label.standard {
+  color: hsl(158, 64%, 35%);
+}
+
+.run-count-label.disabled,
+.run-count-value.disabled {
+  color: hsl(150, 10%, 55%);
+}
+
+/* Premium card */
+.run-count-card.premium {
+  background: linear-gradient(135deg, hsl(45, 60%, 97%), hsl(45, 50%, 92%));
+  border-color: hsl(45, 60%, 80%);
+}
+
+/* Standard card */
+.run-count-card.standard {
+  background: linear-gradient(135deg, hsl(158, 40%, 97%), hsl(158, 30%, 93%));
+  border-color: hsl(158, 40%, 80%);
+}
+
+/* Progress bar */
+.run-count-progress {
+  margin-top: 8px;
+  width: 100%;
+  height: 4px;
+  background: hsl(150, 10%, 88%);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.run-count-progress-bar {
+  height: 100%;
+  background: hsl(158, 64%, 45%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.run-count-progress-bar.warning {
+  background: hsl(40, 90%, 50%);
+}
+
+.run-count-progress-bar.danger {
+  background: hsl(0, 70%, 55%);
 }
 
 @media (max-width: 1024px) {
