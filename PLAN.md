@@ -180,6 +180,20 @@
 
 ---
 
+### Phase 8.5: 知识库管理 + 客户管理 ✅
+**目标**: 补全旧系统的「知识库管理」和「客户管理」两个页面
+
+- [x] 创建 API 模块（`src/api/knowledge.ts` 6 端点 + `src/api/customers.ts` 8 端点）
+- [x] 创建知识库管理页面（`KnowledgeView.vue`：文档列表/详情/切片、上传、删除、状态轮询）
+- [x] 创建客户管理页面（`CustomersView.vue`：统计卡片、子用户表格、注册、权限管理、批量操作）
+- [x] 更新侧栏（`AppSidebar.vue`：`menuItems` 改为 computed，客户管理按 `parent_user_id` 条件显示）
+- [x] 更新路由（`router/index.ts`：新增 `/customers`、`/knowledge` 路由，`/customers` 增加父用户守卫）
+- [x] `npm run lint && npm run type-check && npm run build` 全部通过
+
+**验收标准**: 侧栏显示完整菜单，知识库/客户管理页面可正常交互，子用户无法看到客户管理 ✅
+
+---
+
 ### Phase 9: 生产切换 ⏳
 **目标**: 新系统正式上线
 

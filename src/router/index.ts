@@ -49,6 +49,25 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/customers',
+    name: 'customers',
+    component: () => import('@/views/CustomersView.vue'),
+    meta: {
+      title: '客户管理',
+      requiresAuth: true,
+      parentOnly: true
+    }
+  },
+  {
+    path: '/knowledge',
+    name: 'knowledge',
+    component: () => import('@/views/KnowledgeView.vue'),
+    meta: {
+      title: '知识库管理',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),
@@ -106,6 +125,12 @@ router.beforeEach((to, from, next) => {
 
   // 已登录但访问登录页，跳转到首页
   if (isLoggedIn && to.path === '/login') {
+    next('/')
+    return
+  }
+
+  // 父用户专属页面：子用户（有 parent_user_id）不可访问
+  if (to.meta.parentOnly && userStore.userInfo?.parent_user_id) {
     next('/')
     return
   }

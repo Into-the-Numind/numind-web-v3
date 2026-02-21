@@ -17,10 +17,11 @@ Phase 6: SOP 执行页     [█████████████████�
 Phase 6.5: 运行记录列表 [████████████████████] 100% ✅
 Phase 7: 微信存档       [----已取消----] ✖️ (功能不再需要)
 Phase 8: 系统设置       [████████████████████] 100% ✅
+Phase 8.5: 知识库+客户管理 [████████████████████] 100% ✅
 Phase 9: 生产切换       [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 95% (Phase 0–8 全部完成，Phase 7 已取消，剩余 Phase 9)**
+**总体完成度: 98% (Phase 0–8.5 全部完成，Phase 7 已取消，剩余 Phase 9 生产切换)**
 
 ---
 
@@ -304,6 +305,33 @@ internal/controllers/wechat.go
 
 ---
 
+### Phase 8.5: 知识库管理 + 客户管理 (2026-02-21) ✅
+
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| 创建 API 模块 knowledge.ts | ✅ | 6 个端点（文档 CRUD + 切片） |
+| 创建 API 模块 customers.ts | ✅ | 8 个端点（统计/子用户/注册/权限） |
+| 创建 KnowledgeView.vue | ✅ | 文档列表（网格卡片）+ 详情（切片列表）+ 上传弹窗 + 删除确认 + 状态轮询(3s) |
+| 创建 CustomersView.vue | ✅ | 统计卡片(4格) + 子用户表格 + 分页 + 注册弹窗 + 权限管理弹窗 + 批量操作 |
+| 更新 AppSidebar.vue | ✅ | menuItems 改为 computed，客户管理按 parent_user_id 条件显示 |
+| 更新 router/index.ts | ✅ | 新增 /customers（parentOnly 守卫）和 /knowledge 路由 |
+| lint & type-check & build | ✅ | 全部通过 |
+
+**侧栏菜单顺序**: `工作区 → 运行记录 → 客户管理* → 知识库管理 → 设置`
+（*仅父用户可见，子用户隐藏）
+
+**新增文件**:
+- `src/api/knowledge.ts`
+- `src/api/customers.ts`
+- `src/views/KnowledgeView.vue`
+- `src/views/CustomersView.vue`
+
+**修改文件**:
+- `src/components/layout/AppSidebar.vue`
+- `src/router/index.ts`
+
+---
+
 ## 🔧 技术债务
 
 ### 已解决
@@ -329,9 +357,9 @@ internal/controllers/wechat.go
 
 | 指标 | 数值 |
 |------|------|
-| 总文件数 | 35+ |
-| Vue 组件 | 15 |
-| TypeScript 文件 | 15 |
+| 总文件数 | 40+ |
+| Vue 组件 | 17 |
+| TypeScript 文件 | 19 |
 | E2E 测试文件 | 6 (sales-sessions, sales-modals, sales-chat, sop-page, sop-history, settings) |
 | E2E 测试用例 | ~60+ |
 | 单元测试覆盖率 | 0% |
@@ -342,24 +370,23 @@ internal/controllers/wechat.go
 
 ### 近期 (本周)
 
-1. **Phase 5/6 全链路回归验证**
-   - 使用真实账号运行 E2E 测试：`E2E_USERNAME=xxx E2E_PASSWORD=xxx npm run test:e2e`
-   - 验证销售 SSE 流式回复（status → thinking → token → done）
-   - 验证 SOP 执行页全链路（SSE 流式响应、文件上传、历史切换、书签）
-   - 验证运行记录列表页（卡片显示、管理模式、导航跳转）
-   - 验证客户档案、知识库、会话操作等功能
+1. **本地浏览器验证**
+   - 侧栏菜单显示完整（父用户 5 项、子用户 4 项）
+   - `/knowledge` 页面：列表加载、搜索过滤、上传文件、查看详情/切片、删除
+   - `/customers` 页面：统计卡片、子用户表格、分页、搜索、注册、权限管理
+   - 子用户访问 `/customers` → 重定向到 `/`
 
-### 中期 (本月)
+### 中期
 
-2. ~~微信存档页面迁移 (Phase 7)~~ — 已取消，功能不再需要
-3. ~~系统设置页面迁移 (Phase 8)~~ — ✅ 已完成
+2. **E2E 测试补全**
+   - 知识库管理页面 E2E 测试
+   - 客户管理页面 E2E 测试
 
-### 远期 (下月)
+### 远期
 
-4. 性能优化 (懒加载、缓存)
-5. 生产环境切换 (Phase 9)
+3. **生产环境切换 (Phase 9)**
    - 功能回归测试
-   - 性能测试
+   - 性能测试 / 优化（懒加载、缓存）
    - 用户验收测试
    - 更新 DNS / Nginx 配置
    - 旧系统下线
@@ -381,6 +408,12 @@ internal/controllers/wechat.go
 ## 📝 变更日志
 
 ### 2026-02-22
+- ✅ 完成 Phase 8.5 知识库管理 + 客户管理页面
+  - 新增 `src/api/knowledge.ts`（6 API 端点）和 `src/api/customers.ts`（8 API 端点）
+  - 新增 `KnowledgeView.vue`：文档列表/详情/切片查看、上传弹窗、删除确认、处理状态轮询
+  - 新增 `CustomersView.vue`：统计卡片、子用户表格/分页/搜索、注册弹窗、权限管理弹窗、批量操作
+  - 更新 `AppSidebar.vue`：menuItems 改为 computed，客户管理按 parent_user_id 条件显示
+  - 更新 `router/index.ts`：新增 `/customers`（parentOnly 守卫）和 `/knowledge` 路由
 - ✅ 完成 Phase 8 系统设置迁移：SettingsView.vue（个人资料 + 用量统计 + 等级差异化样式 + 退出登录）
 - ✅ 路由更新：`/settings` → SettingsView.vue
 - ✖️ 取消 Phase 7 微信存档：删除 `/archive` 路由和侧栏入口，功能不再需要

@@ -28,15 +28,30 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
+const userStore = useUserStore()
 
-const menuItems = [
-  { path: '/', title: '工作区' },
-  { path: '/sop', title: '运行记录' },
-  { path: '/settings', title: '设置' }
-]
+const menuItems = computed(() => {
+  const items = [
+    { path: '/', title: '工作区' },
+    { path: '/sop', title: '运行记录' }
+  ]
+
+  // 客户管理：仅父用户可见（parent_user_id 不存在时为父用户）
+  const parentUserId = userStore.userInfo?.parent_user_id
+  if (!parentUserId) {
+    items.push({ path: '/customers', title: '客户管理' })
+  }
+
+  items.push({ path: '/knowledge', title: '知识库管理' })
+  items.push({ path: '/settings', title: '设置' })
+
+  return items
+})
 
 const isActive = (path: string) => {
   if (path === '/') {
