@@ -197,8 +197,17 @@ test.describe('SOP Page — Navigation', () => {
     const btn = page.locator(sel.backToHomeBtn)
     await expect(btn).toBeVisible()
 
-    // Click should navigate to home
+    // Click triggers a confirm dialog, then navigates on confirm
     await btn.click()
+
+    // Confirm dialog should appear
+    const confirmOverlay = page.locator(sel.confirmOverlay)
+    await expect(confirmOverlay).toBeVisible({ timeout: 5_000 })
+
+    // Click the confirm button to proceed
+    const confirmBtn = page.locator('#confirm-dialog-confirm-btn')
+    await confirmBtn.click()
+
     await expect(page).toHaveURL('/', { timeout: 10_000 })
   })
 
