@@ -385,7 +385,8 @@ async function loadSubUsers() {
   try {
     const res = await fetchSubUsers(0, 1000)
     if (res.code === 200 || res.code === 0) {
-      allSubUsers.value = res.data || []
+      const d = res.data as any
+      allSubUsers.value = Array.isArray(d) ? d : d?.sub_users || []
     }
   } catch (e) {
     console.error('加载子用户列表失败:', e)
@@ -396,7 +397,8 @@ async function loadAllTemplates() {
   try {
     const res = await fetchAllTemplates()
     if (res.code === 200 || res.code === 0) {
-      allTemplates.value = res.data || []
+      const td = res.data as any
+      allTemplates.value = Array.isArray(td) ? td : td?.templates || []
     }
   } catch (e) {
     console.error('加载模板列表失败:', e)
