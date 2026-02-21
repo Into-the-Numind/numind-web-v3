@@ -12,14 +12,14 @@ Phase 1: CI/CD 配置  [██████████████████�
 Phase 2: 后端清理    [████████████████████] 100% ✅
 Phase 3: 部署验证    [████████████████████] 100% ✅
 Phase 4: 核心页面    [████████████████████] 100% ✅
-Phase 5: 销售智能体  [████████████████░░░░] 80% ⏳
+Phase 5: 销售智能体  [██████████████████░░] 95% ⏳
 Phase 6: SOP 管理    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 7: 微信存档    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 8: 系统设置    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 9: 生产切换    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 64% (Phase 5 交互逻辑迁移完成，待回归验证)**
+**总体完成度: 66% (Phase 5 代码完成，仅剩 E2E 回归验证)**
 
 ---
 
@@ -200,6 +200,7 @@ internal/controllers/wechat.go
 | 流式回复与实时状态 | ✅ | SSE 全事件链路对齐（status/verdict/thinking/token/error/citations/done） |
 | marked 代码高亮修复 | ✅ | marked v17 不支持旧版 `highlight` 选项，改用 `marked.use({ renderer })` 集成 hljs |
 | unmount 生命周期清理 | ✅ | 新增 `__salesAgentLegacyCleanup`，移除 document 监听器、重置 AppState |
+| FOUC 修复 | ✅ | 新增 `legacyReady` 状态，legacy 就绪前显示 loading spinner，消除无样式闪烁 |
 | 全链路回归验证 | ⏳ | 需使用真实账号验证完整销售对话流程 |
 
 **新增文件**:
@@ -295,6 +296,8 @@ internal/controllers/wechat.go
 ## 📝 变更日志
 
 ### 2026-02-21
+- ✅ 修复销售页 FOUC：新增 `legacyReady` 状态 + loading spinner，legacy CSS/JS 就绪前隐藏主内容
+- ✅ 清理 `feat/phase5-interaction-logic` 分支，Phase 5 代码完成
 - ✅ 完成 Phase 5 交互逻辑迁移：29 个 onclick 全局函数验证通过，SSE 全事件链路对齐
 - ✅ 修复 marked v17 代码高亮：旧版 `setOptions({ highlight })` 失效，改用 `marked.use({ renderer })` 集成 hljs
 - ✅ 修复事件监听器泄漏：`closeAllSessionMenus` 从 `renderSessions` 移至 `__salesAgentLegacyInit` 一次性注册
