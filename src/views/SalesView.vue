@@ -1,6 +1,12 @@
 <template>
 
-    <div class="app-container">
+    <!-- Loading 占位 -->
+    <div v-if="!legacyReady && !errorText" class="legacy-loading">
+        <div class="legacy-loading-spinner"></div>
+    </div>
+
+    <!-- 主内容，legacy 就绪后才显示 -->
+    <div class="app-container" v-show="legacyReady">
         <!-- 1. SOP-Style Home Button (Top Left) -->
         <a href="/" class="back-to-home-btn" title="返回首页" @click.prevent="goHome">
             <i data-lucide="home"></i>
@@ -575,6 +581,7 @@ import { useSalesAgentStore } from '@/stores/salesAgent'
 const router = useRouter()
 const salesAgentStore = useSalesAgentStore()
 const errorText = ref('')
+const legacyReady = ref(false)
 
 const ensureRandomUUIDPolyfill = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -607,6 +614,7 @@ onMounted(async () => {
   try {
     await salesAgentStore.mountLegacy()
     errorText.value = ''
+    legacyReady.value = true
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : '销售智能体初始化失败'
   }
@@ -630,6 +638,26 @@ onBeforeUnmount(() => {
 
 .app-container {
   height: 100%;
+}
+
+.legacy-loading {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legacy-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #25a769;
+  border-radius: 50%;
+  animation: legacy-spin 0.6s linear infinite;
+}
+
+@keyframes legacy-spin {
+  to { transform: rotate(360deg); }
 }
 
 .legacy-error {
