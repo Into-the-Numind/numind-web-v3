@@ -63,9 +63,9 @@ const sel = {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-/** Navigate to SOP page with a template. Wait for legacy init. */
+/** Navigate to SOP execution page with a template. Wait for legacy init. */
 async function goToSOP(page: import('@playwright/test').Page, templateId = '1') {
-  await page.goto(`/sop?templateId=${templateId}`)
+  await page.goto(`/sop/run?templateId=${templateId}`)
   // Wait for legacy JS to initialize (loading spinner disappears, container shows)
   await expect(page.locator(sel.sopContainer)).toBeVisible({ timeout: 30_000 })
 }
@@ -74,7 +74,7 @@ async function goToSOP(page: import('@playwright/test').Page, templateId = '1') 
 
 test.describe('SOP Page — Layout & Rendering', () => {
   test('page loads without error, loading spinner disappears', async ({ page }) => {
-    await page.goto('/sop?templateId=1')
+    await page.goto('/sop/run?templateId=1')
 
     // Either loading spinner or main container should be visible quickly
     await expect(

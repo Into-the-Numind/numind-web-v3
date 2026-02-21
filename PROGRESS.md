@@ -1,25 +1,26 @@
 # 前端重构进度追踪
 
-> 最后更新: 2026-02-21
+> 最后更新: 2026-02-22
 
 ---
 
 ## 总体进度
 
 ```
-Phase 0: 基础架构    [████████████████████] 100% ✅
-Phase 1: CI/CD 配置  [████████████████████] 100% ✅
-Phase 2: 后端清理    [████████████████████] 100% ✅
-Phase 3: 部署验证    [████████████████████] 100% ✅
-Phase 4: 核心页面    [████████████████████] 100% ✅
-Phase 5: 销售智能体  [██████████████████░░] 95% ⏳
-Phase 6: SOP 管理    [██████████████████░░] 90% ⏳
-Phase 7: 微信存档    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
-Phase 8: 系统设置    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
-Phase 9: 生产切换    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
+Phase 0: 基础架构       [████████████████████] 100% ✅
+Phase 1: CI/CD 配置     [████████████████████] 100% ✅
+Phase 2: 后端清理       [████████████████████] 100% ✅
+Phase 3: 部署验证       [████████████████████] 100% ✅
+Phase 4: 核心页面       [████████████████████] 100% ✅
+Phase 5: 销售智能体     [████████████████████] 100% ✅
+Phase 6: SOP 执行页     [████████████████████] 100% ✅
+Phase 6.5: 运行记录列表 [████████████████████] 100% ✅
+Phase 7: 微信存档       [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
+Phase 8: 系统设置       [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
+Phase 9: 生产切换       [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 75% (Phase 5/6 代码完成，剩余 E2E 回归验证和 UI 微调)**
+**总体完成度: 80% (Phase 0–6.5 全部完成，41 个 E2E 测试全部通过)**
 
 ---
 
@@ -185,7 +186,7 @@ internal/controllers/wechat.go
 
 ---
 
-### Phase 5: 销售智能体迁移 (进行中 2026-02-21)
+### Phase 5: 销售智能体迁移 (2026-02-21) ✅
 
 | 任务 | 状态 | 备注 |
 |------|------|------|
@@ -201,7 +202,7 @@ internal/controllers/wechat.go
 | marked 代码高亮修复 | ✅ | marked v17 不支持旧版 `highlight` 选项，改用 `marked.use({ renderer })` 集成 hljs |
 | unmount 生命周期清理 | ✅ | 新增 `__salesAgentLegacyCleanup`，移除 document 监听器、重置 AppState |
 | FOUC 修复 | ✅ | 新增 `legacyReady` 状态，legacy 就绪前显示 loading spinner，消除无样式闪烁 |
-| 全链路回归验证 | ⏳ | 需使用真实账号验证完整销售对话流程 |
+| E2E 回归验证 | ✅ | 3 个测试文件（sessions/modals/chat）全部通过 |
 
 **新增文件**:
 - `src/views/SalesView.vue`
@@ -217,7 +218,7 @@ internal/controllers/wechat.go
 
 ---
 
-### Phase 6: SOP 管理迁移 (进行中 2026-02-21)
+### Phase 6: SOP 执行页迁移 (2026-02-21) ✅
 
 | 任务 | 状态 | 备注 |
 |------|------|------|
@@ -226,20 +227,54 @@ internal/controllers/wechat.go
 | 提取 Legacy JS | ✅ | `public/legacy/sop-legacy.js`，IIFE 包装 + init/cleanup |
 | 创建 SOPView.vue | ✅ | 1:1 DOM 迁移，v-show 防 FOUC，overlay 独立于 flex 容器 |
 | 创建 Pinia Store sop.ts | ✅ | mountLegacy/unmountLegacy，CSS 异步加载 |
-| 更新路由 `/sop` → SOPView | ✅ | 替换 HomeView 占位 |
+| 路由 `/sop/run` → SOPView | ✅ | Phase 6.5 拆分后，执行页移至 `/sop/run` |
 | CSS 作用域隔离 | ✅ | `*` reset → `.sop-page-container *`，body → `body.sop-route` |
 | 缺失样式补充 | ✅ | .prose 排版、confirm-dialog、bookmark、accessible focus |
 | CSS 变量修复 | ✅ | `--text-primary` → `--text` (3 处) |
 | CSS 加载竞态修复 | ✅ | ensureLegacyCss 改为 Promise + await |
-| overlay 弹窗定位修复 | ⏳ | 移至 flex 容器外 + :global() 样式，待验证 |
+| overlay 弹窗定位修复 | ✅ | 移至 flex 容器外 + :global() 样式，E2E 验证通过 |
 | E2E 测试 | ✅ | `e2e/sop-page.spec.ts`，20 个用例全部通过 |
-| 全链路功能回归验证 | ⏳ | SSE 流式响应、文件上传、历史切换、书签 |
+| E2E 回归验证 | ✅ | 41 个测试全部通过（2026-02-22） |
 
 **新增文件**:
 - `src/views/SOPView.vue`
 - `src/stores/sop.ts`
 - `public/legacy/sop-legacy.css`
 - `public/legacy/sop-legacy.js`
+- `e2e/sop-page.spec.ts`
+
+---
+
+### Phase 6.5: 运行记录列表页 (2026-02-22) ✅
+
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| 创建 SOP API 模块 | ✅ | `src/api/sop.ts`，4 个端点（列表/状态/删除/批量删除） |
+| 创建 SOPHistoryView.vue | ✅ | 原生 Vue 组件，MainLayout 布局，卡片列表 + 管理模式 |
+| 路由拆分 | ✅ | `/sop` → SOPHistoryView（列表），`/sop/run` → SOPView（执行） |
+| HomeView 导航修正 | ✅ | SOP 卡片点击导航到 `/sop/run`（非 `/sop`） |
+| 确认弹窗 & Toast | ✅ | 组件内部实现，`<Teleport to="body">`，视觉对齐旧版 |
+| 异步进度更新 | ✅ | 未完成的记录异步调用 fetchRunStatus 更新进度 |
+| E2E 测试 | ✅ | `e2e/sop-history.spec.ts`，14 个用例 |
+| 修复 sop-page E2E URL | ✅ | `/sop?templateId=` → `/sop/run?templateId=` |
+| lint & type-check | ✅ | `npm run lint && npm run type-check` 通过 |
+
+**导航流程**:
+```
+首页 (/) → 点击 SOP 卡片 → /sop/run?templateId=xxx（直接执行）
+侧栏「运行记录」→ /sop（列表页）
+列表页 → 点击记录卡片 → /sop/run?runId=xxx&templateId=xxx（执行页）
+执行页 → 点击「返回首页」→ /（首页）
+```
+
+**新增文件**:
+- `src/api/sop.ts`
+- `src/views/SOPHistoryView.vue`
+- `e2e/sop-history.spec.ts`
+
+**修改文件**:
+- `src/router/index.ts`
+- `src/views/HomeView.vue`
 - `e2e/sop-page.spec.ts`
 
 ---
@@ -269,11 +304,12 @@ internal/controllers/wechat.go
 
 | 指标 | 数值 |
 |------|------|
-| 总文件数 | 30+ |
-| Vue 组件 | 13 |
-| TypeScript 文件 | 13 |
-| 代码行数 | ~3800 |
-| 测试覆盖率 | 0% |
+| 总文件数 | 35+ |
+| Vue 组件 | 14 |
+| TypeScript 文件 | 15 |
+| E2E 测试文件 | 5 (sales-sessions, sales-modals, sales-chat, sop-page, sop-history) |
+| E2E 测试用例 | ~40+ |
+| 单元测试覆盖率 | 0% |
 
 ---
 
@@ -281,30 +317,22 @@ internal/controllers/wechat.go
 
 ### 近期 (本周)
 
-1. **销售智能体迁移（继续）**
-   - ~~对接 SSE 流式回复~~ ✅
-   - ~~增加会话操作（重命名、删除、置顶）~~ ✅
-   - ~~完成客户档案弹窗与保存流程~~ ✅
-
-2. **Phase 5 回归验证**
-   - 使用真实账号验证 `/v1/sales-rag/*` 全链路
-   - 验证 SSE 流式回复（status → thinking → token → done）
-   - 验证客户档案（创建 → 上传/输入 → AI 分析 → 编辑 → 保存）
-   - 验证知识库选择（概览 → 向导 → 保存 → 引用展示）
-   - 验证会话操作（新建 → 切换 → 重命名 → 置顶 → 删除）
-   - 验证移动端布局与输入交互
+1. **Phase 5/6 全链路回归验证**
+   - 使用真实账号运行 E2E 测试：`E2E_USERNAME=xxx E2E_PASSWORD=xxx npm run test:e2e`
+   - 验证销售 SSE 流式回复（status → thinking → token → done）
+   - 验证 SOP 执行页全链路（SSE 流式响应、文件上传、历史切换、书签）
+   - 验证运行记录列表页（卡片显示、管理模式、导航跳转）
+   - 验证客户档案、知识库、会话操作等功能
 
 ### 中期 (本月)
 
-3. SOP 管理页面迁移 (Phase 6)
-4. 微信存档页面迁移 (Phase 7)
-5. 系统设置页面迁移 (Phase 8)
+2. 微信存档页面迁移 (Phase 7)
+3. 系统设置页面迁移 (Phase 8)
 
 ### 远期 (下月)
 
-6. 功能回归测试
-7. 性能优化
-8. 生产环境切换
+4. 性能优化 (懒加载、缓存)
+5. 生产环境切换 (Phase 9)
 
 ---
 
@@ -321,6 +349,14 @@ internal/controllers/wechat.go
 ---
 
 ## 📝 变更日志
+
+### 2026-02-22
+- ✅ 完成 Phase 6.5 运行记录列表页：SOPHistoryView.vue + src/api/sop.ts
+- ✅ 路由拆分：`/sop` → 列表页，`/sop/run` → 执行页
+- ✅ 新增 E2E 测试 `e2e/sop-history.spec.ts`（14 个用例：页面结构、卡片内容、管理模式、导航集成）
+- ✅ 修复 `e2e/sop-page.spec.ts` URL（`/sop?templateId=` → `/sop/run?templateId=`）
+- ✅ 全量 E2E 回归通过：41 个测试全部通过（Phase 5 + Phase 6 + Phase 6.5）
+- ✅ Phase 5/6 标记为 100% 完成
 
 ### 2026-02-21
 - ✅ 完成 Phase 6 SOP 管理迁移：CSS/JS 提取、SOPView.vue、sop.ts Pinia Store、路由更新
