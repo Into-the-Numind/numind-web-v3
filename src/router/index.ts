@@ -33,7 +33,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/sop',
     name: 'sop',
-    component: () => import('@/views/HomeView.vue'),
+    component: () => import('@/views/SOPView.vue'),
     meta: {
       title: 'SOP 管理',
       requiresAuth: true
