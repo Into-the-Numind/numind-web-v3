@@ -169,7 +169,7 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
     }
 
     await router.push({
-      path: '/sop',
+      path: '/sop/run',
       query: { templateId: String(workflow.templateId) }
     })
   } finally {

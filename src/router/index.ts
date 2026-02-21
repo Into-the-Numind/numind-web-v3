@@ -32,10 +32,19 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/sop',
-    name: 'sop',
+    name: 'sop-history',
+    component: () => import('@/views/SOPHistoryView.vue'),
+    meta: {
+      title: '运行记录',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/sop/run',
+    name: 'sop-run',
     component: () => import('@/views/SOPView.vue'),
     meta: {
-      title: 'SOP 管理',
+      title: 'SOP 执行',
       requiresAuth: true
     }
   },
