@@ -26,9 +26,9 @@ export const login = (params: LoginParams): Promise<ApiResponse<LoginData>> => {
   return request.post('/v1/web/login', params)
 }
 
-// 获取用户信息
+// 获取用户信息（包含等级、用量统计等完整数据）
 export const getUserInfo = (): Promise<ApiResponse<any>> => {
-  return request.get('/v1/web/user/info')
+  return request.get('/v1/users/me')
 }
 
 // 退出登录
