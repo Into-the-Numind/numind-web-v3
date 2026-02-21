@@ -13,13 +13,13 @@ Phase 2: 后端清理    [██████████████████
 Phase 3: 部署验证    [████████████████████] 100% ✅
 Phase 4: 核心页面    [████████████████████] 100% ✅
 Phase 5: 销售智能体  [██████████████████░░] 95% ⏳
-Phase 6: SOP 管理    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
+Phase 6: SOP 管理    [██████████████████░░] 90% ⏳
 Phase 7: 微信存档    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 8: 系统设置    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 9: 生产切换    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 66% (Phase 5 代码完成，仅剩 E2E 回归验证)**
+**总体完成度: 75% (Phase 5/6 代码完成，剩余 E2E 回归验证和 UI 微调)**
 
 ---
 
@@ -217,6 +217,33 @@ internal/controllers/wechat.go
 
 ---
 
+### Phase 6: SOP 管理迁移 (进行中 2026-02-21)
+
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| 分析 sop-detail.html 功能结构 | ✅ | 11000+ 行，5 步工作流 + 历史弹窗 + AI 聊天 |
+| 提取 Legacy CSS | ✅ | `public/legacy/sop-legacy.css`，含 ui.css 补充样式 |
+| 提取 Legacy JS | ✅ | `public/legacy/sop-legacy.js`，IIFE 包装 + init/cleanup |
+| 创建 SOPView.vue | ✅ | 1:1 DOM 迁移，v-show 防 FOUC，overlay 独立于 flex 容器 |
+| 创建 Pinia Store sop.ts | ✅ | mountLegacy/unmountLegacy，CSS 异步加载 |
+| 更新路由 `/sop` → SOPView | ✅ | 替换 HomeView 占位 |
+| CSS 作用域隔离 | ✅ | `*` reset → `.sop-page-container *`，body → `body.sop-route` |
+| 缺失样式补充 | ✅ | .prose 排版、confirm-dialog、bookmark、accessible focus |
+| CSS 变量修复 | ✅ | `--text-primary` → `--text` (3 处) |
+| CSS 加载竞态修复 | ✅ | ensureLegacyCss 改为 Promise + await |
+| overlay 弹窗定位修复 | ⏳ | 移至 flex 容器外 + :global() 样式，待验证 |
+| E2E 测试 | ✅ | `e2e/sop-page.spec.ts`，20 个用例全部通过 |
+| 全链路功能回归验证 | ⏳ | SSE 流式响应、文件上传、历史切换、书签 |
+
+**新增文件**:
+- `src/views/SOPView.vue`
+- `src/stores/sop.ts`
+- `public/legacy/sop-legacy.css`
+- `public/legacy/sop-legacy.js`
+- `e2e/sop-page.spec.ts`
+
+---
+
 ## 🔧 技术债务
 
 ### 已解决
@@ -296,6 +323,12 @@ internal/controllers/wechat.go
 ## 📝 变更日志
 
 ### 2026-02-21
+- ✅ 完成 Phase 6 SOP 管理迁移：CSS/JS 提取、SOPView.vue、sop.ts Pinia Store、路由更新
+- ✅ 新增 E2E 测试 `e2e/sop-page.spec.ts`（20 个用例：布局、stepper、导航、CSS 完整性、聊天区域）
+- ✅ 修复 SOP CSS 作用域泄漏：`*` reset → `.sop-page-container *`，body → `body.sop-route`
+- ✅ 补充 ui.css 缺失样式：.prose 排版、confirm-dialog、bookmark、accessible focus
+- ✅ 修复 CSS 加载竞态：`ensureLegacyCss()` 改为 Promise + await
+- ✅ 修复 overlay 弹窗定位：移至 flex 容器外，使用 :global() + inline style 兜底
 - ✅ 修复销售页 FOUC：新增 `legacyReady` 状态 + loading spinner，legacy CSS/JS 就绪前隐藏主内容
 - ✅ 清理 `feat/phase5-interaction-logic` 分支，Phase 5 代码完成
 - ✅ 完成 Phase 5 交互逻辑迁移：29 个 onclick 全局函数验证通过，SSE 全事件链路对齐
