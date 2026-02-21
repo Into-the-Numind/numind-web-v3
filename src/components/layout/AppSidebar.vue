@@ -37,11 +37,11 @@
             <div class="run-count-progress-bar" :class="progressClass" :style="{ width: standardPercent + '%' }"></div>
           </div>
         </template>
-        <!-- Free / loading -->
+        <!-- Free -->
         <template v-else>
           <div class="run-count-title">运行次数</div>
-          <div class="run-count-value" :class="{ disabled: !loaded }">{{ loaded ? '--' : '--' }}</div>
-          <div class="run-count-label" :class="{ disabled: !loaded }">{{ loaded ? '升级会员解锁' : '加载中...' }}</div>
+          <div class="run-count-value">--</div>
+          <div class="run-count-label">升级会员解锁</div>
         </template>
       </div>
     </div>
@@ -49,19 +49,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getUserInfo } from '@/api/auth'
 
 const route = useRoute()
 const userStore = useUserStore()
 
 // ── Run Count Card ─────────────────────────────────────────────
-const loaded = ref(false)
-const tier = ref('free')
-const monthlyRuns = ref(0)
-const remainingRuns = ref(0)
+// Tier: normalized from store (aligns with SettingsView logic)
+const tier = computed(() => {
+  const info = userStore.userInfo
+  if (!info) return 'free'
+  const raw = String(info.user_tier || info.tier || info.plan || 'free').toLowerCase()
+  if (raw === 'vip' || raw === 'pro') return 'premium'
+  return raw
+})
+
+const monthlyRuns = computed(() => userStore.userInfo?.monthly_sop_runs ?? 0)
+const remainingRuns = computed(() => userStore.userInfo?.remaining_sop_runs ?? -1)
 
 const standardTotal = 20
 const standardUsed = computed(() => Math.min(monthlyRuns.value, standardTotal))
@@ -83,20 +89,9 @@ const progressClass = computed(() => {
   return ''
 })
 
-onMounted(async () => {
-  try {
-    const res = await getUserInfo()
-    if (res.code === 200 || res.code === 0) {
-      const d = res.data || {}
-      tier.value = d.user_tier || d.tier || 'free'
-      monthlyRuns.value = d.monthly_sop_runs || 0
-      remainingRuns.value = d.remaining_sop_runs ?? -1
-    }
-  } catch (e) {
-    console.error('侧栏运行次数加载失败:', e)
-  } finally {
-    loaded.value = true
-  }
+// Refresh full user data from API; store updates reactively
+onMounted(() => {
+  userStore.fetchUserInfo()
 })
 
 // ── Menu Items ─────────────────────────────────────────────────
@@ -283,11 +278,6 @@ const isActive = (path: string) => {
 
 .run-count-label.standard {
   color: hsl(158, 64%, 35%);
-}
-
-.run-count-label.disabled,
-.run-count-value.disabled {
-  color: hsl(150, 10%, 55%);
 }
 
 /* Premium card */
