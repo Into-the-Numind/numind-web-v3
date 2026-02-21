@@ -90,16 +90,21 @@ const buildAuthManager = () => {
   }
 }
 
-const ensureLegacyCss = () => {
-  if (document.getElementById(LEGACY_CSS_ID)) {
-    return
-  }
+const ensureLegacyCss = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (document.getElementById(LEGACY_CSS_ID)) {
+      resolve()
+      return
+    }
 
-  const link = document.createElement('link')
-  link.id = LEGACY_CSS_ID
-  link.rel = 'stylesheet'
-  link.href = '/legacy/sop-legacy.css?v=20260221'
-  document.head.appendChild(link)
+    const link = document.createElement('link')
+    link.id = LEGACY_CSS_ID
+    link.rel = 'stylesheet'
+    link.href = '/legacy/sop-legacy.css?v=20260221'
+    link.onload = () => resolve()
+    link.onerror = () => reject(new Error('sop-legacy.css 加载失败'))
+    document.head.appendChild(link)
+  })
 }
 
 const removeLegacyCss = () => {
@@ -210,7 +215,7 @@ export const useSopStore = defineStore('sop', {
       this.lastError = ''
       try {
         setupLegacyGlobals()
-        ensureLegacyCss()
+        await ensureLegacyCss()
         ensureLegacyVendorStyles()
         await ensureLegacyScript()
 
