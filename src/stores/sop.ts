@@ -100,7 +100,7 @@ const ensureLegacyCss = (): Promise<void> => {
     const link = document.createElement('link')
     link.id = LEGACY_CSS_ID
     link.rel = 'stylesheet'
-    link.href = '/legacy/sop-legacy.css?v=20260221'
+    link.href = '/legacy/sop-legacy.css?v=20260221b'
     link.onload = () => resolve()
     link.onerror = () => reject(new Error('sop-legacy.css 加载失败'))
     document.head.appendChild(link)
@@ -151,7 +151,7 @@ const ensureLegacyScript = (): Promise<void> => {
 
     const script = existing || document.createElement('script')
     script.id = LEGACY_SCRIPT_ID
-    script.src = '/legacy/sop-legacy.js?v=20260221'
+    script.src = '/legacy/sop-legacy.js?v=20260221b'
     script.async = false
 
     script.onload = () => {
