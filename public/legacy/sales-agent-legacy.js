@@ -29,14 +29,12 @@ const AppState = {
 };
 
 // Markdown Setup
+// highlight 选项已由 salesAgent.ts 通过 marked.use({ renderer }) 配置
+// marked v17+ 不再支持 setOptions({ highlight })，此处仅保留基础选项
 if (typeof marked !== 'undefined') {
     marked.setOptions({
         gfm: true,
-        breaks: true,
-        highlight: function (code, lang) {
-            const language = (lang && hljs.getLanguage(lang)) ? lang : 'plaintext';
-            return hljs.highlight(code, { language }).value;
-        }
+        breaks: true
     });
 }
 
@@ -72,6 +70,8 @@ const SalesStageManager = {
         `).join('');
     },
 
+    _stageDocClickHandler: null,
+
     bindEvents() {
         const trigger = document.getElementById('stageTrigger');
         if (!trigger) return;
@@ -81,11 +81,12 @@ const SalesStageManager = {
             trigger.classList.toggle('active');
         });
 
-        document.addEventListener('click', (e) => {
+        this._stageDocClickHandler = (e) => {
             if (!trigger.contains(e.target)) {
                 trigger.classList.remove('active');
             }
-        });
+        };
+        document.addEventListener('click', this._stageDocClickHandler);
     },
 
     async handleSelect(stageId) {
@@ -159,6 +160,9 @@ window.__salesAgentLegacyInit = async function () {
 
     setupEventListeners();
     SalesStageManager.init();
+
+    // 全局 document click 监听：关闭会话菜单（只注册一次）
+    document.addEventListener('click', closeAllSessionMenus);
 
     // Check URL params first to see if we have an intended session
     const urlParams = new URLSearchParams(window.location.search);
@@ -271,8 +275,8 @@ function renderSessions() {
     });
     if (window.lucide) lucide.createIcons();
 
-    // 点击外部关闭所有下拉菜单
-    document.addEventListener('click', closeAllSessionMenus);
+    // 点击外部关闭菜单的监听器已移至 __salesAgentLegacyInit 中统一注册，
+    // 避免 renderSessions 每次调用时重复添加
 
     // Dynamic UI State Management for Empty State
     const inputContainer = document.getElementById('inputContainer');
@@ -4316,14 +4320,15 @@ function initCitationModal() {
     }
 
     // Close on Escape key
-    document.addEventListener('keydown', (e) => {
+    window._citationEscHandler = (e) => {
         if (e.key === 'Escape') {
             const citationModal = document.getElementById('citationModal');
             if (citationModal && citationModal.classList.contains('open')) {
                 toggleCitationModal(false);
             }
         }
-    });
+    };
+    document.addEventListener('keydown', window._citationEscHandler);
 }
 
 // citation 初始化由 __salesAgentLegacyInit 统一触发，避免重复绑定
@@ -4386,3 +4391,37 @@ function closeImageModal() {
         document.getElementById('imagePreviewTarget').src = '';
     }, 300);
 }
+
+/* ==================== Cleanup (供 Vue unmount 调用) ==================== */
+/**
+ * 清理 legacy 脚本注册的 document 级事件监听器。
+ * 由 salesAgent.ts 的 unmountLegacy() 调用。
+ */
+window.__salesAgentLegacyCleanup = function () {
+    // 1. 移除 document click 监听
+    document.removeEventListener('click', closeAllSessionMenus);
+
+    // 2. 移除 SalesStageManager 的 document click 监听
+    if (SalesStageManager._stageDocClickHandler) {
+        document.removeEventListener('click', SalesStageManager._stageDocClickHandler);
+        SalesStageManager._stageDocClickHandler = null;
+    }
+
+    // 3. 移除 citation modal 的 Escape 监听
+    if (window._citationEscHandler) {
+        document.removeEventListener('keydown', window._citationEscHandler);
+        window._citationEscHandler = null;
+    }
+
+    // 4. 重置 legacyBound 标记，允许下次进入时重新初始化
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer) {
+        delete chatContainer.dataset.legacyBound;
+    }
+
+    // 5. 重置 AppState
+    AppState.currentSessionId = null;
+    AppState.sessions = [];
+    AppState.messages = [];
+    AppState.images = [];
+};

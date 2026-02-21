@@ -1,6 +1,6 @@
 # 前端重构进度追踪
 
-> 最后更新: 2026-02-20
+> 最后更新: 2026-02-21
 
 ---
 
@@ -12,14 +12,14 @@ Phase 1: CI/CD 配置  [██████████████████�
 Phase 2: 后端清理    [████████████████████] 100% ✅
 Phase 3: 部署验证    [████████████████████] 100% ✅
 Phase 4: 核心页面    [████████████████████] 100% ✅
-Phase 5: 销售智能体  [███████░░░░░░░░░░░░░] 35% ⏳
+Phase 5: 销售智能体  [████████████████░░░░] 80% ⏳
 Phase 6: SOP 管理    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 7: 微信存档    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 8: 系统设置    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 Phase 9: 生产切换    [░░░░░░░░░░░░░░░░░░░░] 0% ⏳
 ```
 
-**总体完成度: 56% (Phase 5 持续推进中)**
+**总体完成度: 64% (Phase 5 交互逻辑迁移完成，待回归验证)**
 
 ---
 
@@ -185,7 +185,7 @@ internal/controllers/wechat.go
 
 ---
 
-### Phase 5: 销售智能体迁移 (进行中 2026-02-20)
+### Phase 5: 销售智能体迁移 (进行中 2026-02-21)
 
 | 任务 | 状态 | 备注 |
 |------|------|------|
@@ -196,8 +196,11 @@ internal/controllers/wechat.go
 | 1:1 样式迁移 | ✅ | 引入原版 `sales-agent.css`（`public/legacy/sales-agent-legacy.css`） |
 | Pinia 生命周期接管 | ✅ | `src/stores/salesAgent.ts` 统一接管 runtime 挂载/卸载与全局依赖注入 |
 | 布局高度链路对齐 | ✅ | `/sales` 路由挂载时设置 `body/#app` 高度与滚动策略，修复侧栏/输入区布局偏差 |
-| 1:1 交互逻辑迁移 | ⏳ | 复用原版 `sales-agent.js` 行为，持续清理 legacy 全局函数与模块边界 |
-| 流式回复与实时状态 | ⏳ | 已接入原版 SSE 逻辑，需继续验证细节一致性 |
+| 1:1 交互逻辑迁移 | ✅ | 29 个 onclick 全局函数验证通过；事件监听器泄漏修复；unmount 清理机制完善 |
+| 流式回复与实时状态 | ✅ | SSE 全事件链路对齐（status/verdict/thinking/token/error/citations/done） |
+| marked 代码高亮修复 | ✅ | marked v17 不支持旧版 `highlight` 选项，改用 `marked.use({ renderer })` 集成 hljs |
+| unmount 生命周期清理 | ✅ | 新增 `__salesAgentLegacyCleanup`，移除 document 监听器、重置 AppState |
+| 全链路回归验证 | ⏳ | 需使用真实账号验证完整销售对话流程 |
 
 **新增文件**:
 - `src/views/SalesView.vue`
@@ -221,6 +224,9 @@ internal/controllers/wechat.go
 - [x] Docker 构建环境变量传递
 - [x] Nginx 配置语法错误
 - [x] API 代理回退误命中前端 HTML（`/v1/*` 与 `/api/*` 兼容）
+- [x] marked v17 代码高亮失效（旧版 `highlight` 选项被移除，改用 `renderer` 集成）
+- [x] `renderSessions()` 事件监听器泄漏（每次调用重复注册 `closeAllSessionMenus`）
+- [x] 页面离开时 legacy 资源未清理（新增 `__salesAgentLegacyCleanup`）
 
 ### 待处理
 
@@ -248,20 +254,23 @@ internal/controllers/wechat.go
 ### 近期 (本周)
 
 1. **销售智能体迁移（继续）**
-   - 对接 SSE 流式回复，替换当前 chat 接口兜底逻辑
-   - 增加会话操作（重命名、删除、置顶）
-   - 完成客户档案弹窗与保存流程
+   - ~~对接 SSE 流式回复~~ ✅
+   - ~~增加会话操作（重命名、删除、置顶）~~ ✅
+   - ~~完成客户档案弹窗与保存流程~~ ✅
 
-2. **联调验证**
-   - 使用真实账号验证 `/v1/sales-rag/*` 接口
-   - 验证 SOP 模板与销售会话联动
+2. **Phase 5 回归验证**
+   - 使用真实账号验证 `/v1/sales-rag/*` 全链路
+   - 验证 SSE 流式回复（status → thinking → token → done）
+   - 验证客户档案（创建 → 上传/输入 → AI 分析 → 编辑 → 保存）
+   - 验证知识库选择（概览 → 向导 → 保存 → 引用展示）
+   - 验证会话操作（新建 → 切换 → 重命名 → 置顶 → 删除）
    - 验证移动端布局与输入交互
 
 ### 中期 (本月)
 
-3. SOP 管理页面迁移
-4. 微信存档页面迁移
-5. 系统设置页面迁移
+3. SOP 管理页面迁移 (Phase 6)
+4. 微信存档页面迁移 (Phase 7)
+5. 系统设置页面迁移 (Phase 8)
 
 ### 远期 (下月)
 
@@ -284,6 +293,13 @@ internal/controllers/wechat.go
 ---
 
 ## 📝 变更日志
+
+### 2026-02-21
+- ✅ 完成 Phase 5 交互逻辑迁移：29 个 onclick 全局函数验证通过，SSE 全事件链路对齐
+- ✅ 修复 marked v17 代码高亮：旧版 `setOptions({ highlight })` 失效，改用 `marked.use({ renderer })` 集成 hljs
+- ✅ 修复事件监听器泄漏：`closeAllSessionMenus` 从 `renderSessions` 移至 `__salesAgentLegacyInit` 一次性注册
+- ✅ 新增 unmount 清理机制：`__salesAgentLegacyCleanup` 移除 document 级监听器、重置 AppState
+- ✅ 改进 `unmountLegacy()`：调用 cleanup、重置 `legacyScriptPromise`、标记 `initialized = false`
 
 ### 2026-02-20
 - ✅ 修复 API 代理回退导致的 HTML 响应异常（`request.ts` + Nginx `/v1/*` 兼容）

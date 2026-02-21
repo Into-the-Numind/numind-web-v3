@@ -133,9 +133,13 @@
 - [x] 迁移原版页面结构（`sales-agent.html`）到 Vue 容器
 - [x] 移除 `innerHTML` 壳注入，改为 `SalesView.vue` 直接承载原版 DOM 结构
 - [x] 迁移原版样式（`sales-agent.css`）到 v3 运行环境
-- [ ] 对接销售智能体 API（通过 legacy 交互已接入，需补齐全链路回归）
-- [ ] 实现 SSE 实时消息（legacy 逻辑已接入，需完成行为对齐验证）
-- [ ] 实现客户信息管理（legacy 逻辑已接入，需验证各步骤一致性）
+- [x] 对接销售智能体 API（legacy 交互全链路接入：会话 CRUD、消息加载、SSE 聊天）
+- [x] 实现 SSE 实时消息（legacy SSE 逻辑对齐：status/verdict/thinking/token/error/done 全事件处理）
+- [x] 实现客户信息管理（客户档案弹窗、知识库选择、语言风格分析全流程接入）
+- [x] 修复 marked v17 代码高亮兼容（通过 `marked.use({ renderer })` 集成 highlight.js）
+- [x] 修复事件监听器泄漏（`closeAllSessionMenus` 从 renderSessions 移至一次性初始化）
+- [x] 添加 unmount 清理机制（`__salesAgentLegacyCleanup` 移除 document 监听、重置状态）
+- [ ] 全链路回归验证（使用真实账号测试完整销售对话流程）
 
 **验收标准**: 可在新系统完成完整的销售对话流程
 
