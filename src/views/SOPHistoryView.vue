@@ -359,7 +359,7 @@ onMounted(() => {
 
 <style scoped>
 .history-page {
-  max-width: 960px;
+  max-width: 640px;
   margin: 0 auto;
   padding-bottom: 80px;
 }
