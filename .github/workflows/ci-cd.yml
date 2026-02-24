@@ -148,10 +148,10 @@ jobs:
               --name numind-web-v3-dev \
               --network numind-network \
               -p 9203:80 \
-              -e API_PROXY_PASS="http://49.233.219.254:9091/" \
+              -e API_PROXY_PASS="http://numind-server-dev:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:develop
-            
+
             sleep 3
             docker ps | grep numind-web-v3-dev || echo "容器启动失败"
             echo "✅ Dev 部署完成"
@@ -187,10 +187,10 @@ jobs:
               --name numind-web-v3-qa \
               --network numind-network \
               -p 9204:80 \
-              -e API_PROXY_PASS="http://49.233.219.254:9091/" \
+              -e API_PROXY_PASS="http://numind-server-dev:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:release
-            
+
             sleep 3
             docker ps | grep numind-web-v3-qa || echo "容器启动失败"
             echo "✅ QA 部署完成"
