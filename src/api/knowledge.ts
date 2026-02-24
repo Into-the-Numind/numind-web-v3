@@ -28,7 +28,6 @@ export const fetchDocuments = (): Promise<ApiResponse<KnowledgeDocument[]>> => {
 // 上传文档
 export const uploadDocument = (formData: FormData): Promise<ApiResponse<any>> => {
   return request.post('/v1/sales-rag/ingest', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000
   })
 }
