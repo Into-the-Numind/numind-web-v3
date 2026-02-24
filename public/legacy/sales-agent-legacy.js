@@ -8,7 +8,7 @@ const AppState = {
     sessions: [],
     messages: [],
     isLoading: false,
-    isDeepThinking: false, // 深度思考模式
+    isDeepThinking: true, // 深度思考模式（默认开启）
     chatMode: 'sales', // 对话模式: 'sales' (销售话术) 或 'free' (自由交流)
     salesStage: '', // 销售阶段: ''(未选择), 初次接触, 了解业务, 方案介绍, 成交推进, 售后服务
     kbSelection: {
@@ -197,6 +197,7 @@ window.__salesAgentLegacyInit = async function () {
     // 初始化深度思考按钮状态
     const deepThinkingBtn = document.getElementById('deepThinkingBtn');
     if (deepThinkingBtn) {
+        deepThinkingBtn.classList.toggle('active', AppState.isDeepThinking);
         deepThinkingBtn.onclick = () => {
             AppState.isDeepThinking = !AppState.isDeepThinking;
             deepThinkingBtn.classList.toggle('active', AppState.isDeepThinking);
@@ -408,6 +409,8 @@ async function switchSession(id, forceWelcome = false) {
             SalesStageManager.updateUI();
             document.getElementById('currentSessionTitle').textContent = session.title || '新对话';
             AppState.isDeepThinking = session.deep_thinking || false;
+            const dtBtn = document.getElementById('deepThinkingBtn');
+            if (dtBtn) dtBtn.classList.toggle('active', AppState.isDeepThinking);
 
             // Initialize kbSelection
             AppState.kbSelection = { product: [], cases: [], faq: [] };
@@ -766,6 +769,9 @@ async function sendMessage() {
     let fullContent = '';
     let thinkingContent = ''; // 累积思维链
     let citationsData = []; // 存储知识库引用数据
+    let pendingTokenRender = false;   // token 渲染 rAF 标志
+    let pendingThinkingRender = false; // thinking 渲染 rAF 标志
+    let streamFinished = false;        // 流结束守卫，防止 rAF 回调覆盖最终 HTML
 
     // 创建气泡的辅助函数
     function ensureBubbleCreated() {
@@ -865,8 +871,16 @@ async function sendMessage() {
                             // 处理思维链 - 此时创建气泡
                             ensureBubbleCreated();
                             thinkingContent += event.data;
-                            createOrUpdateThinkingElement(aiBubble, thinkingContent);
-                            scrollToBottom();
+                            if (!pendingThinkingRender) {
+                                pendingThinkingRender = true;
+                                requestAnimationFrame(() => {
+                                    if (!streamFinished) {
+                                        createOrUpdateThinkingElement(aiBubble, thinkingContent);
+                                        scrollToBottom();
+                                    }
+                                    pendingThinkingRender = false;
+                                });
+                            }
                             break;
 
                         case 'token':
@@ -876,14 +890,22 @@ async function sendMessage() {
                             markThinkingFinished(aiBubble);
 
                             fullContent += event.data;
-                            // 实时渲染 Markdown
-                            aiBubble.innerHTML = marked.parse(fullContent);
-
-                            scrollToBottom();
+                            // rAF 批量渲染：合并同一帧内的多个 token，只执行一次 parse + DOM 更新
+                            if (!pendingTokenRender) {
+                                pendingTokenRender = true;
+                                requestAnimationFrame(() => {
+                                    if (!streamFinished) {
+                                        aiBubble.innerHTML = marked.parse(fullContent);
+                                        scrollToBottom();
+                                    }
+                                    pendingTokenRender = false;
+                                });
+                            }
                             break;
 
                         case 'error':
                             console.error('[SSE] Error:', event.data);
+                            streamFinished = true;
                             ensureBubbleCreated();
                             fullContent += `\n\n❌ 错误: ${event.data}`;
                             aiBubble.innerHTML = marked.parse(fullContent);
@@ -898,6 +920,7 @@ async function sendMessage() {
                             break;
 
                         case 'done':
+                            streamFinished = true;
                             if (bubbleCreated) {
                                 markThinkingFinished(aiBubble);
                                 aiBubble.innerHTML = marked.parse(fullContent);
@@ -911,6 +934,7 @@ async function sendMessage() {
         }
 
         // 终结处理
+        streamFinished = true; // 防止残留 rAF 回调覆盖最终 HTML
         clearGlobalLoadingStatus(); // 确保清除全局加载状态
 
         if (bubbleCreated && aiBubble) {
