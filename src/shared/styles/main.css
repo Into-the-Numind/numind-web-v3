@@ -2,7 +2,6 @@
  * 主样式文件
  * ===================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&family=Inconsolata:wght@400;700&display=swap');
 @import './variables.css';
 
 /* CSS Reset - 温和重置 */

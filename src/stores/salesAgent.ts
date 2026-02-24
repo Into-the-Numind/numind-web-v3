@@ -34,15 +34,15 @@ const LEGACY_SCRIPT_ID = 'sales-agent-legacy-script'
 const LEGACY_VENDOR_STYLE_LINKS: Array<{ id: string; href: string }> = [
   {
     id: 'sales-agent-highlight-style',
-    href: 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css'
+    href: '/vendor/github-dark-dimmed.min.css'
   },
   {
     id: 'sales-agent-easymde-style',
-    href: 'https://unpkg.com/easymde/dist/easymde.min.css'
+    href: '/vendor/easymde.min.css'
   },
   {
     id: 'sales-agent-fontawesome-style',
-    href: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
+    href: '/vendor/font-awesome/css/all.min.css'
   }
 ]
 let legacyScriptPromise: Promise<void> | null = null
