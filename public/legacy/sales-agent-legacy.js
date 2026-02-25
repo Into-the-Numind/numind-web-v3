@@ -2802,10 +2802,11 @@ function kbRenderOpinionStep(listContainer) {
 
     if (window.lucide) lucide.createIcons();
 
-    // Track click handlers
-    listContainer.querySelectorAll('.kb-track-item').forEach(item => {
-        item.addEventListener('click', function () {
-            const trackId = parseInt(this.getAttribute('data-track-id'));
+    // 使用事件委托（替代逐元素 addEventListener，避免重渲染时监听器累积）
+    listContainer.onclick = function (e) {
+        const trackItem = e.target.closest('.kb-track-item');
+        if (trackItem) {
+            const trackId = parseInt(trackItem.getAttribute('data-track-id'));
             const idx = AppState.opinionTrackSelection.indexOf(trackId);
             if (idx >= 0) {
                 AppState.opinionTrackSelection.splice(idx, 1);
@@ -2816,14 +2817,13 @@ function kbRenderOpinionStep(listContainer) {
                 return;
             }
             kbRenderOpinionStep(listContainer);
-        });
-    });
+            return;
+        }
 
-    // Doc click handlers
-    listContainer.querySelectorAll('.kb-document-item').forEach(item => {
-        item.addEventListener('click', function () {
-            const docId = parseInt(this.getAttribute('data-doc-id'));
-            const selection = AppState.kbSelection.opinion;
+        const docItem = e.target.closest('.kb-document-item');
+        if (docItem) {
+            const docId = parseInt(docItem.getAttribute('data-doc-id'));
+            const selection = AppState.kbSelection.opinion || [];
             const idx = selection.indexOf(docId);
             if (idx >= 0) {
                 selection.splice(idx, 1);
@@ -2834,8 +2834,8 @@ function kbRenderOpinionStep(listContainer) {
                 return;
             }
             kbRenderOpinionStep(listContainer);
-        });
-    });
+        }
+    };
 }
 
 // --- Finish category edit (back to overview) ---
@@ -2922,6 +2922,11 @@ window.toggleKbDocument = function (docId) {
 window.saveKbSelection = async function () {
     toggleKbModal(false);
 
+    // 保存旧状态用于回滚
+    const prevDocIds = [...(AppState.documentIds || [])];
+    const prevKbSelection = JSON.parse(JSON.stringify(AppState.kbSelection));
+    const prevTrackSelection = [...(AppState.opinionTrackSelection || [])];
+
     AppState.documentIds = [
         ...AppState.kbSelection.product,
         ...AppState.kbSelection.cases,
@@ -2948,7 +2953,12 @@ window.saveKbSelection = async function () {
             showToast('知识库设置已更新', 'success');
         } catch (e) {
             console.error('Failed to update session KB selection', e);
-            showToast('更新知识库失败', 'error');
+            // 回滚到保存前的状态
+            AppState.documentIds = prevDocIds;
+            AppState.kbSelection = prevKbSelection;
+            AppState.opinionTrackSelection = prevTrackSelection;
+            renderSelectedDocuments();
+            showToast('更新知识库失败，已恢复原设置', 'error');
         }
     }
 }
