@@ -4125,7 +4125,7 @@ select.form-input {
 /* --- Overview Grid (3-column) --- */
 .kb-overview-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     padding: 20px 24px;
     flex: 1;
@@ -4201,6 +4201,7 @@ select.form-input {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
 }
 
 .kb-overview-doc-item {
@@ -4459,7 +4460,7 @@ select.form-input {
 /* Responsive: stack overview cards on small screens */
 @media (max-width: 640px) {
     .kb-overview-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     #kbModalCard {

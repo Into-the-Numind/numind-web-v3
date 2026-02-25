@@ -2471,7 +2471,7 @@ const KB_WIZARD_HINTS = {
     product: '请选择产品知识库（最多 3 个）',
     cases: '请选择案例知识库（最多 3 个）',
     faq: '请选择百问百答知识库（最多 3 个）',
-    opinion: '请选择观点文档（最多 3 个），并可选择系统赛道（最多 2 个）'
+    opinion: '系统赛道与自定义赛道合计最多选择 2 个'
 };
 
 // --- Modal open/close ---
@@ -2566,7 +2566,7 @@ function renderKbOverview() {
         }
 
         const totalCount = cat === 'opinion' ? docs.length + AppState.opinionTrackSelection.length : docs.length;
-        const maxCount = cat === 'opinion' ? '3+2' : '3';
+        const maxCount = cat === 'opinion' ? '2' : '3';
         const emptyHtml = totalCount === 0
             ? `<div class="kb-overview-empty">未选择文档</div>` : '';
 
@@ -2736,7 +2736,7 @@ function kbRenderOpinionStep(listContainer) {
             <div class="kb-opinion-section">
                 <div class="kb-opinion-section-title">
                     <i data-lucide="compass" style="width:14px;height:14px;"></i>
-                    <span>系统赛道（最多 2 个）</span>
+                    <span>系统赛道</span>
                 </div>
                 <div class="kb-track-list">
                     ${availableOpinionTracks.map(track => {
@@ -2780,7 +2780,7 @@ function kbRenderOpinionStep(listContainer) {
             <div class="kb-opinion-section" style="margin-top:16px;">
                 <div class="kb-opinion-section-title">
                     <i data-lucide="file-plus" style="width:14px;height:14px;"></i>
-                    <span>自定义观点文档（最多 3 个）</span>
+                    <span>自定义赛道</span>
                 </div>
                 ${sorted.map(doc => {
                     const docId = parseInt(doc.id || doc.ID);
@@ -2807,13 +2807,14 @@ function kbRenderOpinionStep(listContainer) {
         const trackItem = e.target.closest('.kb-track-item');
         if (trackItem) {
             const trackId = parseInt(trackItem.getAttribute('data-track-id'));
+            const totalSelected = AppState.opinionTrackSelection.length + (AppState.kbSelection.opinion || []).length;
             const idx = AppState.opinionTrackSelection.indexOf(trackId);
             if (idx >= 0) {
                 AppState.opinionTrackSelection.splice(idx, 1);
-            } else if (AppState.opinionTrackSelection.length < 2) {
+            } else if (totalSelected < 2) {
                 AppState.opinionTrackSelection.push(trackId);
             } else {
-                showToast('最多选择 2 个系统赛道', 'warning');
+                showToast('系统赛道与自定义赛道合计最多选择 2 个', 'warning');
                 return;
             }
             kbRenderOpinionStep(listContainer);
@@ -2824,13 +2825,14 @@ function kbRenderOpinionStep(listContainer) {
         if (docItem) {
             const docId = parseInt(docItem.getAttribute('data-doc-id'));
             const selection = AppState.kbSelection.opinion || [];
+            const totalSelected = AppState.opinionTrackSelection.length + selection.length;
             const idx = selection.indexOf(docId);
             if (idx >= 0) {
                 selection.splice(idx, 1);
-            } else if (selection.length < 3) {
+            } else if (totalSelected < 2) {
                 selection.push(docId);
             } else {
-                showToast('最多选择 3 个观点文档', 'warning');
+                showToast('系统赛道与自定义赛道合计最多选择 2 个', 'warning');
                 return;
             }
             kbRenderOpinionStep(listContainer);
