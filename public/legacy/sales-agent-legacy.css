@@ -4139,6 +4139,7 @@ select.form-input {
     gap: 12px;
     transition: all 0.2s ease-out;
     min-height: 180px;
+    min-width: 0;
 }
 
 .kb-overview-card:hover {
@@ -4202,6 +4203,7 @@ select.form-input {
     border-radius: 6px;
     font-size: 0.8rem;
     color: var(--text);
+    min-width: 0;
 }
 
 .kb-overview-doc-item svg {
