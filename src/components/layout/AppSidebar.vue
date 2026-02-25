@@ -37,9 +37,19 @@
             <div class="run-count-progress-bar" :class="progressClass" :style="{ width: standardPercent + '%' }"></div>
           </div>
         </template>
+        <!-- Loading -->
+        <template v-else-if="userStore.loading">
+          <div class="run-count-title">SOP 运行次数</div>
+          <div class="run-count-value run-count-loading">加载中...</div>
+        </template>
+        <!-- No user info (load failed) -->
+        <template v-else-if="!userStore.userInfo && !userStore.loading">
+          <div class="run-count-title">SOP 运行次数</div>
+          <div class="run-count-value run-count-error">加载失败</div>
+        </template>
         <!-- Free -->
         <template v-else>
-          <div class="run-count-title">运行次数</div>
+          <div class="run-count-title">SOP 运行次数</div>
           <div class="run-count-value">--</div>
           <div class="run-count-label">升级会员解锁</div>
         </template>
@@ -315,6 +325,18 @@ const isActive = (path: string) => {
 
 .run-count-progress-bar.danger {
   background: hsl(0, 70%, 55%);
+}
+
+.run-count-loading {
+  font-size: 14px !important;
+  color: hsl(150, 10%, 45%) !important;
+  font-weight: 500 !important;
+}
+
+.run-count-error {
+  font-size: 14px !important;
+  color: hsl(0, 60%, 50%) !important;
+  font-weight: 500 !important;
 }
 
 @media (max-width: 1024px) {

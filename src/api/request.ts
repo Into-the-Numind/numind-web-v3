@@ -121,15 +121,17 @@ const tryFallbackRequest = (config: any): Promise<any> | null => {
   return request.request(retryConfig)
 }
 
-// 获取 token（避免循环依赖）
+// 获取 token（避免循环依赖，兼容原版 auth_token key）
 const getToken = (): string | null => {
-  return localStorage.getItem('token')
+  return localStorage.getItem('token') || localStorage.getItem('auth_token')
 }
 
-// 清除登录状态
+// 清除登录状态（同时清除原版 key）
 const clearAuth = () => {
   localStorage.removeItem('token')
+  localStorage.removeItem('auth_token')
   localStorage.removeItem('userInfo')
+  localStorage.removeItem('user_info')
 }
 
 // 请求拦截器
@@ -193,8 +195,19 @@ request.interceptors.response.use(
           }
           return Promise.reject(new Error('登录已过期，请重新登录'))
           
-        case 403:
-          return Promise.reject(new Error('没有权限访问该资源'))
+        case 403: {
+          // 区分 token 过期（后端可能返回 403）和真正的权限不足
+          const msg403 = response.data?.message || response.data?.msg || ''
+          const isAuthExpired = !getToken() || msg403.includes('token') || msg403.includes('过期') || msg403.includes('expired')
+          if (isAuthExpired) {
+            clearAuth()
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login'
+            }
+            return Promise.reject(new Error('登录已过期，请重新登录'))
+          }
+          return Promise.reject(new Error(msg403 || '没有权限访问该资源'))
+        }
           
         case 404:
           return Promise.reject(new Error('请求的资源不存在'))

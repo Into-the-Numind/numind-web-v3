@@ -48,7 +48,7 @@
             v-for="doc in filteredDocs"
             :key="doc.id"
             class="kb-card"
-            :class="getCardStatusClass(doc.status)"
+            :class="[getCardStatusClass(doc.status), { 'kb-card-disabled': !doc.is_enabled }]"
             @click="handleCardClick(doc)"
           >
             <div class="kb-status-line"></div>
@@ -79,6 +79,16 @@
                   <span>{{ formatDateShort(doc.updated_at) }}</span>
                 </div>
               </div>
+              <button
+                class="kb-toggle-btn"
+                :class="{ 'kb-toggle-on': doc.is_enabled }"
+                :title="doc.is_enabled ? '点击禁用' : '点击启用'"
+                @click="toggleDocEnabled(doc, $event)"
+              >
+                <span class="kb-toggle-track">
+                  <span class="kb-toggle-thumb"></span>
+                </span>
+              </button>
               <button class="kb-delete-btn" title="删除文档" @click="confirmDelete(doc)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
               </button>
@@ -140,15 +150,33 @@
         </div>
 
         <!-- Chunks list -->
-        <div v-else class="kb-chunks-list">
-          <div v-for="(chunk, idx) in chunks" :key="chunk.id" class="kb-chunk-card">
-            <div class="kb-chunk-header">
-              <span class="kb-chunk-idx">#{{ idx + 1 }}</span>
-              <div v-if="chunk.tags && chunk.tags.length" class="kb-chunk-tags">
-                <span v-for="tag in chunk.tags" :key="tag" class="kb-chunk-tag">{{ tag }}</span>
+        <div v-else class="kb-chunks-section">
+          <!-- Chunk search -->
+          <div class="kb-chunk-search-box">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="kb-chunk-search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input
+              v-model="chunkSearch"
+              type="text"
+              class="kb-chunk-search-input"
+              placeholder="搜索切片内容或标签..."
+            />
+            <span class="kb-chunk-count">{{ filteredChunks.length }} / {{ chunks.length }} 切片</span>
+          </div>
+
+          <div class="kb-chunks-list">
+            <div v-for="(chunk, idx) in filteredChunks" :key="chunk.id" class="kb-chunk-card">
+              <div class="kb-chunk-header">
+                <span class="kb-chunk-idx">#{{ idx + 1 }}</span>
+                <div v-if="chunk.tags && chunk.tags.length" class="kb-chunk-tags">
+                  <span v-for="tag in chunk.tags" :key="tag" class="kb-chunk-tag">{{ tag }}</span>
+                </div>
+                <button class="kb-chunk-copy-btn" title="复制内容" @click="copyChunkContent(chunk.content)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                </button>
               </div>
+              <div v-if="chunk.summary" class="kb-chunk-summary">{{ chunk.summary }}</div>
+              <div class="kb-chunk-content">{{ chunk.content }}</div>
             </div>
-            <div class="kb-chunk-content">{{ chunk.content }}</div>
           </div>
         </div>
       </div>
@@ -251,6 +279,7 @@ import {
   fetchDocuments,
   uploadDocument,
   getDocument,
+  updateDocument,
   deleteDocument as deleteDocApi,
   fetchChunks as fetchChunksApi,
   type KnowledgeDocument,
@@ -265,6 +294,9 @@ const isLoading = ref(false)
 const isUploading = ref(false)
 const chunksLoading = ref(false)
 const searchQuery = ref('')
+
+// Chunk search
+const chunkSearch = ref('')
 
 // Upload modal
 const showUploadModal = ref(false)
@@ -291,6 +323,17 @@ const filteredDocs = computed(() => {
   return documents.value.filter(
     (d) => (d.name || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q)
   )
+})
+
+const filteredChunks = computed(() => {
+  const q = chunkSearch.value.toLowerCase().trim()
+  if (!q) return chunks.value
+  return chunks.value.filter((c) => {
+    const content = (c.content || '').toLowerCase()
+    const tags = (c.tags || []).join(' ').toLowerCase()
+    const summary = (c.summary || '').toLowerCase()
+    return content.includes(q) || tags.includes(q) || summary.includes(q)
+  })
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
@@ -397,11 +440,22 @@ async function viewDetail(doc: KnowledgeDocument) {
   currentDoc.value = doc
   chunksLoading.value = true
   chunks.value = []
+  chunkSearch.value = ''
 
   try {
     const res = await fetchChunksApi(doc.id)
     if (res.code === 200 || res.code === 0) {
-      chunks.value = res.data || []
+      const rawChunks = res.data || []
+      // Sort by number suffix in chunk ID (e.g., "15_0", "15_1", "15_2")
+      rawChunks.sort((a: DocumentChunk, b: DocumentChunk) => {
+        const getNum = (id: string) => {
+          if (!id) return 0
+          const parts = id.split('_')
+          return parseInt(parts[parts.length - 1]) || 0
+        }
+        return getNum(a.id) - getNum(b.id)
+      })
+      chunks.value = rawChunks
     }
   } catch (e: any) {
     console.error('[KnowledgeBase] 加载切片失败:', e)
@@ -414,6 +468,31 @@ async function viewDetail(doc: KnowledgeDocument) {
 function goBackToList() {
   currentDoc.value = null
   chunks.value = []
+  chunkSearch.value = ''
+}
+
+async function copyChunkContent(content: string) {
+  try {
+    await navigator.clipboard.writeText(content)
+    showToast('已复制到剪贴板', 'success')
+  } catch {
+    showToast('复制失败', 'error')
+  }
+}
+
+async function toggleDocEnabled(doc: KnowledgeDocument, event: Event) {
+  event.stopPropagation()
+  const newEnabled = !doc.is_enabled
+  try {
+    await updateDocument(doc.id, { is_enabled: newEnabled })
+    const idx = documents.value.findIndex((d) => d.id === doc.id)
+    if (idx !== -1) {
+      documents.value[idx] = { ...documents.value[idx], is_enabled: newEnabled }
+    }
+    showToast(newEnabled ? '已启用' : '已禁用', 'success')
+  } catch (e: any) {
+    showToast(`操作失败: ${e.message}`, 'error')
+  }
 }
 
 // ── Status Polling ─────────────────────────────────────────────────
@@ -841,6 +920,59 @@ function showToast(message: string, type: 'success' | 'error' | 'info' | 'warnin
   background: rgba(239, 68, 68, 0.06);
 }
 
+/* Toggle switch */
+.kb-toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.kb-toggle-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: hsl(150, 10%, 80%);
+  position: relative;
+  transition: background 0.2s;
+  display: block;
+}
+
+.kb-toggle-on .kb-toggle-track {
+  background: hsl(158, 64%, 50%);
+}
+
+.kb-toggle-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  display: block;
+}
+
+.kb-toggle-on .kb-toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* Disabled card */
+.kb-card-disabled {
+  opacity: 0.55;
+}
+
+.kb-card-disabled .kb-card-title::after {
+  content: ' (已禁用)';
+  font-size: 12px;
+  color: hsl(150, 10%, 55%);
+  font-weight: 400;
+}
+
 /* ── Skeleton ─────────────────────────────────────────────────── */
 .kb-skeleton-card {
   cursor: default !important;
@@ -1008,6 +1140,51 @@ function showToast(message: string, type: 'success' | 'error' | 'info' | 'warnin
   border: 1px dashed hsl(150, 15%, 85%);
 }
 
+/* Chunk search */
+.kb-chunks-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kb-chunk-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kb-chunk-search-icon {
+  position: absolute;
+  left: 12px;
+  color: hsl(150, 10%, 55%);
+  pointer-events: none;
+}
+
+.kb-chunk-search-input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px 0 38px;
+  border-radius: 10px;
+  border: 1px solid hsl(150, 15%, 88%);
+  background: #fff;
+  font-size: 13.5px;
+  color: hsl(150, 10%, 15%);
+  transition: all 0.2s;
+  outline: none;
+}
+
+.kb-chunk-search-input:focus {
+  border-color: hsl(158, 64%, 50%);
+  box-shadow: 0 0 0 3px hsl(158, 50%, 92%);
+}
+
+.kb-chunk-count {
+  font-size: 13px;
+  color: hsl(150, 10%, 50%);
+  white-space: nowrap;
+}
+
 /* Chunks list */
 .kb-chunks-list {
   display: flex;
@@ -1026,7 +1203,7 @@ function showToast(message: string, type: 'success' | 'error' | 'info' | 'warnin
 .kb-chunk-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -1052,6 +1229,36 @@ function showToast(message: string, type: 'success' | 'error' | 'info' | 'warnin
   background: hsl(158, 50%, 95%);
   color: hsl(158, 64%, 30%);
   border: 1px solid hsl(158, 40%, 88%);
+}
+
+.kb-chunk-copy-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: hsl(150, 10%, 60%);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kb-chunk-copy-btn:hover {
+  background: hsl(158, 50%, 95%);
+  color: hsl(158, 64%, 40%);
+}
+
+.kb-chunk-summary {
+  font-size: 13px;
+  color: hsl(150, 10%, 45%);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: hsl(150, 20%, 98%);
+  border-radius: 6px;
+  border-left: 3px solid hsl(158, 64%, 50%);
+  line-height: 1.6;
 }
 
 .kb-chunk-content {

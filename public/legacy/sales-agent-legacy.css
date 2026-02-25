@@ -1,7 +1,8 @@
 /* ==================== 销售智能体 Pro Max 样式 (Revision 2) ==================== */
 /* Design System: Ethereal Forest (Glassmorphism + AI Native) */
 
-:root {
+/* CSS 变量限定在 .app-container 作用域内，避免覆盖 Vue 3 全局变量 */
+body.sales-agent-route .app-container {
     /* --- Palette --- */
     --c-primary: 158, 64%, 40%;
     /* #25a769 */
@@ -45,21 +46,24 @@
 }
 
 /* ==================== Reset & Base ==================== */
-* {
+/* 全局重置：限定在 sales-agent 容器内，避免影响 V3 其他路由 */
+body.sales-agent-route .app-container *,
+body.sales-agent-route .app-container *::before,
+body.sales-agent-route .app-container *::after {
     box-sizing: border-box;
     outline: none;
     -webkit-tap-highlight-color: transparent;
 }
 
-html,
-body {
+/* body 样式通过 .sales-agent-route class 限定作用域 */
+body.sales-agent-route {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    font-family: var(--font-sans);
-    background: radial-gradient(circle at top left, hsl(var(--c-bg-grad-start)), hsl(var(--c-bg-grad-end)));
-    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: radial-gradient(circle at top left, hsl(150, 30%, 96%), hsl(160, 30%, 99%));
+    color: hsl(150, 20%, 15%);
     overflow: hidden;
 }
 
@@ -4179,6 +4183,10 @@ select.form-input {
     background: #f59e0b;
 }
 
+.kb-overview-card.opinion .kb-overview-card-dot {
+    background: #8b5cf6;
+}
+
 .kb-overview-card-count {
     font-size: 0.75rem;
     color: var(--text-light);
@@ -4351,6 +4359,87 @@ select.form-input {
     border-color: rgba(245, 158, 11, 0.3);
     color: #b45309;
     background: rgba(245, 158, 11, 0.08);
+}
+
+.kb-tag.opinion {
+    border-color: rgba(139, 92, 246, 0.3);
+    color: #6d28d9;
+    background: rgba(139, 92, 246, 0.08);
+}
+
+/* Opinion section styles */
+.kb-opinion-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+}
+
+.kb-track-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kb-track-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s ease-out;
+}
+
+.kb-track-item:hover {
+    border-color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.02);
+}
+
+.kb-track-item.selected {
+    background: rgba(139, 92, 246, 0.08);
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 1px #8b5cf6 inset;
+}
+
+.kb-track-item .kb-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease-out;
+}
+
+.kb-track-item.selected .kb-checkbox {
+    background: #8b5cf6;
+    border-color: #8b5cf6;
+    color: white;
+}
+
+.kb-track-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.kb-track-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.kb-track-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
 }
 
 /* Disabled Item Style (cross-category) */

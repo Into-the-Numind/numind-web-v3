@@ -220,16 +220,16 @@ const sortedRecords = computed(() => {
 })
 
 // --- 辅助方法 ---
-const isCompleted = (r: SopRunRecord) => r.completedCount >= r.totalNodes
+const isCompleted = (r: SopRunRecord) => r.status === 'succeeded'
 
 const statusClass = (r: SopRunRecord) => {
-  if (r.status === 'succeeded' || isCompleted(r)) return 'completed'
+  if (r.status === 'succeeded') return 'completed'
   if (r.status === 'failed') return 'failed'
   return 'running'
 }
 
 const statusLabel = (r: SopRunRecord) => {
-  if (r.status === 'succeeded' || isCompleted(r)) return '已完成'
+  if (r.status === 'succeeded') return '已完成'
   if (r.status === 'failed') return '已失败'
   return '进行中'
 }
@@ -329,8 +329,8 @@ const loadRecords = async () => {
   loading.value = true
   try {
     const runs = await fetchExecutedRuns()
-    // 过滤掉 pending 和 failed
-    records.value = runs.filter((r) => r.status !== 'pending' && r.status !== 'failed')
+    // 过滤掉 pending（无有效 runId），保留 failed 让用户可见
+    records.value = runs.filter((r) => r.status !== 'pending')
 
     // 异步更新未完成记录的进度
     for (const r of records.value) {

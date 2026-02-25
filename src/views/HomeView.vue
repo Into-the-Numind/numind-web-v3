@@ -1,58 +1,94 @@
 <template>
   <MainLayout>
-    <div class="workspace-section">
-      <div class="workspace-section-title">已上线</div>
-      <div class="cards-grid">
-        <button
-          v-for="workflow in onlineWorkflows"
-          :key="workflow.key"
-          type="button"
-          class="card"
-          :class="{ loading: launchingWorkflowKey === workflow.key }"
-          :disabled="launchingWorkflowKey === workflow.key"
-          @click="handleWorkflowClick(workflow)"
-        >
-          <svg class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-            <path
-              d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-            <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
-            <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
-          </svg>
-          <div class="card-title">{{ workflow.title }}</div>
-          <div class="card-subtitle">{{ workflow.subtitle }}</div>
-        </button>
-      </div>
+    <!-- 加载状态 -->
+    <div v-if="pageLoading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">加载中...</div>
     </div>
 
-    <div class="workspace-section">
-      <div class="workspace-section-title">本月上线</div>
-      <div class="cards-grid">
-        <div v-for="workflow in comingSoonWorkflows" :key="workflow.title" class="card disabled">
-          <svg class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-            <path
-              d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-            <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
-            <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
-          </svg>
-          <div class="card-title">{{ workflow.title }}</div>
-          <div class="card-subtitle">{{ workflow.subtitle }}</div>
+    <template v-else>
+      <div class="workspace-section">
+        <div class="workspace-section-title">已上线</div>
+        <div class="cards-grid">
+          <button
+            v-for="workflow in onlineWorkflows"
+            :key="workflow.key"
+            type="button"
+            class="card"
+            :class="{ loading: launchingWorkflowKey === workflow.key }"
+            :disabled="launchingWorkflowKey === workflow.key"
+            @click="handleWorkflowClick(workflow)"
+          >
+            <!-- 销售智能体专用图标 -->
+            <svg v-if="workflow.type === 'agent'" class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="10" r="4" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <path d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M20 10L24 6M24 6L28 10M24 6V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <!-- SOP 工作流图标 -->
+            <svg v-else class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
+              <path
+                d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+              <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
+              <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+            </svg>
+            <div class="card-title">{{ workflow.title }}</div>
+            <div class="card-subtitle">{{ workflow.subtitle }}</div>
+          </button>
         </div>
       </div>
-    </div>
+
+      <div class="workspace-section">
+        <div class="workspace-section-title">本月上线</div>
+        <div class="cards-grid">
+          <div v-for="workflow in comingSoonWorkflows" :key="workflow.title" class="card disabled">
+            <svg class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
+              <path
+                d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+              <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
+              <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+            </svg>
+            <div class="card-title">{{ workflow.title }}</div>
+            <div class="card-subtitle">{{ workflow.subtitle }}</div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- 权限不足模态框 -->
+    <Teleport to="body">
+      <div
+        v-if="showPermissionModal"
+        class="permission-overlay"
+        @click.self="showPermissionModal = false"
+      >
+        <div class="permission-dialog">
+          <svg class="permission-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="14" y="20" width="20" height="18" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M18 20V14C18 10.6863 20.6863 8 24 8C27.3137 8 30 10.6863 30 14V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="30" r="2" fill="currentColor"/>
+            <path d="M24 32V34" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <div class="permission-title">没有运行权限</div>
+          <div class="permission-desc">未开通该 SOP 的运行权限，请联系管理员</div>
+          <button class="permission-btn" @click="showPermissionModal = false">我知道了</button>
+        </div>
+      </div>
+    </Teleport>
   </MainLayout>
 </template>
 
@@ -82,6 +118,8 @@ const router = useRouter()
 
 const templateWorkflows = ref<OnlineWorkflow[]>([])
 const launchingWorkflowKey = ref<string | null>(null)
+const pageLoading = ref(true)
+const showPermissionModal = ref(false)
 
 const salesWorkflow: OnlineWorkflow = {
   key: 'agent-sales',
@@ -113,6 +151,7 @@ const checkTemplatePermission = async (templateId: number): Promise<boolean> => 
 }
 
 const fetchTemplates = async () => {
+  pageLoading.value = true
   try {
     const res = await request.get('/v1/sop/templates')
     const payload = (res as any)?.data
@@ -142,6 +181,8 @@ const fetchTemplates = async () => {
   } catch (error) {
     console.error('获取SOP模板失败:', error)
     templateWorkflows.value = []
+  } finally {
+    pageLoading.value = false
   }
 }
 
@@ -164,7 +205,7 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
 
     const hasPermission = await checkTemplatePermission(workflow.templateId)
     if (!hasPermission) {
-      window.alert('未开通该 SOP 的运行权限，请联系管理员')
+      showPermissionModal.value = true
       return
     }
 
@@ -222,6 +263,35 @@ const comingSoonWorkflows = [
 </script>
 
 <style scoped>
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 20px;
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
 .workspace-section {
   margin-bottom: 40px;
 }
@@ -325,6 +395,75 @@ const comingSoonWorkflows = [
 
 .card-meta {
   display: none;
+}
+
+/* 权限不足模态框 */
+.permission-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.permission-dialog {
+  background: var(--surface, #fff);
+  border-radius: 16px;
+  padding: 32px;
+  width: 90%;
+  max-width: 360px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+@keyframes dialog-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.permission-icon {
+  width: 48px;
+  height: 48px;
+  color: hsl(152, 69%, 41%);
+  margin-bottom: 16px;
+}
+
+.permission-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text, #1a1a1a);
+  margin-bottom: 8px;
+}
+
+.permission-desc {
+  font-size: 14px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.permission-btn {
+  padding: 10px 32px;
+  border-radius: 10px;
+  border: none;
+  background: hsl(152, 69%, 41%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.permission-btn:hover {
+  background: hsl(152, 69%, 35%);
 }
 
 @media (max-width: 1400px) {

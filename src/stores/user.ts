@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginApi, getUserInfo } from '@/api/auth'
+import request from '@/api/request'
 
 export interface UserInfo {
   id: string | number
@@ -15,7 +16,7 @@ export interface UserInfo {
 
 export const useUserStore = defineStore('user', () => {
   // State
-  const token = ref<string>(localStorage.getItem('token') || '')
+  const token = ref<string>(localStorage.getItem('token') || localStorage.getItem('auth_token') || '')
   const userInfo = ref<UserInfo | null>(null)
   const loading = ref(false)
 
@@ -28,18 +29,23 @@ export const useUserStore = defineStore('user', () => {
   const setToken = (newToken: string) => {
     token.value = newToken
     localStorage.setItem('token', newToken)
+    localStorage.setItem('auth_token', newToken)
   }
 
   const clearToken = () => {
     token.value = ''
     userInfo.value = null
     localStorage.removeItem('token')
+    localStorage.removeItem('auth_token')
     localStorage.removeItem('userInfo')
+    localStorage.removeItem('user_info')
   }
 
   const setUserInfo = (info: UserInfo) => {
     userInfo.value = info
-    localStorage.setItem('userInfo', JSON.stringify(info))
+    const serialized = JSON.stringify(info)
+    localStorage.setItem('userInfo', serialized)
+    localStorage.setItem('user_info', serialized)
   }
 
   // 登录
@@ -92,26 +98,58 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 周期性 Token 验证（每 5 分钟，与原版 auth.js 一致）
+  let tokenValidationTimer: ReturnType<typeof setInterval> | null = null
+  const TOKEN_VALIDATION_INTERVAL = 5 * 60 * 1000
+
+  const startTokenValidation = () => {
+    stopTokenValidation()
+    tokenValidationTimer = setInterval(async () => {
+      if (!token.value) {
+        stopTokenValidation()
+        return
+      }
+      try {
+        await request.get('/v1/sop/templates', { params: { page: 1, page_size: 1 } })
+      } catch {
+        // 401/403 已由 request.ts 拦截器处理（清除 token + 跳转登录）
+      }
+    }, TOKEN_VALIDATION_INTERVAL)
+  }
+
+  const stopTokenValidation = () => {
+    if (tokenValidationTimer !== null) {
+      clearInterval(tokenValidationTimer)
+      tokenValidationTimer = null
+    }
+  }
+
   // 退出登录
   const logout = () => {
+    stopTokenValidation()
     clearToken()
   }
 
-  // 初始化（从本地存储恢复）
+  // 初始化（从本地存储恢复，兼容原版 auth_token / user_info key）
   const init = () => {
-    const savedToken = localStorage.getItem('token')
-    const savedUserInfo = localStorage.getItem('userInfo')
-    
+    const savedToken = localStorage.getItem('token') || localStorage.getItem('auth_token')
+    const savedUserInfo = localStorage.getItem('userInfo') || localStorage.getItem('user_info')
+
     if (savedToken) {
       token.value = savedToken
     }
-    
+
     if (savedUserInfo) {
       try {
         userInfo.value = JSON.parse(savedUserInfo)
       } catch {
         localStorage.removeItem('userInfo')
+        localStorage.removeItem('user_info')
       }
+    }
+
+    if (token.value) {
+      startTokenValidation()
     }
   }
 
@@ -127,6 +165,8 @@ export const useUserStore = defineStore('user', () => {
     fetchUserInfo,
     init,
     setToken,
-    clearToken
+    clearToken,
+    startTokenValidation,
+    stopTokenValidation
   }
 })

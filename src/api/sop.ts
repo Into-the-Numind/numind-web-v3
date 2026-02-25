@@ -79,5 +79,5 @@ export const deleteRun = async (runId: string): Promise<void> => {
 }
 
 export const batchDeleteRuns = async (ids: string[]): Promise<void> => {
-  await request.post('/v1/sop/runs/batch/delete', { run_ids: ids })
+  await request.post('/v1/sop/runs/batch/delete', { ids })
 }
