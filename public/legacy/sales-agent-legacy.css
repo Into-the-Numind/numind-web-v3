@@ -1788,9 +1788,13 @@ body.sales-agent-route {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 200px;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: #fff;
     color: var(--text-muted);
     font-size: 14px;
+    border-radius: inherit;
 }
 
 .kb-document-item {
@@ -4202,6 +4206,8 @@ select.form-input {
     flex-direction: column;
     gap: 6px;
     min-width: 0;
+    max-height: 160px;
+    overflow-y: auto;
 }
 
 .kb-overview-doc-item {
@@ -4465,6 +4471,12 @@ select.form-input {
     box-shadow: none;
 }
 
+#kbModalCard {
+    max-height: 90vh;
+    min-height: 420px;
+    position: relative;
+}
+
 /* Responsive: stack overview cards on small screens */
 @media (max-width: 640px) {
     .kb-overview-grid {
@@ -4473,6 +4485,7 @@ select.form-input {
 
     #kbModalCard {
         max-width: 95%;
+        max-height: 90vh;
     }
 }
 

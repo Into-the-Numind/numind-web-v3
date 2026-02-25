@@ -2654,8 +2654,10 @@ window.kbWizardNext = function () {
 // --- Shared document list renderer (used by wizard & categoryEdit) ---
 function kbRenderCategoryDocs(listContainer) {
     if (!listContainer) return;
+    // Clear any stale onclick handler from kbRenderOpinionStep
+    listContainer.onclick = null;
     const cat = AppState.activeKbTab;
-    const currentSelection = AppState.kbSelection[cat] || [];
+    let currentSelection = AppState.kbSelection[cat] || [];
 
     // Filter: only show enabled docs, and docs not selected in OTHER categories
     const otherSelected = new Set();
@@ -2668,6 +2670,14 @@ function kbRenderCategoryDocs(listContainer) {
         const docId = parseInt(doc.id || doc.ID);
         return isEnabled && !otherSelected.has(docId);
     });
+
+    // Prune stale selections: remove IDs no longer in the enabled list
+    const enabledIdSet = new Set(enabledDocs.map(d => parseInt(d.id || d.ID)));
+    const pruned = currentSelection.filter(id => enabledIdSet.has(id));
+    if (pruned.length !== currentSelection.length) {
+        AppState.kbSelection[cat] = pruned;
+        currentSelection = pruned;
+    }
 
     if (enabledDocs.length === 0) {
         listContainer.innerHTML = `
@@ -2772,11 +2782,18 @@ function kbRenderOpinionStep(listContainer) {
         return isEnabled && !otherSelected.has(docId);
     });
 
+    // Prune stale opinion doc selections
+    const enabledIdSet = new Set(enabledDocs.map(d => parseInt(d.id || d.ID)));
+    const prunedDocs = currentDocSelection.filter(id => enabledIdSet.has(id));
+    if (prunedDocs.length !== currentDocSelection.length) {
+        AppState.kbSelection.opinion = prunedDocs;
+    }
+
     const sorted = [...enabledDocs].sort((a, b) => {
         const aId = parseInt(a.id || a.ID);
         const bId = parseInt(b.id || b.ID);
-        const aSelected = currentDocSelection.includes(aId) ? 0 : 1;
-        const bSelected = currentDocSelection.includes(bId) ? 0 : 1;
+        const aSelected = prunedDocs.includes(aId) ? 0 : 1;
+        const bSelected = prunedDocs.includes(bId) ? 0 : 1;
         return aSelected - bSelected;
     });
 
@@ -2792,7 +2809,7 @@ function kbRenderOpinionStep(listContainer) {
                     const docId = parseInt(doc.id || doc.ID);
                     const name = doc.name || doc.Name || 'Untitled';
                     const icon = getDocIcon(name);
-                    const isSelected = currentDocSelection.includes(docId);
+                    const isSelected = prunedDocs.includes(docId);
                     return `<div class="kb-document-item ${isSelected ? 'selected' : ''}" data-doc-id="${docId}" data-enabled="true">
                         <div class="kb-checkbox"><i data-lucide="check"></i></div>
                         <div class="kb-doc-icon-container"><i data-lucide="${icon}"></i></div>
@@ -2836,6 +2853,14 @@ function kbRenderOpinionStep(listContainer) {
             if (idx >= 0) {
                 selection.splice(idx, 1);
             } else if (totalSelected < 2) {
+                // Remove from other categories first
+                KB_CATEGORIES.forEach(c => {
+                    if (c !== 'opinion') {
+                        const arr = AppState.kbSelection[c] || [];
+                        const i = arr.indexOf(docId);
+                        if (i > -1) arr.splice(i, 1);
+                    }
+                });
                 selection.push(docId);
             } else {
                 showToast('系统赛道与自定义赛道合计最多选择 2 个', 'warning');
@@ -2915,6 +2940,14 @@ window.toggleKbDocument = function (docId) {
             showToast(`每个分类最多选择 ${limit} 个文档`, 'warning');
             return;
         }
+        // Remove from other categories first (a doc can only belong to one category)
+        KB_CATEGORIES.forEach(c => {
+            if (c !== currentTab) {
+                const arr = AppState.kbSelection[c] || [];
+                const i = arr.indexOf(numericDocId);
+                if (i > -1) arr.splice(i, 1);
+            }
+        });
         currentSelection.push(numericDocId);
     }
 
@@ -2959,7 +2992,6 @@ window.saveKbSelection = async function () {
                 method: 'PUT',
                 body: JSON.stringify(payload)
             });
-            showToast('知识库设置已更新', 'success');
         } catch (e) {
             console.error('Failed to update session KB selection', e);
             // 回滚到保存前的状态
@@ -3013,16 +3045,25 @@ async function renderSelectedDocuments() {
         return;
     }
 
-    // 如果还没有加载过文档列表，先加载一下，以便获取标题
+    // 如果还没有加载过文档列表或赛道列表，先加载一下，以便获取标题
+    const preloads = [];
     if (availableDocuments.length === 0) {
-        try {
-            const res = await authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/documents`, { method: 'GET' });
-            const data = await res.json();
-            if (data.code === 0 && data.data) {
-                availableDocuments = Array.isArray(data.data) ? data.data : [];
-            }
-        } catch (e) { console.error('Failed to pre-load docs for tags', e); }
+        preloads.push(
+            authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/documents`, { method: 'GET' })
+                .then(res => res.json())
+                .then(data => { if (data.code === 0 && data.data) availableDocuments = Array.isArray(data.data) ? data.data : []; })
+                .catch(e => console.error('Failed to pre-load docs for tags', e))
+        );
     }
+    if (availableOpinionTracks.length === 0 && (AppState.opinionTrackSelection || []).length > 0) {
+        preloads.push(
+            authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/opinion-tracks`, { method: 'GET' })
+                .then(res => res.json())
+                .then(data => { if (data.code === 0 && data.data) availableOpinionTracks = Array.isArray(data.data) ? data.data : []; })
+                .catch(e => console.error('Failed to pre-load tracks for tags', e))
+        );
+    }
+    if (preloads.length > 0) await Promise.all(preloads);
 
     const selectedDocs = [];
     const categoryMap = {}; // docID -> category
@@ -3054,7 +3095,6 @@ async function renderSelectedDocuments() {
         const name = track ? (track.name || track.Name) : `赛道 #${trackId}`;
         return `
             <div class="kb-tag opinion" title="${escapeHtml(name)}">
-                <i data-lucide="compass" style="width:12px;height:12px;"></i>
                 <span class="kb-tag-name" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
                 <div class="kb-tag-remove" onclick="removeSelectedTrack(${trackId})" title="移除赛道">
                     <i data-lucide="x"></i>
