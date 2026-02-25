@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
-import { createIcons } from 'lucide'
-import { icons } from '@/utils/lucide-icons'
+import { createIcons, diagnoseMissingIcons } from '@/utils/lucide-icons'
 
 declare global {
   interface Window {
@@ -177,7 +176,7 @@ const setupLegacyGlobals = () => {
 
   window.lucide = {
     createIcons: () => {
-      createIcons({ icons })
+      createIcons()
     }
   }
 
@@ -224,17 +223,7 @@ export const useSopStore = defineStore('sop', {
           window.lucide.createIcons()
         }
 
-        // dev 模式诊断：检测白名单缺失的图标
-        if (import.meta.env.DEV) {
-          document.querySelectorAll<HTMLElement>('[data-lucide]').forEach((el) => {
-            if (!el.querySelector('svg')) {
-              const name = el.getAttribute('data-lucide')
-              console.error(
-                `[lucide-whitelist] 图标 "${name}" 未在白名单中，请添加到 src/utils/lucide-icons.ts`
-              )
-            }
-          })
-        }
+        diagnoseMissingIcons()
 
         if (typeof window.__sopLegacyInit !== 'function') {
           throw new Error('legacy SOP 初始化函数未就绪')
