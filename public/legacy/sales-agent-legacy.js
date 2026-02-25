@@ -2515,7 +2515,7 @@ function kbShowView(view) {
     } else if (view === 'categoryEdit') {
         document.getElementById('kbViewCategoryEdit').style.display = 'flex';
         backBtn.style.display = 'flex';
-        title.textContent = '编辑 · ' + KB_CATEGORY_LABELS[AppState.activeKbTab];
+        title.textContent = KB_CATEGORY_LABELS[AppState.activeKbTab];
         const listEl = document.getElementById('kbCategoryDocList');
         if (AppState.activeKbTab === 'opinion') {
             kbRenderOpinionStep(listEl);
@@ -2904,8 +2904,9 @@ window.toggleKbDocument = function (docId) {
         currentSelection.splice(idx, 1);
     } else {
         // Check limit
-        if (currentSelection.length >= 3) {
-            showToast('每个分类最多选择 3 个文档', 'warning');
+        const limit = (currentTab === 'opinion') ? 2 : 3;
+        if (currentSelection.length >= limit) {
+            showToast(`每个分类最多选择 ${limit} 个文档`, 'warning');
             return;
         }
         currentSelection.push(numericDocId);

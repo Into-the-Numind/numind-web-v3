@@ -4399,14 +4399,14 @@ select.form-input {
 }
 
 .kb-track-item:hover {
-    border-color: #8b5cf6;
-    background: rgba(139, 92, 246, 0.02);
+    border-color: var(--primary);
+    background: rgba(37, 167, 105, 0.02);
 }
 
 .kb-track-item.selected {
-    background: rgba(139, 92, 246, 0.08);
-    border-color: #8b5cf6;
-    box-shadow: 0 0 0 1px #8b5cf6 inset;
+    background: rgba(37, 167, 105, 0.08);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary) inset;
 }
 
 .kb-track-item .kb-checkbox {
@@ -4422,8 +4422,8 @@ select.form-input {
 }
 
 .kb-track-item.selected .kb-checkbox {
-    background: #8b5cf6;
-    border-color: #8b5cf6;
+    background: var(--primary);
+    border-color: var(--primary);
     color: white;
 }
 
