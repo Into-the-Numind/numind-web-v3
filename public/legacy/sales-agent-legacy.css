@@ -4421,10 +4421,18 @@ select.form-input {
     transition: all 0.15s ease-out;
 }
 
+.kb-track-item:hover .kb-checkbox {
+    border-color: var(--primary);
+}
+
 .kb-track-item.selected .kb-checkbox {
     background: var(--primary);
     border-color: var(--primary);
     color: white;
+}
+
+.kb-track-item.selected .kb-checkbox svg {
+    opacity: 1;
 }
 
 .kb-track-info {

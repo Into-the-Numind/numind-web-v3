@@ -2516,6 +2516,12 @@ function kbShowView(view) {
         document.getElementById('kbViewCategoryEdit').style.display = 'flex';
         backBtn.style.display = 'flex';
         title.textContent = KB_CATEGORY_LABELS[AppState.activeKbTab];
+        const hintSpan = document.getElementById('kbCategoryEditHintText');
+        if (hintSpan) {
+            hintSpan.textContent = AppState.activeKbTab === 'opinion'
+                ? '系统赛道与自定义赛道合计最多选择 2 个'
+                : '最多选择 3 个文档';
+        }
         const listEl = document.getElementById('kbCategoryDocList');
         if (AppState.activeKbTab === 'opinion') {
             kbRenderOpinionStep(listEl);

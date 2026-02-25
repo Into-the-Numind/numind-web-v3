@@ -389,9 +389,9 @@
 
             <!-- ===== View 3: Category Edit (single category picker) ===== -->
             <div class="kb-view" id="kbViewCategoryEdit" style="display:none;">
-                <div class="kb-limit-hint">
+                <div class="kb-limit-hint" id="kbCategoryEditHint">
                     <i data-lucide="info" style="width:14px;height:14px;vertical-align:middle;"></i>
-                    最多选择 3 个文档
+                    <span id="kbCategoryEditHintText">最多选择 3 个文档</span>
                 </div>
                 <div class="kb-document-list" id="kbCategoryDocList">
                     <!-- Documents rendered by JS -->
