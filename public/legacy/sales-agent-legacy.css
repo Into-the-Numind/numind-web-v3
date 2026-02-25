@@ -4144,6 +4144,7 @@ select.form-input {
     transition: all 0.2s ease-out;
     min-height: 180px;
     min-width: 0;
+    overflow: hidden;
 }
 
 .kb-overview-card:hover {
