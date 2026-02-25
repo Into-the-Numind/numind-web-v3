@@ -99,12 +99,13 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // 周期性 Token 验证（每 5 分钟，与原版 auth.js 一致）
-  let tokenValidationTimer: ReturnType<typeof setInterval> | null = null
+  // 使用 window 属性存储 timer，防止 HMR 时旧引用丢失导致定时器泄漏
+  const TIMER_KEY = '__numind_tokenValidationTimer'
   const TOKEN_VALIDATION_INTERVAL = 5 * 60 * 1000
 
   const startTokenValidation = () => {
     stopTokenValidation()
-    tokenValidationTimer = setInterval(async () => {
+    ;(window as any)[TIMER_KEY] = setInterval(async () => {
       if (!token.value) {
         stopTokenValidation()
         return
@@ -118,9 +119,10 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const stopTokenValidation = () => {
-    if (tokenValidationTimer !== null) {
-      clearInterval(tokenValidationTimer)
-      tokenValidationTimer = null
+    const timerId = (window as any)[TIMER_KEY]
+    if (timerId !== undefined && timerId !== null) {
+      clearInterval(timerId)
+      ;(window as any)[TIMER_KEY] = null
     }
   }
 

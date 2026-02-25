@@ -327,16 +327,16 @@ const isActive = (path: string) => {
   background: hsl(0, 70%, 55%);
 }
 
-.run-count-loading {
-  font-size: 14px !important;
-  color: hsl(150, 10%, 45%) !important;
-  font-weight: 500 !important;
+.run-count-value.run-count-loading {
+  font-size: 14px;
+  color: hsl(150, 10%, 45%);
+  font-weight: 500;
 }
 
-.run-count-error {
-  font-size: 14px !important;
-  color: hsl(0, 60%, 50%) !important;
-  font-weight: 500 !important;
+.run-count-value.run-count-error {
+  font-size: 14px;
+  color: hsl(0, 60%, 50%);
+  font-weight: 500;
 }
 
 @media (max-width: 1024px) {

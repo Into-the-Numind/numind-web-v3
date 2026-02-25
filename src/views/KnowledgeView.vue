@@ -483,14 +483,19 @@ async function copyChunkContent(content: string) {
 async function toggleDocEnabled(doc: KnowledgeDocument, event: Event) {
   event.stopPropagation()
   const newEnabled = !doc.is_enabled
+  const idx = documents.value.findIndex((d) => d.id === doc.id)
+  // 乐观更新
+  if (idx !== -1) {
+    documents.value[idx] = { ...documents.value[idx], is_enabled: newEnabled }
+  }
   try {
     await updateDocument(doc.id, { is_enabled: newEnabled })
-    const idx = documents.value.findIndex((d) => d.id === doc.id)
-    if (idx !== -1) {
-      documents.value[idx] = { ...documents.value[idx], is_enabled: newEnabled }
-    }
     showToast(newEnabled ? '已启用' : '已禁用', 'success')
   } catch (e: any) {
+    // API 失败，回滚 UI
+    if (idx !== -1) {
+      documents.value[idx] = { ...documents.value[idx], is_enabled: !newEnabled }
+    }
     showToast(`操作失败: ${e.message}`, 'error')
   }
 }
