@@ -101,16 +101,21 @@ const buildAuthManager = () => {
   }
 }
 
-const ensureLegacyCss = () => {
-  if (document.getElementById(LEGACY_CSS_ID)) {
-    return
-  }
+const ensureLegacyCss = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (document.getElementById(LEGACY_CSS_ID)) {
+      resolve()
+      return
+    }
 
-  const link = document.createElement('link')
-  link.id = LEGACY_CSS_ID
-  link.rel = 'stylesheet'
-  link.href = '/legacy/sales-agent-legacy.css?v=20260220'
-  document.head.appendChild(link)
+    const link = document.createElement('link')
+    link.id = LEGACY_CSS_ID
+    link.rel = 'stylesheet'
+    link.href = '/legacy/sales-agent-legacy.css?v=20260220'
+    link.onload = () => resolve()
+    link.onerror = () => reject(new Error('sales-agent-legacy.css 加载失败'))
+    document.head.appendChild(link)
+  })
 }
 
 const removeLegacyCss = () => {
@@ -223,7 +228,7 @@ export const useSalesAgentStore = defineStore('salesAgent', {
       this.lastError = ''
       try {
         setupLegacyGlobals()
-        ensureLegacyCss()
+        await ensureLegacyCss()
         ensureLegacyVendorStyles()
         await ensureLegacyScript()
 
@@ -247,6 +252,13 @@ export const useSalesAgentStore = defineStore('salesAgent', {
       // 调用 legacy JS 的清理函数，移除 document 级事件监听器并重置状态
       if (typeof window.__salesAgentLegacyCleanup === 'function') {
         window.__salesAgentLegacyCleanup()
+      }
+
+      // 中止进行中的 SSE 请求
+      const w = window as any
+      if (w.__sseAbortController) {
+        w.__sseAbortController.abort()
+        w.__sseAbortController = null
       }
 
       removeLegacyCss()

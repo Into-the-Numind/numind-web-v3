@@ -50,11 +50,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const form = reactive({
@@ -64,6 +65,21 @@ const form = reactive({
 
 const loading = ref(false)
 const errorMessage = ref('')
+
+// 错误消息 5 秒后自动消失（与原版一致）
+let errorTimer: ReturnType<typeof setTimeout> | undefined
+watch(errorMessage, (val) => {
+  clearTimeout(errorTimer)
+  if (val) {
+    errorTimer = setTimeout(() => {
+      errorMessage.value = ''
+    }, 5000)
+  }
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(errorTimer)
+})
 
 // 检查是否已登录
 onMounted(() => {
@@ -86,7 +102,8 @@ const handleLogin = async () => {
     const result = await userStore.login(form.username.trim(), form.password)
     
     if (result.success) {
-      router.push('/')
+      const redirect = route.query.redirect as string
+      router.push(redirect || '/')
     } else {
       errorMessage.value = result.message || '登录失败'
     }

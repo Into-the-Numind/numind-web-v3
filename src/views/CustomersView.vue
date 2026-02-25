@@ -199,6 +199,7 @@
                 <label class="form-label">昵称</label>
                 <input v-model="registerForm.nickname" type="text" class="form-input" placeholder="请输入昵称（可选）" />
               </div>
+              <div v-if="registerError" class="register-error">{{ registerError }}</div>
               <div class="modal-footer">
                 <button type="button" class="btn-cancel" @click="showRegisterModal = false">取消</button>
                 <button type="submit" class="btn-submit" :disabled="isRegistering || usernameStatus === 'taken'">
@@ -240,6 +241,9 @@
                 <div class="perm-section-title">
                   <span>可用模板</span>
                   <span class="perm-count">{{ allTemplates.length }}</span>
+                  <button type="button" class="perm-select-all-btn" @click="togglePermSelectAll">
+                    {{ isPermAllSelected ? '取消全选' : '全选' }}
+                  </button>
                 </div>
                 <div class="perm-template-list">
                   <label
@@ -270,6 +274,38 @@
         </div>
       </Teleport>
 
+      <!-- ========== Batch Confirm Modal ========== -->
+      <Teleport to="body">
+        <div v-if="showBatchConfirm" class="modal-overlay" @click.self="showBatchConfirm = false">
+          <div class="modal-card batch-confirm-modal">
+            <div class="modal-header">
+              <h2>{{ batchAction === 'grant' ? '批量授权确认' : '批量撤销确认' }}</h2>
+              <button class="modal-close" @click="showBatchConfirm = false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p v-if="batchAction === 'grant'">
+                确定要为选中的 <strong>{{ selectedIds.size }}</strong> 位用户授权全部 <strong>{{ allTemplates.length }}</strong> 个模板吗？
+              </p>
+              <p v-else class="batch-revoke-warning">
+                危险操作：确定要撤销选中的 <strong>{{ selectedIds.size }}</strong> 位用户的全部模板权限吗？
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-cancel" @click="showBatchConfirm = false">取消</button>
+              <button
+                type="button"
+                :class="batchAction === 'revoke' ? 'btn-danger' : 'btn-submit'"
+                @click="executeBatchAction"
+              >
+                确认{{ batchAction === 'grant' ? '授权' : '撤销' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
       <!-- ========== Toast ========== -->
       <Teleport to="body">
         <Transition name="toast">
@@ -293,6 +329,8 @@ import {
   fetchUserTemplates,
   grantTemplates,
   revokeTemplates,
+  batchGrantTemplates,
+  batchRevokeTemplates,
   fetchAllTemplates,
   type SubUser,
   type TemplateItem
@@ -319,6 +357,11 @@ const showRegisterModal = ref(false)
 const registerForm = ref({ username: '', password: '', nickname: '' })
 const isRegistering = ref(false)
 const usernameStatus = ref<'available' | 'taken' | 'checking' | null>(null)
+const registerError = ref('')
+
+// Batch confirm
+const showBatchConfirm = ref(false)
+const batchAction = ref<'grant' | 'revoke'>('grant')
 
 // Permission modal
 const showPermModal = ref(false)
@@ -353,6 +396,10 @@ const pageUsers = computed(() => {
 
 const isAllSelected = computed(() => {
   return pageUsers.value.length > 0 && pageUsers.value.every((u) => selectedIds.has(u.user_id ?? u.id))
+})
+
+const isPermAllSelected = computed(() => {
+  return allTemplates.value.length > 0 && allTemplates.value.every((t) => permSelectedIds.has(t.id))
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
@@ -448,8 +495,24 @@ async function checkUsernameAvailability() {
   }
 }
 
+function validateRegisterForm(): string | null {
+  const username = registerForm.value.username.trim()
+  const password = registerForm.value.password
+  const nickname = registerForm.value.nickname.trim()
+
+  if (!/^[a-zA-Z0-9]{3,20}$/.test(username)) return '用户名需要3-20位字母数字'
+  if (password.length < 6 || password.length > 18) return '密码需要6-18位'
+  if (nickname && (nickname.length < 2 || nickname.length > 20)) return '昵称需要2-20位'
+  return null
+}
+
 async function handleRegister() {
-  if (!registerForm.value.username || !registerForm.value.password) return
+  const error = validateRegisterForm()
+  if (error) {
+    registerError.value = error
+    return
+  }
+  registerError.value = ''
   isRegistering.value = true
 
   try {
@@ -463,6 +526,7 @@ async function handleRegister() {
       showRegisterModal.value = false
       registerForm.value = { username: '', password: '', nickname: '' }
       usernameStatus.value = null
+      registerError.value = ''
       await loadSubUsers()
       await loadStatistics()
     }
@@ -511,6 +575,14 @@ function togglePermTemplate(id: number | string) {
   }
 }
 
+function togglePermSelectAll() {
+  if (isPermAllSelected.value) {
+    allTemplates.value.forEach((t) => permSelectedIds.delete(t.id))
+  } else {
+    allTemplates.value.forEach((t) => permSelectedIds.add(t.id))
+  }
+}
+
 async function savePermissions() {
   if (!permTarget.value) return
   const userId = permTarget.value.user_id ?? permTarget.value.id
@@ -527,6 +599,12 @@ async function savePermissions() {
     permOriginalIds.value.forEach((id) => {
       if (!permSelectedIds.has(id)) toRevoke.push(id)
     })
+
+    if (toGrant.length === 0 && toRevoke.length === 0) {
+      showToast('没有变更', 'info')
+      closePermissionModal()
+      return
+    }
 
     if (toGrant.length > 0) {
       await grantTemplates(userId, toGrant)
@@ -546,45 +624,38 @@ async function savePermissions() {
 }
 
 // ── Batch Operations ───────────────────────────────────────────────
-async function batchGrant() {
+function batchGrant() {
   if (allTemplates.value.length === 0) {
     showToast('没有可用模板', 'info')
     return
   }
-
-  const templateIds = allTemplates.value.map((t) => t.id)
-  let successCount = 0
-
-  for (const userId of selectedIds) {
-    try {
-      await grantTemplates(userId, templateIds)
-      successCount++
-    } catch (e) {
-      console.error(`批量授权用户 ${userId} 失败:`, e)
-    }
-  }
-
-  showToast(`批量授权完成 (${successCount}/${selectedIds.size})`, successCount > 0 ? 'success' : 'error')
-  selectedIds.clear()
-  await loadSubUsers()
+  batchAction.value = 'grant'
+  showBatchConfirm.value = true
 }
 
-async function batchRevoke() {
+function batchRevoke() {
+  batchAction.value = 'revoke'
+  showBatchConfirm.value = true
+}
+
+async function executeBatchAction() {
+  showBatchConfirm.value = false
+  const userIds = Array.from(selectedIds)
   const templateIds = allTemplates.value.map((t) => t.id)
-  let successCount = 0
 
-  for (const userId of selectedIds) {
-    try {
-      await revokeTemplates(userId, templateIds)
-      successCount++
-    } catch (e) {
-      console.error(`批量撤销用户 ${userId} 失败:`, e)
+  try {
+    if (batchAction.value === 'grant') {
+      await batchGrantTemplates({ user_ids: userIds, template_ids: templateIds })
+      showToast('批量授权成功', 'success')
+    } else {
+      await batchRevokeTemplates({ user_ids: userIds, template_ids: templateIds })
+      showToast('批量撤销成功', 'success')
     }
+    selectedIds.clear()
+    await loadSubUsers()
+  } catch (e: any) {
+    showToast(`批量操作失败: ${e.message}`, 'error')
   }
-
-  showToast(`批量撤销完成 (${successCount}/${selectedIds.size})`, successCount > 0 ? 'success' : 'error')
-  selectedIds.clear()
-  await loadSubUsers()
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -1262,6 +1333,49 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   cursor: not-allowed;
 }
 
+/* ── Register Error ───────────────────────────────────────────── */
+.register-error {
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 8px;
+  border-left: 3px solid #ef4444;
+}
+
+/* ── Batch Confirm ───────────────────────────────────────────── */
+.batch-confirm-modal {
+  max-width: 440px;
+}
+
+.batch-confirm-modal .modal-body p {
+  font-size: 14px;
+  color: hsl(150, 10%, 35%);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.batch-revoke-warning {
+  color: #ef4444 !important;
+}
+
+.btn-danger {
+  padding: 8px 24px;
+  border-radius: 10px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
 /* ── Permission Modal ─────────────────────────────────────────── */
 .perm-user-info {
   display: flex;
@@ -1311,6 +1425,23 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   border-radius: 10px;
   background: hsl(150, 15%, 92%);
   color: hsl(150, 10%, 45%);
+}
+
+.perm-select-all-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid hsl(150, 15%, 85%);
+  background: #fff;
+  font-size: 12px;
+  color: hsl(158, 64%, 40%);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.perm-select-all-btn:hover {
+  background: hsl(158, 50%, 95%);
+  border-color: hsl(158, 64%, 50%);
 }
 
 .perm-template-list {

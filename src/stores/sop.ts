@@ -240,6 +240,13 @@ export const useSopStore = defineStore('sop', {
         window.__sopLegacyCleanup()
       }
 
+      // 中止进行中的 SSE 请求
+      const w = window as any
+      if (w.__sopSseAbortController) {
+        w.__sopSseAbortController.abort()
+        w.__sopSseAbortController = null
+      }
+
       removeLegacyCss()
       removeLegacyVendorStyles()
 

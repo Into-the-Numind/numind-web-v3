@@ -4730,6 +4730,7 @@
 
             try {
                 // 使用fetch配合ReadableStream接收SSE数据
+                window.__sopSseAbortController = new AbortController();
                 const response = await fetch(`${API_BASE_URL}/v1/sop/text/edit`, {
                     method: 'POST',
                     headers: {
@@ -4741,7 +4742,8 @@
                         original_text: input,
                         user_message: '请检测这段产品介绍的质量，分析其完整性、准确性和可用性，并提供改进建议。',
                         deep_thinking: true
-                    })
+                    }),
+                    signal: window.__sopSseAbortController.signal
                 });
 
                 if (!response.ok) {
@@ -6367,13 +6369,15 @@
             const requestBodyString = JSON.stringify(requestBody);
             console.log('📤 请求体JSON:', requestBodyString);
 
+            window.__sopSseAbortController = new AbortController();
             const response = await fetch(`${API_BASE_URL}/v1/sop/chat/stream`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: requestBodyString  // 使用已经序列化的字符串，确保不会重复序列化
+                body: requestBodyString,  // 使用已经序列化的字符串，确保不会重复序列化
+                signal: window.__sopSseAbortController.signal
             });
 
             console.log('📥 收到响应:', {
@@ -7439,6 +7443,22 @@
         };
         originalInputValues = {};
         isUserAtBottom = true;
+
+        // 清除 scrollFollowManager 定时器
+        if (typeof scrollFollowManager !== 'undefined') {
+            if (typeof scrollFollowManager.stopPeriodicCheck === 'function') {
+                scrollFollowManager.stopPeriodicCheck();
+            }
+            if (typeof scrollFollowManager.reset === 'function') {
+                scrollFollowManager.reset();
+            }
+        }
+
+        // 中止进行中的 SSE 请求
+        if (window.__sopSseAbortController) {
+            window.__sopSseAbortController.abort();
+            window.__sopSseAbortController = null;
+        }
 
         // 重置回调
         __sopOnNavigateHome = null;

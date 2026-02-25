@@ -805,13 +805,19 @@ async function sendMessage() {
         }
 
         // 使用 fetch 发起 SSE 请求（基于会话的API）
+        // AbortController 用于路由切换时取消进行中的 SSE 流
+        if (window.__sseAbortController) {
+            window.__sseAbortController.abort();
+        }
+        window.__sseAbortController = new AbortController();
         const response = await fetch(`${API_BASE_URL}/v1/sales-rag/sessions/${AppState.currentSessionId}/chat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: window.__sseAbortController.signal
         });
 
         if (!response.ok) {
@@ -2845,6 +2851,21 @@ async function renderSelectedDocuments() {
 
     console.log('[renderSelectedDocuments] Available docs:', availableDocuments.length, 'Selected docs:', selectedDocs.length, 'IDs:', selectedDocs.map(d => d.id || d.ID));
 
+    // 生成赛道标签
+    const trackTags = (AppState.opinionTrackSelection || []).map(trackId => {
+        const track = availableOpinionTracks.find(t => parseInt(t.id || t.ID) === trackId);
+        const name = track ? (track.name || track.Name) : `赛道 #${trackId}`;
+        return `
+            <div class="kb-tag opinion" title="${escapeHtml(name)}">
+                <i data-lucide="compass" style="width:12px;height:12px;"></i>
+                <span class="kb-tag-name" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
+                <div class="kb-tag-remove" onclick="removeSelectedTrack(${trackId})" title="移除赛道">
+                    <i data-lucide="x"></i>
+                </div>
+            </div>
+        `;
+    }).join('');
+
     container.innerHTML = selectedDocs.map(doc => {
         const name = doc.name || doc.Name;
         const id = parseInt(doc.id || doc.ID);
@@ -2858,7 +2879,7 @@ async function renderSelectedDocuments() {
                 </div>
             </div>
         `;
-    }).join('');
+    }).join('') + trackTags;
 
     if (window.lucide) lucide.createIcons();
 
@@ -2876,7 +2897,7 @@ window.removeSelectedKb = function (docId) {
     const numericDocId = parseInt(docId);
 
     // Remove from all categories
-    ['product', 'cases', 'faq'].forEach(cat => {
+    ['product', 'cases', 'faq', 'opinion'].forEach(cat => {
         const idx = AppState.kbSelection[cat].indexOf(numericDocId);
         if (idx > -1) {
             AppState.kbSelection[cat].splice(idx, 1);
@@ -2887,7 +2908,8 @@ window.removeSelectedKb = function (docId) {
     AppState.documentIds = [
         ...AppState.kbSelection.product,
         ...AppState.kbSelection.cases,
-        ...AppState.kbSelection.faq
+        ...AppState.kbSelection.faq,
+        ...AppState.kbSelection.opinion
     ];
 
     // Trigger update if we have a session
@@ -2898,7 +2920,20 @@ window.removeSelectedKb = function (docId) {
     }
 }
 
-
+/**
+ * 快速移除已选中的系统赛道
+ */
+window.removeSelectedTrack = function (trackId) {
+    const idx = AppState.opinionTrackSelection.indexOf(parseInt(trackId));
+    if (idx > -1) {
+        AppState.opinionTrackSelection.splice(idx, 1);
+    }
+    if (AppState.currentSessionId) {
+        saveKbSelection();
+    } else {
+        renderSelectedDocuments();
+    }
+}
 
 window.fillInput = function (txt) {
     const i = document.getElementById('chatInput');
@@ -4437,13 +4472,26 @@ window.__salesAgentLegacyCleanup = function () {
         window._citationEscHandler = null;
     }
 
-    // 4. 重置 legacyBound 标记，允许下次进入时重新初始化
+    // 4. 取消进行中的 SSE 流
+    if (window.__sseAbortController) {
+        window.__sseAbortController.abort();
+        window.__sseAbortController = null;
+    }
+
+    // 5. 清理滚动防抖计时器
+    if (window.scrollDebounceTimer) {
+        clearTimeout(window.scrollDebounceTimer);
+        window.scrollDebounceTimer = null;
+    }
+    delete window.lastScrollTop;
+
+    // 6. 重置 legacyBound 标记，允许下次进入时重新初始化
     const chatContainer = document.getElementById('chatContainer');
     if (chatContainer) {
         delete chatContainer.dataset.legacyBound;
     }
 
-    // 5. 重置 AppState
+    // 7. 重置 AppState
     AppState.currentSessionId = null;
     AppState.sessions = [];
     AppState.messages = [];

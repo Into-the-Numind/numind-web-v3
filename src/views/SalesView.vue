@@ -366,6 +366,11 @@
                         <div class="kb-step-dot">3</div>
                         <span>百问百答</span>
                     </div>
+                    <div class="kb-step-line"></div>
+                    <div class="kb-step" data-step="opinion">
+                        <div class="kb-step-dot">4</div>
+                        <span>观点库</span>
+                    </div>
                 </div>
                 <div class="kb-limit-hint" id="kbWizardHint">
                     <i data-lucide="info" style="width:14px;height:14px;vertical-align:middle;"></i>

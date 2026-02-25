@@ -78,6 +78,16 @@ export const revokeTemplates = (userId: number | string, templateIds: (number | 
   })
 }
 
+// 批量授权模板
+export const batchGrantTemplates = (data: { user_ids: (number | string)[], template_ids: (number | string)[] }): Promise<ApiResponse<any>> => {
+  return request.post('/v1/customers/batch/grant-templates', data)
+}
+
+// 批量撤销模板
+export const batchRevokeTemplates = (data: { user_ids: (number | string)[], template_ids: (number | string)[] }): Promise<ApiResponse<any>> => {
+  return request.post('/v1/customers/batch/revoke-templates', data)
+}
+
 // 获取所有可用模板
 export const fetchAllTemplates = (): Promise<ApiResponse<TemplateItem[]>> => {
   return request.get('/v1/sop/templates')
