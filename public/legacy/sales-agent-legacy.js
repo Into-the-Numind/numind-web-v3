@@ -747,6 +747,7 @@ function useSuggestion(button) {
 }
 
 async function sendMessage() {
+    if (AppState.isLoading) return;  // 严格一来一回守卫
     const input = document.getElementById('chatInput');
     const originalText = input.value.trim();
     const sentImages = [...AppState.images];
@@ -1145,6 +1146,7 @@ async function startOCR(imageObj) {
 
     // 更新 UI 状态（收起加载图标）
     renderImagePreviews();
+    updateSendButtonState();  // OCR 完成后刷新按钮状态
 }
 
 /**
@@ -1836,7 +1838,9 @@ function updateSendButtonState() {
 
     const hasText = chatInput.value.trim().length > 0;
     const hasImages = (AppState.images && AppState.images.length > 0);
-    sendBtn.disabled = !(hasText || hasImages);
+    // 有图片时，必须所有图片 OCR 完成才能发送
+    const allImagesReady = !hasImages || AppState.images.every(img => img.status === 'success');
+    sendBtn.disabled = !((hasText || hasImages) && allImagesReady);
 }
 
 /* ==================== Profile & KB Logic ==================== */
@@ -2729,13 +2733,14 @@ function kbRenderCategoryDocs(listContainer) {
 
     if (window.lucide) lucide.createIcons();
 
-    // Click handlers
+    // Click handlers — toggle in place, no re-sort
     listContainer.querySelectorAll('.kb-document-item').forEach(item => {
         item.addEventListener('click', function () {
             const docId = parseInt(this.getAttribute('data-doc-id'));
             toggleKbDocument(docId);
-            // Re-render this list
-            kbRenderCategoryDocs(listContainer);
+            // Update visual state in place (items stay where they are)
+            const isNowSelected = (AppState.kbSelection[AppState.activeKbTab] || []).includes(docId);
+            this.classList.toggle('selected', isNowSelected);
         });
     });
 }
@@ -2840,7 +2845,9 @@ function kbRenderOpinionStep(listContainer) {
                 showToast('系统赛道与自定义赛道合计最多选择 2 个', 'warning');
                 return;
             }
-            kbRenderOpinionStep(listContainer);
+            // Toggle visual state in place (no re-sort)
+            const isTrackSelected = AppState.opinionTrackSelection.includes(trackId);
+            trackItem.classList.toggle('selected', isTrackSelected);
             return;
         }
 
@@ -2866,7 +2873,9 @@ function kbRenderOpinionStep(listContainer) {
                 showToast('系统赛道与自定义赛道合计最多选择 2 个', 'warning');
                 return;
             }
-            kbRenderOpinionStep(listContainer);
+            // Toggle visual state in place (no re-sort)
+            const isDocSelected = (AppState.kbSelection.opinion || []).includes(docId);
+            docItem.classList.toggle('selected', isDocSelected);
         }
     };
 }
