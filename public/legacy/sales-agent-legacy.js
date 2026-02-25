@@ -15,7 +15,9 @@ const AppState = {
         product: [],  // 产品文档 IDs
         cases: [],    // 成功案例 IDs
         faq: [],      // 百问百答 IDs
+        opinion: [],  // 观点库 IDs（用户上传）
     },
+    opinionTrackSelection: [], // 系统赛道 ID（最多2个）
     documentIds: [], // Deprecated: 仅用于兼容旧代码引用，实际逻辑使用 kbSelection
     // Restored States
     customerProfile: {},
@@ -307,6 +309,8 @@ async function createSession(title) {
                 product_doc_ids: AppState.kbSelection.product || [],
                 case_doc_ids: AppState.kbSelection.cases || [],
                 faq_doc_ids: AppState.kbSelection.faq || [],
+                opinion_doc_ids: AppState.kbSelection.opinion || [],
+                opinion_track_ids: AppState.opinionTrackSelection || [],
                 deep_thinking: AppState.isDeepThinking || false,
                 customer_profile: JSON.stringify(AppState.customerProfile || {})
             })
@@ -413,7 +417,8 @@ async function switchSession(id, forceWelcome = false) {
             if (dtBtn) dtBtn.classList.toggle('active', AppState.isDeepThinking);
 
             // Initialize kbSelection
-            AppState.kbSelection = { product: [], cases: [], faq: [] };
+            AppState.kbSelection = { product: [], cases: [], faq: [], opinion: [] };
+            AppState.opinionTrackSelection = [];
 
             // Parse product_doc_ids
             if (session.product_doc_ids) {
@@ -439,11 +444,28 @@ async function switchSession(id, forceWelcome = false) {
                 } catch (e) { console.error('Failed to parse faq_doc_ids', e); }
             }
 
+            // Parse opinion_doc_ids
+            if (session.opinion_doc_ids) {
+                try {
+                    const ids = JSON.parse(session.opinion_doc_ids);
+                    AppState.kbSelection.opinion = Array.isArray(ids) ? ids.map(id => parseInt(id)) : [];
+                } catch (e) { console.error('Failed to parse opinion_doc_ids', e); }
+            }
+
+            // Parse opinion_track_ids
+            if (session.opinion_track_ids) {
+                try {
+                    const ids = JSON.parse(session.opinion_track_ids);
+                    AppState.opinionTrackSelection = Array.isArray(ids) ? ids.map(id => parseInt(id)) : [];
+                } catch (e) { console.error('Failed to parse opinion_track_ids', e); }
+            }
+
             // Sync documentIds for compatibility (Union of all categories)
             AppState.documentIds = [
                 ...AppState.kbSelection.product,
                 ...AppState.kbSelection.cases,
-                ...AppState.kbSelection.faq
+                ...AppState.kbSelection.faq,
+                ...AppState.kbSelection.opinion
             ];
 
             // Fallback: if new fields are empty but old document_ids exists (e.g. old sessions)
@@ -2441,13 +2463,15 @@ function resetProfileForm() {
 let availableDocuments = [];
 AppState.activeKbTab = 'product'; // Current category being edited
 let kbCurrentView = 'overview'; // 'overview' | 'wizard' | 'categoryEdit'
-let kbWizardStep = 0; // 0=product, 1=cases, 2=faq
-const KB_CATEGORIES = ['product', 'cases', 'faq'];
-const KB_CATEGORY_LABELS = { product: '产品文档', cases: '成功案例', faq: '百问百答' };
+let kbWizardStep = 0; // 0=product, 1=cases, 2=faq, 3=opinion
+let availableOpinionTracks = []; // 系统内置观点赛道列表
+const KB_CATEGORIES = ['product', 'cases', 'faq', 'opinion'];
+const KB_CATEGORY_LABELS = { product: '产品文档', cases: '成功案例', faq: '百问百答', opinion: '观点库' };
 const KB_WIZARD_HINTS = {
     product: '请选择产品知识库（最多 3 个）',
     cases: '请选择案例知识库（最多 3 个）',
-    faq: '请选择百问百答知识库（最多 3 个）'
+    faq: '请选择百问百答知识库（最多 3 个）',
+    opinion: '请选择观点文档（最多 3 个），并可选择系统赛道（最多 2 个）'
 };
 
 // --- Modal open/close ---
@@ -2457,7 +2481,7 @@ window.toggleKbModal = async function (show) {
         m.classList.add('open');
         await loadKnowledgeDocuments();
         // Decide which view to show
-        const hasSelection = KB_CATEGORIES.some(c => (AppState.kbSelection[c] || []).length > 0);
+        const hasSelection = KB_CATEGORIES.some(c => (AppState.kbSelection[c] || []).length > 0) || (AppState.opinionTrackSelection || []).length > 0;
         if (hasSelection) {
             kbShowView('overview');
         } else {
@@ -2492,14 +2516,19 @@ function kbShowView(view) {
         document.getElementById('kbViewCategoryEdit').style.display = 'flex';
         backBtn.style.display = 'flex';
         title.textContent = '编辑 · ' + KB_CATEGORY_LABELS[AppState.activeKbTab];
-        kbRenderCategoryDocs(document.getElementById('kbCategoryDocList'));
+        const listEl = document.getElementById('kbCategoryDocList');
+        if (AppState.activeKbTab === 'opinion') {
+            kbRenderOpinionStep(listEl);
+        } else {
+            kbRenderCategoryDocs(listEl);
+        }
     }
     if (window.lucide) lucide.createIcons();
 }
 
 // --- Back button ---
 window.kbGoBack = function () {
-    const hasSelection = KB_CATEGORIES.some(c => (AppState.kbSelection[c] || []).length > 0);
+    const hasSelection = KB_CATEGORIES.some(c => (AppState.kbSelection[c] || []).length > 0) || (AppState.opinionTrackSelection || []).length > 0;
     if (kbCurrentView === 'categoryEdit' && hasSelection) {
         kbShowView('overview');
     } else {
@@ -2523,7 +2552,22 @@ function renderKbOverview() {
             </div>`;
         }).join('');
 
-        const emptyHtml = docs.length === 0
+        // 观点库额外显示已选的系统赛道
+        let trackItems = '';
+        if (cat === 'opinion' && AppState.opinionTrackSelection.length > 0) {
+            trackItems = AppState.opinionTrackSelection.map(trackId => {
+                const track = availableOpinionTracks.find(t => parseInt(t.id || t.ID) === trackId);
+                const name = track ? (track.name || track.Name) : `赛道 #${trackId}`;
+                return `<div class="kb-overview-doc-item">
+                    <i data-lucide="compass"></i>
+                    <span class="kb-overview-doc-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        const totalCount = cat === 'opinion' ? docs.length + AppState.opinionTrackSelection.length : docs.length;
+        const maxCount = cat === 'opinion' ? '3+2' : '3';
+        const emptyHtml = totalCount === 0
             ? `<div class="kb-overview-empty">未选择文档</div>` : '';
 
         return `<div class="kb-overview-card ${cat}">
@@ -2532,10 +2576,10 @@ function renderKbOverview() {
                     <div class="kb-overview-card-dot"></div>
                     ${label}
                 </div>
-                <span class="kb-overview-card-count">${docs.length}/3</span>
+                <span class="kb-overview-card-count">${totalCount}/${maxCount}</span>
             </div>
             <div class="kb-overview-doc-list">
-                ${docItems}${emptyHtml}
+                ${trackItems}${docItems}${emptyHtml}
             </div>
             <button class="kb-overview-edit-btn" onclick="kbEditCategory('${cat}')">
                 <i data-lucide="pencil"></i>
@@ -2569,14 +2613,19 @@ function kbRenderWizardStep() {
     const prevBtn = document.getElementById('kbWizardPrevBtn');
     const nextBtn = document.getElementById('kbWizardNextBtn');
     prevBtn.style.display = kbWizardStep === 0 ? 'none' : '';
-    nextBtn.querySelector('span').textContent = kbWizardStep === 2 ? '完成' : '下一步';
+    nextBtn.querySelector('span').textContent = kbWizardStep === 3 ? '完成' : '下一步';
 
     // Update hint text
     const hintText = document.getElementById('kbWizardHintText');
     if (hintText) hintText.textContent = KB_WIZARD_HINTS[cat];
 
     // Render docs for current step
-    kbRenderCategoryDocs(document.getElementById('kbDocumentList'));
+    const docList = document.getElementById('kbDocumentList');
+    if (cat === 'opinion') {
+        kbRenderOpinionStep(docList);
+    } else {
+        kbRenderCategoryDocs(docList);
+    }
 }
 
 window.kbWizardPrev = function () {
@@ -2587,7 +2636,7 @@ window.kbWizardPrev = function () {
 }
 
 window.kbWizardNext = function () {
-    if (kbWizardStep < 2) {
+    if (kbWizardStep < 3) {
         kbWizardStep++;
         kbRenderWizardStep();
     } else {
@@ -2675,6 +2724,120 @@ function kbRenderCategoryDocs(listContainer) {
     });
 }
 
+// --- Render opinion step: system tracks + user docs ---
+function kbRenderOpinionStep(listContainer) {
+    if (!listContainer) return;
+    const currentDocSelection = AppState.kbSelection.opinion || [];
+
+    // 系统赛道部分
+    let trackHTML = '';
+    if (availableOpinionTracks.length > 0) {
+        trackHTML = `
+            <div class="kb-opinion-section">
+                <div class="kb-opinion-section-title">
+                    <i data-lucide="compass" style="width:14px;height:14px;"></i>
+                    <span>系统赛道（最多 2 个）</span>
+                </div>
+                <div class="kb-track-list">
+                    ${availableOpinionTracks.map(track => {
+                        const trackId = parseInt(track.id || track.ID);
+                        const isSelected = AppState.opinionTrackSelection.includes(trackId);
+                        return `<div class="kb-track-item ${isSelected ? 'selected' : ''}" data-track-id="${trackId}">
+                            <div class="kb-checkbox"><i data-lucide="check"></i></div>
+                            <div class="kb-track-info">
+                                <div class="kb-track-name">${escapeHtml(track.name || track.Name)}</div>
+                                <div class="kb-track-desc">${escapeHtml(track.description || track.Description || '')}</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    }
+
+    // 用户文档部分
+    const otherSelected = new Set();
+    KB_CATEGORIES.forEach(c => {
+        if (c !== 'opinion') (AppState.kbSelection[c] || []).forEach(id => otherSelected.add(id));
+    });
+
+    const enabledDocs = availableDocuments.filter(doc => {
+        const isEnabled = doc.is_enabled !== false && doc.IsEnabled !== false;
+        const docId = parseInt(doc.id || doc.ID);
+        return isEnabled && !otherSelected.has(docId);
+    });
+
+    const sorted = [...enabledDocs].sort((a, b) => {
+        const aId = parseInt(a.id || a.ID);
+        const bId = parseInt(b.id || b.ID);
+        const aSelected = currentDocSelection.includes(aId) ? 0 : 1;
+        const bSelected = currentDocSelection.includes(bId) ? 0 : 1;
+        return aSelected - bSelected;
+    });
+
+    let docHTML = '';
+    if (sorted.length > 0) {
+        docHTML = `
+            <div class="kb-opinion-section" style="margin-top:16px;">
+                <div class="kb-opinion-section-title">
+                    <i data-lucide="file-plus" style="width:14px;height:14px;"></i>
+                    <span>自定义观点文档（最多 3 个）</span>
+                </div>
+                ${sorted.map(doc => {
+                    const docId = parseInt(doc.id || doc.ID);
+                    const name = doc.name || doc.Name || 'Untitled';
+                    const icon = getDocIcon(name);
+                    const isSelected = currentDocSelection.includes(docId);
+                    return `<div class="kb-document-item ${isSelected ? 'selected' : ''}" data-doc-id="${docId}" data-enabled="true">
+                        <div class="kb-checkbox"><i data-lucide="check"></i></div>
+                        <div class="kb-doc-icon-container"><i data-lucide="${icon}"></i></div>
+                        <div class="kb-document-info">
+                            <div class="kb-document-name">${escapeHtml(name)}</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+    }
+
+    listContainer.innerHTML = trackHTML + docHTML;
+
+    if (window.lucide) lucide.createIcons();
+
+    // Track click handlers
+    listContainer.querySelectorAll('.kb-track-item').forEach(item => {
+        item.addEventListener('click', function () {
+            const trackId = parseInt(this.getAttribute('data-track-id'));
+            const idx = AppState.opinionTrackSelection.indexOf(trackId);
+            if (idx >= 0) {
+                AppState.opinionTrackSelection.splice(idx, 1);
+            } else if (AppState.opinionTrackSelection.length < 2) {
+                AppState.opinionTrackSelection.push(trackId);
+            } else {
+                showToast('最多选择 2 个系统赛道', 'warning');
+                return;
+            }
+            kbRenderOpinionStep(listContainer);
+        });
+    });
+
+    // Doc click handlers
+    listContainer.querySelectorAll('.kb-document-item').forEach(item => {
+        item.addEventListener('click', function () {
+            const docId = parseInt(this.getAttribute('data-doc-id'));
+            const selection = AppState.kbSelection.opinion;
+            const idx = selection.indexOf(docId);
+            if (idx >= 0) {
+                selection.splice(idx, 1);
+            } else if (selection.length < 3) {
+                selection.push(docId);
+            } else {
+                showToast('最多选择 3 个观点文档', 'warning');
+                return;
+            }
+            kbRenderOpinionStep(listContainer);
+        });
+    });
+}
+
 // --- Finish category edit (back to overview) ---
 window.kbFinishCategoryEdit = function () {
     kbShowView('overview');
@@ -2685,12 +2848,23 @@ async function loadKnowledgeDocuments() {
     const loadingEl = document.getElementById('kbLoading');
     try {
         if (loadingEl) loadingEl.style.display = 'flex';
-        const res = await authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/documents`, { method: 'GET' });
-        const data = await res.json();
+        // 并行加载文档列表和系统赛道
+        const [docRes, trackRes] = await Promise.all([
+            authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/documents`, { method: 'GET' }),
+            authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/opinion-tracks`, { method: 'GET' }).catch(() => null)
+        ]);
+        const data = await docRes.json();
         if (data.code === 0 && data.data) {
             availableDocuments = Array.isArray(data.data) ? data.data : [];
         } else {
             availableDocuments = [];
+        }
+        // 加载系统赛道
+        if (trackRes) {
+            const trackData = await trackRes.json();
+            if (trackData.code === 0 && trackData.data) {
+                availableOpinionTracks = Array.isArray(trackData.data) ? trackData.data : [];
+            }
         }
     } catch (e) {
         console.error('Failed to load knowledge documents', e);
@@ -2717,7 +2891,7 @@ window.toggleKbDocument = function (docId) {
 
     const currentTab = AppState.activeKbTab || 'product';
     if (!AppState.kbSelection) {
-        AppState.kbSelection = { product: [], cases: [], faq: [] };
+        AppState.kbSelection = { product: [], cases: [], faq: [], opinion: [] };
     }
     const currentSelection = AppState.kbSelection[currentTab];
     if (!currentSelection) return;
@@ -2739,7 +2913,8 @@ window.toggleKbDocument = function (docId) {
     AppState.documentIds = [
         ...AppState.kbSelection.product,
         ...AppState.kbSelection.cases,
-        ...AppState.kbSelection.faq
+        ...AppState.kbSelection.faq,
+        ...AppState.kbSelection.opinion
     ];
 }
 
@@ -2750,7 +2925,8 @@ window.saveKbSelection = async function () {
     AppState.documentIds = [
         ...AppState.kbSelection.product,
         ...AppState.kbSelection.cases,
-        ...AppState.kbSelection.faq
+        ...AppState.kbSelection.faq,
+        ...AppState.kbSelection.opinion
     ];
 
     renderSelectedDocuments();
@@ -2761,7 +2937,9 @@ window.saveKbSelection = async function () {
                 document_ids: AppState.documentIds,
                 product_doc_ids: AppState.kbSelection.product,
                 case_doc_ids: AppState.kbSelection.cases,
-                faq_doc_ids: AppState.kbSelection.faq
+                faq_doc_ids: AppState.kbSelection.faq,
+                opinion_doc_ids: AppState.kbSelection.opinion,
+                opinion_track_ids: AppState.opinionTrackSelection
             };
             await authManager.fetchWithAuth(`${API_BASE_URL}/v1/sales-rag/sessions/${AppState.currentSessionId}`, {
                 method: 'PUT',
@@ -2831,7 +3009,7 @@ async function renderSelectedDocuments() {
     const categoryMap = {}; // docID -> category
 
     // Collect all selected docs
-    ['product', 'cases', 'faq'].forEach(cat => {
+    ['product', 'cases', 'faq', 'opinion'].forEach(cat => {
         (AppState.kbSelection[cat] || []).forEach(docId => {
             categoryMap[docId] = cat;
         });
