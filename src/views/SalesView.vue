@@ -480,7 +480,7 @@
 
             <div class="profile-modal-body">
                 <!-- Step 1: 语言指纹显示页（有记录显示内容，无记录显示空状态） -->
-                <div class="profile-step profile-step-display" id="chatStyleStepDisplay">
+                <div class="chatstyle-step chatstyle-step-display" id="chatStyleStepDisplay">
                     <!-- 空状态（无记录时显示） -->
                     <div class="profile-display-empty" id="chatStyleDisplayEmpty">
                         <i data-lucide="message-square"></i>
@@ -495,7 +495,7 @@
                 </div>
 
                 <!-- Step 2: 资料输入页 -->
-                <div class="profile-step profile-step-input" id="chatStyleStepInput">
+                <div class="chatstyle-step chatstyle-step-input" id="chatStyleStepInput">
                     <!-- 上传区域 -->
                     <div class="profile-input-upload-wrapper">
                         <div class="profile-upload-zone" id="chatStyleUploadZoneInput">
@@ -531,7 +531,7 @@
                 </div>
 
                 <!-- Step 3: 分析中 -->
-                <div class="profile-step profile-step-analyzing" id="chatStyleStepAnalyzing">
+                <div class="chatstyle-step chatstyle-step-analyzing" id="chatStyleStepAnalyzing">
                     <div class="profile-analyzing-state">
                         <div class="profile-analyzing-spinner"></div>
                         <div class="profile-analyzing-title">AI 正在分析中...</div>

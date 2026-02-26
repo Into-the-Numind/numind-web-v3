@@ -1940,8 +1940,11 @@ function setupEventListeners() {
 
     // 切换客户档案弹窗步骤
     window.switchProfileStep = function (stepName) {
-        // 隐藏所有步骤
-        document.querySelectorAll('.profile-step').forEach(step => {
+        const profileModal = document.getElementById('profileModal');
+        if (!profileModal) return;
+
+        // 隐藏客户档案弹窗内的步骤（不影响语言风格弹窗）
+        profileModal.querySelectorAll('.profile-step').forEach(step => {
             step.classList.remove('active');
         });
 
@@ -3780,8 +3783,11 @@ function toggleChatStyleModal(show) {
 
 // 切换语言指纹分析步骤
 window.switchChatStyleStep = function (stepName) {
-    // 隐藏所有步骤
-    document.querySelectorAll('.profile-step').forEach(step => {
+    const chatStyleModal = document.getElementById('chatStyleModal');
+    if (!chatStyleModal) return;
+
+    // 隐藏语言风格弹窗内的步骤（使用独立类名，与客户档案完全隔离）
+    chatStyleModal.querySelectorAll('.chatstyle-step').forEach(step => {
         step.classList.remove('active');
     });
 

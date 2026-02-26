@@ -3079,14 +3079,16 @@ select.form-input {
 /* ==================== Profile Steps (重构后的分步骤样式) ==================== */
 
 /* 步骤容器基础样式 */
-.profile-step {
+.profile-step,
+.chatstyle-step {
     display: none;
     flex-direction: column;
     flex: 1;
     min-height: 0;
 }
 
-.profile-step.active {
+.profile-step.active,
+.chatstyle-step.active {
     display: flex;
 }
 
@@ -3112,7 +3114,8 @@ select.form-input {
 }
 
 /* Step 2: 输入模式 */
-.profile-step-input {
+.profile-step-input,
+.chatstyle-step-input {
     gap: 20px;
     overflow-y: auto;
 }
@@ -3318,7 +3321,8 @@ select.form-input {
 }
 
 /* Step 3: 分析中 */
-.profile-step-analyzing {
+.profile-step-analyzing,
+.chatstyle-step-analyzing {
     align-items: center;
     justify-content: center;
 }
