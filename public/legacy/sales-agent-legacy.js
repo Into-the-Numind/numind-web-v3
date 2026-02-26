@@ -151,6 +151,12 @@ window.SalesStageManager = SalesStageManager;
 
 
 
+/** 控制配置按钮（知识库、客户档案、语言风格、阶段设置）的显隐 */
+function setHeaderRightVisible(visible) {
+    const headerRight = document.querySelector('.header-right');
+    if (headerRight) headerRight.style.display = visible ? 'flex' : 'none';
+}
+
 /* ==================== Init ==================== */
 window.__salesAgentLegacyInit = async function () {
     const chatContainer = document.getElementById('chatContainer');
@@ -195,6 +201,7 @@ window.__salesAgentLegacyInit = async function () {
         if (welcomeScreen) welcomeScreen.style.display = 'flex';
         // Ensure URL is clean
         updateUrl(null);
+        setHeaderRightVisible(false);
     }
 
     // 初始化深度思考按钮状态
@@ -298,6 +305,8 @@ function renderSessions() {
         if (inputContainer) inputContainer.style.display = 'flex';
         if (startChatContainer) startChatContainer.style.display = 'none';
     }
+
+    setHeaderRightVisible(AppState.sessions.length > 0);
 }
 
 async function createSession(title) {
