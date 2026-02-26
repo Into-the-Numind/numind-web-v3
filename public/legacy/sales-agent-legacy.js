@@ -9,7 +9,7 @@ const AppState = {
     messages: [],
     isLoading: false,
     isDeepThinking: true, // 深度思考模式（默认开启）
-    chatMode: 'sales', // 对话模式: 'sales' (销售话术) 或 'free' (自由交流)
+    chatMode: 'sales', // 对话模式: 'sales' (销冠模式) 或 'free' (顾问模式)
     salesStage: '', // 销售阶段: ''(未选择), 初次接触, 了解业务, 方案介绍, 成交推进, 售后服务
     kbSelection: {
         product: [],  // 产品文档 IDs
@@ -815,7 +815,7 @@ async function sendMessage() {
             sales_stage: AppState.salesStage || '',
             document_ids: AppState.documentIds || [],
             deep_thinking: AppState.isDeepThinking, // 发送深度思考参数
-            chat_mode: AppState.chatMode // 'sales' (销售话术) 或 'free' (自由讨论)
+            chat_mode: AppState.chatMode // 'sales' (销冠模式) 或 'free' (顾问模式)
         };
 
         // 获取 token
@@ -1006,6 +1006,8 @@ async function sendMessage() {
     }
 }
 
+const MAX_IMAGES = 6;
+
 /**
  * 初始化图片上传相关事件
  */
@@ -1017,7 +1019,16 @@ function initImageUpload() {
         uploadBtn.onclick = () => fileInput.click();
         fileInput.onchange = (e) => {
             const files = Array.from(e.target.files);
-            files.forEach(file => handleImageSelect(file));
+            const remaining = MAX_IMAGES - AppState.images.length;
+            if (remaining <= 0) {
+                showNotification(`最多只能添加 ${MAX_IMAGES} 张图片`, 'warning');
+                fileInput.value = '';
+                return;
+            }
+            if (files.length > remaining) {
+                showNotification(`最多只能添加 ${MAX_IMAGES} 张图片，已自动选取前 ${remaining} 张`, 'warning');
+            }
+            files.slice(0, remaining).forEach(file => handleImageSelect(file));
             fileInput.value = ''; // 重置以允许重复选择同一张图
         };
     }
@@ -1043,7 +1054,13 @@ function initImageUpload() {
 async function handleImageSelect(file) {
     if (!file) return;
 
-    // 1. 验证文件类型
+    // 1. 数量上限检查（兜底拦截）
+    if (AppState.images.length >= MAX_IMAGES) {
+        showNotification(`最多只能添加 ${MAX_IMAGES} 张图片`, 'warning');
+        return;
+    }
+
+    // 2. 验证文件类型
     if (!file.type.startsWith('image/')) {
         showNotification('请选择图片文件', 'error');
         return;
@@ -1730,7 +1747,7 @@ function setLoading(loading) {
 
 /* ==================== 输入框模式切换与展开功能 ==================== */
 
-// 切换对话模式（销售话术 <-> 自由讨论）
+// 切换对话模式（销冠模式 <-> 顾问模式）
 function toggleChatMode() {
     AppState.chatMode = AppState.chatMode === 'sales' ? 'free' : 'sales';
     updateModeButtonUI();
@@ -1743,11 +1760,11 @@ function updateModeButtonUI() {
     if (!modeToggleBtn || !modeLabel) return;
 
     if (AppState.chatMode === 'sales') {
-        modeLabel.textContent = '销售话术';
+        modeLabel.textContent = '销冠模式';
         modeToggleBtn.classList.remove('free-mode');
         modeToggleBtn.classList.add('sales-mode');
     } else {
-        modeLabel.textContent = '自由讨论';
+        modeLabel.textContent = '顾问模式';
         modeToggleBtn.classList.remove('sales-mode');
         modeToggleBtn.classList.add('free-mode');
     }
@@ -2428,22 +2445,22 @@ async function loadCustomerProfile() {
         if (data.code === 0 && data.data) {
             const session = data.data;
 
-            // 解析客户档案
+            // 解析客户档案（后端存储为 Markdown 字符串）
             if (session.customer_profile) {
                 try {
+                    // 向后兼容：旧会话可能存储了 JSON 格式
                     AppState.customerProfile = JSON.parse(session.customer_profile);
-                    console.log('[loadCustomerProfile] Profile loaded:', {
-                        notesLength: AppState.customerProfile.notes?.length || 0
-                    });
-                } catch (e) {
-                    console.error('[loadCustomerProfile] Failed to parse customer_profile:', e);
-                    // 如果不是 JSON，将其作为 Markdown 文本存储到 notes 字段
+                } catch {
+                    // 当前格式：Markdown 字符串，存储到 notes 字段
                     AppState.customerProfile = {
                         name: '',
                         stage: session.sales_stage || '',
                         notes: session.customer_profile
                     };
                 }
+                console.log('[loadCustomerProfile] Profile loaded:', {
+                    notesLength: AppState.customerProfile.notes?.length || 0
+                });
             } else {
                 console.log('[loadCustomerProfile] No customer_profile in session');
                 AppState.customerProfile = {};
@@ -3686,6 +3703,7 @@ function showNotification(message, type = 'info') {
     let icon = 'info';
     if (type === 'success') icon = 'check-circle';
     if (type === 'error') icon = 'alert-circle';
+    if (type === 'warning') icon = 'alert-triangle';
 
     toast.innerHTML = `
         <i data-lucide="${icon}"></i>

@@ -3808,6 +3808,14 @@ select.form-input {
     color: var(--primary);
 }
 
+.notification-toast.warning {
+    border-left: 4px solid #f59e0b;
+}
+
+.notification-toast.warning i {
+    color: #f59e0b;
+}
+
 /* ==================== Toast 通知样式（与知识库管理页面统一） ==================== */
 #toast-container {
     position: fixed;
