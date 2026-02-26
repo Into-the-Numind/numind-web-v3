@@ -187,8 +187,9 @@ window.__salesAgentLegacyInit = async function () {
         // If ID in URL, try to switch to it
         switchSession(sid);
     } else if (AppState.sessions.length > 0) {
-        // SCENARIO B: If no ID in URL but sessions exist, default to the first one
-        switchSession(AppState.sessions[0].id);
+        // SCENARIO B: If no ID in URL but sessions exist, prefer one with messages
+        const sessionWithMessages = AppState.sessions.find(s => s.message_count > 0);
+        switchSession((sessionWithMessages || AppState.sessions[0]).id);
     } else {
         // SCENARIO A: If no sessions at all, show welcome screen
         if (welcomeScreen) welcomeScreen.style.display = 'flex';
@@ -222,7 +223,8 @@ async function loadSessions() {
                 sales_stage: s.sales_stage || '',
                 updated_at: s.UpdatedAt || s.updated_at,
                 is_pinned: s.is_pinned || false,
-                pinned_at: s.pinned_at || null
+                pinned_at: s.pinned_at || null,
+                message_count: s.message_count || 0
             }));
 
             // 排序逻辑：置顶 > 更新时间
