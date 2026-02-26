@@ -291,9 +291,6 @@
         <div class="modal-card modal-card-compact">
             <div class="modal-header-compact">
                 <span class="modal-title">新建客户对话</span>
-                <button class="modal-close-btn" onclick="closeCustomerProfileModal()">
-                    <i data-lucide="x"></i>
-                </button>
             </div>
 
             <form id="newCustomerProfileForm" class="customer-profile-form-compact">
@@ -306,9 +303,6 @@
             </form>
 
             <div class="modal-footer-compact">
-                <button type="button" class="btn-secondary" onclick="closeCustomerProfileModal()">
-                    跳过
-                </button>
                 <button type="submit" class="btn-primary" form="newCustomerProfileForm">
                     <span>创建</span>
                 </button>

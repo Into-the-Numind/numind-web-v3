@@ -3239,24 +3239,6 @@ window.openCustomerProfileModal = function () {
     }
 }
 
-window.closeCustomerProfileModal = function () {
-    const modal = document.getElementById('customerProfileModal');
-    if (modal) {
-        modal.classList.remove('open');
-    }
-
-    // 如果用户选择跳过，直接创建空白会话
-    AppState.currentSessionId = null;
-    AppState.customerProfile = {};
-    AppState.documentIds = [];
-    renderSessions();
-    renderSelectedDocuments();
-    const welcomeScreen = document.getElementById('welcomeScreen');
-    if (welcomeScreen) welcomeScreen.style.display = 'flex';
-    const chatWrapper = document.getElementById('chatWrapper');
-    if (chatWrapper) chatWrapper.innerHTML = '';
-    resetProfileForm();
-}
 
 window.submitCustomerProfile = async function () {
     // 收集表单数据
