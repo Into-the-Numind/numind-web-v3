@@ -12,6 +12,13 @@ declare global {
       onSwitchRun?: (runId: string, templateId: string) => void
     }) => Promise<void>
     __sopLegacyCleanup?: () => void
+    API_BASE_URL?: string
+    authManager?: { getToken: () => string | null }
+    lucide?: { createIcons: () => void }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    marked?: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    hljs?: any
   }
 }
 

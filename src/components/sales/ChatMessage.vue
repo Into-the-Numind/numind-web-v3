@@ -1,96 +1,382 @@
-<template>
-  <article class="message-item" :class="[`role-${message.role}`]">
-    <div class="message-meta">
-      <span class="message-role">{{ roleLabel }}</span>
-      <span v-if="timeText" class="message-time">{{ timeText }}</span>
-    </div>
-    <div class="message-bubble">
-      {{ message.content }}
-    </div>
-  </article>
-</template>
-
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { SalesMessage } from '@/api/sales'
+import { computed, ref } from 'vue'
+import { Copy, RefreshCw, BookOpen } from 'lucide-vue-next'
+import type { SalesMessage, Citation } from '@/api/sales'
+import { useMarkdown } from '@/composables/useMarkdown'
+import ThinkingBlock from './ThinkingBlock.vue'
 
-const props = defineProps<{
-  message: SalesMessage
+const props = withDefaults(
+  defineProps<{
+    message?: SalesMessage
+    streaming?: boolean
+    streamContent?: string
+    streamThinkingContent?: string
+    streamCitations?: Citation[]
+    salesStage?: string
+  }>(),
+  {
+    streaming: false,
+    streamContent: '',
+    streamThinkingContent: '',
+    streamCitations: () => [],
+    salesStage: ''
+  }
+)
+
+const emit = defineEmits<{
+  showCitations: [citations: Citation[]]
+  previewImage: [url: string]
+  regenerate: []
 }>()
 
-const roleLabel = computed(() => {
-  if (props.message.role === 'assistant') return '销售助手'
-  if (props.message.role === 'user') return '你'
-  return '系统'
+const { render } = useMarkdown()
+const copied = ref(false)
+
+const isAssistant = computed(() => {
+  if (props.streaming) return true
+  return props.message?.role === 'assistant'
 })
 
-const timeText = computed(() => {
-  if (!props.message.createdAt) return ''
-  const date = new Date(props.message.createdAt)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+const isUser = computed(() => props.message?.role === 'user')
+
+const displayContent = computed(() => {
+  if (props.streaming) return props.streamContent
+  if (!props.message) return ''
+  // Hide [图片内容]: prefix for user messages
+  if (props.message.role === 'user') {
+    return props.message.content.replace(/\[图片内容\]:[^\n]*\n?/g, '').trim()
+  }
+  return props.message.content
 })
+
+const renderedContent = computed(() => {
+  return render(displayContent.value)
+})
+
+const thinkingContent = computed(() => {
+  if (props.streaming) return props.streamThinkingContent
+  return ''
+})
+
+const thinkingFinished = computed(() => {
+  if (props.streaming) {
+    // Thinking is finished when we start getting content tokens
+    return !!props.streamContent
+  }
+  return true
+})
+
+const citations = computed<Citation[]>(() => {
+  if (props.streaming) return props.streamCitations || []
+  return props.message?.verdict?.evidence || []
+})
+
+const hasCitations = computed(() => citations.value.length > 0)
+
+const hasImages = computed(() => {
+  if (!props.message?.images) return false
+  return props.message.images.length > 0
+})
+
+const displayImages = computed(() => props.message?.images || [])
+
+const hasImagesOnly = computed(() => {
+  return hasImages.value && !displayContent.value
+})
+
+async function copyMessage() {
+  try {
+    await navigator.clipboard.writeText(displayContent.value)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 2000)
+  } catch {
+    // fallback
+  }
+}
 </script>
 
+<template>
+  <div class="message" :class="[isAssistant ? 'assistant' : isUser ? 'user' : 'system']">
+    <div class="message-content">
+      <div v-if="isAssistant && salesStage" class="message-stage">
+        当前阶段：{{ salesStage }}
+      </div>
+      <button v-if="isUser" class="user-copy-btn" :class="{ copied }" @click="copyMessage">
+        <Copy :size="14" />
+      </button>
+      <div class="msg-bubble markdown-body" :class="{ 'img-only': hasImagesOnly }">
+        <!-- Image grid for user messages -->
+        <div v-if="hasImages" class="message-img-grid">
+          <img
+            v-for="(url, i) in displayImages"
+            :key="i"
+            :src="url"
+            class="message-img-item"
+            @click="emit('previewImage', url)"
+          />
+        </div>
+        <div class="message-text">
+          <!-- Thinking block -->
+          <ThinkingBlock
+            v-if="thinkingContent"
+            :content="thinkingContent"
+            :finished="thinkingFinished"
+          />
+          <!-- Message content -->
+          <div v-if="isAssistant" v-html="renderedContent"></div>
+          <div v-else>{{ displayContent }}</div>
+          <!-- AI actions -->
+          <div v-if="isAssistant && !streaming" class="ai-actions-container">
+            <button class="ai-action-btn" @click="copyMessage" title="复制">
+              <Copy :size="14" />
+            </button>
+            <button class="ai-action-btn" @click="emit('regenerate')" title="重新生成">
+              <RefreshCw :size="14" />
+            </button>
+            <button
+              v-if="hasCitations"
+              class="ai-action-btn citation-action-btn"
+              @click="emit('showCitations', citations)"
+            >
+              <BookOpen :size="14" />
+              <span>知识引用 ({{ citations.length }})</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <style scoped>
-.message-item {
+.message {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  max-width: 85%;
+  animation: slideUp 0.3s ease forwards;
 }
 
-.message-meta {
+.message-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.message-stage {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message.user {
+  align-self: flex-end;
+  align-items: flex-end;
+  flex-direction: column;
+  position: relative;
+}
+
+.message.user .message-content {
+  align-items: flex-end;
+  position: relative;
+  overflow: visible;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-bubble {
+  padding: 16px 20px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 100%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.user .msg-bubble {
+  background: var(--primary);
+  color: white;
+  border-top-right-radius: 4px;
+}
+
+.assistant .msg-bubble {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  border-top-left-radius: 4px;
+}
+
+/* Message image grid */
+.message-img-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(50px, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+  width: fit-content;
+}
+
+.message-img-item {
+  width: 60px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user .message-img-item {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.message-img-item:hover {
+  transform: scale(1.05);
+}
+
+.msg-bubble.img-only {
+  padding: 8px;
+}
+
+.msg-bubble.img-only .message-img-grid {
+  margin-bottom: 0;
+}
+
+.message-text:empty {
+  display: none;
+}
+
+/* AI actions */
+.ai-actions-container {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  justify-content: flex-start;
+}
+
+.ai-action-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text-muted);
   font-size: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.message-role {
-  font-weight: 700;
-  color: var(--text-secondary);
+.ai-action-btn:hover {
+  color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
 }
 
-.message-time {
+/* User copy button */
+.user-copy-btn {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  margin-right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  visibility: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.user-copy-btn.copied {
+  visibility: visible;
+}
+
+.user-copy-btn::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  left: -10px;
+  right: -20px;
+  z-index: -1;
+}
+
+.message.user:hover .user-copy-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+.user-copy-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* Markdown body styles */
+.markdown-body :deep(p) {
+  margin-bottom: 0.8em;
+}
+
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-body :deep(pre) {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+
+.markdown-body :deep(blockquote) {
+  border-left: 3px solid var(--accent);
+  background: rgba(37, 167, 105, 0.05);
+  padding: 8px 12px;
   color: var(--text-muted);
 }
 
-.message-bubble {
-  max-width: min(86%, 760px);
-  padding: 12px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border-light);
-  background: var(--surface);
-  color: var(--text);
-  white-space: pre-wrap;
-  line-height: 1.6;
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  padding-left: 1.5em;
+  margin-bottom: 0.8em;
 }
 
-.role-user {
-  align-items: flex-end;
+.markdown-body :deep(code) {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.9em;
 }
 
-.role-user .message-meta {
-  justify-content: flex-end;
-}
-
-.role-user .message-bubble {
-  background: linear-gradient(135deg, hsl(158 65% 44%), hsl(158 60% 38%));
-  border-color: transparent;
-  color: #fff;
-}
-
-.role-assistant .message-bubble {
-  background: linear-gradient(180deg, #ffffff 0%, hsl(158 35% 97%) 100%);
-}
-
-.role-system .message-bubble {
-  background: hsl(47 100% 96%);
-  border-color: hsl(45 90% 82%);
-  color: hsl(35 50% 30%);
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
 }
 </style>
-

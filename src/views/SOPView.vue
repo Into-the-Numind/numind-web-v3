@@ -77,11 +77,11 @@
                 </div>
                 <div class="step" data-step="2" onclick="setActiveStep(2)">
                     <div class="step-number">2</div>
-                    <div class="step-label">AI 拆解爆款文案</div>
+                    <div class="step-label">AI 拆解语言风格</div>
                 </div>
                 <div class="step" data-step="3" onclick="setActiveStep(3)">
                     <div class="step-number">3</div>
-                    <div class="step-label">AI 拆解语言风格</div>
+                    <div class="step-label">AI 拆解爆款文案</div>
                 </div>
                 <div class="step step-before-chat" data-step="4" onclick="setActiveStep(4)">
                     <div class="step-number">4</div>
@@ -203,24 +203,24 @@
                 </div>
             </div>
 
-            <!-- 第 2 步：AI 拆解爆款文案 -->
+            <!-- 第 2 步：AI 拆解IP语言风格 -->
             <div class="step-content" id="step-2">
                 <div class="step-content-header">
                     <div class="step-content-title">
-                        第 2 步：AI 拆解爆款朋友圈文案
+                        第 2 步：AI拆解IP语言风格
                     </div>
                     <div class="step-content-description">
-                        在下方输入或上传爆款朋友圈文案
+                        在下方输入或上传你的历史朋友圈文稿
                     </div>
                 </div>
 
                 <div class="page-tip" style="margin-bottom: 24px;">
-                    &#x1F4A1; 建议提供完整的爆款文案，包含开头、正文和结尾，以便AI学习完整结构
+                    &#x1F4A1; 建议提供完整、流畅的历史文稿，内容完整度越高，AI越能准确学习你的语言风格
                 </div>
 
                 <div class="input-section">
                     <div class="input-label">
-                        <span>爆款朋友圈文案</span>
+                        <span>你的历史朋友圈文稿</span>
                         <div class="label-actions">
                             <button class="upload-btn"
                                 onclick="event.stopPropagation(); document.getElementById('script-file-input').click()">上传文件</button>
@@ -247,7 +247,7 @@
                         <div class="image-preview-status"></div>
                     </div>
                     <textarea class="input-textarea" id="script-input"
-                        placeholder="请输入爆款朋友圈文案内容，或点击&quot;上传文件&quot;"></textarea>
+                        placeholder="请输入你的历史朋友圈文稿，或点击&quot;上传文件&quot;"></textarea>
                 </div>
 
                 <!-- Chatbot 风格的 AI 分析结果 -->
@@ -287,24 +287,24 @@
                 </div>
             </div>
 
-            <!-- 第 3 步：AI 拆解用户 IP 语言风格 -->
+            <!-- 第 3 步：AI 拆解爆款文案 -->
             <div class="step-content" id="step-3">
                 <div class="step-content-header">
                     <div class="step-content-title">
-                        第 3 步：AI拆解IP语言风格
+                        第 3 步：AI 拆解爆款朋友圈文案
                     </div>
                     <div class="step-content-description">
-                        在下方输入或上传你的历史朋友圈文稿
+                        在下方输入或上传爆款朋友圈文案
                     </div>
                 </div>
 
                 <div class="page-tip" style="margin-bottom: 24px;">
-                    &#x1F4A1; 建议提供完整、流畅的历史文稿，内容完整度越高，AI越能准确学习你的语言风格
+                    &#x1F4A1; 建议提供完整的爆款文案，包含开头、正文和结尾，以便AI学习完整结构
                 </div>
 
                 <div class="input-section">
                     <div class="input-label">
-                        <span>你的历史朋友圈文稿</span>
+                        <span>爆款朋友圈文案</span>
                         <div class="label-actions">
                             <button class="upload-btn"
                                 onclick="event.stopPropagation(); document.getElementById('style-file-input').click()">上传文件</button>
@@ -331,7 +331,7 @@
                         <div class="image-preview-status"></div>
                     </div>
                     <textarea class="input-textarea" id="style-input"
-                        placeholder="请输入你的历史朋友圈文稿，或点击&quot;上传文件&quot;"></textarea>
+                        placeholder="请输入爆款朋友圈文案内容，或点击&quot;上传文件&quot;"></textarea>
                 </div>
 
                 <!-- Chatbot 风格的 AI 分析结果 -->
@@ -556,6 +556,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSopStore } from '@/stores/sop'
+import request from '@/api/request'
 
 const router = useRouter()
 const route = useRoute()
@@ -574,9 +575,25 @@ const switchRun = (runId: string, templateId: string) => {
 onMounted(async () => {
   document.body.classList.add('sop-route')
 
+  // Permission check: block direct URL access without authorization
+  const templateId = (route.query.templateId as string) || ''
+  if (templateId && !route.query.runId) {
+    try {
+      const res = await request.get(`/v1/sop/templates/${templateId}/check-permission`)
+      const hasPermission = (res as any)?.data?.has_permission === true
+      if (!hasPermission) {
+        await router.replace('/')
+        return
+      }
+    } catch {
+      await router.replace('/')
+      return
+    }
+  }
+
   try {
     await sopStore.mountLegacy({
-      templateId: (route.query.templateId as string) || '',
+      templateId,
       runId: (route.query.runId as string) || '',
       onNavigateHome: goHome,
       onSwitchRun: switchRun

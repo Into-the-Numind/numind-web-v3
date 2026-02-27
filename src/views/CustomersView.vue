@@ -246,21 +246,21 @@
                   </button>
                 </div>
                 <div class="perm-template-list">
-                  <label
+                  <div
                     v-for="tpl in allTemplates"
                     :key="tpl.id"
                     class="perm-template-item"
-                    :class="{ checked: permSelectedIds.has(tpl.id) }"
+                    :class="{ checked: permSelectedIds[String(tpl.id)] }"
+                    @click="togglePermTemplate(String(tpl.id))"
                   >
                     <div
                       class="custom-checkbox"
-                      :class="{ checked: permSelectedIds.has(tpl.id) }"
-                      @click="togglePermTemplate(tpl.id)"
+                      :class="{ checked: permSelectedIds[String(tpl.id)] }"
                     >
-                      <svg v-if="permSelectedIds.has(tpl.id)" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <svg v-if="permSelectedIds[String(tpl.id)]" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <span class="perm-template-name">{{ tpl.name }}</span>
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -368,8 +368,8 @@ const showPermModal = ref(false)
 const permTarget = ref<SubUser | null>(null)
 const permLoading = ref(false)
 const permSaving = ref(false)
-const permSelectedIds = reactive(new Set<number | string>())
-const permOriginalIds = ref<Set<number | string>>(new Set())
+const permSelectedIds = reactive<Record<string, boolean>>({})
+const permOriginalIds = ref<Set<string>>(new Set())
 
 // Toast
 const toast = ref({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' })
@@ -399,7 +399,7 @@ const isAllSelected = computed(() => {
 })
 
 const isPermAllSelected = computed(() => {
-  return allTemplates.value.length > 0 && allTemplates.value.every((t) => permSelectedIds.has(t.id))
+  return allTemplates.value.length > 0 && allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
@@ -421,7 +421,8 @@ async function loadStatistics() {
       statistics.total_sub_users = d.total_sub_users ?? 0
       statistics.active_sub_users = d.active_sub_users ?? 0
       statistics.total_templates = d.total_templates_count ?? d.total_templates ?? 0
-      statistics.total_runs = d.my_total_sop_runs ?? d.total_runs ?? 0
+      // total_runs will be computed from sub-users after they load
+      statistics.total_runs = 0
     }
   } catch (e) {
     console.error('加载统计数据失败:', e)
@@ -434,6 +435,10 @@ async function loadSubUsers() {
     if (res.code === 200 || res.code === 0) {
       const d = res.data as any
       allSubUsers.value = Array.isArray(d) ? d : d?.sub_users || []
+      // Aggregate total runs from all sub-users
+      statistics.total_runs = allSubUsers.value.reduce(
+        (sum, u) => sum + (u.total_sop_runs || 0), 0
+      )
     }
   } catch (e) {
     console.error('加载子用户列表失败:', e)
@@ -445,7 +450,13 @@ async function loadAllTemplates() {
     const res = await fetchAllTemplates()
     if (res.code === 200 || res.code === 0) {
       const td = res.data as any
-      allTemplates.value = Array.isArray(td) ? td : td?.templates || []
+      const raw: any[] = Array.isArray(td) ? td : td?.templates || []
+      // API returns uppercase "ID"; normalize to lowercase "id"
+      allTemplates.value = raw.map((t) => ({
+        ...t,
+        id: t.id ?? t.ID,
+        name: t.name || '',
+      }))
     }
   } catch (e) {
     console.error('加载模板列表失败:', e)
@@ -542,16 +553,18 @@ async function openPermissionModal(user: SubUser) {
   permTarget.value = user
   showPermModal.value = true
   permLoading.value = true
-  permSelectedIds.clear()
+  Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
   permOriginalIds.value = new Set()
 
   try {
     const res = await fetchUserTemplates(user.user_id ?? user.id)
     if (res.code === 200 || res.code === 0) {
-      const authorized = res.data || []
-      authorized.forEach((t: TemplateItem) => {
-        permSelectedIds.add(t.id)
-        permOriginalIds.value.add(t.id)
+      const d = res.data as any
+      const rawAuth: any[] = Array.isArray(d) ? d : d?.templates || []
+      rawAuth.forEach((t: any) => {
+        const id = String(t.id ?? t.ID)
+        permSelectedIds[id] = true
+        permOriginalIds.value.add(id)
       })
     }
   } catch (e) {
@@ -564,22 +577,22 @@ async function openPermissionModal(user: SubUser) {
 function closePermissionModal() {
   showPermModal.value = false
   permTarget.value = null
-  permSelectedIds.clear()
+  Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
 }
 
-function togglePermTemplate(id: number | string) {
-  if (permSelectedIds.has(id)) {
-    permSelectedIds.delete(id)
+function togglePermTemplate(id: string) {
+  if (permSelectedIds[id]) {
+    delete permSelectedIds[id]
   } else {
-    permSelectedIds.add(id)
+    permSelectedIds[id] = true
   }
 }
 
 function togglePermSelectAll() {
   if (isPermAllSelected.value) {
-    allTemplates.value.forEach((t) => permSelectedIds.delete(t.id))
+    allTemplates.value.forEach((t) => delete permSelectedIds[String(t.id)])
   } else {
-    allTemplates.value.forEach((t) => permSelectedIds.add(t.id))
+    allTemplates.value.forEach((t) => { permSelectedIds[String(t.id)] = true })
   }
 }
 
@@ -590,14 +603,14 @@ async function savePermissions() {
 
   try {
     // Calculate diff
-    const toGrant: (number | string)[] = []
-    const toRevoke: (number | string)[] = []
+    const toGrant: string[] = []
+    const toRevoke: string[] = []
 
-    permSelectedIds.forEach((id) => {
+    Object.keys(permSelectedIds).forEach((id) => {
       if (!permOriginalIds.value.has(id)) toGrant.push(id)
     })
     permOriginalIds.value.forEach((id) => {
-      if (!permSelectedIds.has(id)) toRevoke.push(id)
+      if (!permSelectedIds[id]) toRevoke.push(id)
     })
 
     if (toGrant.length === 0 && toRevoke.length === 0) {
@@ -607,10 +620,10 @@ async function savePermissions() {
     }
 
     if (toGrant.length > 0) {
-      await grantTemplates(userId, toGrant)
+      await grantTemplates(userId, toGrant.map(Number))
     }
     if (toRevoke.length > 0) {
-      await revokeTemplates(userId, toRevoke)
+      await revokeTemplates(userId, toRevoke.map(Number))
     }
 
     showToast('权限已更新', 'success')
@@ -916,7 +929,7 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 }
 
 .cm-table th {
-  text-align: left;
+  text-align: center;
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 600;
@@ -931,6 +944,7 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   padding: 14px 16px;
   border-bottom: 1px solid hsl(150, 15%, 95%);
   color: hsl(150, 10%, 25%);
+  text-align: center;
 }
 
 .cm-table tr:hover td {
