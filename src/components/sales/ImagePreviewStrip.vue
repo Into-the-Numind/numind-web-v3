@@ -16,13 +16,13 @@ const emit = defineEmits<{
   <div v-if="images.length > 0" class="image-preview-strip">
     <div
       v-for="(img, index) in images"
-      :key="index"
+      :key="img.previewUrl || index"
       class="image-preview-item"
       :class="img.status"
     >
       <img
         :src="img.previewUrl"
-        alt="Preview"
+        alt="上传图片预览"
         @click="emit('preview', img.previewUrl)"
       />
       <div v-if="img.status === 'processing'" class="image-processing-overlay">
@@ -31,7 +31,7 @@ const emit = defineEmits<{
       <div v-if="img.status === 'error'" class="image-error-overlay">
         <span>OCR 失败</span>
       </div>
-      <button class="image-remove-btn" @click.stop="emit('remove', index)">
+      <button class="image-remove-btn" aria-label="移除图片" @click.stop="emit('remove', index)">
         <X :size="12" />
       </button>
     </div>

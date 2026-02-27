@@ -319,7 +319,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import {
   fetchStatistics,
@@ -403,6 +403,11 @@ const isPermAllSelected = computed(() => {
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
+onBeforeUnmount(() => {
+  if (toastTimer) clearTimeout(toastTimer)
+  if (searchTimer) clearTimeout(searchTimer)
+})
+
 onMounted(async () => {
   isLoading.value = true
   try {
@@ -541,8 +546,8 @@ async function handleRegister() {
       await loadSubUsers()
       await loadStatistics()
     }
-  } catch (e: any) {
-    showToast(`注册失败: ${e.message}`, 'error')
+  } catch (e: unknown) {
+    showToast(`注册失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
   } finally {
     isRegistering.value = false
   }
@@ -559,9 +564,9 @@ async function openPermissionModal(user: SubUser) {
   try {
     const res = await fetchUserTemplates(user.user_id ?? user.id)
     if (res.code === 200 || res.code === 0) {
-      const d = res.data as any
-      const rawAuth: any[] = Array.isArray(d) ? d : d?.templates || []
-      rawAuth.forEach((t: any) => {
+      const d = res.data as Record<string, unknown> | unknown[]
+      const rawAuth = (Array.isArray(d) ? d : (d as Record<string, unknown>)?.templates || []) as Array<Record<string, unknown>>
+      rawAuth.forEach((t) => {
         const id = String(t.id ?? t.ID)
         permSelectedIds[id] = true
         permOriginalIds.value.add(id)
@@ -629,8 +634,8 @@ async function savePermissions() {
     showToast('权限已更新', 'success')
     closePermissionModal()
     await loadSubUsers()
-  } catch (e: any) {
-    showToast(`保存失败: ${e.message}`, 'error')
+  } catch (e: unknown) {
+    showToast(`保存失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
   } finally {
     permSaving.value = false
   }
@@ -666,8 +671,8 @@ async function executeBatchAction() {
     }
     selectedIds.clear()
     await loadSubUsers()
-  } catch (e: any) {
-    showToast(`批量操作失败: ${e.message}`, 'error')
+  } catch (e: unknown) {
+    showToast(`批量操作失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
   }
 }
 

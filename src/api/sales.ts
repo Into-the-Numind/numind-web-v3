@@ -1,4 +1,5 @@
 import request from './request'
+import { getToken, clearAuth } from './request'
 
 // ==================== Types ====================
 
@@ -143,8 +144,10 @@ export interface SendSalesMessagePayload {
   chat_mode?: ChatMode
 }
 
+export type SalesChatEventType = 'status' | 'thinking' | 'token' | 'verdict' | 'citations' | 'done' | 'error'
+
 export interface SalesChatEvent {
-  type: string
+  type: SalesChatEventType
   data: unknown
 }
 
@@ -169,31 +172,52 @@ const parseJsonArray = (raw: unknown): number[] => {
   }
 }
 
-const normalizeSession = (raw: any): SalesSession | null => {
-  const id = asNumber(raw?.ID ?? raw?.id)
+export function normalizeVerdictData(raw: unknown): Citation[] {
+  if (!raw || typeof raw !== 'object') return []
+  const obj = raw as Record<string, unknown>
+  if (!obj.evidence || !Array.isArray(obj.evidence)) return []
+  return obj.evidence
+    .map((chunk: unknown) => {
+      if (!chunk || typeof chunk !== 'object') return null
+      const c = chunk as Record<string, unknown>
+      return {
+        document_name: asString(c.document_name ?? c.DocumentName) || '未知文档',
+        content: asString(c.content ?? c.Content),
+        score: asNumber(c.score ?? c.Score)
+      }
+    })
+    .filter(Boolean) as Citation[]
+}
+
+const normalizeSession = (raw: unknown): SalesSession | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const id = asNumber(obj.ID ?? obj.id)
   if (id <= 0) return null
 
   return {
     id,
-    title: asString(raw?.title) || '新对话',
-    salesStage: asString(raw?.sales_stage),
-    updatedAt: asString(raw?.UpdatedAt ?? raw?.updated_at),
-    isPinned: Boolean(raw?.is_pinned),
-    pinnedAt: raw?.pinned_at || null,
-    messageCount: asNumber(raw?.message_count)
+    title: asString(obj.title) || '新对话',
+    salesStage: asString(obj.sales_stage),
+    updatedAt: asString(obj.UpdatedAt ?? obj.updated_at),
+    isPinned: Boolean(obj.is_pinned),
+    pinnedAt: (obj.pinned_at as string) || null,
+    messageCount: asNumber(obj.message_count)
   }
 }
 
-const normalizeSessionDetail = (raw: any): SalesSessionDetail | null => {
-  const id = asNumber(raw?.ID ?? raw?.id)
+const normalizeSessionDetail = (raw: unknown): SalesSessionDetail | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const id = asNumber(obj.ID ?? obj.id)
   if (id <= 0) return null
 
-  const productDocIds = parseJsonArray(raw?.product_doc_ids)
-  const caseDocIds = parseJsonArray(raw?.case_doc_ids)
-  const faqDocIds = parseJsonArray(raw?.faq_doc_ids)
-  const opinionDocIds = parseJsonArray(raw?.opinion_doc_ids)
-  const opinionTrackIds = parseJsonArray(raw?.opinion_track_ids)
-  const legacyDocIds = parseJsonArray(raw?.document_ids)
+  const productDocIds = parseJsonArray(obj.product_doc_ids)
+  const caseDocIds = parseJsonArray(obj.case_doc_ids)
+  const faqDocIds = parseJsonArray(obj.faq_doc_ids)
+  const opinionDocIds = parseJsonArray(obj.opinion_doc_ids)
+  const opinionTrackIds = parseJsonArray(obj.opinion_track_ids)
+  const legacyDocIds = parseJsonArray(obj.document_ids)
 
   // Backward compat: if new fields empty but old document_ids exists, treat as product
   const effectiveProductDocIds =
@@ -203,37 +227,34 @@ const normalizeSessionDetail = (raw: any): SalesSessionDetail | null => {
 
   return {
     id,
-    title: asString(raw?.title) || '新对话',
-    salesStage: asString(raw?.sales_stage),
-    deepThinking: Boolean(raw?.deep_thinking),
-    customerProfile: asString(raw?.customer_profile),
+    title: asString(obj.title) || '新对话',
+    salesStage: asString(obj.sales_stage),
+    deepThinking: Boolean(obj.deep_thinking),
+    customerProfile: asString(obj.customer_profile),
     productDocIds: effectiveProductDocIds,
     caseDocIds,
     faqDocIds,
     opinionDocIds,
     opinionTrackIds,
     documentIds: [...effectiveProductDocIds, ...caseDocIds, ...faqDocIds, ...opinionDocIds],
-    updatedAt: asString(raw?.UpdatedAt ?? raw?.updated_at)
+    updatedAt: asString(obj.UpdatedAt ?? obj.updated_at)
   }
 }
 
-const normalizeMessage = (raw: any): SalesMessage | null => {
-  const id = asNumber(raw?.ID ?? raw?.id)
-  const role = asString(raw?.role)
+const normalizeMessage = (raw: unknown): SalesMessage | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const id = asNumber(obj.ID ?? obj.id)
+  const role = asString(obj.role)
   if (!id || (role !== 'user' && role !== 'assistant' && role !== 'system')) return null
 
   let verdict: VerdictData | undefined
-  if (raw?.verdict && role === 'assistant') {
+  if (obj.verdict && role === 'assistant') {
     try {
-      const verdictData = typeof raw.verdict === 'string' ? JSON.parse(raw.verdict) : raw.verdict
-      if (verdictData?.evidence && Array.isArray(verdictData.evidence) && verdictData.evidence.length > 0) {
-        verdict = {
-          evidence: verdictData.evidence.map((chunk: any) => ({
-            document_name: chunk.document_name || chunk.DocumentName || '未知文档',
-            content: chunk.content || chunk.Content || '',
-            score: chunk.score || chunk.Score || 0
-          }))
-        }
+      const verdictData = typeof obj.verdict === 'string' ? JSON.parse(obj.verdict) : obj.verdict
+      const evidence = normalizeVerdictData(verdictData)
+      if (evidence.length > 0) {
+        verdict = { evidence }
       }
     } catch {
       // ignore parse error
@@ -241,9 +262,10 @@ const normalizeMessage = (raw: any): SalesMessage | null => {
   }
 
   let images: string[] | undefined
-  if (raw?.images) {
+  if (obj.images) {
     try {
-      images = typeof raw.images === 'string' ? JSON.parse(raw.images) : raw.images
+      const parsed = typeof obj.images === 'string' ? JSON.parse(obj.images) : obj.images
+      images = Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : undefined
     } catch {
       images = undefined
     }
@@ -252,56 +274,49 @@ const normalizeMessage = (raw: any): SalesMessage | null => {
   return {
     id,
     role,
-    content: asString(raw?.content),
-    createdAt: asString(raw?.CreatedAt ?? raw?.created_at),
+    content: asString(obj.content),
+    createdAt: asString(obj.CreatedAt ?? obj.created_at),
     verdict,
     images
   }
 }
 
-const normalizeKbDocument = (raw: any): KnowledgeDocumentBrief | null => {
-  const id = asNumber(raw?.ID ?? raw?.id)
+const normalizeKbDocument = (raw: unknown): KnowledgeDocumentBrief | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const id = asNumber(obj.ID ?? obj.id)
   if (id <= 0) return null
 
   return {
     id,
-    name: asString(raw?.name) || '未命名文档',
-    description: asString(raw?.description),
-    status: asString(raw?.status),
-    chunkCount: asNumber(raw?.chunk_count),
-    fileSize: asNumber(raw?.file_size),
-    isEnabled: raw?.is_enabled !== false,
-    createdAt: asString(raw?.CreatedAt ?? raw?.created_at)
+    name: asString(obj.name) || '未命名文档',
+    description: asString(obj.description),
+    status: asString(obj.status),
+    chunkCount: asNumber(obj.chunk_count),
+    fileSize: asNumber(obj.file_size),
+    isEnabled: obj.is_enabled !== false,
+    createdAt: asString(obj.CreatedAt ?? obj.created_at)
   }
 }
 
-const normalizeOpinionTrack = (raw: any): OpinionTrack | null => {
-  const id = asNumber(raw?.ID ?? raw?.id)
+const normalizeOpinionTrack = (raw: unknown): OpinionTrack | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const id = asNumber(obj.ID ?? obj.id)
   if (id <= 0) return null
 
   return {
     id,
-    name: asString(raw?.name) || '未命名赛道',
-    description: asString(raw?.description)
+    name: asString(obj.name) || '未命名赛道',
+    description: asString(obj.description)
   }
 }
 
 // ==================== URL & SSE Helpers ====================
 
-const normalizeBaseURL = (raw: string | undefined): string => {
-  const value = (raw || '').trim()
-  if (!value) return '/api'
-  if (/\/dev\/?$/i.test(value) || /youshu\.asia\/dev\/?$/i.test(value)) return '/api'
-  return value.replace(/\/$/, '')
-}
-
 export const buildApiUrl = (path: string): string => {
-  const base = normalizeBaseURL(import.meta.env.VITE_API_BASE_URL)
+  const base = (request.defaults.baseURL || '/api').replace(/\/$/, '')
   return `${base}${path}`
-}
-
-const getAuthToken = (): string => {
-  return localStorage.getItem('token') || localStorage.getItem('auth_token') || ''
 }
 
 const parseChatText = (payload: unknown): string | null => {
@@ -328,7 +343,8 @@ const parseChatText = (payload: unknown): string | null => {
   }
 
   if (typeof payload === 'object') {
-    const candidate = (payload as any).answer || (payload as any).reply || (payload as any).content
+    const obj = payload as Record<string, unknown>
+    const candidate = obj.answer || obj.reply || obj.content
     return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null
   }
 
@@ -344,7 +360,7 @@ export const parseSseChunk = (chunk: string): SalesChatEvent | null => {
   try {
     const parsed = JSON.parse(raw)
     const type = typeof parsed?.type === 'string' ? parsed.type : 'token'
-    return { type, data: parsed?.data }
+    return { type: type as SalesChatEventType, data: parsed?.data }
   } catch {
     return { type: 'token', data: raw }
   }
@@ -362,7 +378,8 @@ export const readSSEStream = async (
   // Fallback: JSON response instead of SSE
   if (contentType.includes('application/json')) {
     const payloadData = await response.json().catch(() => null)
-    const text = parseChatText(payloadData) || parseChatText((payloadData as any)?.data) || '服务端返回空响应'
+    const obj = payloadData as Record<string, unknown> | null
+    const text = parseChatText(payloadData) || parseChatText(obj?.data) || '服务端返回空响应'
     onEvent({ type: 'token', data: text })
     onEvent({ type: 'done', data: null })
     return
@@ -413,8 +430,14 @@ export const fetchSSE = async (
     signal?: AbortSignal
   }
 ): Promise<Response> => {
-  const token = getAuthToken()
-  if (!token) throw new Error('未登录，请重新登录')
+  const token = getToken()
+  if (!token) {
+    clearAuth()
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = '/login'
+    }
+    throw new Error('未登录，请重新登录')
+  }
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -434,9 +457,23 @@ export const fetchSSE = async (
   })
 
   if (!response.ok) {
-    let text = ''
-    try { text = await response.text() } catch { /* ignore */ }
-    throw new Error(text || `请求失败 (${response.status})`)
+    // Handle 401/403 like axios interceptor does
+    if (response.status === 401 || response.status === 403) {
+      clearAuth()
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      throw new Error('登录已过期，请重新登录')
+    }
+
+    let message = `请求失败 (${response.status})`
+    try {
+      const body = await response.json()
+      message = body?.message || body?.msg || message
+    } catch {
+      try { const text = await response.text(); if (text) message = text } catch { /* ignore */ }
+    }
+    throw new Error(message)
   }
 
   return response
@@ -611,13 +648,15 @@ export const fetchSalesSopTemplates = async (): Promise<SalesSopTemplate[]> => {
   if (!Array.isArray(rawTemplates)) return []
 
   return rawTemplates
-    .map((template: any) => {
-      const id = asNumber(template?.ID ?? template?.id ?? template?.Id)
+    .map((template: unknown) => {
+      if (!template || typeof template !== 'object') return null
+      const obj = template as Record<string, unknown>
+      const id = asNumber(obj.ID ?? obj.id ?? obj.Id)
       if (id <= 0) return null
       return {
         id,
-        name: asString(template?.name) || '未命名 SOP',
-        description: asString(template?.description)
+        name: asString(obj.name) || '未命名 SOP',
+        description: asString(obj.description)
       }
     })
     .filter(Boolean) as SalesSopTemplate[]

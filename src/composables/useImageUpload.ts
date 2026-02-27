@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import type { ImageUploadItem } from '@/api/sales'
 import { ocrImage } from '@/api/sales'
 
@@ -56,6 +56,10 @@ export function useImageUpload(options?: { maxImages?: number }) {
     })
     images.value = []
   }
+
+  onBeforeUnmount(() => {
+    clearAll()
+  })
 
   function handlePaste(event: ClipboardEvent) {
     const items = event.clipboardData?.items

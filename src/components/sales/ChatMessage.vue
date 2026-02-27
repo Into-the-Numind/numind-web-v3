@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onBeforeUnmount } from 'vue'
 import { Copy, RefreshCw, BookOpen } from 'lucide-vue-next'
 import type { SalesMessage, Citation } from '@/api/sales'
 import { useMarkdown } from '@/composables/useMarkdown'
@@ -31,6 +31,11 @@ const emit = defineEmits<{
 
 const { render } = useMarkdown()
 const copied = ref(false)
+let copyTimer: ReturnType<typeof setTimeout> | null = null
+
+onBeforeUnmount(() => {
+  if (copyTimer) clearTimeout(copyTimer)
+})
 
 const isAssistant = computed(() => {
   if (props.streaming) return true
@@ -88,9 +93,25 @@ async function copyMessage() {
   try {
     await navigator.clipboard.writeText(displayContent.value)
     copied.value = true
-    setTimeout(() => (copied.value = false), 2000)
+    if (copyTimer) clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => (copied.value = false), 2000)
   } catch {
-    // fallback
+    // Fallback for non-secure contexts
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = displayContent.value
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      copied.value = true
+      if (copyTimer) clearTimeout(copyTimer)
+      copyTimer = setTimeout(() => (copied.value = false), 2000)
+    } catch {
+      // silently fail
+    }
   }
 }
 </script>
@@ -101,7 +122,7 @@ async function copyMessage() {
       <div v-if="isAssistant && salesStage" class="message-stage">
         当前阶段：{{ salesStage }}
       </div>
-      <button v-if="isUser" class="user-copy-btn" :class="{ copied }" @click="copyMessage">
+      <button v-if="isUser" class="user-copy-btn" :class="{ copied }" aria-label="复制" @click="copyMessage">
         <Copy :size="14" />
       </button>
       <div class="msg-bubble markdown-body" :class="{ 'img-only': hasImagesOnly }">
@@ -109,8 +130,9 @@ async function copyMessage() {
         <div v-if="hasImages" class="message-img-grid">
           <img
             v-for="(url, i) in displayImages"
-            :key="i"
+            :key="url || i"
             :src="url"
+            alt="用户上传的图片"
             class="message-img-item"
             @click="emit('previewImage', url)"
           />
@@ -127,15 +149,16 @@ async function copyMessage() {
           <div v-else>{{ displayContent }}</div>
           <!-- AI actions -->
           <div v-if="isAssistant && !streaming" class="ai-actions-container">
-            <button class="ai-action-btn" @click="copyMessage" title="复制">
+            <button class="ai-action-btn" aria-label="复制" @click="copyMessage" title="复制">
               <Copy :size="14" />
             </button>
-            <button class="ai-action-btn" @click="emit('regenerate')" title="重新生成">
+            <button class="ai-action-btn" aria-label="重新生成" @click="emit('regenerate')" title="重新生成">
               <RefreshCw :size="14" />
             </button>
             <button
               v-if="hasCitations"
               class="ai-action-btn citation-action-btn"
+              aria-label="查看知识引用"
               @click="emit('showCitations', citations)"
             >
               <BookOpen :size="14" />

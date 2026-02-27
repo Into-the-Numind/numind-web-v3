@@ -122,12 +122,12 @@ const tryFallbackRequest = (config: any): Promise<any> | null => {
 }
 
 // 获取 token（避免循环依赖，兼容原版 auth_token key）
-const getToken = (): string | null => {
+export const getToken = (): string | null => {
   return localStorage.getItem('token') || localStorage.getItem('auth_token')
 }
 
 // 清除登录状态（同时清除原版 key）
-const clearAuth = () => {
+export const clearAuth = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('auth_token')
   localStorage.removeItem('userInfo')

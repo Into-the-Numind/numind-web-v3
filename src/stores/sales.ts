@@ -29,8 +29,12 @@ import {
   saveCustomerProfile,
   ocrImage,
   fetchSalesDocuments,
-  fetchOpinionTracks
+  fetchOpinionTracks,
+  normalizeVerdictData
 } from '@/api/sales'
+
+// Monotonically decreasing counter for local-only temporary IDs (negative to avoid server ID collisions)
+let nextLocalId = -1
 
 export const useSalesStore = defineStore('sales', () => {
   // ==================== Session State ====================
@@ -69,6 +73,7 @@ export const useSalesStore = defineStore('sales', () => {
   const streamCitations = ref<Citation[]>([])
   const streamStatus = ref('')
   const streamFinished = ref(true)
+  const streamError = ref('')
   const sseAbortController = shallowRef<AbortController | null>(null)
 
   // ==================== Getters ====================
@@ -92,13 +97,6 @@ export const useSalesStore = defineStore('sales', () => {
     ...kbSelection.value.opinion
   ])
 
-  const canSend = computed(() => {
-    const hasText = false // Determined by component
-    const hasImages = images.value.length > 0
-    const allImagesReady = images.value.every((img) => img.status === 'success')
-    return !isLoading.value && (hasText || (hasImages && allImagesReady))
-  })
-
   // ==================== Session Actions ====================
   async function loadSessions() {
     try {
@@ -110,7 +108,7 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   async function switchSession(id: number | null, forceWelcome = false) {
-    if (!id) {
+    if (id === null) {
       currentSessionId.value = null
       messages.value = []
       kbSelection.value = { product: [], cases: [], faq: [], opinion: [] }
@@ -251,6 +249,8 @@ export const useSalesStore = defineStore('sales', () => {
     if (isLoading.value) return
     if (!currentSessionId.value) return
 
+    const sessionIdAtStart = currentSessionId.value
+
     // Combine OCR results
     let fullQuery = text
     const ocrTexts = images.value
@@ -267,7 +267,7 @@ export const useSalesStore = defineStore('sales', () => {
 
     // Append user message immediately
     const userMsg: SalesMessage = {
-      id: Date.now(),
+      id: nextLocalId--,
       role: 'user',
       content: text,
       createdAt: new Date().toISOString(),
@@ -287,6 +287,7 @@ export const useSalesStore = defineStore('sales', () => {
     streamThinkingContent.value = ''
     streamCitations.value = []
     streamStatus.value = ''
+    streamError.value = ''
     streamFinished.value = false
     autoScrollEnabled.value = true
 
@@ -304,7 +305,7 @@ export const useSalesStore = defineStore('sales', () => {
 
     try {
       await sendSalesMessageStream(
-        currentSessionId.value,
+        sessionIdAtStart,
         payload,
         (event: SalesChatEvent) => {
           switch (event.type) {
@@ -319,13 +320,9 @@ export const useSalesStore = defineStore('sales', () => {
               streamContent.value += String(event.data || '')
               break
             case 'verdict': {
-              const verdict = event.data as any
-              if (verdict?.evidence && Array.isArray(verdict.evidence)) {
-                streamCitations.value = verdict.evidence.map((chunk: any) => ({
-                  document_name: chunk.document_name || chunk.DocumentName || '未知文档',
-                  content: chunk.content || chunk.Content || '',
-                  score: chunk.score || chunk.Score || 0
-                }))
+              const evidence = normalizeVerdictData(event.data)
+              if (evidence.length > 0) {
+                streamCitations.value = evidence
               }
               break
             }
@@ -338,41 +335,57 @@ export const useSalesStore = defineStore('sales', () => {
               streamFinished.value = true
               break
             case 'error':
-              streamContent.value += `\n\n**错误**: ${event.data || '未知错误'}`
+              streamError.value = String(event.data || '未知错误')
               streamFinished.value = true
               break
           }
         },
         controller.signal
       )
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== 'AbortError') {
         console.error('[sales] sendMessage SSE error:', e)
-        streamContent.value += `\n\n**错误**: ${e.message || '请求失败'}`
+        streamError.value = e.message || '请求失败'
       }
       streamFinished.value = true
     } finally {
-      // Append AI message from stream
-      if (streamContent.value || streamThinkingContent.value) {
-        const aiMsg: SalesMessage = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: streamContent.value,
-          createdAt: new Date().toISOString(),
-          verdict: streamCitations.value.length > 0 ? { evidence: streamCitations.value } : undefined
+      // Guard against session switch during stream
+      if (currentSessionId.value === sessionIdAtStart) {
+        // Append AI message from stream
+        if (streamContent.value || streamThinkingContent.value) {
+          const aiMsg: SalesMessage = {
+            id: nextLocalId--,
+            role: 'assistant',
+            content: streamContent.value,
+            createdAt: new Date().toISOString(),
+            verdict: streamCitations.value.length > 0 ? { evidence: streamCitations.value } : undefined
+          }
+          messages.value.push(aiMsg)
         }
-        messages.value.push(aiMsg)
       }
 
       isLoading.value = false
       sseAbortController.value = null
 
       // Refresh sessions to update sidebar summary
-      loadSessions()
+      await loadSessions()
+    }
+  }
+
+  function cancelStream() {
+    if (sseAbortController.value) {
+      sseAbortController.value.abort()
+      sseAbortController.value = null
     }
   }
 
   function regenerateMessage() {
+    if (isLoading.value) {
+      cancelStream()
+      // Wait a tick for cleanup before regenerating
+      return
+    }
+
     const lastUserMsg = [...messages.value].reverse().find((m) => m.role === 'user')
     if (!lastUserMsg) return
 
@@ -468,22 +481,22 @@ export const useSalesStore = defineStore('sales', () => {
     }
   }
 
-  function removeSelectedKb(docId: number) {
+  async function removeSelectedKb(docId: number) {
     for (const key of ['product', 'cases', 'faq', 'opinion'] as (keyof KbSelection)[]) {
       const idx = kbSelection.value[key].indexOf(docId)
       if (idx >= 0) {
         kbSelection.value[key].splice(idx, 1)
-        if (currentSessionId.value) saveKbSelection()
+        if (currentSessionId.value) await saveKbSelection()
         return
       }
     }
   }
 
-  function removeSelectedTrack(trackId: number) {
+  async function removeSelectedTrack(trackId: number) {
     const idx = opinionTrackSelection.value.indexOf(trackId)
     if (idx >= 0) {
       opinionTrackSelection.value.splice(idx, 1)
-      if (currentSessionId.value) saveKbSelection()
+      if (currentSessionId.value) await saveKbSelection()
     }
   }
 
@@ -530,7 +543,11 @@ export const useSalesStore = defineStore('sales', () => {
     try {
       const result = await ocrImage(file)
       item.ocrResult = result.text
-      if (result.url) item.previewUrl = result.url
+      if (result.url) {
+        // Revoke old blob URL before replacing
+        URL.revokeObjectURL(item.previewUrl)
+        item.previewUrl = result.url
+      }
       item.status = 'success'
     } catch (e) {
       console.error('[sales] OCR failed:', e)
@@ -556,7 +573,7 @@ export const useSalesStore = defineStore('sales', () => {
   // ==================== URL Sync ====================
   function updateUrl(sessionId: number | null) {
     const url = new URL(window.location.href)
-    if (sessionId) {
+    if (sessionId !== null) {
       url.searchParams.set('session_id', String(sessionId))
     } else {
       url.searchParams.delete('session_id')
@@ -566,10 +583,7 @@ export const useSalesStore = defineStore('sales', () => {
 
   // ==================== Cleanup ====================
   function cleanup() {
-    if (sseAbortController.value) {
-      sseAbortController.value.abort()
-      sseAbortController.value = null
-    }
+    cancelStream()
     currentSessionId.value = null
     sessions.value = []
     messages.value = []
@@ -578,6 +592,7 @@ export const useSalesStore = defineStore('sales', () => {
     streamThinkingContent.value = ''
     streamCitations.value = []
     streamStatus.value = ''
+    streamError.value = ''
     streamFinished.value = true
     images.value.forEach((img) => {
       if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
@@ -607,14 +622,13 @@ export const useSalesStore = defineStore('sales', () => {
     streamCitations,
     streamStatus,
     streamFinished,
-    sseAbortController,
+    streamError,
 
     // Getters
     sortedSessions,
     currentSession,
     hasCurrentSession,
     allSelectedDocIds,
-    canSend,
 
     // Actions
     loadSessions,
@@ -624,6 +638,7 @@ export const useSalesStore = defineStore('sales', () => {
     renameSession: renameSessionAction,
     togglePinSession,
     sendMessage,
+    cancelStream,
     regenerateMessage,
     setSalesStage,
     loadKnowledgeDocuments,

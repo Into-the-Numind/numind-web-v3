@@ -25,14 +25,14 @@ function onOverlayClick(e: MouseEvent) {
       :class="{ open: props.open }"
       @click="onOverlayClick"
     >
-      <div class="modal-card citation-modal-card">
+      <div class="modal-card citation-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
         <div class="modal-header">
           <div class="citation-modal-title">
             <BookOpen :size="20" />
             <span>知识库引用</span>
             <span class="citation-count">{{ props.citations.length }}</span>
           </div>
-          <button class="modal-close-btn" @click="emit('close')">
+          <button class="modal-close-btn" aria-label="关闭" @click="emit('close')">
             <X :size="18" />
           </button>
         </div>
@@ -47,7 +47,7 @@ function onOverlayClick(e: MouseEvent) {
           <!-- Citation items -->
           <div
             v-for="(citation, index) in props.citations"
-            :key="index"
+            :key="citation.document_name + '-' + index"
             class="citation-item"
             :style="{ animationDelay: `${index * 0.05}s` }"
           >

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { X, Upload, FileText, Plus, MessageSquare } from 'lucide-vue-next'
 import { fetchChatStyle, analyzeChatStyleStream, saveChatStyle } from '@/api/sales'
 import type { SalesChatEvent } from '@/api/sales'
@@ -27,6 +27,14 @@ const isSaving = ref(false)
 const editorRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 let abortController: AbortController | null = null
+const errorMessage = ref('')
+
+onBeforeUnmount(() => {
+  if (abortController) {
+    abortController.abort()
+    abortController = null
+  }
+})
 
 // ==================== Computed helpers ====================
 const hasContent = () => styleContent.value.trim().length > 0
@@ -160,9 +168,9 @@ async function startGeneration() {
           }
         })
       } else if (event.type === 'done') {
-        const doneData = event.data as any
+        const doneData = event.data as Record<string, unknown> | null
         if (doneData?.analysis || doneData?.style) {
-          result = doneData.analysis || doneData.style || result
+          result = String(doneData.analysis || doneData.style || result)
           styleContent.value = result
           renderedContent.value = renderMarkdown(result)
         }
@@ -181,9 +189,10 @@ async function startGeneration() {
     // Clear input
     inputText.value = ''
     clearUploadedFile()
-  } catch (e: any) {
-    if (e.name !== 'AbortError') {
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name !== 'AbortError') {
       console.error('Chat style generation failed:', e)
+      errorMessage.value = '生成失败，请重试'
       switchStep('input')
     }
   } finally {
@@ -205,8 +214,9 @@ async function saveStyleOnly() {
   try {
     await saveChatStyle(styleContent.value)
     emit('close')
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('Failed to save chat style:', e)
+    errorMessage.value = '保存失败，请重试'
   } finally {
     isSaving.value = false
   }
@@ -240,11 +250,11 @@ function onEditorPaste(e: ClipboardEvent) {
       :class="{ open: props.open }"
       @click="onOverlayClick"
     >
-      <div class="modal-card profile-modal-card">
+      <div class="modal-card profile-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
         <!-- Header -->
         <div class="profile-modal-header">
           <span class="modal-title">{{ getTitle() }}</span>
-          <button class="modal-close-btn" @click="emit('close')">
+          <button class="modal-close-btn" aria-label="关闭" @click="emit('close')">
             <X :size="18" />
           </button>
         </div>
@@ -268,6 +278,11 @@ function onEditorPaste(e: ClipboardEvent) {
                 @paste="onEditorPaste"
               />
             </div>
+          </div>
+
+          <!-- Error message -->
+          <div v-if="errorMessage" class="modal-error-message" @click="errorMessage = ''">
+            {{ errorMessage }}
           </div>
 
           <!-- Step 2: Input -->

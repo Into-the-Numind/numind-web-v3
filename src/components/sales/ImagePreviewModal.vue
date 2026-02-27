@@ -25,8 +25,8 @@ function onOverlayClick(e: MouseEvent) {
       @click="onOverlayClick"
     >
       <div class="image-preview-content">
-        <img :src="props.imageUrl" alt="Preview" />
-        <button class="image-preview-close" @click="emit('close')">
+        <img :src="props.imageUrl" alt="图片预览" />
+        <button class="image-preview-close" aria-label="关闭预览" @click="emit('close')">
           <X :size="22" />
         </button>
       </div>

@@ -24,22 +24,9 @@ const {
   handleScrollToBottomClick
 } = useAutoScroll(containerRef)
 
-// Auto-scroll when messages change or streaming content updates
+// Auto-scroll when messages change or streaming content updates (single watcher)
 watch(
-  () => store.messages.length,
-  () => nextTick(() => smartScrollToBottom())
-)
-
-watch(
-  () => store.streamContent,
-  () => {
-    // Use rAF to batch scroll updates during streaming
-    requestAnimationFrame(() => smartScrollToBottom())
-  }
-)
-
-watch(
-  () => store.streamThinkingContent,
+  () => [store.messages.length, store.streamContent, store.streamThinkingContent] as const,
   () => {
     requestAnimationFrame(() => smartScrollToBottom())
   }

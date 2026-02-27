@@ -575,9 +575,9 @@ const switchRun = (runId: string, templateId: string) => {
 onMounted(async () => {
   document.body.classList.add('sop-route')
 
-  // Permission check: block direct URL access without authorization
+  // Permission check: block access without authorization
   const templateId = (route.query.templateId as string) || ''
-  if (templateId && !route.query.runId) {
+  if (templateId && /^\d+$/.test(templateId)) {
     try {
       const res = await request.get(`/v1/sop/templates/${templateId}/check-permission`)
       const hasPermission = (res as any)?.data?.has_permission === true
@@ -589,6 +589,9 @@ onMounted(async () => {
       await router.replace('/')
       return
     }
+  } else if (templateId && !/^\d+$/.test(templateId)) {
+    await router.replace('/')
+    return
   }
 
   try {

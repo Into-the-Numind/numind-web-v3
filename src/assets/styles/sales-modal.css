@@ -370,6 +370,18 @@
   }
 }
 
+/* ---- Error message toast inside modals ---- */
+.modal-error-message {
+  padding: 8px 16px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+}
+
 /* ==================== Profile / ChatStyle Editor ==================== */
 
 /* Editor Wrapper */

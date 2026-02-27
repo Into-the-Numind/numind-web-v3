@@ -262,7 +262,7 @@ function getCategoryEditHint(): string {
       :class="{ open: props.open }"
       @click="onOverlayClick"
     >
-      <div class="modal-card profile-modal-card kb-modal-card">
+      <div class="modal-card profile-modal-card kb-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
         <!-- Header -->
         <div class="profile-modal-header">
           <div class="kb-header-left">
@@ -275,7 +275,7 @@ function getCategoryEditHint(): string {
             </button>
             <span class="modal-title">{{ getTitle() }}</span>
           </div>
-          <button class="modal-close-btn" @click="emit('close')">
+          <button class="modal-close-btn" aria-label="关闭" @click="emit('close')">
             <X :size="18" />
           </button>
         </div>

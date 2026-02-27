@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { X, Upload, FileText, Plus, UserCircle } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { analyzeProfileStream, analyzeProfileTextStream } from '@/api/sales'
@@ -29,6 +29,14 @@ const isSaving = ref(false)
 const editorRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 let abortController: AbortController | null = null
+const errorMessage = ref('')
+
+onBeforeUnmount(() => {
+  if (abortController) {
+    abortController.abort()
+    abortController = null
+  }
+})
 
 // ==================== Computed helpers ====================
 const hasContent = () => (store.customerProfile.notes || '').trim().length > 0
@@ -160,9 +168,9 @@ async function startGeneration() {
         }
       })
     } else if (event.type === 'done') {
-      const doneData = event.data as any
+      const doneData = event.data as Record<string, unknown> | null
       if (doneData?.profile !== undefined) {
-        profileContent = doneData.profile
+        profileContent = String(doneData.profile)
         store.customerProfile.notes = profileContent
         renderedContent.value = renderMarkdown(cleanContent(profileContent))
       }
@@ -188,9 +196,10 @@ async function startGeneration() {
     // Clear inputs
     inputText.value = ''
     clearAllFiles()
-  } catch (e: any) {
-    if (e.name !== 'AbortError') {
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name !== 'AbortError') {
       console.error('Profile generation failed:', e)
+      errorMessage.value = '生成失败，请重试'
       switchStep('input')
     }
   } finally {
@@ -212,8 +221,9 @@ async function saveProfile() {
   try {
     await store.persistProfile()
     emit('close')
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('Failed to save customer profile:', e)
+    errorMessage.value = '保存失败，请重试'
   } finally {
     isSaving.value = false
   }
@@ -259,16 +269,21 @@ function onEditorPaste(e: ClipboardEvent) {
       :class="{ open: props.open }"
       @click="onOverlayClick"
     >
-      <div class="modal-card profile-modal-card">
+      <div class="modal-card profile-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
         <!-- Header -->
         <div class="profile-modal-header">
           <span class="modal-title">{{ getTitle() }}</span>
-          <button class="modal-close-btn" @click="emit('close')">
+          <button class="modal-close-btn" aria-label="关闭" @click="emit('close')">
             <X :size="18" />
           </button>
         </div>
 
         <div class="profile-modal-body">
+          <!-- Error message -->
+          <div v-if="errorMessage" class="modal-error-message" @click="errorMessage = ''">
+            {{ errorMessage }}
+          </div>
+
           <!-- Step 1: Display -->
           <div v-show="currentStep === 'display'" class="profile-step active">
             <!-- Empty state -->
@@ -313,7 +328,7 @@ function onEditorPaste(e: ClipboardEvent) {
               <div v-else class="profile-uploaded-files-list">
                 <div
                   v-for="(file, idx) in uploadedFiles"
-                  :key="idx"
+                  :key="file.name + file.size"
                   class="profile-uploaded-file"
                 >
                   <div class="profile-uploaded-file-icon">
