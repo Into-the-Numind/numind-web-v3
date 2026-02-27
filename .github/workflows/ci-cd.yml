@@ -193,7 +193,7 @@ jobs:
               --name numind-web-v3-qa \
               --network numind-network \
               -p 9204:80 \
-              -e API_PROXY_PASS="http://numind-server-dev:9091/" \
+              -e API_PROXY_PASS="http://numind-server-qa:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:release
 
@@ -238,7 +238,7 @@ jobs:
               --name numind-web-v3 \
               --network numind-network \
               -p 9205:80 \
-              -e API_PROXY_PASS="https://youshu.asia/" \
+              -e API_PROXY_PASS="http://numind-server-prod:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
