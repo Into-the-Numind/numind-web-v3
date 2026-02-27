@@ -316,23 +316,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 20px 28px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .profile-modal-body {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
-  padding: 0;
+  padding: 20px 28px;
+  gap: 16px;
   min-height: 300px;
 }
 
 .profile-modal-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.profile-footer-display,
+.profile-footer-input,
+.profile-footer-edit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
 }
 
 /* ---- Mobile Responsive ---- */
@@ -355,4 +368,318 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ==================== Profile / ChatStyle Editor ==================== */
+
+/* Editor Wrapper */
+.profile-editor-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-self: stretch;
+}
+
+/* Markdown contenteditable editor */
+.profile-editor-simple {
+  flex: 1;
+  min-height: 200px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text);
+  outline: none;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.profile-editor-simple:focus {
+  border: none;
+  box-shadow: none;
+}
+
+.profile-editor-simple:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Markdown typography */
+.profile-editor-simple h1,
+.profile-editor-simple h2,
+.profile-editor-simple h3 {
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.profile-editor-simple h1:first-child,
+.profile-editor-simple h2:first-child,
+.profile-editor-simple h3:first-child {
+  margin-top: 0;
+}
+
+.profile-editor-simple h1 { font-size: 1.5rem; }
+.profile-editor-simple h2 { font-size: 1.25rem; }
+.profile-editor-simple h3 { font-size: 1.1rem; }
+
+.profile-editor-simple p {
+  margin-bottom: 0.5em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.profile-editor-simple ul,
+.profile-editor-simple ol {
+  padding-left: 1.8em;
+  margin-bottom: 0.5em;
+}
+
+.profile-editor-simple li {
+  margin-bottom: 0.2em;
+}
+
+.profile-editor-simple strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.profile-editor-simple em {
+  font-style: italic;
+}
+
+.profile-editor-simple code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 0.9em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.profile-editor-simple blockquote {
+  border-left: 3px solid var(--primary);
+  padding: 12px 16px;
+  margin: 0.8em 0;
+  color: var(--text-muted);
+  background: rgba(37, 167, 105, 0.03);
+  border-radius: 0 8px 8px 0;
+}
+
+.profile-editor-simple::-webkit-scrollbar { width: 6px; }
+.profile-editor-simple::-webkit-scrollbar-track { background: transparent; }
+.profile-editor-simple::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 3px; }
+.profile-editor-simple::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
+
+/* Display empty state */
+.profile-display-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+  flex: 1;
+}
+
+.profile-display-empty svg {
+  color: var(--text-light);
+  opacity: 0.5;
+}
+
+/* Analyzing state */
+.profile-analyzing-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex: 1;
+  padding: 40px 20px;
+}
+
+.profile-analyzing-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(37, 167, 105, 0.15);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.profile-analyzing-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.profile-analyzing-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 320px;
+}
+
+/* Upload zone */
+.profile-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 36px 24px;
+  background: linear-gradient(135deg, rgba(37, 167, 105, 0.03), rgba(37, 167, 105, 0.01));
+  border: 2px dashed rgba(37, 167, 105, 0.25);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-height: 150px;
+}
+
+.profile-upload-zone:hover {
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.06);
+}
+
+.profile-upload-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  opacity: 0.6;
+}
+
+.profile-upload-text {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Uploaded file display */
+.profile-uploaded-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid rgba(37, 167, 105, 0.2);
+  border-radius: 12px;
+}
+
+.profile-uploaded-file-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(37, 167, 105, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.profile-uploaded-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-uploaded-file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-uploaded-file-size {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.profile-uploaded-file-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.profile-uploaded-file-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Input divider */
+.profile-input-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.profile-input-divider::before,
+.profile-input-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Input textarea */
+.profile-input-textarea-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.profile-input-textarea {
+  width: 100%;
+  min-height: 120px;
+  max-height: 200px;
+  padding: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  background: white;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.profile-input-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 167, 105, 0.1);
+}
+
+.profile-input-textarea::placeholder {
+  color: var(--text-muted);
 }

@@ -80,7 +80,7 @@ function onOverlayClick(e: MouseEvent) {
 <style scoped>
 /* ==================== Citation Modal Styles ==================== */
 .citation-modal-card {
-  width: 700px;
+  width: 860px;
   max-width: 95%;
   max-height: 85vh;
 }

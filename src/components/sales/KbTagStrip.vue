@@ -73,22 +73,29 @@ function removeTag(tag: TagItem) {
 
 <style scoped>
 .kb-tag-strip {
+  width: 100%;
+  max-width: 800px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 0;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
 }
 
 .kb-tag {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  border: 1px solid;
-  transition: all 0.2s;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(37, 167, 105, 0.2);
+  padding: 4px 14px;
+  border-radius: 24px;
+  font-size: 0.8rem;
+  color: var(--primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  animation: fadeInScale 0.2s ease-out;
   max-width: 200px;
 }
 
@@ -107,38 +114,48 @@ function removeTag(tag: TagItem) {
   height: 16px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s;
-  opacity: 0.6;
-  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: all 0.2s;
 }
 
 .kb-tag-remove:hover {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.05);
+  color: #ef4444;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 /* Category colors */
 .kb-tag.product {
-  background: rgba(59, 130, 246, 0.1);
   border-color: rgba(59, 130, 246, 0.3);
   color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .kb-tag.cases {
-  background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.3);
   color: #047857;
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .kb-tag.faq {
-  background: rgba(245, 158, 11, 0.1);
   border-color: rgba(245, 158, 11, 0.3);
   color: #b45309;
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .kb-tag.opinion {
-  background: rgba(139, 92, 246, 0.1);
   border-color: rgba(139, 92, 246, 0.3);
   color: #6d28d9;
+  background: rgba(139, 92, 246, 0.08);
 }
 </style>

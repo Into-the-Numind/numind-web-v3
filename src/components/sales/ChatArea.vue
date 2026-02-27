@@ -88,9 +88,9 @@ watch(
             @regenerate="store.regenerateMessage()"
           />
 
-          <!-- Streaming message (live) -->
+          <!-- Streaming message (live) — only show when AI starts generating -->
           <ChatMessage
-            v-if="store.isLoading"
+            v-if="store.isLoading && (store.streamContent || store.streamThinkingContent)"
             :streaming="true"
             :stream-content="store.streamContent"
             :stream-thinking-content="store.streamThinkingContent"
@@ -101,9 +101,9 @@ watch(
             @regenerate="store.regenerateMessage()"
           />
 
-          <!-- Global loading status -->
+          <!-- Global loading status — hide once AI starts generating -->
           <GlobalLoadingStatus
-            v-if="store.isLoading && store.streamStatus"
+            v-if="store.isLoading && store.streamStatus && !store.streamContent && !store.streamThinkingContent"
             :status="store.streamStatus"
           />
         </div>

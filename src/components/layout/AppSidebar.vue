@@ -2,7 +2,7 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="logo-icon"></div>
-      <div class="sidebar-title">AI Workflow</div>
+      <div class="sidebar-title"></div>
     </div>
 
     <nav class="nav-menu">

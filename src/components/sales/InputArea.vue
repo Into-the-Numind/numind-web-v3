@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
-import { Send, Image, Brain, Maximize2, Minimize2 } from 'lucide-vue-next'
+import { ArrowUp, Image, Maximize2, Minimize2 } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import ImagePreviewStrip from './ImagePreviewStrip.vue'
 import KbTagStrip from './KbTagStrip.vue'
@@ -15,6 +15,7 @@ const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isExpanded = ref(false)
+const isComposing = ref(false)
 
 const canSend = computed(() => {
   const hasText = inputText.value.trim().length > 0
@@ -71,8 +72,9 @@ function handleSend() {
   store.sendMessage(text)
 }
 
-// Handle enter key
+// Handle enter key (skip during IME composition)
 function handleKeydown(e: KeyboardEvent) {
+  if (isComposing.value) return
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     handleSend()
@@ -138,6 +140,8 @@ onMounted(() => {
         class="chat-input"
         :placeholder="store.chatMode === 'sales' ? '输入客户的话或销售场景，帮你生成话术...' : '输入问题，获取销售策略建议...'"
         @keydown="handleKeydown"
+        @compositionstart="isComposing = true"
+        @compositionend="isComposing = false"
         @paste="handlePaste"
         @input="autoResize"
       />
@@ -171,24 +175,24 @@ onMounted(() => {
             title="开启后大模型会展示思考过程"
             @click="toggleDeepThinking"
           >
-            <Brain :size="14" />
             <span>深度思考</span>
+          </button>
+          <button
+            class="image-upload-btn"
+            title="上传图片回复"
+            @click="triggerImageUpload"
+          >
+            <Image :size="16" />
+            <span>图片</span>
           </button>
         </div>
         <div class="toolbar-right">
-          <button
-            class="image-upload-btn"
-            title="上传图片"
-            @click="triggerImageUpload"
-          >
-            <Image :size="18" />
-          </button>
           <button
             class="send-btn"
             :disabled="!canSend"
             @click="handleSend"
           >
-            <Send :size="20" />
+            <ArrowUp :size="20" />
           </button>
         </div>
       </div>
@@ -390,21 +394,24 @@ onMounted(() => {
 
 /* Image upload button */
 .image-upload-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text-muted);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: white;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .image-upload-btn:hover {
-  background: rgba(37, 167, 105, 0.08);
+  background: rgba(37, 167, 105, 0.05);
+  border-color: rgba(37, 167, 105, 0.2);
   color: var(--primary);
 }
 
@@ -452,6 +459,10 @@ onMounted(() => {
   }
 
   .deep-thinking-btn span {
+    display: none;
+  }
+
+  .image-upload-btn span {
     display: none;
   }
 }

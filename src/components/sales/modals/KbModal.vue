@@ -11,11 +11,7 @@ import {
   FilePlus,
   Inbox,
   HardDrive,
-  Layers,
-  Package,
-  Briefcase,
-  HelpCircle,
-  Lightbulb
+  Layers
 } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import type { KbSelection } from '@/api/sales'
@@ -44,13 +40,6 @@ const KB_WIZARD_HINTS: Record<keyof KbSelection, string> = {
   faq: '请选择百问百答知识库（最多 3 个）',
   opinion: '系统赛道与自定义赛道合计最多选择 2 个'
 }
-const KB_CATEGORY_COLORS: Record<keyof KbSelection, string> = {
-  product: '#3b82f6',
-  cases: '#10b981',
-  faq: '#f59e0b',
-  opinion: '#8b5cf6'
-}
-
 // ==================== State ====================
 type KbView = 'overview' | 'wizard' | 'categoryEdit'
 const currentView = ref<KbView>('overview')
@@ -106,14 +95,6 @@ function goBack() {
   } else {
     showView('wizard')
   }
-}
-
-// ==================== Category icon component map ====================
-const categoryIcons: Record<keyof KbSelection, typeof Package> = {
-  product: Package,
-  cases: Briefcase,
-  faq: HelpCircle,
-  opinion: Lightbulb
 }
 
 // ==================== Overview ====================
@@ -316,11 +297,7 @@ function getCategoryEditHint(): string {
               >
                 <div class="kb-overview-card-header">
                   <div class="kb-overview-card-title">
-                    <component
-                      :is="categoryIcons[cat]"
-                      :size="16"
-                      :style="{ color: KB_CATEGORY_COLORS[cat] }"
-                    />
+                    <div class="kb-overview-card-dot" :class="cat" />
                     {{ KB_CATEGORY_LABELS[cat] }}
                   </div>
                   <span class="kb-overview-card-count">{{ getCategoryCount(cat) }}/{{ getCategoryMax(cat) }}</span>
@@ -353,40 +330,14 @@ function getCategoryEditHint(): string {
                 </div>
                 <button class="kb-overview-edit-btn" @click="editCategory(cat)">
                   <Pencil :size="14" />
-                  配置
+                  编辑
                 </button>
               </div>
             </div>
 
-            <!-- Opinion tracks section -->
-            <div
-              v-if="store.availableOpinionTracks.length > 0"
-              class="kb-overview-tracks-section"
-            >
-              <div class="kb-opinion-section-title">
-                <Compass :size="14" />
-                <span>观点赛道</span>
-              </div>
-              <div class="kb-track-list">
-                <div
-                  v-for="track in store.availableOpinionTracks"
-                  :key="track.id"
-                  class="kb-track-item"
-                  :class="{ selected: isTrackSelected(track.id) }"
-                  @click="toggleTrack(track.id)"
-                >
-                  <div class="kb-checkbox">
-                    <Check :size="14" />
-                  </div>
-                  <div class="kb-track-info">
-                    <div class="kb-track-name">{{ track.name }}</div>
-                    <div v-if="track.description" class="kb-track-desc">{{ track.description }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
-          <div class="profile-modal-footer">
+          <div class="profile-modal-footer" style="justify-content: flex-end; gap: 12px;">
+            <button class="btn-secondary" @click="emit('close')">取消</button>
             <button class="btn-primary" @click="saveAndClose">
               <span>确定</span>
             </button>
@@ -768,10 +719,10 @@ function getCategoryEditHint(): string {
   overflow-y: auto;
 }
 
-/* --- Overview Grid (2-column) --- */
+/* --- Overview Grid (3-column) --- */
 .kb-overview-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -785,7 +736,7 @@ function getCategoryEditHint(): string {
   flex-direction: column;
   gap: 12px;
   transition: all 0.2s ease-out;
-  min-height: 160px;
+  min-height: 180px;
   min-width: 0;
   overflow: hidden;
 }
@@ -794,11 +745,18 @@ function getCategoryEditHint(): string {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
-/* Category color accents (left border) */
-.kb-overview-card.product { border-left: 3px solid #3b82f6; }
-.kb-overview-card.cases { border-left: 3px solid #10b981; }
-.kb-overview-card.faq { border-left: 3px solid #f59e0b; }
-.kb-overview-card.opinion { border-left: 3px solid #8b5cf6; }
+/* Category color dots */
+.kb-overview-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kb-overview-card-dot.product { background: #3b82f6; }
+.kb-overview-card-dot.cases { background: #10b981; }
+.kb-overview-card-dot.faq { background: #f59e0b; }
+.kb-overview-card-dot.opinion { background: #8b5cf6; }
 
 .kb-overview-card-header {
   display: flex;
@@ -828,7 +786,7 @@ function getCategoryEditHint(): string {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  max-height: 120px;
+  max-height: 160px;
   overflow-y: auto;
 }
 
@@ -885,13 +843,6 @@ function getCategoryEditHint(): string {
   border-color: var(--primary);
   color: var(--primary);
   background: rgba(37, 167, 105, 0.04);
-}
-
-/* --- Opinion tracks section in overview --- */
-.kb-overview-tracks-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* --- Wizard Steps --- */

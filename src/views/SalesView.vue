@@ -196,8 +196,8 @@ async function handleDelete(id: number) {
 onMounted(async () => {
   document.body.classList.add('sales-agent-route')
 
-  // Load sessions
-  await store.loadSessions()
+  // Load sessions and knowledge documents in parallel
+  await Promise.all([store.loadSessions(), store.loadKnowledgeDocuments()])
 
   // Restore session from URL
   const urlParams = new URLSearchParams(window.location.search)
@@ -227,8 +227,8 @@ onBeforeUnmount(() => {
 
 <!-- Unscoped: CSS variables that all child components need -->
 <style>
-.sales-view {
-  /* --- Palette --- */
+body.sales-agent-route {
+  /* --- Palette (on body so Teleport modals inherit) --- */
   --c-primary: 158, 64%, 40%;
   --c-primary-rich: 160, 85%, 35%;
   --c-accent: 158, 80%, 45%;
@@ -248,6 +248,7 @@ onBeforeUnmount(() => {
   --accent: hsl(var(--c-accent));
   --text: hsl(var(--c-text-main));
   --text-muted: hsl(var(--c-text-muted));
+  --text-light: hsl(var(--c-text-light));
 
   --glass-border: rgba(255, 255, 255, 0.4);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
@@ -262,9 +263,7 @@ onBeforeUnmount(() => {
   --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
 
   --sidebar-width: 280px;
-}
 
-body.sales-agent-route {
   margin: 0;
   padding: 0;
   width: 100%;
