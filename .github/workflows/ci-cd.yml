@@ -6,6 +6,7 @@ on:
       - main
       - develop
       - release
+      - feature/sales-agent-vue3-migration
     tags:
       - 'v*'
     paths-ignore:
@@ -87,6 +88,11 @@ jobs:
             IMAGE_TAG="develop"
             echo "environment=dev" >> $GITHUB_OUTPUT
             echo "::notice::🚀 开发环境构建: develop"
+          elif [ "${{ github.ref_name }}" = "feature/sales-agent-vue3-migration" ]; then
+            # staging 分支 → Staging 环境
+            IMAGE_TAG="staging"
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "::notice::🚀 Staging环境构建: staging"
           else
             # main 或其他分支
             IMAGE_TAG="latest"
@@ -105,6 +111,9 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
             ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
+          build-args: |
+            VITE_APP_ENV=${{ steps.meta.outputs.environment }}
+            VITE_API_BASE_URL=/api
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -145,9 +154,10 @@ jobs:
               --name numind-web-v3-dev \
               --network numind-network \
               -p 9203:80 \
+              -e API_PROXY_PASS="http://numind-server-dev:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:develop
-            
+
             sleep 3
             docker ps | grep numind-web-v3-dev || echo "容器启动失败"
             echo "✅ Dev 部署完成"
@@ -183,9 +193,10 @@ jobs:
               --name numind-web-v3-qa \
               --network numind-network \
               -p 9204:80 \
+              -e API_PROXY_PASS="http://numind-server-dev:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:release
-            
+
             sleep 3
             docker ps | grep numind-web-v3-qa || echo "容器启动失败"
             echo "✅ QA 部署完成"
@@ -227,9 +238,52 @@ jobs:
               --name numind-web-v3 \
               --network numind-network \
               -p 9205:80 \
+              -e API_PROXY_PASS="https://youshu.asia/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             sleep 3
             docker ps | grep numind-web-v3 || echo "容器启动失败"
             echo "✅ Prod 部署完成"
+
+  # =====================================================
+  # 部署到 Staging 环境 (110.42.221.25)
+  # 验证 feature/sales-agent-vue3-migration 分支
+  # =====================================================
+  deploy_staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/feature/sales-agent-vue3-migration'
+    environment: staging
+    steps:
+      - name: Deploy to Staging Server (110.42.221.25)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: root
+          password: ${{ secrets.STAGING_SERVER_PASSWORD }}
+          script: |
+            echo "🚀 部署到 Staging 环境..."
+
+            # 强制清理可能卡住的容器
+            docker stop numind-web-v3-staging 2>/dev/null || true
+            docker rm -f numind-web-v3-staging 2>/dev/null || true
+            sleep 2
+
+            # 拉取最新镜像
+            docker pull ${{ env.IMAGE_NAME }}:staging
+
+            # 启动新容器（host 网络模式，Nginx 监听 80，后端在同一台服务器 9091）
+            docker run -d \
+              --name numind-web-v3-staging \
+              --network host \
+              -e API_PROXY_PASS="http://localhost:9091/" \
+              --restart unless-stopped \
+              ${{ env.IMAGE_NAME }}:staging
+
+            sleep 3
+            docker ps | grep numind-web-v3-staging || echo "容器启动失败"
+
+            # 健康检查
+            curl -sf http://localhost:80/health && echo "✅ 健康检查通过" || echo "⚠️ 健康检查失败"
+            echo "✅ Staging 部署完成"

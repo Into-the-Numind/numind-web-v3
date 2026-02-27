@@ -30,3 +30,8 @@ coverage
 # Environment
 .env.local
 .env.*.local
+
+# Playwright
+e2e/.auth/
+test-results/
+playwright-report/
