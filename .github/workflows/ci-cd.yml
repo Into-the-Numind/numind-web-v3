@@ -22,8 +22,8 @@ on:
         default: false
 
 env:
-  DOCKERHUB_USERNAME: neozhang96
-  IMAGE_NAME: neozhang96/numind-web-v3
+  DOCKERHUB_USERNAME: pmtmyaggy
+  IMAGE_NAME: pmtmyaggy/numind-web-v3
 
 jobs:
   # =====================================================
