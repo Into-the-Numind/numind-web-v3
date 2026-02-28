@@ -22,10 +22,8 @@ on:
         default: false
 
 env:
-  TCR_REGISTRY: ccr.ccs.tencentyun.com
-  TCR_USERNAME: "100046537424"
-  TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
-  IMAGE_NAME: ccr.ccs.tencentyun.com/numind/numind-web-v3
+  DOCKERHUB_USERNAME: pmtmyaggy
+  IMAGE_NAME: pmtmyaggy/numind-web-v3
 
 jobs:
   # =====================================================
@@ -57,12 +55,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Tencent Cloud TCR
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.TCR_REGISTRY }}
-          username: ${{ env.TCR_USERNAME }}
-          password: ${{ env.TCR_PASSWORD }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       # =====================================================
       # 计算镜像标签（根据分支/tag）
@@ -143,15 +140,12 @@ jobs:
           password: ${{ secrets.DEV_SERVER_PASSWORD }}
           script: |
             echo "🚀 部署到 Dev 环境..."
-
-            # 登录到 TCR
-            echo "${{ env.TCR_PASSWORD }}" | docker login -u ${{ env.TCR_USERNAME }} --password-stdin ${{ env.TCR_REGISTRY }}
-
+            
             # 强制清理可能卡住的容器
             docker stop numind-web-v3-dev 2>/dev/null || true
             docker rm -f numind-web-v3-dev 2>/dev/null || true
             sleep 2
-
+            
             # 拉取最新镜像
             docker pull ${{ env.IMAGE_NAME }}:develop
             
@@ -185,15 +179,12 @@ jobs:
           password: ${{ secrets.DEV_SERVER_PASSWORD }}
           script: |
             echo "🚀 部署到 QA 环境..."
-
-            # 登录到 TCR
-            echo "${{ env.TCR_PASSWORD }}" | docker login -u ${{ env.TCR_USERNAME }} --password-stdin ${{ env.TCR_REGISTRY }}
-
+            
             # 强制清理可能卡住的容器
             docker stop numind-web-v3-qa 2>/dev/null || true
             docker rm -f numind-web-v3-qa 2>/dev/null || true
             sleep 2
-
+            
             # 拉取最新镜像
             docker pull ${{ env.IMAGE_NAME }}:release
             
@@ -227,10 +218,7 @@ jobs:
           password: ${{ secrets.PROD_SERVER_PASSWORD }}
           script: |
             echo "🚀 部署到 Prod 环境..."
-
-            # 登录到 TCR
-            echo "${{ env.TCR_PASSWORD }}" | docker login -u ${{ env.TCR_USERNAME }} --password-stdin ${{ env.TCR_REGISTRY }}
-
+            
             # 根据触发方式确定镜像标签
             if [[ "${{ github.ref }}" == refs/tags/* ]]; then
               IMAGE_TAG="${{ github.ref_name }}"
@@ -276,9 +264,6 @@ jobs:
           password: ${{ secrets.STAGING_SERVER_PASSWORD }}
           script: |
             echo "🚀 部署到 Staging 环境..."
-
-            # 登录到 TCR
-            echo "${{ env.TCR_PASSWORD }}" | docker login -u ${{ env.TCR_USERNAME }} --password-stdin ${{ env.TCR_REGISTRY }}
 
             # 强制清理可能卡住的容器
             docker stop numind-web-v3-staging 2>/dev/null || true
