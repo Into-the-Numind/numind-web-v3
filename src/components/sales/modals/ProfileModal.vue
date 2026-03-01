@@ -458,7 +458,7 @@ function onEditorPaste(e: ClipboardEvent) {
   </Teleport>
 </template>
 
-<style>
+<style scoped>
 @import '@/assets/styles/sales-modal.css';
 </style>
 

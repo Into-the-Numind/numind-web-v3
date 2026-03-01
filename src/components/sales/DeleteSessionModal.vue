@@ -34,6 +34,6 @@ function handleConfirm() {
 }
 </script>
 
-<style>
+<style scoped>
 @import '@/assets/styles/sales-modal.css';
 </style>

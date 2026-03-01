@@ -34,7 +34,7 @@ function onOverlayClick(e: MouseEvent) {
   </Teleport>
 </template>
 
-<style>
+<style scoped>
 @import '@/assets/styles/sales-modal.css';
 </style>
 
