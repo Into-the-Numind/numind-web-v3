@@ -60,19 +60,21 @@ server {
         add_header Cache-Control "public";
     }
 
-    # 兼容 /v3/ 前端路由
+    # 兼容 /v3/ 前端路由（HTML 禁止缓存，确保部署后用户自动获取最新版）
     location /v3/ {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
     }
 
-    # 静态资源缓存
+    # 静态资源缓存（文件名含 hash，可安全长期缓存）
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
 
-    # 前端路由支持
+    # 前端路由支持（HTML 禁止缓存，确保部署后用户自动获取最新版）
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
     }
 }
