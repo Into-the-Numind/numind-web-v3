@@ -88,6 +88,11 @@ export const batchRevokeTemplates = (data: { user_ids: (number | string)[], temp
   return request.post('/v1/customers/batch/revoke-templates', data)
 }
 
+// 升级子用户会员等级
+export const updateSubUserTier = (userId: number | string, data: { tier: string; months: number }): Promise<ApiResponse<{ message: string }>> => {
+  return request.put(`/v1/customers/sub-users/${userId}/tier`, data)
+}
+
 // 获取所有可用模板
 export const fetchAllTemplates = (): Promise<ApiResponse<TemplateItem[]>> => {
   return request.get('/v1/sop/templates')
