@@ -33,6 +33,8 @@ export interface RegisterSubUserParams {
   username: string
   password: string
   nickname?: string
+  tier?: string
+  months?: number
 }
 
 // 获取统计数据
