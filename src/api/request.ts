@@ -141,9 +141,10 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    // FormData 时删除默认 Content-Type，让浏览器自动设置 multipart/form-data + boundary
+    // FormData 时将 Content-Type 设为 false，阻止 axios 内部 dispatchRequest
+    // 将其回填为 x-www-form-urlencoded，让浏览器自动设置 multipart/form-data + boundary
     if (config.data instanceof FormData) {
-      delete config.headers['Content-Type']
+      config.headers.setContentType(false)
     }
     return config
   },
