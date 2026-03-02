@@ -537,13 +537,14 @@ export const useSalesStore = defineStore('sales', () => {
   async function addImage(file: File) {
     if (images.value.length >= 6) return
 
-    const item: ImageUploadItem = {
+    images.value.push({
       file,
       previewUrl: URL.createObjectURL(file),
       ocrResult: '',
       status: 'processing'
-    }
-    images.value.push(item)
+    })
+    // 必须从 reactive 数组取引用，直接操作 push 前的原始对象不会触发 Vue 响应式更新
+    const item = images.value[images.value.length - 1]
 
     try {
       const result = await ocrImage(file)
