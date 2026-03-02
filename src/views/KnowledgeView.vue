@@ -369,14 +369,16 @@ async function loadDocuments() {
 async function handleUpload() {
   if (!uploadForm.value.name || !selectedFile.value) return
 
+  // 先构建 FormData，再关闭弹窗（closeUploadModal 会清空 selectedFile）
+  const formData = new FormData()
+  formData.append('file', selectedFile.value)
+  formData.append('name', uploadForm.value.name)
+  formData.append('description', uploadForm.value.description)
+
   closeUploadModal()
   isUploading.value = true
 
   try {
-    const formData = new FormData()
-    formData.append('file', selectedFile.value)
-    formData.append('name', uploadForm.value.name)
-    formData.append('description', uploadForm.value.description)
 
     const res = await uploadDocument(formData)
     if (res.code === 200 || res.code === 0) {
