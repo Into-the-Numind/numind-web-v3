@@ -210,21 +210,24 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </button>
             </div>
-            <form class="modal-body" @submit.prevent="handleRegister">
+            <form id="register-form" class="modal-body" @submit.prevent="handleRegister">
               <div class="form-group">
-                <label class="form-label">用户名 <span class="required">*</span></label>
-                <input v-model="registerForm.username" type="text" class="form-input" placeholder="请输入用户名" required @blur="checkUsernameAvailability" />
-                <div v-if="usernameStatus" class="username-hint" :class="usernameStatus">
+                <label class="form-label">用户名（用于登录）<span class="required">*</span></label>
+                <input v-model="registerForm.username" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.username }" placeholder="3-20位字母及数字" maxlength="20" required @blur="checkUsernameAvailability" />
+                <div v-if="regFieldErrors.username" class="field-error">{{ regFieldErrors.username }}</div>
+                <div v-else-if="usernameStatus" class="username-hint" :class="usernameStatus">
                   {{ usernameStatus === 'available' ? '用户名可用' : usernameStatus === 'taken' ? '用户名已被使用' : '检查中...' }}
                 </div>
               </div>
               <div class="form-group">
                 <label class="form-label">密码 <span class="required">*</span></label>
-                <input v-model="registerForm.password" type="password" class="form-input" placeholder="请输入密码" required />
+                <input v-model="registerForm.password" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.password }" placeholder="6-18位字母、数字或常用符号" maxlength="18" required />
+                <div v-if="regFieldErrors.password" class="field-error">{{ regFieldErrors.password }}</div>
               </div>
               <div class="form-group">
-                <label class="form-label">昵称</label>
-                <input v-model="registerForm.nickname" type="text" class="form-input" placeholder="请输入昵称（可选）" />
+                <label class="form-label">昵称 <span class="required">*</span></label>
+                <input v-model="registerForm.nickname" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.nickname }" placeholder="2-20位字符" maxlength="20" required />
+                <div v-if="regFieldErrors.nickname" class="field-error">{{ regFieldErrors.nickname }}</div>
               </div>
 
               <!-- 会员设置 -->
@@ -233,10 +236,6 @@
                   <span class="reg-tier-divider-text">会员设置（可选）</span>
                 </div>
                 <div class="reg-tier-radios">
-                  <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'free' }">
-                    <input v-model="registerForm.tier" type="radio" name="register-tier" value="free" />
-                    <span>免费用户</span>
-                  </label>
                   <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'standard' }">
                     <input v-model="registerForm.tier" type="radio" name="register-tier" value="standard" />
                     <span>普通会员</span>
@@ -255,19 +254,18 @@
                   </div>
                   <div class="tier-preview">
                     到期日期：<strong>{{ registerExpirePreview }}</strong>
-                    <span class="tier-preview-hint">（每月按 30 天计算）</span>
                   </div>
                 </div>
               </div>
 
               <div v-if="registerError" class="register-error">{{ registerError }}</div>
-              <div class="modal-footer">
-                <button type="button" class="btn-cancel" @click="closeRegisterModal">取消</button>
-                <button type="submit" class="btn-submit" :disabled="isRegistering || usernameStatus === 'taken'">
-                  {{ isRegistering ? '注册中...' : '注册' }}
-                </button>
-              </div>
             </form>
+            <div class="modal-footer">
+              <button type="button" class="btn-cancel" @click="closeRegisterModal">取消</button>
+              <button type="submit" form="register-form" class="btn-submit" :disabled="!isRegFormValid || isRegistering">
+                {{ isRegistering ? '注册中...' : '注册' }}
+              </button>
+            </div>
           </div>
         </div>
       </Teleport>
@@ -564,6 +562,34 @@ function computeExpireDate(months: number): string {
 const tierExpirePreview = computed(() => computeExpireDate(tierForm.value.months))
 const registerExpirePreview = computed(() => computeExpireDate(registerForm.value.months))
 
+// Real-time field validation (mirrors old frontend validateRegForm logic)
+// eslint-disable-next-line no-useless-escape
+const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,18}$/
+
+const regFieldErrors = computed(() => {
+  const f = registerForm.value
+  const username = f.username.trim()
+  const password = f.password
+  const nickname = f.nickname.trim()
+  return {
+    username: username && !/^[a-zA-Z0-9]{3,20}$/.test(username) ? '用户名格式不正确（3-20位字母或数字）' : '',
+    password: password && !passwordRegex.test(password) ? '密码格式不正确（6-18位字母、数字或符号）' : '',
+    nickname: nickname && (nickname.length < 2 || nickname.length > 20) ? '昵称格式不正确（2-20位字符）' : ''
+  }
+})
+
+const isRegFormValid = computed(() => {
+  const f = registerForm.value
+  const username = f.username.trim()
+  const password = f.password
+  const nickname = f.nickname.trim()
+  const usernameOk = /^[a-zA-Z0-9]{3,20}$/.test(username)
+  const passwordOk = passwordRegex.test(password)
+  const nicknameOk = nickname.length >= 2 && nickname.length <= 20
+  const usernameNotTaken = usernameStatus.value !== 'taken'
+  return usernameOk && passwordOk && nicknameOk && usernameNotTaken
+})
+
 // ── Lifecycle ──────────────────────────────────────────────────────
 function handleGlobalClick() {
   openMenuId.value = null
@@ -694,7 +720,7 @@ function validateRegisterForm(): string | null {
 
   if (!/^[a-zA-Z0-9]{3,20}$/.test(username)) return '用户名需要3-20位字母数字'
   if (password.length < 6 || password.length > 18) return '密码需要6-18位'
-  if (nickname && (nickname.length < 2 || nickname.length > 20)) return '昵称需要2-20位'
+  if (!nickname || nickname.length < 2 || nickname.length > 20) return '昵称需要2-20位'
   if (registerForm.value.tier !== 'free') {
     if (!['standard', 'premium'].includes(registerForm.value.tier)) return '无效的会员等级'
     if (!registerForm.value.months || registerForm.value.months < 1 || registerForm.value.months > 12) return '开通时长需要1-12个月'
@@ -1555,6 +1581,21 @@ async function handleTierUpgrade() {
   background: #fff;
 }
 
+.form-input.input-error {
+  border-color: #ef4444;
+}
+
+.form-input.input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.field-error {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #ef4444;
+}
+
 .username-hint {
   margin-top: 6px;
   font-size: 12px;
@@ -2019,11 +2060,6 @@ async function handleTierUpgrade() {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   border: 0;
-}
-
-.reg-tier-radio:focus-within {
-  outline: 2px solid hsl(158, 64%, 45%);
-  outline-offset: -2px;
 }
 
 .reg-tier-radio.active {
