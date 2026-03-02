@@ -562,13 +562,48 @@ export const saveCustomerProfile = async (
   await request.put(`/v1/sales-rag/sessions/${sessionId}/customer-profile`, { profile })
 }
 
+/** 压缩图片文件，非图片文件原样返回 */
+const compressImage = (file: File, maxSize = 2 * 1024 * 1024, maxDim = 2048): Promise<File> => {
+  if (!file.type.startsWith('image/') || file.size <= maxSize) return Promise.resolve(file)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => {
+          if (blob && blob.size < file.size) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+          } else {
+            resolve(file)
+          }
+        },
+        'image/jpeg',
+        0.8
+      )
+      URL.revokeObjectURL(img.src)
+    }
+    img.onerror = () => resolve(file)
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 export const analyzeProfileStream = async (
   files: File[],
   onEvent: (event: SalesChatEvent) => void,
   signal?: AbortSignal
 ): Promise<void> => {
+  const compressed = await Promise.all(files.map((f) => compressImage(f)))
   const formData = new FormData()
-  files.forEach((file) => formData.append('files', file))
+  compressed.forEach((file) => formData.append('files', file))
   const response = await fetchSSE('/v1/sales-rag/analyze-profile', {
     body: formData,
     signal
