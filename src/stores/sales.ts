@@ -425,7 +425,8 @@ export const useSalesStore = defineStore('sales', () => {
     }
   }
 
-  function toggleKbDocument(docId: number, category: keyof KbSelection) {
+  /** @returns 'limited' if at max capacity, undefined otherwise */
+  function toggleKbDocument(docId: number, category: keyof KbSelection): 'limited' | undefined {
     const currentCategory = kbSelection.value[category]
     const idx = currentCategory.indexOf(docId)
 
@@ -442,20 +443,24 @@ export const useSalesStore = defineStore('sales', () => {
       }
     }
 
-    // Check limit
+    // Check limit (opinion category counts both system tracks and custom docs)
     const limit = category === 'opinion' ? 2 : 3
-    if (currentCategory.length >= limit) return
+    const used = category === 'opinion'
+      ? currentCategory.length + opinionTrackSelection.value.length
+      : currentCategory.length
+    if (used >= limit) return 'limited'
 
     currentCategory.push(docId)
   }
 
-  function toggleOpinionTrack(trackId: number) {
+  /** @returns 'limited' if at max capacity, undefined otherwise */
+  function toggleOpinionTrack(trackId: number): 'limited' | undefined {
     const idx = opinionTrackSelection.value.indexOf(trackId)
     if (idx >= 0) {
       opinionTrackSelection.value.splice(idx, 1)
     } else {
       const totalOpinion = kbSelection.value.opinion.length + opinionTrackSelection.value.length
-      if (totalOpinion >= 2) return
+      if (totalOpinion >= 2) return 'limited'
       opinionTrackSelection.value.push(trackId)
     }
   }

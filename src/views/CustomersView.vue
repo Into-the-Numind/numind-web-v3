@@ -141,7 +141,34 @@
                 <td><span class="runs-count">{{ user.total_sop_runs || 0 }}</span></td>
                 <td><span class="runs-count">{{ user.monthly_sop_runs || 0 }}</span></td>
                 <td>
-                  <button class="action-btn" @click="openPermissionModal(user)">管理权限</button>
+                  <div class="action-dropdown">
+                    <button
+                      class="action-btn"
+                      aria-haspopup="true"
+                      :aria-expanded="openMenuId === (user.user_id ?? user.id)"
+                      @click.stop="toggleActionMenu(user.user_id ?? user.id)"
+                      @keydown.escape="openMenuId = null"
+                    >
+                      管理
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <div v-if="openMenuId === (user.user_id ?? user.id)" class="action-menu" role="menu">
+                      <button class="action-menu-item" role="menuitem" @click="handleMenuPermission(user)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                        管理权限
+                      </button>
+                      <button
+                        class="action-menu-item"
+                        role="menuitem"
+                        :class="{ disabled: !canUpgrade(user) }"
+                        :disabled="!canUpgrade(user)"
+                        @click="handleMenuUpgrade(user)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                        升级等级
+                      </button>
+                    </div>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -175,11 +202,11 @@
 
       <!-- ========== Register Modal ========== -->
       <Teleport to="body">
-        <div v-if="showRegisterModal" class="modal-overlay" @click.self="showRegisterModal = false">
+        <div v-if="showRegisterModal" class="modal-overlay" @click.self="closeRegisterModal">
           <div class="modal-card register-modal">
             <div class="modal-header">
               <h2>注册新用户</h2>
-              <button class="modal-close" @click="showRegisterModal = false">
+              <button class="modal-close" @click="closeRegisterModal">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </button>
             </div>
@@ -199,9 +226,43 @@
                 <label class="form-label">昵称</label>
                 <input v-model="registerForm.nickname" type="text" class="form-input" placeholder="请输入昵称（可选）" />
               </div>
+
+              <!-- 会员设置 -->
+              <div class="reg-tier-section">
+                <div class="reg-tier-divider">
+                  <span class="reg-tier-divider-text">会员设置（可选）</span>
+                </div>
+                <div class="reg-tier-radios">
+                  <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'free' }">
+                    <input v-model="registerForm.tier" type="radio" name="register-tier" value="free" />
+                    <span>免费用户</span>
+                  </label>
+                  <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'standard' }">
+                    <input v-model="registerForm.tier" type="radio" name="register-tier" value="standard" />
+                    <span>普通会员</span>
+                  </label>
+                  <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'premium' }">
+                    <input v-model="registerForm.tier" type="radio" name="register-tier" value="premium" />
+                    <span>高级会员</span>
+                  </label>
+                </div>
+                <div v-if="registerForm.tier !== 'free'" class="reg-tier-details">
+                  <div class="form-group form-group--compact">
+                    <label class="form-label">开通时长</label>
+                    <select v-model="registerForm.months" class="form-input tier-select">
+                      <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
+                    </select>
+                  </div>
+                  <div class="tier-preview">
+                    到期日期：<strong>{{ registerExpirePreview }}</strong>
+                    <span class="tier-preview-hint">（每月按 30 天计算）</span>
+                  </div>
+                </div>
+              </div>
+
               <div v-if="registerError" class="register-error">{{ registerError }}</div>
               <div class="modal-footer">
-                <button type="button" class="btn-cancel" @click="showRegisterModal = false">取消</button>
+                <button type="button" class="btn-cancel" @click="closeRegisterModal">取消</button>
                 <button type="submit" class="btn-submit" :disabled="isRegistering || usernameStatus === 'taken'">
                   {{ isRegistering ? '注册中...' : '注册' }}
                 </button>
@@ -306,6 +367,86 @@
         </div>
       </Teleport>
 
+      <!-- ========== Tier Upgrade Modal ========== -->
+      <Teleport to="body">
+        <div v-if="showTierModal" class="modal-overlay" @click.self="closeTierModal">
+          <div class="modal-card tier-modal">
+            <div class="modal-header">
+              <h2>升级会员</h2>
+              <button class="modal-close" @click="closeTierModal">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            <div class="modal-body">
+              <!-- User info -->
+              <div class="tier-user-info">
+                <div class="perm-user-avatar">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div>
+                  <div class="perm-user-name">{{ tierTarget?.nickname || tierTarget?.username || '用户' }}</div>
+                  <div class="perm-user-meta">
+                    当前等级：<span class="tier-badge tier-badge-sm" :class="tierTarget ? getTierClass(tierTarget) : ''">{{ tierTarget ? getTierLabel(tierTarget) : '' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tier options -->
+              <div v-if="tierTarget" class="tier-options">
+                <div
+                  v-if="getActualTier(tierTarget) === 'free'"
+                  class="tier-option-card tier-standard-card"
+                  :class="{ selected: tierForm.tier === 'standard' }"
+                  @click="tierForm.tier = 'standard'"
+                >
+                  <div class="tier-option-radio" :class="{ active: tierForm.tier === 'standard' }"></div>
+                  <div class="tier-option-content">
+                    <div class="tier-option-title tier-standard-text">普通会员</div>
+                    <div class="tier-option-desc">每月 20 次 SOP 运行</div>
+                  </div>
+                </div>
+                <div
+                  class="tier-option-card tier-premium-card"
+                  :class="{ selected: tierForm.tier === 'premium' }"
+                  @click="tierForm.tier = 'premium'"
+                >
+                  <div class="tier-option-radio" :class="{ active: tierForm.tier === 'premium' }"></div>
+                  <div class="tier-option-content">
+                    <div class="tier-option-title tier-premium-text">高级会员</div>
+                    <div class="tier-option-desc">无限次 SOP 运行</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Duration -->
+              <div class="tier-duration">
+                <label class="form-label">开通时长</label>
+                <select v-model="tierForm.months" class="form-input tier-select">
+                  <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
+                </select>
+              </div>
+
+              <!-- Preview -->
+              <div v-if="tierForm.tier" class="tier-preview">
+                到期日期：<strong>{{ tierExpirePreview }}</strong>
+                <span class="tier-preview-hint">（每月按 30 天计算）</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-cancel" @click="closeTierModal">取消</button>
+              <button
+                type="button"
+                class="btn-submit"
+                :disabled="isTierUpdating || !tierForm.tier"
+                @click="handleTierUpgrade"
+              >
+                {{ isTierUpdating ? '升级中...' : '确认升级' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
       <!-- ========== Toast ========== -->
       <Teleport to="body">
         <Transition name="toast">
@@ -332,6 +473,7 @@ import {
   batchGrantTemplates,
   batchRevokeTemplates,
   fetchAllTemplates,
+  updateSubUserTier,
   type SubUser,
   type TemplateItem
 } from '@/api/customers'
@@ -353,8 +495,9 @@ const pageSize = 20
 const selectedIds = reactive(new Set<number | string>())
 
 // Register modal
+type TierValue = 'free' | 'standard' | 'premium'
 const showRegisterModal = ref(false)
-const registerForm = ref({ username: '', password: '', nickname: '' })
+const registerForm = ref<{ username: string; password: string; nickname: string; tier: TierValue; months: number }>({ username: '', password: '', nickname: '', tier: 'free', months: 1 })
 const isRegistering = ref(false)
 const usernameStatus = ref<'available' | 'taken' | 'checking' | null>(null)
 const registerError = ref('')
@@ -370,6 +513,15 @@ const permLoading = ref(false)
 const permSaving = ref(false)
 const permSelectedIds = reactive<Record<string, boolean>>({})
 const permOriginalIds = ref<Set<string>>(new Set())
+
+// Tier upgrade modal
+const showTierModal = ref(false)
+const tierTarget = ref<SubUser | null>(null)
+const tierForm = ref({ tier: '', months: 1 })
+const isTierUpdating = ref(false)
+
+// Action dropdown
+const openMenuId = ref<number | string | null>(null)
 
 // Toast
 const toast = ref({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' })
@@ -402,13 +554,29 @@ const isPermAllSelected = computed(() => {
   return allTemplates.value.length > 0 && allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
 })
 
+function computeExpireDate(months: number): string {
+  if (!months) return ''
+  const d = new Date()
+  d.setDate(d.getDate() + months * 30)
+  return d.toLocaleDateString('zh-CN')
+}
+
+const tierExpirePreview = computed(() => computeExpireDate(tierForm.value.months))
+const registerExpirePreview = computed(() => computeExpireDate(registerForm.value.months))
+
 // ── Lifecycle ──────────────────────────────────────────────────────
+function handleGlobalClick() {
+  openMenuId.value = null
+}
+
 onBeforeUnmount(() => {
   if (toastTimer) clearTimeout(toastTimer)
   if (searchTimer) clearTimeout(searchTimer)
+  document.removeEventListener('click', handleGlobalClick)
 })
 
 onMounted(async () => {
+  document.addEventListener('click', handleGlobalClick)
   isLoading.value = true
   try {
     await Promise.all([loadStatistics(), loadSubUsers(), loadAllTemplates()])
@@ -494,6 +662,13 @@ function toggleSelectAll() {
 }
 
 // ── Register ───────────────────────────────────────────────────────
+function closeRegisterModal() {
+  showRegisterModal.value = false
+  registerForm.value = { username: '', password: '', nickname: '', tier: 'free' as TierValue, months: 1 }
+  usernameStatus.value = null
+  registerError.value = ''
+}
+
 async function checkUsernameAvailability() {
   const name = registerForm.value.username.trim()
   if (!name) { usernameStatus.value = null; return }
@@ -504,10 +679,11 @@ async function checkUsernameAvailability() {
     if (res.code === 200 || res.code === 0) {
       usernameStatus.value = res.data?.available ? 'available' : 'taken'
     } else {
-      usernameStatus.value = null
+      usernameStatus.value = 'taken'
     }
   } catch {
-    usernameStatus.value = null
+    // API 返回错误码（如用户名已存在）会被 axios 拦截器 reject 到这里
+    usernameStatus.value = 'taken'
   }
 }
 
@@ -519,6 +695,10 @@ function validateRegisterForm(): string | null {
   if (!/^[a-zA-Z0-9]{3,20}$/.test(username)) return '用户名需要3-20位字母数字'
   if (password.length < 6 || password.length > 18) return '密码需要6-18位'
   if (nickname && (nickname.length < 2 || nickname.length > 20)) return '昵称需要2-20位'
+  if (registerForm.value.tier !== 'free') {
+    if (!['standard', 'premium'].includes(registerForm.value.tier)) return '无效的会员等级'
+    if (!registerForm.value.months || registerForm.value.months < 1 || registerForm.value.months > 12) return '开通时长需要1-12个月'
+  }
   return null
 }
 
@@ -528,26 +708,32 @@ async function handleRegister() {
     registerError.value = error
     return
   }
+  if (usernameStatus.value === 'taken') {
+    registerError.value = '用户名已被使用'
+    return
+  }
   registerError.value = ''
   isRegistering.value = true
 
   try {
-    const res = await registerSubUser({
-      username: registerForm.value.username,
+    const payload: Parameters<typeof registerSubUser>[0] = {
+      username: registerForm.value.username.trim(),
       password: registerForm.value.password,
-      nickname: registerForm.value.nickname || undefined
-    })
+      nickname: registerForm.value.nickname.trim() || undefined
+    }
+    if (registerForm.value.tier !== 'free') {
+      payload.tier = registerForm.value.tier
+      payload.months = registerForm.value.months
+    }
+    const res = await registerSubUser(payload)
     if (res.code === 200 || res.code === 0) {
       showToast('注册成功', 'success')
-      showRegisterModal.value = false
-      registerForm.value = { username: '', password: '', nickname: '' }
-      usernameStatus.value = null
-      registerError.value = ''
+      closeRegisterModal()
       await loadSubUsers()
       await loadStatistics()
     }
   } catch (e: unknown) {
-    showToast(`注册失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
+    registerError.value = e instanceof Error ? e.message : '注册失败'
   } finally {
     isRegistering.value = false
   }
@@ -582,6 +768,8 @@ async function openPermissionModal(user: SubUser) {
 function closePermissionModal() {
   showPermModal.value = false
   permTarget.value = null
+  permLoading.value = false
+  permSaving.value = false
   Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
 }
 
@@ -707,6 +895,74 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { visible: true, message, type }
   toastTimer = setTimeout(() => { toast.value.visible = false }, duration)
+}
+
+// ── Action Dropdown ───────────────────────────────────────────────
+function toggleActionMenu(id: number | string) {
+  openMenuId.value = openMenuId.value === id ? null : id
+}
+
+function handleMenuPermission(user: SubUser) {
+  openMenuId.value = null
+  openPermissionModal(user)
+}
+
+function handleMenuUpgrade(user: SubUser) {
+  if (!canUpgrade(user)) return
+  openMenuId.value = null
+  openTierModal(user)
+}
+
+// ── Tier Upgrade ──────────────────────────────────────────────────
+function getActualTier(user: SubUser): string {
+  const tier = user.user_tier || 'free'
+  const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
+  if (isExpired || tier === 'free') return 'free'
+  return tier
+}
+
+function canUpgrade(user: SubUser): boolean {
+  return getActualTier(user) !== 'premium'
+}
+
+function openTierModal(user: SubUser) {
+  tierTarget.value = user
+  const actual = getActualTier(user)
+  // 默认选中比当前高一级的等级
+  if (actual === 'free') {
+    tierForm.value = { tier: 'standard', months: 1 }
+  } else {
+    tierForm.value = { tier: 'premium', months: 1 }
+  }
+  showTierModal.value = true
+}
+
+function closeTierModal() {
+  showTierModal.value = false
+  tierTarget.value = null
+  tierForm.value = { tier: '', months: 1 }
+}
+
+async function handleTierUpgrade() {
+  if (!tierTarget.value || !tierForm.value.tier) return
+  const userId = tierTarget.value.user_id ?? tierTarget.value.id
+  isTierUpdating.value = true
+
+  try {
+    const res = await updateSubUserTier(userId, {
+      tier: tierForm.value.tier,
+      months: tierForm.value.months
+    })
+    if (res.code === 200 || res.code === 0) {
+      showToast('升级成功', 'success')
+      closeTierModal()
+      await loadSubUsers()
+    }
+  } catch (e: unknown) {
+    showToast(`升级失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
+  } finally {
+    isTierUpdating.value = false
+  }
 }
 </script>
 
@@ -1542,6 +1798,303 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 .toast-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(-8px);
+}
+
+/* ── Tier Upgrade ─────────────────────────────────────────────── */
+.tier-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tier-upgrade-btn {
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid hsl(158, 40%, 80%);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(158, 64%, 40%);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tier-upgrade-btn:hover {
+  background: hsl(158, 50%, 95%);
+  border-color: hsl(158, 64%, 50%);
+}
+
+.tier-modal {
+  max-width: 480px;
+}
+
+.tier-user-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid hsl(150, 15%, 92%);
+}
+
+.tier-badge-sm {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.tier-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tier-option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 2px solid hsl(150, 15%, 90%);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tier-option-card:hover:not(.disabled) {
+  border-color: hsl(150, 15%, 80%);
+}
+
+.tier-standard-card.selected {
+  border-color: hsl(158, 64%, 50%);
+  background: hsl(158, 60%, 97%);
+}
+
+.tier-premium-card.selected {
+  border-color: hsl(45, 80%, 55%);
+  background: hsl(45, 100%, 97%);
+}
+
+.tier-option-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tier-option-radio {
+  width: 18px;
+  height: 18px;
+  border: 2px solid hsl(150, 15%, 75%);
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.tier-option-radio.active {
+  border-color: hsl(158, 64%, 45%);
+}
+
+.tier-option-radio.active::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(158, 64%, 45%);
+}
+
+.tier-option-content {
+  flex: 1;
+}
+
+.tier-option-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.tier-standard-text {
+  color: hsl(158, 64%, 35%);
+}
+
+.tier-premium-text {
+  color: hsl(45, 100%, 40%);
+}
+
+.tier-option-desc {
+  font-size: 13px;
+  color: hsl(150, 10%, 50%);
+}
+
+.tier-duration {
+  margin-bottom: 16px;
+}
+
+.tier-select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.tier-preview {
+  padding: 12px 16px;
+  background: hsl(150, 20%, 97%);
+  border-radius: 10px;
+  font-size: 14px;
+  color: hsl(150, 10%, 35%);
+}
+
+.tier-preview strong {
+  color: hsl(150, 10%, 15%);
+}
+
+.tier-preview-hint {
+  font-size: 12px;
+  color: hsl(150, 10%, 55%);
+}
+
+/* ── Register Tier Section ───────────────────────────────────── */
+.reg-tier-section {
+  margin-bottom: 20px;
+}
+
+.reg-tier-divider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.reg-tier-divider::before,
+.reg-tier-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: hsl(150, 15%, 90%);
+}
+
+.reg-tier-divider-text {
+  padding: 0 12px;
+  font-size: 12px;
+  color: hsl(150, 10%, 50%);
+  white-space: nowrap;
+}
+
+.reg-tier-radios {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border: 1px solid hsl(150, 15%, 88%);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.reg-tier-radio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(150, 10%, 40%);
+  background: hsl(150, 20%, 98%);
+  transition: all 0.2s;
+  border-right: 1px solid hsl(150, 15%, 88%);
+}
+
+.reg-tier-radio:last-child {
+  border-right: none;
+}
+
+.reg-tier-radio input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.reg-tier-radio:focus-within {
+  outline: 2px solid hsl(158, 64%, 45%);
+  outline-offset: -2px;
+}
+
+.reg-tier-radio.active {
+  background: hsl(158, 50%, 95%);
+  color: hsl(158, 64%, 35%);
+  font-weight: 600;
+}
+
+.form-group--compact {
+  margin-bottom: 12px;
+}
+
+.reg-tier-details {
+  animation: fadeSlideDown 0.2s ease-out;
+}
+
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Action Dropdown ─────────────────────────────────────────── */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid hsl(150, 15%, 90%);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 200;
+  padding: 4px;
+  animation: fadeSlideDown 0.15s ease-out;
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: hsl(150, 10%, 25%);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.action-menu-item:hover:not(.disabled) {
+  background: hsl(150, 20%, 96%);
+}
+
+.action-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ── Responsive ───────────────────────────────────────────────── */

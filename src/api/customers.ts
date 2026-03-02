@@ -33,6 +33,8 @@ export interface RegisterSubUserParams {
   username: string
   password: string
   nickname?: string
+  tier?: string
+  months?: number
 }
 
 // 获取统计数据
@@ -86,6 +88,11 @@ export const batchGrantTemplates = (data: { user_ids: (number | string)[], templ
 // 批量撤销模板
 export const batchRevokeTemplates = (data: { user_ids: (number | string)[], template_ids: (number | string)[] }): Promise<ApiResponse<any>> => {
   return request.post('/v1/customers/batch/revoke-templates', data)
+}
+
+// 升级子用户会员等级
+export const updateSubUserTier = (userId: number | string, data: { tier: string; months: number }): Promise<ApiResponse<{ message: string }>> => {
+  return request.put(`/v1/customers/sub-users/${userId}/tier`, data)
 }
 
 // 获取所有可用模板

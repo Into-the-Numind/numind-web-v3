@@ -26,6 +26,19 @@ const emit = defineEmits<{
 
 const store = useSalesStore()
 
+// ==================== Limit warning ====================
+const limitWarning = ref('')
+let limitWarningTimer: ReturnType<typeof setTimeout> | null = null
+
+function showLimitWarning() {
+  const max = activeCategory.value === 'opinion' ? 2 : 3
+  limitWarning.value = activeCategory.value === 'opinion'
+    ? `系统赛道与自定义赛道合计最多选择 ${max} 个`
+    : `最多选择 ${max} 个文档`
+  if (limitWarningTimer) clearTimeout(limitWarningTimer)
+  limitWarningTimer = setTimeout(() => { limitWarning.value = '' }, 2000)
+}
+
 // ==================== Constants ====================
 const KB_CATEGORIES: (keyof KbSelection)[] = ['product', 'cases', 'faq', 'opinion']
 const KB_CATEGORY_LABELS: Record<keyof KbSelection, string> = {
@@ -180,7 +193,9 @@ function getDocOtherCategoryLabel(docId: number): string {
 function toggleDoc(docId: number) {
   // Do not allow toggling if in another category
   if (isDocInOtherCategory(docId)) return
-  store.toggleKbDocument(docId, activeCategory.value)
+  if (store.toggleKbDocument(docId, activeCategory.value) === 'limited') {
+    showLimitWarning()
+  }
 }
 
 function isTrackSelected(trackId: number): boolean {
@@ -188,7 +203,9 @@ function isTrackSelected(trackId: number): boolean {
 }
 
 function toggleTrack(trackId: number) {
-  store.toggleOpinionTrack(trackId)
+  if (store.toggleOpinionTrack(trackId) === 'limited') {
+    showLimitWarning()
+  }
 }
 
 function formatFileSize(bytes: number): string {
@@ -370,6 +387,13 @@ function getCategoryEditHint(): string {
             <span>{{ KB_WIZARD_HINTS[KB_CATEGORIES[wizardStep]] }}</span>
           </div>
 
+          <!-- Limit warning -->
+          <Transition name="kb-warning-fade">
+            <div v-if="limitWarning" class="kb-limit-warning">
+              {{ limitWarning }}
+            </div>
+          </Transition>
+
           <div class="profile-modal-body kb-doc-list-body">
             <!-- Document list -->
             <div class="kb-document-list">
@@ -503,6 +527,13 @@ function getCategoryEditHint(): string {
             <span>{{ getCategoryEditHint() }}</span>
           </div>
 
+          <!-- Limit warning -->
+          <Transition name="kb-warning-fade">
+            <div v-if="limitWarning" class="kb-limit-warning">
+              {{ limitWarning }}
+            </div>
+          </Transition>
+
           <div class="profile-modal-body kb-doc-list-body">
             <!-- Document list -->
             <div class="kb-document-list">
@@ -626,7 +657,7 @@ function getCategoryEditHint(): string {
   </Teleport>
 </template>
 
-<style>
+<style scoped>
 @import '@/assets/styles/sales-modal.css';
 </style>
 
@@ -921,6 +952,35 @@ function getCategoryEditHint(): string {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.kb-limit-warning {
+  padding: 8px 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #b45309;
+  background: #fef3c7;
+  border-bottom: 1px solid #fde68a;
+  text-align: center;
+}
+
+.kb-warning-fade-enter-active {
+  transition: all 0.25s ease-out;
+}
+
+.kb-warning-fade-leave-active {
+  transition: all 0.4s ease-in;
+}
+
+.kb-warning-fade-enter-from {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.kb-warning-fade-leave-to {
+  opacity: 0;
 }
 
 /* --- Document list body --- */
