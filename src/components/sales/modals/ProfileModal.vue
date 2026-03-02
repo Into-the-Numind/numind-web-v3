@@ -587,6 +587,26 @@ function onEditorPaste(e: ClipboardEvent) {
   background: rgba(37, 167, 105, 0.04);
 }
 
+/* Mutual exclusion: file upload vs text input */
+.profile-input-disabled-hint {
+  display: none;
+  font-size: 13px;
+  color: #d97706;
+  margin-top: 8px;
+}
+
+.profile-input-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+}
+
+.profile-input-disabled .profile-input-disabled-hint {
+  display: block;
+  pointer-events: auto;
+  opacity: 1;
+}
+
 /* Footer layouts */
 .profile-footer-display,
 .profile-footer-input,
