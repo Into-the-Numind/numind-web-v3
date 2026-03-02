@@ -442,9 +442,12 @@ export const useSalesStore = defineStore('sales', () => {
       }
     }
 
-    // Check limit
+    // Check limit (opinion category counts both system tracks and custom docs)
     const limit = category === 'opinion' ? 2 : 3
-    if (currentCategory.length >= limit) return
+    const used = category === 'opinion'
+      ? currentCategory.length + opinionTrackSelection.value.length
+      : currentCategory.length
+    if (used >= limit) return
 
     currentCategory.push(docId)
   }
