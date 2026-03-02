@@ -76,6 +76,9 @@ export const useSalesStore = defineStore('sales', () => {
   const streamError = ref('')
   const sseAbortController = shallowRef<AbortController | null>(null)
 
+  // True when current message is image-only (no text), so AI response should be hidden
+  const imageOnlyQuery = ref(false)
+
   // ==================== Getters ====================
   const sortedSessions = computed(() => {
     return [...sessions.value].sort((a, b) => {
@@ -265,6 +268,9 @@ export const useSalesStore = defineStore('sales', () => {
       .map((img) => img.previewUrl)
       .filter((url) => !url.startsWith('blob:'))
 
+    // Detect image-only query (images present, no text) — AI response will be hidden
+    imageOnlyQuery.value = !text && imageUrls.length > 0
+
     // Append user message immediately
     const userMsg: SalesMessage = {
       id: nextLocalId--,
@@ -351,8 +357,8 @@ export const useSalesStore = defineStore('sales', () => {
     } finally {
       // Guard against session switch during stream
       if (currentSessionId.value === sessionIdAtStart) {
-        // Append AI message from stream
-        if (streamContent.value || streamThinkingContent.value) {
+        // Append AI message from stream (skip for image-only queries)
+        if (!imageOnlyQuery.value && (streamContent.value || streamThinkingContent.value)) {
           const aiMsg: SalesMessage = {
             id: nextLocalId--,
             role: 'assistant',
@@ -365,6 +371,7 @@ export const useSalesStore = defineStore('sales', () => {
       }
 
       isLoading.value = false
+      imageOnlyQuery.value = false
       sseAbortController.value = null
 
       // Refresh sessions to update sidebar summary
@@ -600,6 +607,7 @@ export const useSalesStore = defineStore('sales', () => {
     streamStatus.value = ''
     streamError.value = ''
     streamFinished.value = true
+    imageOnlyQuery.value = false
     images.value.forEach((img) => {
       if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
     })
@@ -629,6 +637,7 @@ export const useSalesStore = defineStore('sales', () => {
     streamStatus,
     streamFinished,
     streamError,
+    imageOnlyQuery,
 
     // Getters
     sortedSessions,
