@@ -115,13 +115,7 @@ export const useSalesStore = defineStore('sales', () => {
     cancelStream()
     if (isLoading.value) {
       isLoading.value = false
-      streamContent.value = ''
-      streamThinkingContent.value = ''
-      streamCitations.value = []
-      streamStatus.value = ''
-      streamError.value = ''
-      streamFinished.value = true
-      imageOnlyQuery.value = false
+      resetStreamState()
     }
     clearAllImages()
 
@@ -609,12 +603,7 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   // ==================== Cleanup ====================
-  function cleanup() {
-    cancelStream()
-    currentSessionId.value = null
-    sessions.value = []
-    messages.value = []
-    isLoading.value = false
+  function resetStreamState() {
     streamContent.value = ''
     streamThinkingContent.value = ''
     streamCitations.value = []
@@ -622,10 +611,16 @@ export const useSalesStore = defineStore('sales', () => {
     streamError.value = ''
     streamFinished.value = true
     imageOnlyQuery.value = false
-    images.value.forEach((img) => {
-      if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
-    })
-    images.value = []
+  }
+
+  function cleanup() {
+    cancelStream()
+    currentSessionId.value = null
+    sessions.value = []
+    messages.value = []
+    isLoading.value = false
+    resetStreamState()
+    clearAllImages()
   }
 
   return {
