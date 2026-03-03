@@ -111,6 +111,20 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   async function switchSession(id: number | null, forceWelcome = false) {
+    // 切换会话前：取消进行中的流、清除图片和流式状态
+    cancelStream()
+    if (isLoading.value) {
+      isLoading.value = false
+      streamContent.value = ''
+      streamThinkingContent.value = ''
+      streamCitations.value = []
+      streamStatus.value = ''
+      streamError.value = ''
+      streamFinished.value = true
+      imageOnlyQuery.value = false
+    }
+    clearAllImages()
+
     if (id === null) {
       currentSessionId.value = null
       messages.value = []
