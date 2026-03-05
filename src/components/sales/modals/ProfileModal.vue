@@ -39,7 +39,7 @@ onBeforeUnmount(() => {
 })
 
 // ==================== Computed helpers ====================
-const hasContent = () => (store.customerProfile.notes || '').trim().length > 0
+const hasContent = () => (store.customerProfile || '').trim().length > 0
 const canGenerate = () => uploadedFiles.value.length > 0 || inputText.value.trim().length > 0
 
 // File/text mutual exclusion
@@ -61,13 +61,18 @@ function getTitle(): string {
 function switchStep(step: Step) {
   currentStep.value = step
   if (step === 'edit') {
-    editText.value = store.customerProfile.notes || ''
+    editText.value = store.customerProfile || ''
   }
 }
 
 // ==================== Open/Close ====================
 watch(() => props.open, async (show) => {
   if (show) {
+    // Clear stale local state from previous session
+    errorMessage.value = ''
+    uploadedFiles.value = []
+    inputText.value = ''
+    editText.value = ''
     await store.loadCustomerProfile()
     updateRenderedContent()
     switchStep('display')
@@ -80,7 +85,7 @@ watch(() => props.open, async (show) => {
 })
 
 function updateRenderedContent() {
-  const notes = store.customerProfile.notes || ''
+  const notes = store.customerProfile || ''
   renderedContent.value = notes ? renderMarkdown(cleanContent(notes)) : ''
 }
 
@@ -159,7 +164,7 @@ async function startGeneration() {
         switchStep('display')
       }
       // Real-time render
-      store.customerProfile.notes = profileContent
+      store.customerProfile = profileContent
       renderedContent.value = renderMarkdown(cleanContent(profileContent))
       // Auto-scroll
       nextTick(() => {
@@ -171,7 +176,7 @@ async function startGeneration() {
       const doneData = event.data as Record<string, unknown> | null
       if (doneData?.profile !== undefined) {
         profileContent = String(doneData.profile)
-        store.customerProfile.notes = profileContent
+        store.customerProfile = profileContent
         renderedContent.value = renderMarkdown(cleanContent(profileContent))
       }
     } else if (event.type === 'error') {
@@ -212,10 +217,10 @@ async function startGeneration() {
 async function saveProfile() {
   // Sync from contenteditable
   if (editorRef.value) {
-    store.customerProfile.notes = editorRef.value.innerText || ''
+    store.customerProfile = editorRef.value.innerText || ''
   }
 
-  if (!store.customerProfile.notes.trim()) return
+  if (!store.customerProfile.trim()) return
 
   isSaving.value = true
   try {
@@ -235,7 +240,7 @@ function cancelEdit() {
 }
 
 async function saveEdit() {
-  store.customerProfile.notes = editText.value
+  store.customerProfile = editText.value
   renderedContent.value = renderMarkdown(cleanContent(editText.value))
   await store.persistProfile()
   switchStep('display')

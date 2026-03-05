@@ -11,14 +11,13 @@ const emit = defineEmits<{
   previewImage: [url: string]
 }>()
 
-const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isExpanded = ref(false)
 const isComposing = ref(false)
 
 const canSend = computed(() => {
-  const hasText = inputText.value.trim().length > 0
+  const hasText = store.draftText.trim().length > 0
   const hasImages = store.images.length > 0
   const allImagesReady = store.images.every((img) => img.status === 'success')
   return !store.isLoading && (hasText || (hasImages && allImagesReady))
@@ -30,6 +29,12 @@ const modeClass = computed(() => {
 
 const modeLabel = computed(() => {
   return store.chatMode === 'sales' ? '销冠模式' : '顾问模式'
+})
+
+// Reset expand state on session switch
+watch(() => store.currentSessionId, () => {
+  isExpanded.value = false
+  nextTick(autoResize)
 })
 
 // Auto-resize textarea
@@ -44,7 +49,7 @@ function autoResize() {
   }
 }
 
-watch(inputText, () => nextTick(autoResize))
+watch(() => store.draftText, () => nextTick(autoResize))
 
 // Toggle expand
 function toggleExpand() {
@@ -65,8 +70,8 @@ function toggleDeepThinking() {
 // Send message
 function handleSend() {
   if (!canSend.value) return
-  const text = inputText.value.trim()
-  inputText.value = ''
+  const text = store.draftText.trim()
+  store.draftText = ''
   isExpanded.value = false
   nextTick(autoResize)
   store.sendMessage(text)
@@ -136,7 +141,7 @@ onMounted(() => {
       <!-- Textarea -->
       <textarea
         ref="textareaRef"
-        v-model="inputText"
+        v-model="store.draftText"
         class="chat-input"
         :placeholder="store.chatMode === 'sales' ? '输入客户的话或销售场景，帮你生成话术...' : '输入问题，获取销售策略建议...'"
         @keydown="handleKeydown"
@@ -148,7 +153,7 @@ onMounted(() => {
 
       <!-- Expand button -->
       <button
-        v-if="inputText.length > 100"
+        v-if="store.draftText.length > 100"
         class="expand-btn visible"
         @click="toggleExpand"
         :title="isExpanded ? '收起' : '展开'"

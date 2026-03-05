@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useSalesStore } from '@/stores/sales'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import type { Citation } from '@/api/sales'
@@ -9,6 +9,8 @@ import ScrollToBottomBtn from './ScrollToBottomBtn.vue'
 import WelcomeScreen from './WelcomeScreen.vue'
 
 const store = useSalesStore()
+
+const visibleMessages = computed(() => store.messages)
 
 const emit = defineEmits<{
   showCitations: [citations: Citation[]]
@@ -66,7 +68,7 @@ watch(
       <template v-else>
         <div class="messages-container">
           <ChatMessage
-            v-for="msg in store.messages"
+            v-for="msg in visibleMessages"
             :key="msg.id"
             :message="msg"
             :sales-stage="store.salesStage"
