@@ -60,12 +60,6 @@ export interface KbSelection {
   opinion: number[]
 }
 
-export interface CustomerProfile {
-  name: string
-  stage: string
-  notes: string
-}
-
 export interface OpinionTrack {
   id: number
   name: string

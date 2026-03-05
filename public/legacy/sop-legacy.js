@@ -53,18 +53,18 @@
                     placeholder: '请输入产品服务介绍内容，或点击"上传文件"'
                 },
                 '2': {
-                    title: '第 2 步：AI 拆解爆款文案',
-                    description: '在下方输入或上传爆款文案',
-                    inputLabel: '爆款文案',
-                    tip: '💡 提供一篇完整的对标文案，需包含开头、正文和结尾，以便AI 掌握完整结构',
-                    placeholder: '请输入爆款文案内容，或点击"上传文件"'
-                },
-                '3': {
-                    title: '第 3 步：AI学习口播语言风格',
+                    title: '第 2 步：AI 学习口播语言风格',
                     description: '在下方输入或上传你的历史爆款口播文稿 或 直播公开课逐字稿（二选一）',
                     inputLabel: '你的历史爆款口播文稿或直播公开课逐字稿',
                     tip: '💡 请提供最符合你表达习惯的文案，文案风格越贴合本人，输出文稿的语言风格就越真实',
                     placeholder: '请输入或上传你的历史爆款口播文稿 或 直播公开课逐字稿（二选一）'
+                },
+                '3': {
+                    title: '第 3 步：AI 拆解爆款文案',
+                    description: '在下方输入或上传爆款文案',
+                    inputLabel: '爆款文案',
+                    tip: '💡 提供一篇完整的对标文案，需包含开头、正文和结尾，以便AI 掌握完整结构',
+                    placeholder: '请输入爆款文案内容，或点击"上传文件"'
                 },
                 '4': {
                     title: '第 4 步：AI 进行口播文稿创作',
@@ -5118,7 +5118,7 @@
         const files = fileInput?.files || [];
 
         if (!input.trim() && files.length === 0) {
-            showToast('请先输入爆款文案或上传文件');
+            showToast('请先输入口播文稿或上传文件');
             return;
         }
 
@@ -5262,7 +5262,7 @@
         const files = fileInput?.files || [];
 
         if (!input.trim() && files.length === 0) {
-            showToast('请先输入你的历史文稿或上传文件');
+            showToast('请先输入爆款文案或上传文件');
             return;
         }
 

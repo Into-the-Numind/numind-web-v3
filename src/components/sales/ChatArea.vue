@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useSalesStore } from '@/stores/sales'
 import { useAutoScroll } from '@/composables/useAutoScroll'
-import type { Citation, SalesMessage } from '@/api/sales'
+import type { Citation } from '@/api/sales'
 import ChatMessage from './ChatMessage.vue'
 import GlobalLoadingStatus from './GlobalLoadingStatus.vue'
 import ScrollToBottomBtn from './ScrollToBottomBtn.vue'
@@ -10,25 +10,7 @@ import WelcomeScreen from './WelcomeScreen.vue'
 
 const store = useSalesStore()
 
-/** Check if a user message contains only images and no meaningful text */
-function isImageOnly(msg: SalesMessage): boolean {
-  if (msg.role !== 'user' || !msg.images?.length) return false
-  const text = msg.content.replace(/\[图片内容\]:[^\n]*\n?/g, '').trim()
-  return !text
-}
-
-/** Filter out assistant messages that follow image-only user messages */
-const visibleMessages = computed(() => {
-  const msgs = store.messages
-  const result: SalesMessage[] = []
-  for (let i = 0; i < msgs.length; i++) {
-    if (msgs[i].role === 'assistant' && i > 0 && isImageOnly(msgs[i - 1])) {
-      continue
-    }
-    result.push(msgs[i])
-  }
-  return result
-})
+const visibleMessages = computed(() => store.messages)
 
 const emit = defineEmits<{
   showCitations: [citations: Citation[]]
@@ -95,9 +77,9 @@ watch(
             @regenerate="store.regenerateMessage()"
           />
 
-          <!-- Streaming message (live) — only show when AI starts generating, skip for image-only queries -->
+          <!-- Streaming message (live) — only show when AI starts generating -->
           <ChatMessage
-            v-if="store.isLoading && !store.imageOnlyQuery && (store.streamContent || store.streamThinkingContent)"
+            v-if="store.isLoading && (store.streamContent || store.streamThinkingContent)"
             :streaming="true"
             :stream-content="store.streamContent"
             :stream-thinking-content="store.streamThinkingContent"
@@ -108,9 +90,9 @@ watch(
             @regenerate="store.regenerateMessage()"
           />
 
-          <!-- Global loading status — hide once AI starts generating, skip for image-only queries -->
+          <!-- Global loading status — hide once AI starts generating -->
           <GlobalLoadingStatus
-            v-if="store.isLoading && !store.imageOnlyQuery && store.streamStatus && !store.streamContent && !store.streamThinkingContent"
+            v-if="store.isLoading && store.streamStatus && !store.streamContent && !store.streamThinkingContent"
             :status="store.streamStatus"
           />
         </div>

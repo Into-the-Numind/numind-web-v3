@@ -4,7 +4,6 @@ import type {
   SalesSession,
   SalesMessage,
   KbSelection,
-  CustomerProfile,
   ChatMode,
   ImageUploadItem,
   Citation,
@@ -59,13 +58,17 @@ export const useSalesStore = defineStore('sales', () => {
   const availableOpinionTracks = ref<OpinionTrack[]>([])
 
   // ==================== Customer Profile ====================
-  const customerProfile = ref<CustomerProfile>({ name: '', stage: '', notes: '' })
+  const customerProfile = ref('')
 
   // ==================== Scroll ====================
   const autoScrollEnabled = ref(true)
 
   // ==================== Image OCR ====================
   const images = ref<ImageUploadItem[]>([])
+
+  // ==================== Draft State (per-session input isolation) ====================
+  const draftText = ref('')
+  const sessionDrafts = new Map<number, { text: string; images: ImageUploadItem[] }>()
 
   // ==================== Streaming State ====================
   const streamContent = ref('')
@@ -77,7 +80,6 @@ export const useSalesStore = defineStore('sales', () => {
   const sseAbortController = shallowRef<AbortController | null>(null)
 
   // True when current message is image-only (no text), so AI response should be hidden
-  const imageOnlyQuery = ref(false)
 
   // ==================== Getters ====================
   const sortedSessions = computed(() => {
@@ -111,27 +113,31 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   async function switchSession(id: number | null, forceWelcome = false) {
-    // 切换会话前：取消进行中的流、清除图片和流式状态
-    cancelStream()
-    if (isLoading.value) {
-      isLoading.value = false
-      resetStreamState()
+    // Early return for same-session click (no-op)
+    if (id !== null) {
+      updateUrl(id)
+      if (currentSessionId.value === id && !forceWelcome) return
     }
-    clearAllImages()
+
+    // 切换会话前：取消进行中的流、保存当前草稿
+    cancelStream()
+    isLoading.value = false
+    resetStreamState()
+    saveDraft()
 
     if (id === null) {
       currentSessionId.value = null
       messages.value = []
       kbSelection.value = { product: [], cases: [], faq: [], opinion: [] }
       opinionTrackSelection.value = []
-      customerProfile.value = { name: '', stage: '', notes: '' }
+      customerProfile.value = ''
       salesStage.value = ''
       updateUrl(null)
       return
     }
 
-    updateUrl(id)
-    if (currentSessionId.value === id && !forceWelcome) return
+    // Restore target session's draft (images + text)
+    restoreDraft(id)
 
     sessionLoadCounter.value++
     const currentLoadId = sessionLoadCounter.value
@@ -140,6 +146,7 @@ export const useSalesStore = defineStore('sales', () => {
     currentSessionId.value = id
     messages.value = []
     messagesLoading.value = true
+    customerProfile.value = ''
 
     // Load session details
     try {
@@ -156,11 +163,7 @@ export const useSalesStore = defineStore('sales', () => {
           opinion: detail.opinionDocIds
         }
         opinionTrackSelection.value = detail.opinionTrackIds
-        customerProfile.value = {
-          name: '',
-          stage: detail.salesStage,
-          notes: detail.customerProfile
-        }
+        customerProfile.value = detail.customerProfile
       }
     } catch (e) {
       console.error('[sales] fetchSessionDetail failed:', e)
@@ -195,12 +198,10 @@ export const useSalesStore = defineStore('sales', () => {
         opinion_doc_ids: kbSelection.value.opinion,
         opinion_track_ids: opinionTrackSelection.value,
         deep_thinking: isDeepThinking.value,
-        customer_profile: JSON.stringify(customerProfile.value)
+        customer_profile: ''
       }
       const session = await createSalesSession(payload)
       if (session) {
-        currentSessionId.value = session.id
-        updateUrl(session.id)
         await loadSessions()
         return session.id
       }
@@ -211,6 +212,15 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   async function deleteSessionAction(id: number) {
+    // Clean up cached draft for deleted session
+    const draft = sessionDrafts.get(id)
+    if (draft) {
+      draft.images.forEach((img) => {
+        if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
+      })
+      sessionDrafts.delete(id)
+    }
+
     try {
       await apiDeleteSession(id)
       const wasCurrent = id === currentSessionId.value
@@ -221,7 +231,7 @@ export const useSalesStore = defineStore('sales', () => {
           await switchSession(sortedSessions.value[0].id)
         } else {
           await switchSession(null)
-          customerProfile.value = { name: '', stage: '', notes: '' }
+          customerProfile.value = ''
         }
       }
       return true
@@ -268,16 +278,14 @@ export const useSalesStore = defineStore('sales', () => {
       .filter((img) => img.status === 'success' && img.ocrResult)
       .map((img) => img.ocrResult)
     if (ocrTexts.length > 0) {
-      fullQuery = ocrTexts.map((t) => `[图片内容]: ${t}`).join('\n') + '\n' + text
+      const ocrBlock = ocrTexts.map((t) => `[图片内容]: ${t}`).join('\n')
+      fullQuery = text ? text + '\n' + ocrBlock : ocrBlock
     }
 
     const imageUrls = images.value
       .filter((img) => img.status === 'success')
       .map((img) => img.previewUrl)
       .filter((url) => !url.startsWith('blob:'))
-
-    // Detect image-only query (images present, no text) — AI response will be hidden
-    imageOnlyQuery.value = !text && imageUrls.length > 0
 
     // Append user message immediately
     const userMsg: SalesMessage = {
@@ -365,8 +373,8 @@ export const useSalesStore = defineStore('sales', () => {
     } finally {
       // Guard against session switch during stream
       if (currentSessionId.value === sessionIdAtStart) {
-        // Append AI message from stream (skip for image-only queries)
-        if (!imageOnlyQuery.value && (streamContent.value || streamThinkingContent.value)) {
+        // Append AI message from stream
+        if (streamContent.value || streamThinkingContent.value) {
           const aiMsg: SalesMessage = {
             id: nextLocalId--,
             role: 'assistant',
@@ -379,7 +387,6 @@ export const useSalesStore = defineStore('sales', () => {
       }
 
       isLoading.value = false
-      imageOnlyQuery.value = false
       sseAbortController.value = null
 
       // Refresh sessions to update sidebar summary
@@ -416,9 +423,6 @@ export const useSalesStore = defineStore('sales', () => {
   // ==================== Sales Stage ====================
   async function setSalesStage(stageId: string) {
     salesStage.value = stageId
-    if (customerProfile.value) {
-      customerProfile.value.stage = stageId
-    }
 
     if (currentSessionId.value) {
       try {
@@ -526,11 +530,7 @@ export const useSalesStore = defineStore('sales', () => {
     try {
       const detail = await fetchSessionDetail(currentSessionId.value)
       if (detail) {
-        customerProfile.value = {
-          name: '',
-          stage: detail.salesStage,
-          notes: detail.customerProfile
-        }
+        customerProfile.value = detail.customerProfile
       }
     } catch (e) {
       console.error('[sales] loadCustomerProfile failed:', e)
@@ -540,7 +540,7 @@ export const useSalesStore = defineStore('sales', () => {
   async function persistProfile(): Promise<boolean> {
     if (!currentSessionId.value) return false
     try {
-      await saveCustomerProfile(currentSessionId.value, customerProfile.value.notes)
+      await saveCustomerProfile(currentSessionId.value, customerProfile.value)
       return true
     } catch (e) {
       console.error('[sales] persistProfile failed:', e)
@@ -591,6 +591,34 @@ export const useSalesStore = defineStore('sales', () => {
     images.value = []
   }
 
+  // ==================== Draft Save/Restore ====================
+  function saveDraft() {
+    if (currentSessionId.value === null) return
+    if (draftText.value || images.value.length > 0) {
+      sessionDrafts.set(currentSessionId.value, {
+        text: draftText.value,
+        images: [...images.value]
+      })
+    } else {
+      sessionDrafts.delete(currentSessionId.value)
+    }
+    // Clear active state without revoking blob URLs (they're now in cache)
+    draftText.value = ''
+    images.value = []
+  }
+
+  function restoreDraft(sessionId: number) {
+    const draft = sessionDrafts.get(sessionId)
+    if (draft) {
+      draftText.value = draft.text
+      images.value = draft.images
+      sessionDrafts.delete(sessionId)
+    } else {
+      draftText.value = ''
+      images.value = []
+    }
+  }
+
   // ==================== URL Sync ====================
   function updateUrl(sessionId: number | null) {
     const url = new URL(window.location.href)
@@ -610,15 +638,22 @@ export const useSalesStore = defineStore('sales', () => {
     streamStatus.value = ''
     streamError.value = ''
     streamFinished.value = true
-    imageOnlyQuery.value = false
   }
 
   function cleanup() {
     cancelStream()
+    // Clean up all cached drafts
+    sessionDrafts.forEach((draft) => {
+      draft.images.forEach((img) => {
+        if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
+      })
+    })
+    sessionDrafts.clear()
     currentSessionId.value = null
     sessions.value = []
     messages.value = []
     isLoading.value = false
+    draftText.value = ''
     resetStreamState()
     clearAllImages()
   }
@@ -640,13 +675,13 @@ export const useSalesStore = defineStore('sales', () => {
     customerProfile,
     autoScrollEnabled,
     images,
+    draftText,
     streamContent,
     streamThinkingContent,
     streamCitations,
     streamStatus,
     streamFinished,
     streamError,
-    imageOnlyQuery,
 
     // Getters
     sortedSessions,
