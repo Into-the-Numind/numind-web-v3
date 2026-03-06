@@ -612,7 +612,7 @@ export const saveChatStyle = async (style: string): Promise<void> => {
 export const ocrImage = async (file: File): Promise<OcrResult> => {
   const formData = new FormData()
   formData.append('file', file)
-  const res = await request.post('/v1/sales-rag/ocr', formData, { timeout: 60000 })
+  const res = await request.post('/v1/sales-rag/ocr', formData, { timeout: 300000 })
   const data = (res as any)?.data
   return {
     text: asString(data?.text),
