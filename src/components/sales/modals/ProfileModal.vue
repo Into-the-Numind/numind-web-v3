@@ -330,7 +330,13 @@ function onEditorPaste(e: ClipboardEvent) {
                 <div class="profile-upload-text">点击或拖拽上传文件 (最多5个)</div>
                 <div class="profile-upload-hint">支持 PDF, Word, Excel, 图片</div>
               </div>
-              <div v-else class="profile-uploaded-files-list">
+              <div
+                v-else
+                class="profile-uploaded-files-list"
+                @dragover="onDragOver"
+                @dragleave="onDragLeave"
+                @drop="onDrop"
+              >
                 <div
                   v-for="(file, idx) in uploadedFiles"
                   :key="file.name + file.size"
@@ -569,6 +575,16 @@ function onEditorPaste(e: ClipboardEvent) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 8px;
+  border: 2px dashed transparent;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.profile-uploaded-files-list.dragover {
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.06);
+  box-shadow: 0 0 0 4px rgba(37, 167, 105, 0.1);
 }
 
 .profile-add-more-btn {
