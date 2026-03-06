@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ArrowUp, Image, Maximize2, Minimize2 } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import ImagePreviewStrip from './ImagePreviewStrip.vue'
@@ -15,6 +15,8 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isExpanded = ref(false)
 const isComposing = ref(false)
+const isDragOver = ref(false)
+let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
 
 const canSend = computed(() => {
   const hasText = store.draftText.trim().length > 0
@@ -102,6 +104,37 @@ function handlePaste(e: ClipboardEvent) {
   }
 }
 
+// Handle image drag & drop
+function handleDragOver(e: DragEvent) {
+  e.preventDefault()
+  if (dragLeaveTimer) {
+    clearTimeout(dragLeaveTimer)
+    dragLeaveTimer = null
+  }
+  if (e.dataTransfer?.types.includes('Files')) {
+    e.dataTransfer.dropEffect = 'copy'
+    isDragOver.value = true
+  }
+}
+
+function handleDragLeave() {
+  dragLeaveTimer = setTimeout(() => {
+    isDragOver.value = false
+  }, 50)
+}
+
+function handleDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = false
+  const files = e.dataTransfer?.files
+  if (!files) return
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      store.addImage(file)
+    }
+  }
+}
+
 // Handle image file selection
 function triggerImageUpload() {
   fileInputRef.value?.click()
@@ -122,6 +155,13 @@ function handleFileChange(e: Event) {
 onMounted(() => {
   nextTick(() => textareaRef.value?.focus())
 })
+
+onUnmounted(() => {
+  if (dragLeaveTimer) {
+    clearTimeout(dragLeaveTimer)
+    dragLeaveTimer = null
+  }
+})
 </script>
 
 <template>
@@ -130,7 +170,13 @@ onMounted(() => {
     <KbTagStrip />
 
     <!-- Floating input container -->
-    <div class="input-floating-container" :class="{ expanded: isExpanded }">
+    <div
+      class="input-floating-container"
+      :class="{ expanded: isExpanded, 'drag-over': isDragOver }"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
       <!-- Image preview strip -->
       <ImagePreviewStrip
         :images="store.images"
@@ -211,6 +257,12 @@ onMounted(() => {
         multiple
         @change="handleFileChange"
       />
+
+      <!-- Drag overlay -->
+      <div v-if="isDragOver" class="drag-overlay">
+        <Image :size="24" />
+        <span>释放以添加图片</span>
+      </div>
     </div>
   </div>
 </template>
@@ -239,6 +291,29 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+.input-floating-container.drag-over {
+  border-color: var(--primary);
+  box-shadow:
+    0 8px 24px rgba(37, 167, 105, 0.12),
+    0 0 0 2px rgba(37, 167, 105, 0.2);
+}
+
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: rgba(37, 167, 105, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .input-floating-container:focus-within {
