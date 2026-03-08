@@ -266,42 +266,49 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   // ==================== Chat Actions ====================
-  async function sendMessage(text: string) {
+  /**
+   * Send a message. When called from regeneration, pass existingImages to reuse
+   * the original image URLs (OCR texts are not recoverable after first send).
+   */
+  async function sendMessage(text: string, existingImages?: string[]) {
     if (isLoading.value) return
     if (!currentSessionId.value) return
 
     const sessionIdAtStart = currentSessionId.value
 
-    // Combine OCR results
-    let fullQuery = text
-    const ocrTexts = images.value
-      .filter((img) => img.status === 'success' && img.ocrResult)
-      .map((img) => img.ocrResult)
-    if (ocrTexts.length > 0) {
-      const ocrBlock = ocrTexts.map((t) => `[图片内容]: ${t}`).join('\n')
-      fullQuery = text ? text + '\n' + ocrBlock : ocrBlock
+    // For regeneration: use passed-in images; otherwise extract from upload buffer
+    const isRegeneration = !!existingImages
+    let ocrTexts: string[] = []
+    let imageUrls: string[] = existingImages || []
+
+    if (!isRegeneration) {
+      ocrTexts = images.value
+        .filter((img) => img.status === 'success' && img.ocrResult)
+        .map((img) => img.ocrResult!)
+
+      imageUrls = images.value
+        .filter((img) => img.status === 'success')
+        .map((img) => img.previewUrl)
+        .filter((url) => !url.startsWith('blob:'))
     }
 
-    const imageUrls = images.value
-      .filter((img) => img.status === 'success')
-      .map((img) => img.previewUrl)
-      .filter((url) => !url.startsWith('blob:'))
+    if (!isRegeneration) {
+      // Append user message immediately
+      const userMsg: SalesMessage = {
+        id: nextLocalId--,
+        role: 'user',
+        content: text,
+        createdAt: new Date().toISOString(),
+        images: imageUrls.length > 0 ? imageUrls : undefined
+      }
+      messages.value.push(userMsg)
 
-    // Append user message immediately
-    const userMsg: SalesMessage = {
-      id: nextLocalId--,
-      role: 'user',
-      content: text,
-      createdAt: new Date().toISOString(),
-      images: imageUrls.length > 0 ? imageUrls : undefined
+      // Clear images after sending
+      images.value.forEach((img) => {
+        if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
+      })
+      images.value = []
     }
-    messages.value.push(userMsg)
-
-    // Clear images after sending
-    images.value.forEach((img) => {
-      if (img.previewUrl.startsWith('blob:')) URL.revokeObjectURL(img.previewUrl)
-    })
-    images.value = []
 
     // Prepare SSE
     isLoading.value = true
@@ -317,7 +324,8 @@ export const useSalesStore = defineStore('sales', () => {
     sseAbortController.value = controller
 
     const payload: SendSalesMessagePayload = {
-      query: fullQuery,
+      query: text,
+      ocr_texts: ocrTexts.length > 0 ? ocrTexts : undefined,
       images: imageUrls.length > 0 ? imageUrls : undefined,
       sales_stage: salesStage.value,
       document_ids: allSelectedDocIds.value,
@@ -417,7 +425,8 @@ export const useSalesStore = defineStore('sales', () => {
       messages.value.pop()
     }
 
-    sendMessage(lastUserMsg.content)
+    // Pass original images so the AI can still see them during regeneration
+    sendMessage(lastUserMsg.content, lastUserMsg.images || [])
   }
 
   // ==================== Sales Stage ====================
