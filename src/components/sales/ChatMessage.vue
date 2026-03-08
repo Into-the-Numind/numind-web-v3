@@ -47,9 +47,10 @@ const isUser = computed(() => props.message?.role === 'user')
 const displayContent = computed(() => {
   if (props.streaming) return props.streamContent
   if (!props.message) return ''
-  // Hide [图片内容]: prefix for user messages
+  // Hide [图片内容]: OCR blocks for user messages
+  // OCR blocks are always appended at the end, may contain multi-line text
   if (props.message.role === 'user') {
-    return props.message.content.replace(/\[图片内容\]:[^\n]*\n?/g, '').trim()
+    return props.message.content.replace(/\n?\[图片内容\]:[\s\S]*/g, '').trim()
   }
   return props.message.content
 })

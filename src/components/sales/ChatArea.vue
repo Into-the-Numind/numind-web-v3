@@ -95,6 +95,12 @@ watch(
             v-if="store.isLoading && store.streamStatus && !store.streamContent && !store.streamThinkingContent"
             :status="store.streamStatus"
           />
+
+          <!-- Stream error display -->
+          <div v-if="store.streamError && !store.isLoading" class="stream-error">
+            <span>⚠ {{ store.streamError }}</span>
+            <button class="stream-error-dismiss" @click="store.streamError = ''">✕</button>
+          </div>
         </div>
       </template>
 
@@ -147,6 +153,36 @@ watch(
   max-width: 800px;
   margin: 0 auto;
   padding-bottom: 20px;
+}
+
+.stream-error {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  max-width: 85%;
+}
+
+.stream-error-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 0.85rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.stream-error-dismiss:hover {
+  opacity: 1;
 }
 
 @media (max-width: 768px) {

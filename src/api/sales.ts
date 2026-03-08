@@ -131,6 +131,7 @@ export interface UpdateSessionPayload {
 
 export interface SendSalesMessagePayload {
   query: string
+  ocr_texts?: string[] // OCR识别文字，仅用于知识库检索，不进AI prompt
   images?: string[]
   sales_stage?: string
   document_ids?: number[]
