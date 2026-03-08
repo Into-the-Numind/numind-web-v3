@@ -3,7 +3,7 @@ import type { ImageUploadItem } from '@/api/sales'
 import { ocrImage } from '@/api/sales'
 
 export function useImageUpload(options?: { maxImages?: number }) {
-  const maxImages = options?.maxImages ?? 6
+  const maxImages = options?.maxImages ?? 10
   const images = ref<ImageUploadItem[]>([])
 
   const allReady = computed(() =>
