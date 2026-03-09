@@ -119,8 +119,8 @@ export const useSalesStore = defineStore('sales', () => {
       if (currentSessionId.value === id && !forceWelcome) return
     }
 
-    // 切换会话前：取消进行中的流、保存当前草稿
-    cancelStream()
+    // 切换会话前：不取消进行中的流（让它在后台完成，服务器会保存结果），
+    // 只清除 UI 流状态和保存草稿
     isLoading.value = false
     resetStreamState()
     saveDraft()
@@ -323,6 +323,11 @@ export const useSalesStore = defineStore('sales', () => {
     const controller = new AbortController()
     sseAbortController.value = controller
 
+    // Local accumulators: survive session switch + resetStreamState()
+    let localContent = ''
+    let localThinking = ''
+    let localCitations: Citation[] = []
+
     const payload: SendSalesMessagePayload = {
       query: text,
       ocr_texts: ocrTexts.length > 0 ? ocrTexts : undefined,
@@ -338,35 +343,46 @@ export const useSalesStore = defineStore('sales', () => {
         sessionIdAtStart,
         payload,
         (event: SalesChatEvent) => {
+          // Skip UI updates if user has switched to a different session
+          const onSameSession = currentSessionId.value === sessionIdAtStart
+
           switch (event.type) {
             case 'status':
-              streamStatus.value = String(event.data || '')
+              if (onSameSession) streamStatus.value = String(event.data || '')
               break
             case 'thinking':
-              streamThinkingContent.value += String(event.data || '')
+              localThinking += String(event.data || '')
+              if (onSameSession) streamThinkingContent.value = localThinking
               break
             case 'token':
-              streamStatus.value = ''
-              streamContent.value += String(event.data || '')
+              localContent += String(event.data || '')
+              if (onSameSession) {
+                streamStatus.value = ''
+                streamContent.value = localContent
+              }
               break
             case 'verdict': {
               const evidence = normalizeVerdictData(event.data)
               if (evidence.length > 0) {
-                streamCitations.value = evidence
+                localCitations = evidence
+                if (onSameSession) streamCitations.value = evidence
               }
               break
             }
             case 'citations':
               if (Array.isArray(event.data)) {
-                streamCitations.value = event.data as Citation[]
+                localCitations = event.data as Citation[]
+                if (onSameSession) streamCitations.value = localCitations
               }
               break
             case 'done':
-              streamFinished.value = true
+              if (onSameSession) streamFinished.value = true
               break
             case 'error':
-              streamError.value = String(event.data || '未知错误')
-              streamFinished.value = true
+              if (onSameSession) {
+                streamError.value = String(event.data || '未知错误')
+                streamFinished.value = true
+              }
               break
           }
         },
@@ -375,26 +391,32 @@ export const useSalesStore = defineStore('sales', () => {
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== 'AbortError') {
         console.error('[sales] sendMessage SSE error:', e)
-        streamError.value = e.message || '请求失败'
+        if (currentSessionId.value === sessionIdAtStart) {
+          streamError.value = e.message || '请求失败'
+        }
       }
-      streamFinished.value = true
+      if (currentSessionId.value === sessionIdAtStart) {
+        streamFinished.value = true
+      }
     } finally {
       // Guard against session switch during stream
       if (currentSessionId.value === sessionIdAtStart) {
-        // Append AI message from stream
-        if (streamContent.value || streamThinkingContent.value) {
+        // Append AI message from stream (using local accumulators)
+        if (localContent || localThinking) {
           const aiMsg: SalesMessage = {
             id: nextLocalId--,
             role: 'assistant',
-            content: streamContent.value,
+            content: localContent,
             createdAt: new Date().toISOString(),
-            verdict: streamCitations.value.length > 0 ? { evidence: streamCitations.value } : undefined
+            verdict: localCitations.length > 0 ? { evidence: localCitations } : undefined
           }
           messages.value.push(aiMsg)
         }
+        isLoading.value = false
       }
+      // else: session was switched; stream ran in background and server saved the result.
+      // When user switches back, fetchSalesMessages() will load the AI response.
 
-      isLoading.value = false
       sseAbortController.value = null
 
       // Refresh sessions to update sidebar summary
