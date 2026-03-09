@@ -348,12 +348,14 @@ export const useSalesStore = defineStore('sales', () => {
     // Local accumulators: survive session switch + resetStreamState()
     let localContent = ''
     let localThinking = ''
+    let localStatus = ''
     let localCitations: Citation[] = []
 
     /** Sync all local accumulators → reactive state (called when on same session) */
     function syncToReactive() {
       streamContent.value = localContent
       streamThinkingContent.value = localThinking
+      streamStatus.value = localStatus
       streamCitations.value = localCitations
     }
 
@@ -376,7 +378,8 @@ export const useSalesStore = defineStore('sales', () => {
 
           switch (event.type) {
             case 'status':
-              if (onSameSession) streamStatus.value = String(event.data || '')
+              localStatus = String(event.data || '')
+              if (onSameSession) streamStatus.value = localStatus
               break
             case 'thinking':
               localThinking += String(event.data || '')
@@ -384,10 +387,8 @@ export const useSalesStore = defineStore('sales', () => {
               break
             case 'token':
               localContent += String(event.data || '')
-              if (onSameSession) {
-                streamStatus.value = ''
-                syncToReactive()
-              }
+              localStatus = ''
+              if (onSameSession) syncToReactive()
               break
             case 'verdict': {
               const evidence = normalizeVerdictData(event.data)
