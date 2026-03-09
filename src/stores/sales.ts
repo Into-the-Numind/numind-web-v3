@@ -79,9 +79,16 @@ export const useSalesStore = defineStore('sales', () => {
   const streamError = ref('')
   const sseAbortController = shallowRef<AbortController | null>(null)
 
-  // Track sessions with active background streams (sessionId → true)
-  // Uses a Map to support concurrent streams across multiple sessions
-  const activeStreamSessions = ref(new Map<number, boolean>())
+  // Per-session stream data: shared mutable object written by SSE callback,
+  // read by switchSession for instant UI restoration on switch-back.
+  interface ActiveStreamData {
+    content: string
+    thinking: string
+    status: string
+    citations: Citation[]
+    messagesSnapshot: SalesMessage[] // messages at the moment user switched away
+  }
+  const activeStreams = new Map<number, ActiveStreamData>()
 
   // True when current message is image-only (no text), so AI response should be hidden
 
@@ -123,10 +130,19 @@ export const useSalesStore = defineStore('sales', () => {
       if (currentSessionId.value === id && !forceWelcome) return
     }
 
-    // 切换会话前：不取消进行中的流（让它在后台完成，服务器会保存结果）
-    // 如果目标会话有活跃的后台流，恢复加载状态而非清除
-    const switchingToActiveStream = id !== null && activeStreamSessions.value.has(id)
-    if (!switchingToActiveStream) {
+    // ── Save snapshot when leaving a session with active stream ──
+    const leavingId = currentSessionId.value
+    if (leavingId !== null) {
+      const leavingStream = activeStreams.get(leavingId)
+      if (leavingStream) {
+        leavingStream.messagesSnapshot = [...messages.value]
+      }
+    }
+
+    // ── Determine if target session has an active background stream ──
+    const enteringStream = id !== null ? activeStreams.get(id) : null
+
+    if (!enteringStream) {
       isLoading.value = false
       resetStreamState()
     }
@@ -146,6 +162,42 @@ export const useSalesStore = defineStore('sales', () => {
     // Restore target session's draft (images + text)
     restoreDraft(id)
 
+    // ── Fast path: instant restore for active stream session ──
+    if (enteringStream) {
+      currentSessionId.value = id
+      autoScrollEnabled.value = true
+
+      // Instant restore: messages + stream state (zero network delay)
+      messages.value = enteringStream.messagesSnapshot
+      streamContent.value = enteringStream.content
+      streamThinkingContent.value = enteringStream.thinking
+      streamStatus.value = enteringStream.status
+      streamCitations.value = enteringStream.citations
+      streamError.value = ''
+      isLoading.value = true
+      streamFinished.value = false
+      messagesLoading.value = false
+
+      // Load session config in background (non-blocking)
+      fetchSessionDetail(id).then(detail => {
+        if (currentSessionId.value !== id) return
+        if (detail) {
+          salesStage.value = detail.salesStage
+          isDeepThinking.value = detail.deepThinking
+          kbSelection.value = {
+            product: detail.productDocIds,
+            cases: detail.caseDocIds,
+            faq: detail.faqDocIds,
+            opinion: detail.opinionDocIds
+          }
+          opinionTrackSelection.value = detail.opinionTrackIds
+          customerProfile.value = detail.customerProfile
+        }
+      }).catch(e => console.error('[sales] fetchSessionDetail failed:', e))
+      return
+    }
+
+    // ── Normal path: no active stream, load from server ──
     sessionLoadCounter.value++
     const currentLoadId = sessionLoadCounter.value
 
@@ -178,12 +230,6 @@ export const useSalesStore = defineStore('sales', () => {
 
     if (forceWelcome) {
       messagesLoading.value = false
-      // Still need to restore stream state for active background streams
-      if (id !== null && activeStreamSessions.value.has(id)) {
-        isLoading.value = true
-        streamFinished.value = false
-        autoScrollEnabled.value = true
-      }
       return
     }
 
@@ -196,14 +242,6 @@ export const useSalesStore = defineStore('sales', () => {
       console.error('[sales] fetchSalesMessages failed:', e)
     } finally {
       messagesLoading.value = false
-    }
-
-    // If this session has an active background stream, restore loading state
-    // so the streaming ChatMessage component resumes rendering
-    if (id !== null && activeStreamSessions.value.has(id)) {
-      isLoading.value = true
-      streamFinished.value = false
-      autoScrollEnabled.value = true
     }
   }
 
@@ -340,23 +378,26 @@ export const useSalesStore = defineStore('sales', () => {
     streamError.value = ''
     streamFinished.value = false
     autoScrollEnabled.value = true
-    activeStreamSessions.value.set(sessionIdAtStart, true)
 
     const controller = new AbortController()
     sseAbortController.value = controller
 
-    // Local accumulators: survive session switch + resetStreamState()
-    let localContent = ''
-    let localThinking = ''
-    let localStatus = ''
-    let localCitations: Citation[] = []
+    // Shared mutable object: SSE callback writes here, switchSession reads for instant restore
+    const sd: ActiveStreamData = {
+      content: '',
+      thinking: '',
+      status: '',
+      citations: [],
+      messagesSnapshot: [...messages.value]
+    }
+    activeStreams.set(sessionIdAtStart, sd)
 
-    /** Sync all local accumulators → reactive state (called when on same session) */
+    /** Sync shared data → reactive state (only when user is on this session) */
     function syncToReactive() {
-      streamContent.value = localContent
-      streamThinkingContent.value = localThinking
-      streamStatus.value = localStatus
-      streamCitations.value = localCitations
+      streamContent.value = sd.content
+      streamThinkingContent.value = sd.thinking
+      streamStatus.value = sd.status
+      streamCitations.value = sd.citations
     }
 
     const payload: SendSalesMessagePayload = {
@@ -378,30 +419,30 @@ export const useSalesStore = defineStore('sales', () => {
 
           switch (event.type) {
             case 'status':
-              localStatus = String(event.data || '')
-              if (onSameSession) streamStatus.value = localStatus
+              sd.status = String(event.data || '')
+              if (onSameSession) streamStatus.value = sd.status
               break
             case 'thinking':
-              localThinking += String(event.data || '')
+              sd.thinking += String(event.data || '')
               if (onSameSession) syncToReactive()
               break
             case 'token':
-              localContent += String(event.data || '')
-              localStatus = ''
+              sd.content += String(event.data || '')
+              sd.status = ''
               if (onSameSession) syncToReactive()
               break
             case 'verdict': {
               const evidence = normalizeVerdictData(event.data)
               if (evidence.length > 0) {
-                localCitations = evidence
+                sd.citations = evidence
                 if (onSameSession) streamCitations.value = evidence
               }
               break
             }
             case 'citations':
               if (Array.isArray(event.data)) {
-                localCitations = event.data as Citation[]
-                if (onSameSession) streamCitations.value = localCitations
+                sd.citations = event.data as Citation[]
+                if (onSameSession) streamCitations.value = sd.citations
               }
               break
             case 'done':
@@ -430,19 +471,18 @@ export const useSalesStore = defineStore('sales', () => {
     } finally {
       const onSameSession = currentSessionId.value === sessionIdAtStart
 
-      // Clear tracking AFTER checking session, so switchSession() won't
-      // try to restore a stream that just finished
-      activeStreamSessions.value.delete(sessionIdAtStart)
+      // Clean up AFTER checking session state
+      activeStreams.delete(sessionIdAtStart)
 
       if (onSameSession) {
-        // Still on the same session — append AI message from local accumulators
-        if (localContent || localThinking) {
+        // Still on the same session — append AI message
+        if (sd.content || sd.thinking) {
           const aiMsg: SalesMessage = {
             id: nextLocalId--,
             role: 'assistant',
-            content: localContent,
+            content: sd.content,
             createdAt: new Date().toISOString(),
-            verdict: localCitations.length > 0 ? { evidence: localCitations } : undefined
+            verdict: sd.citations.length > 0 ? { evidence: sd.citations } : undefined
           }
           messages.value.push(aiMsg)
         }

@@ -331,6 +331,80 @@ test.describe.skip('Debug: Stream Switch Bug', () => {
     expect(hasAi, '快速切换后应有 AI 回复').toBeTruthy()
   })
 
+  test('诊断：切回后状态即时恢复（零延迟验证）', async ({ page }) => {
+    const diag = createDiagnostics(page)
+    await waitForPageReady(page)
+
+    const nameA = `即时A_${Date.now()}`
+    await createSession(page, nameA)
+    const nameB = `即时B_${Date.now()}`
+    await createSession(page, nameB)
+
+    await clickSession(page, nameA)
+    await page.waitForTimeout(1000)
+
+    await sendMessage(page, '详细介绍一下销售漏斗模型')
+    await waitForStreamStart(page)
+    console.log('AI 开始回复')
+    await page.waitForTimeout(3000)
+
+    // Capture state before switching away
+    const beforeSwitch = await getStoreSnapshot(page) as any
+    console.log('切换前状态:', JSON.stringify(beforeSwitch, null, 2))
+    const hadStatus = (beforeSwitch.streamStatus || '').length > 0
+    const hadThinking = beforeSwitch.streamThinkingLen > 0
+    const hadContent = beforeSwitch.streamContentLen > 0
+    console.log(`切换前: status=${hadStatus}, thinking=${hadThinking}, content=${hadContent}`)
+
+    // Switch to B
+    await clickSession(page, nameB)
+    await page.waitForTimeout(500)
+
+    // Switch back to A and IMMEDIATELY check state (no waiting)
+    await clickSession(page, nameA)
+
+    // Check state with minimal delay — use requestAnimationFrame to capture after Vue reactivity settles
+    const instantState = await page.evaluate(() => {
+      return new Promise<any>((resolve) => {
+        // Allow one microtask + one rAF for Vue to flush reactivity
+        requestAnimationFrame(() => {
+          const app = (document.querySelector('#app') as any)?.__vue_app__
+          if (!app) { resolve({ error: 'no app' }); return }
+          const pinia = app.config.globalProperties.$pinia
+          if (!pinia) { resolve({ error: 'no pinia' }); return }
+          const store = pinia.state.value.sales
+          resolve({
+            isLoading: store.isLoading,
+            streamContentLen: (store.streamContent || '').length,
+            streamThinkingLen: (store.streamThinkingContent || '').length,
+            streamStatusLen: (store.streamStatus || '').length,
+            streamStatus: (store.streamStatus || '').slice(0, 80),
+            streamFinished: store.streamFinished,
+            messagesCount: store.messages?.length ?? 0,
+            hasUserMsg: store.messages?.some((m: any) => m.role === 'user'),
+          })
+        })
+      })
+    })
+
+    console.log('切回后即时状态:', JSON.stringify(instantState, null, 2))
+    await diag.screenshot('instant-restore')
+
+    // Key assertions: state must be restored IMMEDIATELY
+    expect(instantState.isLoading, '切回后 isLoading 应立即为 true').toBe(true)
+    expect(instantState.streamFinished, '切回后 streamFinished 应为 false').toBe(false)
+    expect(instantState.hasUserMsg, '切回后应立即有用户消息').toBe(true)
+
+    // At least one of: status / thinking / content should be present
+    const hasAnyStreamData = instantState.streamContentLen > 0 ||
+      instantState.streamThinkingLen > 0 ||
+      instantState.streamStatusLen > 0
+    console.log(`即时恢复: stream数据=${hasAnyStreamData} (content=${instantState.streamContentLen}, thinking=${instantState.streamThinkingLen}, status=${instantState.streamStatusLen})`)
+    expect(hasAnyStreamData, '切回后应立即有流数据（status/thinking/content）').toBeTruthy()
+
+    diag.dump()
+  })
+
   test('诊断：AI 回复完成后切换再切回', async ({ page }) => {
     const diag = createDiagnostics(page)
     await waitForPageReady(page)
