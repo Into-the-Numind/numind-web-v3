@@ -35,6 +35,7 @@ export interface SalesMessage {
   createdAt: string
   verdict?: VerdictData
   images?: string[]
+  thinking?: string
 }
 
 export interface VerdictData {
@@ -266,13 +267,16 @@ const normalizeMessage = (raw: unknown): SalesMessage | null => {
     }
   }
 
+  const thinking = asString(obj.thinking) || undefined
+
   return {
     id,
     role,
     content: asString(obj.content),
     createdAt: asString(obj.CreatedAt ?? obj.created_at),
     verdict,
-    images
+    images,
+    thinking
   }
 }
 

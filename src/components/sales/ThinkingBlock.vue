@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const { render } = useMarkdown()
-const collapsed = ref(false)
+const collapsed = ref(props.finished)
 
 watch(
   () => props.finished,
