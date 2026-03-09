@@ -79,6 +79,10 @@ export const useSalesStore = defineStore('sales', () => {
   const streamError = ref('')
   const sseAbortController = shallowRef<AbortController | null>(null)
 
+  // Track sessions with active background streams (sessionId → true)
+  // Uses a Map to support concurrent streams across multiple sessions
+  const activeStreamSessions = ref(new Map<number, boolean>())
+
   // True when current message is image-only (no text), so AI response should be hidden
 
   // ==================== Getters ====================
@@ -119,10 +123,13 @@ export const useSalesStore = defineStore('sales', () => {
       if (currentSessionId.value === id && !forceWelcome) return
     }
 
-    // 切换会话前：不取消进行中的流（让它在后台完成，服务器会保存结果），
-    // 只清除 UI 流状态和保存草稿
-    isLoading.value = false
-    resetStreamState()
+    // 切换会话前：不取消进行中的流（让它在后台完成，服务器会保存结果）
+    // 如果目标会话有活跃的后台流，恢复加载状态而非清除
+    const switchingToActiveStream = id !== null && activeStreamSessions.value.has(id)
+    if (!switchingToActiveStream) {
+      isLoading.value = false
+      resetStreamState()
+    }
     saveDraft()
 
     if (id === null) {
@@ -171,6 +178,12 @@ export const useSalesStore = defineStore('sales', () => {
 
     if (forceWelcome) {
       messagesLoading.value = false
+      // Still need to restore stream state for active background streams
+      if (id !== null && activeStreamSessions.value.has(id)) {
+        isLoading.value = true
+        streamFinished.value = false
+        autoScrollEnabled.value = true
+      }
       return
     }
 
@@ -183,6 +196,14 @@ export const useSalesStore = defineStore('sales', () => {
       console.error('[sales] fetchSalesMessages failed:', e)
     } finally {
       messagesLoading.value = false
+    }
+
+    // If this session has an active background stream, restore loading state
+    // so the streaming ChatMessage component resumes rendering
+    if (id !== null && activeStreamSessions.value.has(id)) {
+      isLoading.value = true
+      streamFinished.value = false
+      autoScrollEnabled.value = true
     }
   }
 
@@ -319,6 +340,7 @@ export const useSalesStore = defineStore('sales', () => {
     streamError.value = ''
     streamFinished.value = false
     autoScrollEnabled.value = true
+    activeStreamSessions.value.set(sessionIdAtStart, true)
 
     const controller = new AbortController()
     sseAbortController.value = controller
@@ -327,6 +349,13 @@ export const useSalesStore = defineStore('sales', () => {
     let localContent = ''
     let localThinking = ''
     let localCitations: Citation[] = []
+
+    /** Sync all local accumulators → reactive state (called when on same session) */
+    function syncToReactive() {
+      streamContent.value = localContent
+      streamThinkingContent.value = localThinking
+      streamCitations.value = localCitations
+    }
 
     const payload: SendSalesMessagePayload = {
       query: text,
@@ -343,7 +372,6 @@ export const useSalesStore = defineStore('sales', () => {
         sessionIdAtStart,
         payload,
         (event: SalesChatEvent) => {
-          // Skip UI updates if user has switched to a different session
           const onSameSession = currentSessionId.value === sessionIdAtStart
 
           switch (event.type) {
@@ -352,13 +380,13 @@ export const useSalesStore = defineStore('sales', () => {
               break
             case 'thinking':
               localThinking += String(event.data || '')
-              if (onSameSession) streamThinkingContent.value = localThinking
+              if (onSameSession) syncToReactive()
               break
             case 'token':
               localContent += String(event.data || '')
               if (onSameSession) {
                 streamStatus.value = ''
-                streamContent.value = localContent
+                syncToReactive()
               }
               break
             case 'verdict': {
@@ -399,9 +427,14 @@ export const useSalesStore = defineStore('sales', () => {
         streamFinished.value = true
       }
     } finally {
-      // Guard against session switch during stream
-      if (currentSessionId.value === sessionIdAtStart) {
-        // Append AI message from stream (using local accumulators)
+      const onSameSession = currentSessionId.value === sessionIdAtStart
+
+      // Clear tracking AFTER checking session, so switchSession() won't
+      // try to restore a stream that just finished
+      activeStreamSessions.value.delete(sessionIdAtStart)
+
+      if (onSameSession) {
+        // Still on the same session — append AI message from local accumulators
         if (localContent || localThinking) {
           const aiMsg: SalesMessage = {
             id: nextLocalId--,
@@ -413,9 +446,10 @@ export const useSalesStore = defineStore('sales', () => {
           messages.value.push(aiMsg)
         }
         isLoading.value = false
+        resetStreamState()
       }
-      // else: session was switched; stream ran in background and server saved the result.
-      // When user switches back, fetchSalesMessages() will load the AI response.
+      // else: session was switched; server saved the result.
+      // fetchSalesMessages() will load the AI response on switch-back.
 
       sseAbortController.value = null
 
