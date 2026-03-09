@@ -61,7 +61,7 @@ const renderedContent = computed(() => {
 
 const thinkingContent = computed(() => {
   if (props.streaming) return props.streamThinkingContent
-  return ''
+  return props.message?.thinking || ''
 })
 
 const thinkingFinished = computed(() => {

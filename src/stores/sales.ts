@@ -482,7 +482,8 @@ export const useSalesStore = defineStore('sales', () => {
             role: 'assistant',
             content: sd.content,
             createdAt: new Date().toISOString(),
-            verdict: sd.citations.length > 0 ? { evidence: sd.citations } : undefined
+            verdict: sd.citations.length > 0 ? { evidence: sd.citations } : undefined,
+            thinking: sd.thinking || undefined
           }
           messages.value.push(aiMsg)
         }
