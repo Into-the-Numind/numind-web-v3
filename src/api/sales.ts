@@ -650,7 +650,7 @@ export const checkSalesPermission = async (): Promise<boolean> => {
     const res = await request.get('/v1/sales-rag/check-permission')
     return (res as any)?.data?.has_permission === true
   } catch {
-    return true // 接口异常时默认允许，避免误拦截
+    return false // 接口异常时默认拒绝，后端已有权限中间件兜底
   }
 }
 
