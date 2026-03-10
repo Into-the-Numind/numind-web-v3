@@ -5832,12 +5832,53 @@
         const input = document.getElementById('script-input').value;
 
         if (!input.trim()) {
-            showToast('请先输入爆款文案');
+            showToast('请先输入你的历史文稿');
             return;
         }
 
         // 清空当前内容
         document.getElementById('script-analysis-content').innerHTML = '';
+
+        showToast('正在重新生成...');
+
+        // 重新生成内容
+        const markdownContent = `## 语言特征
+
+- **语气**：亲切自然，像朋友聊天
+- **节奏**：张弛有度，重点突出
+- **用词**：简单易懂，接地气
+
+## 表达习惯
+
+- 喜欢用"真的"、"超级"等强调词
+- 经常使用反问句增强互动感
+- 善于用比喻让复杂概念简单化
+
+## 个人标签
+
+（标签会显示在下方）
+
+---
+
+✅ **我已充分学习您的语言风格，准备开始创作！**`;
+
+        // 缓存本次生成的内容
+        latestStepContent.step2 = markdownContent;
+
+        const contentElement = document.getElementById('script-analysis-content');
+        await streamText(contentElement, markdownContent, 15);
+    }
+
+    async function regenerateStep3() {
+        const input = document.getElementById('style-input').value;
+
+        if (!input.trim()) {
+            showToast('请先输入爆款文案');
+            return;
+        }
+
+        // 清空当前内容
+        document.getElementById('style-analysis-content').innerHTML = '';
 
         showToast('正在重新生成...');
 
@@ -5872,47 +5913,6 @@
 ---
 
 ✅ **我已充分学习这个爆款文案的结构，请继续下一步！**`;
-
-        // 缓存本次生成的内容
-        latestStepContent.step2 = markdownContent;
-
-        const contentElement = document.getElementById('script-analysis-content');
-        await streamText(contentElement, markdownContent, 15);
-    }
-
-    async function regenerateStep3() {
-        const input = document.getElementById('style-input').value;
-
-        if (!input.trim()) {
-            showToast('请先输入你的历史文稿');
-            return;
-        }
-
-        // 清空当前内容
-        document.getElementById('style-analysis-content').innerHTML = '';
-
-        showToast('正在重新生成...');
-
-        // 重新生成内容
-        const markdownContent = `## 语言特征
-
-- **语气**：亲切自然，像朋友聊天
-- **节奏**：张弛有度，重点突出
-- **用词**：简单易懂，接地气
-
-## 表达习惯
-
-- 喜欢用"真的"、"超级"等强调词
-- 经常使用反问句增强互动感
-- 善于用比喻让复杂概念简单化
-
-## 个人标签
-
-（标签会显示在下方）
-
----
-
-✅ **我已充分学习您的语言风格，准备开始创作！**`;
 
         // 缓存本次生成的内容
         latestStepContent.step3 = markdownContent;
