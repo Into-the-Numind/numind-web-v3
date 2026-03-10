@@ -34,7 +34,7 @@
               <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
             <!-- SOP 工作流图标 -->
-            <svg v-else class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg v-if="workflow.type !== 'agent'" class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
               <path
                 d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
