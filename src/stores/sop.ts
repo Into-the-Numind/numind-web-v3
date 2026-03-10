@@ -221,6 +221,12 @@ export const useSopStore = defineStore('sop', {
       this.mounting = true
       this.lastError = ''
       try {
+        // 兼容原版前端登录：原版只设 'auth_token'，legacy SOP 模块只读 'token'
+        const fallbackToken = localStorage.getItem('token') || localStorage.getItem('auth_token')
+        if (fallbackToken && !localStorage.getItem('token')) {
+          localStorage.setItem('token', fallbackToken)
+        }
+
         setupLegacyGlobals()
         await ensureLegacyCss()
         ensureLegacyVendorStyles()
