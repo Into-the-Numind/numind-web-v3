@@ -643,6 +643,17 @@ export const fetchOpinionTracks = async (): Promise<OpinionTrack[]> => {
 
 // ==================== SOP Templates ====================
 
+// ==================== Permission APIs ====================
+
+export const checkSalesPermission = async (): Promise<boolean> => {
+  try {
+    const res = await request.get('/v1/sales-rag/check-permission')
+    return (res as any)?.data?.has_permission === true
+  } catch {
+    return true // 接口异常时默认允许，避免误拦截
+  }
+}
+
 export const fetchSalesSopTemplates = async (): Promise<SalesSopTemplate[]> => {
   const res = await request.get('/v1/sop/templates')
   const rawTemplates = (res as any)?.data?.templates

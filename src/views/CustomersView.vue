@@ -296,7 +296,28 @@
               <div v-if="permLoading" class="cm-loading" style="padding:32px">
                 <div class="loading-spinner"></div>
               </div>
-              <div v-else class="perm-templates">
+              <!-- Feature Permissions -->
+              <div v-if="!permLoading" class="perm-features">
+                <div class="perm-section-title">
+                  <span>功能权限</span>
+                </div>
+                <div class="perm-template-list">
+                  <div
+                    class="perm-template-item"
+                    :class="{ checked: featurePermissions['sales_agent'] }"
+                    @click="featurePermissions['sales_agent'] = !featurePermissions['sales_agent']"
+                  >
+                    <div
+                      class="custom-checkbox"
+                      :class="{ checked: featurePermissions['sales_agent'] }"
+                    >
+                      <svg v-if="featurePermissions['sales_agent']" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="perm-template-name">销售智能体</span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="!permLoading" class="perm-templates">
                 <div class="perm-section-title">
                   <span>可用模板</span>
                   <span class="perm-count">{{ allTemplates.length }}</span>
@@ -472,6 +493,9 @@ import {
   batchRevokeTemplates,
   fetchAllTemplates,
   updateSubUserTier,
+  fetchUserFeatures,
+  grantFeatures,
+  revokeFeatures,
   type SubUser,
   type TemplateItem
 } from '@/api/customers'
@@ -511,6 +535,10 @@ const permLoading = ref(false)
 const permSaving = ref(false)
 const permSelectedIds = reactive<Record<string, boolean>>({})
 const permOriginalIds = ref<Set<string>>(new Set())
+
+// Feature permission state
+const featurePermissions = reactive<Record<string, boolean>>({})
+const featurePermOriginal = ref<Set<string>>(new Set())
 
 // Tier upgrade modal
 const showTierModal = ref(false)
@@ -773,10 +801,17 @@ async function openPermissionModal(user: SubUser) {
   Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
   permOriginalIds.value = new Set()
 
+  const userId = user.user_id ?? user.id
+
+  // 并行加载模板权限和功能权限
   try {
-    const res = await fetchUserTemplates(user.user_id ?? user.id)
-    if (res.code === 200 || res.code === 0) {
-      const d = res.data as Record<string, unknown> | unknown[]
+    const [templateRes, featureRes] = await Promise.all([
+      fetchUserTemplates(userId).catch((e) => { console.error('加载授权模板失败:', e); return null }),
+      fetchUserFeatures(userId).catch((e) => { console.error('加载功能权限失败:', e); return null })
+    ])
+
+    if (templateRes && (templateRes.code === 200 || templateRes.code === 0)) {
+      const d = templateRes.data as Record<string, unknown> | unknown[]
       const rawAuth = (Array.isArray(d) ? d : (d as Record<string, unknown>)?.templates || []) as Array<Record<string, unknown>>
       rawAuth.forEach((t) => {
         const id = String(t.id ?? t.ID)
@@ -784,8 +819,16 @@ async function openPermissionModal(user: SubUser) {
         permOriginalIds.value.add(id)
       })
     }
-  } catch (e) {
-    console.error('加载授权模板失败:', e)
+
+    if (featureRes && (featureRes.code === 200 || featureRes.code === 0)) {
+      const features = (featureRes.data as any)?.features || []
+      if (Array.isArray(features)) {
+        features.forEach((f: string) => {
+          featurePermissions[f] = true
+          featurePermOriginal.value.add(f)
+        })
+      }
+    }
   } finally {
     permLoading.value = false
   }
@@ -797,6 +840,8 @@ function closePermissionModal() {
   permLoading.value = false
   permSaving.value = false
   Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
+  Object.keys(featurePermissions).forEach((k) => delete featurePermissions[k])
+  featurePermOriginal.value = new Set()
 }
 
 function togglePermTemplate(id: string) {
@@ -825,6 +870,23 @@ async function savePermissions() {
     const toGrant: string[] = []
     const toRevoke: string[] = []
 
+    // Feature permission diff
+    const featuresToGrant: string[] = []
+    const featuresToRevoke: string[] = []
+    Object.keys(featurePermissions).forEach((key) => {
+      if (!featurePermOriginal.value.has(key)) featuresToGrant.push(key)
+    })
+    featurePermOriginal.value.forEach((key) => {
+      if (!featurePermissions[key]) featuresToRevoke.push(key)
+    })
+
+    if (featuresToGrant.length > 0) {
+      await grantFeatures(userId, featuresToGrant)
+    }
+    if (featuresToRevoke.length > 0) {
+      await revokeFeatures(userId, featuresToRevoke)
+    }
+
     Object.keys(permSelectedIds).forEach((id) => {
       if (!permOriginalIds.value.has(id)) toGrant.push(id)
     })
@@ -832,7 +894,7 @@ async function savePermissions() {
       if (!permSelectedIds[id]) toRevoke.push(id)
     })
 
-    if (toGrant.length === 0 && toRevoke.length === 0) {
+    if (toGrant.length === 0 && toRevoke.length === 0 && featuresToGrant.length === 0 && featuresToRevoke.length === 0) {
       showToast('没有变更', 'info')
       closePermissionModal()
       return
@@ -1723,6 +1785,12 @@ async function handleTierUpgrade() {
   font-size: 13px;
   color: hsl(150, 10%, 50%);
   margin-top: 2px;
+}
+
+.perm-features {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light, #e5e7eb);
 }
 
 .perm-section-title {

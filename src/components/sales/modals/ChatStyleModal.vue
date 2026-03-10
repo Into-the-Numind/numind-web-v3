@@ -208,11 +208,13 @@ async function saveStyleOnly() {
     styleContent.value = editorRef.value.innerText || ''
   }
 
-  if (!styleContent.value.trim()) return
-
   isSaving.value = true
   try {
     await saveChatStyle(styleContent.value)
+    // 如果内容被清空，同步清除本地渲染内容
+    if (!styleContent.value.trim()) {
+      renderedContent.value = ''
+    }
     emit('close')
   } catch (e: unknown) {
     console.error('Failed to save chat style:', e)

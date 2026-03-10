@@ -109,6 +109,7 @@ import { onBeforeUnmount, onMounted, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { Home, Plus } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
+import { checkSalesPermission } from '@/api/sales'
 import type { Citation } from '@/api/sales'
 
 // Components
@@ -194,6 +195,13 @@ async function handleDelete(id: number) {
 
 // ==================== Lifecycle ====================
 onMounted(async () => {
+  // 权限检查
+  const hasPermission = await checkSalesPermission()
+  if (!hasPermission) {
+    router.replace('/')
+    return
+  }
+
   document.body.classList.add('sales-agent-route')
 
   // Load sessions and knowledge documents in parallel

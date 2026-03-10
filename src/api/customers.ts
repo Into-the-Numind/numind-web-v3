@@ -99,3 +99,20 @@ export const updateSubUserTier = (userId: number | string, data: { tier: string;
 export const fetchAllTemplates = (): Promise<ApiResponse<TemplateItem[]>> => {
   return request.get('/v1/sop/templates')
 }
+
+// 获取子用户功能权限
+export const fetchUserFeatures = (userId: number | string): Promise<ApiResponse<{ features: string[] }>> => {
+  return request.get(`/v1/customers/sub-users/${userId}/features`)
+}
+
+// 授予功能权限
+export const grantFeatures = (userId: number | string, features: string[]): Promise<ApiResponse<any>> => {
+  return request.post(`/v1/customers/sub-users/${userId}/features`, { features })
+}
+
+// 撤销功能权限
+export const revokeFeatures = (userId: number | string, features: string[]): Promise<ApiResponse<any>> => {
+  return request.delete(`/v1/customers/sub-users/${userId}/features`, {
+    data: { features }
+  })
+}

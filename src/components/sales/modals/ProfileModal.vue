@@ -220,11 +220,13 @@ async function saveProfile() {
     store.customerProfile = editorRef.value.innerText || ''
   }
 
-  if (!store.customerProfile.trim()) return
-
   isSaving.value = true
   try {
     await store.persistProfile()
+    // 如果内容被清空，同步清除本地渲染内容
+    if (!store.customerProfile.trim()) {
+      renderedContent.value = ''
+    }
     emit('close')
   } catch (e: unknown) {
     console.error('Failed to save customer profile:', e)
@@ -634,7 +636,8 @@ function onEditorPaste(e: ClipboardEvent) {
 .profile-footer-edit {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 12px;
   width: 100%;
 }
 

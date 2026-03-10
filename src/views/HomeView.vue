@@ -15,7 +15,10 @@
             :key="workflow.key"
             type="button"
             class="card"
-            :class="{ loading: launchingWorkflowKey === workflow.key }"
+            :class="{
+              loading: launchingWorkflowKey === workflow.key,
+              'no-permission': workflow.type === 'agent' && !hasSalesPermission
+            }"
             :disabled="launchingWorkflowKey === workflow.key"
             @click="handleWorkflowClick(workflow)"
           >
@@ -24,6 +27,11 @@
               <circle cx="16" cy="10" r="4" stroke="currentColor" stroke-width="1.5" fill="none"/>
               <path d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               <path d="M20 10L24 6M24 6L28 10M24 6V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <!-- Lock icon for no-permission -->
+            <svg v-if="workflow.type === 'agent' && !hasSalesPermission" class="lock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
             <!-- SOP 工作流图标 -->
             <svg v-else class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -84,7 +92,7 @@
             <path d="M24 32V34" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
           <div class="permission-title">没有运行权限</div>
-          <div class="permission-desc">未开通该 SOP 的运行权限，请联系管理员</div>
+          <div class="permission-desc">{{ permissionMessage }}</div>
           <button class="permission-btn" @click="showPermissionModal = false">我知道了</button>
         </div>
       </div>
@@ -96,6 +104,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '@/api/request'
+import { checkSalesPermission } from '@/api/sales'
 import MainLayout from '@/components/layout/MainLayout.vue'
 
 interface SopTemplate {
@@ -120,6 +129,8 @@ const templateWorkflows = ref<OnlineWorkflow[]>([])
 const launchingWorkflowKey = ref<string | null>(null)
 const pageLoading = ref(true)
 const showPermissionModal = ref(false)
+const hasSalesPermission = ref(true)
+const permissionMessage = ref('')
 
 const salesWorkflow: OnlineWorkflow = {
   key: 'agent-sales',
@@ -195,6 +206,11 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
 
   try {
     if (workflow.type === 'agent') {
+      if (!hasSalesPermission.value) {
+        permissionMessage.value = '未开通销售智能体权限，请联系管理员'
+        showPermissionModal.value = true
+        return
+      }
       await router.push('/sales')
       return
     }
@@ -205,6 +221,7 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
 
     const hasPermission = await checkTemplatePermission(workflow.templateId)
     if (!hasPermission) {
+      permissionMessage.value = '未开通该 SOP 的运行权限，请联系管理员'
       showPermissionModal.value = true
       return
     }
@@ -218,8 +235,9 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   void fetchTemplates()
+  hasSalesPermission.value = await checkSalesPermission()
 })
 
 const comingSoonWorkflows = [
@@ -484,5 +502,30 @@ const comingSoonWorkflows = [
     grid-template-columns: 1fr;
     gap: 16px;
   }
+}
+
+/* No permission card */
+.card.no-permission {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+  position: relative;
+}
+
+.card.no-permission:hover {
+  transform: none;
+  box-shadow: var(--shadow-card);
+  background-color: var(--surface);
+  border-color: var(--border-light);
+  cursor: not-allowed;
+}
+
+.lock-icon {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  opacity: 0.6;
 }
 </style>

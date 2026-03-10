@@ -507,7 +507,7 @@ function getCategoryEditHint(): string {
           </div>
 
           <!-- Footer -->
-          <div class="profile-modal-footer">
+          <div class="profile-modal-footer" style="justify-content: flex-end; gap: 12px;">
             <button
               v-show="wizardStep > 0"
               class="btn-secondary"
