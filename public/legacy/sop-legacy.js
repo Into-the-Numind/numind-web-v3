@@ -4392,13 +4392,17 @@
                     return;
                 }
 
-                // 限制文本长度为最多八万字
-                const limitedText = limitTextToMaxLength(combinedText, 80000);
+                // [Fix] 以输入框实际内容为准进行追加（用户手动清空时不会残留旧内容）
+                const existingText = targetTextarea.value.trim();
+                const mergedText = existingText ? (existingText + '\n\n' + combinedText) : combinedText;
 
-                // 将解析后的文本直接填充到textarea
+                // 限制文本长度为最多八万字
+                const limitedText = limitTextToMaxLength(mergedText, 80000);
+
+                // 将解析后的文本填充到textarea
                 targetTextarea.value = limitedText;
 
-                // [Fix] 同时更新基础内容存储，这样后续添加图片时会在此基础上追加
+                // 同时更新基础内容存储，这样后续添加图片时会在此基础上追加
                 textareaBaseText.set(targetTextareaId, limitedText);
 
                 // 强制重绘（虽然通常不需要，但为了保险）
