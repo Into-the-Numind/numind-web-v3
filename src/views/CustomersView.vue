@@ -1,475 +1,543 @@
 <template>
   <MainLayout>
     <div class="customers-page">
-      <!-- Page Header -->
-      <div class="cm-page-header">
-        <h1 class="cm-title">客户管理</h1>
-        <p class="cm-subtitle">管理您的子用户及其模板权限</p>
+      <!-- 加载状态 -->
+      <div v-if="isLoading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
       </div>
 
-      <!-- Stats Grid -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon stat-icon-users">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <template v-else>
+        <!-- Hero 区域 -->
+        <div class="hero-section">
+          <div class="hero-content">
+            <h1 class="hero-title">客户管理</h1>
+            <p class="hero-subtitle">管理您的子用户、模板权限与会员等级</p>
           </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ statistics.total_sub_users ?? '-' }}</div>
-            <div class="stat-label">总子用户数</div>
-          </div>
+          <button class="hero-action-btn" @click="showRegisterModal = true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
+            </svg>
+            注册新用户
+          </button>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon stat-icon-active">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ statistics.active_sub_users ?? '-' }}</div>
-            <div class="stat-label">活跃子用户</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon stat-icon-template">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ statistics.total_templates ?? '-' }}</div>
-            <div class="stat-label">可用模板数</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon stat-icon-runs">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ statistics.total_runs ?? '-' }}</div>
-            <div class="stat-label">总运行次数</div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Sub-users Section -->
-      <div class="subusers-section">
-        <div class="section-header">
-          <h2 class="section-title">子用户列表</h2>
-          <div class="section-actions">
-            <div class="cm-search-box">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cm-search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="cm-search-input"
-                placeholder="搜索用户昵称或手机号..."
-                @input="handleSearch"
-              />
-            </div>
-            <button class="btn-primary cm-register-btn" @click="showRegisterModal = true">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
-              <span>注册新用户</span>
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">总子用户数：</span>
+            <span class="stat-value">{{ statistics.total_sub_users ?? '-' }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">活跃子用户：</span>
+            <span class="stat-value">{{ statistics.active_sub_users ?? '-' }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">可用模板数：</span>
+            <span class="stat-value">{{ statistics.total_templates ?? '-' }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">总运行次数：</span>
+            <span class="stat-value">{{ statistics.total_runs ?? '-' }}</span>
+          </div>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="toolbar">
+          <div class="filter-bar">
+            <button
+              class="filter-btn"
+              :class="{ active: activeFilter === 'all' }"
+              @click="setFilter('all')"
+            >
+              全部
+              <span class="filter-count">{{ allSubUsers.length }}</span>
+            </button>
+            <button
+              class="filter-btn"
+              :class="{ active: activeFilter === 'free' }"
+              @click="setFilter('free')"
+            >
+              <span class="filter-dot free"></span>
+              免费用户
+              <span class="filter-count">{{ freeCount }}</span>
+            </button>
+            <button
+              class="filter-btn"
+              :class="{ active: activeFilter === 'standard' }"
+              @click="setFilter('standard')"
+            >
+              <span class="filter-dot standard"></span>
+              普通会员
+              <span class="filter-count">{{ standardCount }}</span>
+            </button>
+            <button
+              class="filter-btn"
+              :class="{ active: activeFilter === 'premium' }"
+              @click="setFilter('premium')"
+            >
+              <span class="filter-dot premium"></span>
+              高级会员
+              <span class="filter-count">{{ premiumCount }}</span>
             </button>
           </div>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="search-input"
+              placeholder="搜索昵称或手机号..."
+              @input="handleSearch"
+            />
+          </div>
         </div>
 
-        <!-- Loading -->
-        <div v-if="isLoading" class="cm-loading">
-          <div class="loading-spinner"></div>
-          <p>加载中...</p>
+        <!-- 空状态 -->
+        <div v-if="allSubUsers.length === 0" class="empty-state">
+          <div class="empty-icon-wrapper">
+            <svg viewBox="0 0 48 48" fill="none" class="empty-icon">
+              <path d="M32 42v-4a8 8 0 0 0-8-8H12a8 8 0 0 0-8 8v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="18" cy="14" r="8" stroke="currentColor" stroke-width="2"/>
+              <path d="M44 42v-4a8 8 0 0 0-6-7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M32 6.25a8 8 0 0 1 0 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="empty-title">暂无子用户</div>
+          <div class="empty-desc">注册新用户后，他们将显示在此处</div>
+          <button class="empty-action" @click="showRegisterModal = true">注册新用户</button>
         </div>
 
-        <!-- Empty -->
-        <div v-else-if="filteredUsers.length === 0" class="cm-empty">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <h3>暂无子用户</h3>
-          <p>您还没有任何子用户</p>
+        <!-- 筛选后无结果 -->
+        <div v-else-if="filteredUsers.length === 0" class="empty-state compact">
+          <div class="empty-title">没有匹配的用户</div>
+          <div class="empty-desc">切换筛选条件或修改搜索关键词</div>
         </div>
 
-        <!-- Table -->
-        <div v-else class="cm-table-wrap">
-          <table class="cm-table">
-            <thead>
-              <tr>
-                <th class="th-checkbox">
-                  <div
-                    class="custom-checkbox"
-                    :class="{ checked: isAllSelected }"
-                    @click="toggleSelectAll"
-                  >
-                    <svg v-if="isAllSelected" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                </th>
-                <th>用户信息</th>
-                <th>用户等级</th>
-                <th>到期时间</th>
-                <th>已授权模板</th>
-                <th>总运行次数</th>
-                <th>本月运行</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="user in pageUsers"
-                :key="user.id || user.user_id"
-                :class="{ 'selected-row': selectedIds.has(user.user_id ?? user.id) }"
-              >
-                <td class="td-checkbox">
-                  <div
-                    class="custom-checkbox"
-                    :class="{ checked: selectedIds.has(user.user_id ?? user.id) }"
-                    @click="toggleSelect(user.user_id ?? user.id)"
-                  >
-                    <svg v-if="selectedIds.has(user.user_id ?? user.id)" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                </td>
-                <td>
-                  <div class="user-info-cell">
-                    <div class="user-name-text">{{ user.nickname || '未命名用户' }}</div>
-                    <div class="user-meta-text">{{ user.phone || ('ID: ' + (user.user_id ?? user.id)) }}</div>
-                  </div>
-                </td>
-                <td>
-                  <span class="tier-badge" :class="getTierClass(user)">{{ getTierLabel(user) }}</span>
-                </td>
-                <td>
-                  <span class="date-text">{{ user.tier_expires ? formatDate(user.tier_expires) : '-' }}</span>
-                </td>
-                <td>
-                  <span class="template-count-badge">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                    {{ user.authorized_templates || user.template_count || 0 }} 个模板
-                  </span>
-                </td>
-                <td><span class="runs-count">{{ user.total_sop_runs || 0 }}</span></td>
-                <td><span class="runs-count">{{ user.monthly_sop_runs || 0 }}</span></td>
-                <td>
-                  <div class="action-dropdown">
-                    <button
-                      class="action-btn"
-                      aria-haspopup="true"
-                      :aria-expanded="openMenuId === (user.user_id ?? user.id)"
-                      @click.stop="toggleActionMenu(user.user_id ?? user.id)"
-                      @keydown.escape="openMenuId = null"
+        <!-- 表格容器 -->
+        <div v-else class="table-container">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-check">
+                    <span
+                      class="checkbox-mark"
+                      :class="{ checked: isAllSelected }"
+                      @click="toggleSelectAll"
                     >
-                      管理
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                    <div v-if="openMenuId === (user.user_id ?? user.id)" class="action-menu" role="menu">
-                      <button class="action-menu-item" role="menuitem" @click="handleMenuPermission(user)">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
-                        管理权限
-                      </button>
-                      <button
-                        class="action-menu-item"
-                        role="menuitem"
-                        :class="{ disabled: !canUpgrade(user) }"
-                        :disabled="!canUpgrade(user)"
-                        @click="handleMenuUpgrade(user)"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                        升级等级
-                      </button>
+                      <svg v-if="isAllSelected" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  </th>
+                  <th class="col-user">用户信息</th>
+                  <th>用户等级</th>
+                  <th>到期时间</th>
+                  <th>已授权模板</th>
+                  <th>总运行次数</th>
+                  <th>本月运行</th>
+                  <th class="col-action">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="user in pageUsers"
+                  :key="user.id || user.user_id"
+                  :class="{ 'row-selected': selectedIds.has(user.user_id ?? user.id) }"
+                >
+                  <td class="col-check">
+                    <span
+                      class="checkbox-mark"
+                      :class="{ checked: selectedIds.has(user.user_id ?? user.id) }"
+                      @click="toggleSelect(user.user_id ?? user.id)"
+                    >
+                      <svg v-if="selectedIds.has(user.user_id ?? user.id)" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  </td>
+                  <td class="col-user">
+                    <div class="user-info">
+                      <div class="user-name">{{ user.nickname || '未命名用户' }}</div>
+                      <div class="user-meta">{{ user.phone || ('ID: ' + (user.user_id ?? user.id)) }}</div>
                     </div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                  <td>
+                    <span class="tier-badge" :class="getTierClass(user)">
+                      <span class="tier-dot"></span>
+                      {{ getTierLabel(user) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="cell-secondary">{{ user.tier_expires ? formatDate(user.tier_expires) : '-' }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-metric">{{ user.authorized_templates || user.template_count || 0 }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-metric">{{ user.total_sop_runs || 0 }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-metric">{{ user.monthly_sop_runs || 0 }}</span>
+                  </td>
+                  <td class="col-action">
+                    <div class="action-dropdown">
+                      <button
+                        class="action-trigger"
+                        aria-haspopup="true"
+                        :aria-expanded="openMenuId === (user.user_id ?? user.id)"
+                        @click.stop="toggleActionMenu(user.user_id ?? user.id)"
+                        @keydown.escape="openMenuId = null"
+                      >
+                        管理
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                      </button>
+                      <div v-if="openMenuId === (user.user_id ?? user.id)" class="action-menu" role="menu">
+                        <button class="action-menu-item" role="menuitem" @click="handleMenuPermission(user)">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+                          </svg>
+                          管理权限
+                        </button>
+                        <button
+                          class="action-menu-item"
+                          role="menuitem"
+                          :class="{ disabled: !canUpgrade(user) }"
+                          :disabled="!canUpgrade(user)"
+                          @click="handleMenuUpgrade(user)"
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m18 15-6-6-6 6"/>
+                          </svg>
+                          升级等级
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <!-- Pagination -->
-          <div class="cm-pagination">
-            <button class="pagination-btn" :disabled="currentPage <= 1" @click="currentPage--">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <!-- 分页 -->
+          <div v-if="totalPages > 1" class="pagination">
+            <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
               上一页
             </button>
-            <div class="pagination-info">
-              第 {{ currentPage }} 页，共 {{ totalPages }} 页
-            </div>
-            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="currentPage++">
+            <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+            <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">
               下一页
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </button>
           </div>
         </div>
+      </template>
 
-        <!-- Batch Action Bar -->
-        <Transition name="batch-bar">
-          <div v-if="selectedIds.size > 0" class="batch-action-bar">
-            <span class="batch-count">已选 {{ selectedIds.size }} 项</span>
-            <button class="batch-btn batch-grant" @click="batchGrant">批量授权</button>
-            <button class="batch-btn batch-revoke" @click="batchRevoke">批量撤销</button>
-          </div>
-        </Transition>
-      </div>
+      <!-- 批量操作浮动栏 -->
+      <Transition name="bar-slide">
+        <div v-if="selectedIds.size > 0" class="manage-bar">
+          <span class="manage-count">已选 {{ selectedIds.size }} 项</span>
+          <button class="manage-select-all" @click="toggleSelectAll">
+            {{ isAllSelected ? '取消全选' : '全选' }}
+          </button>
+          <button class="manage-btn-grant" @click="batchGrant">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+            </svg>
+            批量授权
+          </button>
+          <button class="manage-btn-revoke" @click="batchRevoke">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            批量撤销
+          </button>
+        </div>
+      </Transition>
 
       <!-- ========== Register Modal ========== -->
       <Teleport to="body">
-        <div v-if="showRegisterModal" class="modal-overlay" @click.self="closeRegisterModal">
-          <div class="modal-card register-modal">
-            <div class="modal-header">
-              <h2>注册新用户</h2>
-              <button class="modal-close" @click="closeRegisterModal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
-            </div>
-            <form id="register-form" class="modal-body" @submit.prevent="handleRegister">
-              <div class="form-group">
-                <label class="form-label">用户名（用于登录）<span class="required">*</span></label>
-                <input v-model="registerForm.username" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.username }" placeholder="3-20位字母及数字" maxlength="20" required @blur="checkUsernameAvailability" />
-                <div v-if="regFieldErrors.username" class="field-error">{{ regFieldErrors.username }}</div>
-                <div v-else-if="usernameStatus" class="username-hint" :class="usernameStatus">
-                  {{ usernameStatus === 'available' ? '用户名可用' : usernameStatus === 'taken' ? '用户名已被使用' : '检查中...' }}
-                </div>
+        <Transition name="overlay-fade">
+          <div v-if="showRegisterModal" class="modal-overlay" @mousedown.self="closeRegisterModal">
+            <div class="modal-dialog register-dialog">
+              <div class="modal-header">
+                <h2 class="modal-title">注册新用户</h2>
+                <button class="modal-close" @click="closeRegisterModal">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
               </div>
-              <div class="form-group">
-                <label class="form-label">密码 <span class="required">*</span></label>
-                <input v-model="registerForm.password" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.password }" placeholder="6-18位字母、数字或常用符号" maxlength="18" required />
-                <div v-if="regFieldErrors.password" class="field-error">{{ regFieldErrors.password }}</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">昵称 <span class="required">*</span></label>
-                <input v-model="registerForm.nickname" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.nickname }" placeholder="2-20位字符" maxlength="20" required />
-                <div v-if="regFieldErrors.nickname" class="field-error">{{ regFieldErrors.nickname }}</div>
-              </div>
-
-              <!-- 会员设置 -->
-              <div class="reg-tier-section">
-                <div class="reg-tier-divider">
-                  <span class="reg-tier-divider-text">会员设置（可选）</span>
-                </div>
-                <div class="reg-tier-radios">
-                  <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'standard' }">
-                    <input v-model="registerForm.tier" type="radio" name="register-tier" value="standard" />
-                    <span>普通会员</span>
-                  </label>
-                  <label class="reg-tier-radio" :class="{ active: registerForm.tier === 'premium' }">
-                    <input v-model="registerForm.tier" type="radio" name="register-tier" value="premium" />
-                    <span>高级会员</span>
-                  </label>
-                </div>
-                <div v-if="registerForm.tier !== 'free'" class="reg-tier-details">
-                  <div class="form-group form-group--compact">
-                    <label class="form-label">开通时长</label>
-                    <select v-model="registerForm.months" class="form-input tier-select">
-                      <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
-                    </select>
+              <form id="register-form" class="modal-body" @submit.prevent="handleRegister">
+                <div class="form-group">
+                  <label class="form-label">用户名（用于登录）<span class="required">*</span></label>
+                  <div class="input-row">
+                    <input v-model="registerForm.username" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.username }" placeholder="3-20位字母及数字" maxlength="20" required />
+                    <button type="button" class="btn-inline" :disabled="!registerForm.username.trim() || usernameStatus === 'checking'" @click="checkUsernameAvailability">
+                      {{ usernameStatus === 'checking' ? '检测中...' : '检测' }}
+                    </button>
                   </div>
-                  <div class="tier-preview">
-                    到期日期：<strong>{{ registerExpirePreview }}</strong>
+                  <div v-if="regFieldErrors.username" class="field-error">{{ regFieldErrors.username }}</div>
+                  <div v-else-if="usernameStatus && usernameStatus !== 'checking'" class="field-hint" :class="usernameStatus">
+                    {{ usernameStatus === 'available' ? '用户名可用' : '用户名已被使用' }}
                   </div>
                 </div>
-              </div>
+                <div class="form-group">
+                  <label class="form-label">密码 <span class="required">*</span></label>
+                  <input v-model="registerForm.password" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.password }" placeholder="6-18位字母、数字或常用符号" maxlength="18" required />
+                  <div v-if="regFieldErrors.password" class="field-error">{{ regFieldErrors.password }}</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">昵称 <span class="required">*</span></label>
+                  <input v-model="registerForm.nickname" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.nickname }" placeholder="2-20位字符" maxlength="20" required />
+                  <div v-if="regFieldErrors.nickname" class="field-error">{{ regFieldErrors.nickname }}</div>
+                </div>
 
-              <div v-if="registerError" class="register-error">{{ registerError }}</div>
-            </form>
-            <div class="modal-footer">
-              <button type="button" class="btn-cancel" @click="closeRegisterModal">取消</button>
-              <button type="submit" form="register-form" class="btn-submit" :disabled="!isRegFormValid || isRegistering">
-                {{ isRegistering ? '注册中...' : '注册' }}
-              </button>
+                <!-- 会员设置 -->
+                <div class="tier-section">
+                  <div class="tier-divider"><span>会员设置（可选）</span></div>
+                  <div class="tier-toggle">
+                    <label class="tier-option" :class="{ active: registerForm.tier === 'standard' }">
+                      <input v-model="registerForm.tier" type="radio" name="register-tier" value="standard" />
+                      <span>普通会员</span>
+                    </label>
+                    <label class="tier-option" :class="{ active: registerForm.tier === 'premium' }">
+                      <input v-model="registerForm.tier" type="radio" name="register-tier" value="premium" />
+                      <span>高级会员</span>
+                    </label>
+                  </div>
+                  <div v-if="registerForm.tier !== 'free'" class="tier-detail">
+                    <div class="form-group form-group--compact">
+                      <label class="form-label">开通时长</label>
+                      <select v-model="registerForm.months" class="form-input form-select">
+                        <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
+                      </select>
+                    </div>
+                    <div class="tier-preview">到期日期：<strong>{{ registerExpirePreview }}</strong></div>
+                  </div>
+                </div>
+                <div v-if="registerError" class="form-error">{{ registerError }}</div>
+              </form>
+              <div class="modal-footer">
+                <button type="button" class="btn-cancel" @click="closeRegisterModal">取消</button>
+                <button type="submit" form="register-form" class="btn-primary" :disabled="!isRegFormValid || isRegistering">
+                  {{ isRegistering ? '注册中...' : '注册' }}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Transition>
       </Teleport>
 
       <!-- ========== Permission Modal ========== -->
       <Teleport to="body">
-        <div v-if="showPermModal" class="modal-overlay" @click.self="closePermissionModal">
-          <div class="modal-card perm-modal">
-            <div class="modal-header">
-              <h2>管理模板权限</h2>
-              <button class="modal-close" @click="closePermissionModal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
-            </div>
-            <div class="modal-body">
-              <!-- User info -->
-              <div class="perm-user-info">
-                <div class="perm-user-avatar">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
-                <div>
-                  <div class="perm-user-name">{{ permTarget?.nickname || permTarget?.username || '用户' }}</div>
-                  <div class="perm-user-meta">{{ permTarget?.phone || ('ID: ' + (permTarget?.user_id ?? permTarget?.id)) }}</div>
-                </div>
+        <Transition name="overlay-fade">
+          <div v-if="showPermModal" class="modal-overlay" @click.self="closePermissionModal">
+            <div class="modal-dialog perm-dialog">
+              <div class="modal-header">
+                <h2 class="modal-title">管理模板权限</h2>
+                <button class="modal-close" @click="closePermissionModal">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
               </div>
+              <div class="modal-body perm-body">
+                <!-- User info -->
+                <div class="perm-user">
+                  <div class="perm-avatar">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="perm-name">{{ permTarget?.nickname || permTarget?.username || '用户' }}</div>
+                    <div class="perm-meta">{{ permTarget?.phone || ('ID: ' + (permTarget?.user_id ?? permTarget?.id)) }}</div>
+                  </div>
+                </div>
 
-              <!-- Templates list -->
-              <div v-if="permLoading" class="cm-loading" style="padding:32px">
-                <div class="loading-spinner"></div>
-              </div>
-              <!-- Feature Permissions -->
-              <div v-if="!permLoading" class="perm-features">
-                <div class="perm-section-title">
-                  <span>功能权限</span>
+                <div v-if="permLoading" class="perm-loading">
+                  <div class="loading-spinner"></div>
                 </div>
-                <div class="perm-template-list">
-                  <div
-                    class="perm-template-item"
-                    :class="{ checked: featurePermissions['sales_agent'] }"
-                    @click="featurePermissions['sales_agent'] = !featurePermissions['sales_agent']"
-                  >
+
+                <!-- Feature Permissions -->
+                <div v-if="!permLoading" class="perm-group">
+                  <div class="perm-group-title"><span>功能权限</span></div>
+                  <div class="perm-list">
                     <div
-                      class="custom-checkbox"
+                      class="perm-item"
                       :class="{ checked: featurePermissions['sales_agent'] }"
+                      @click="featurePermissions['sales_agent'] = !featurePermissions['sales_agent']"
                     >
-                      <svg v-if="featurePermissions['sales_agent']" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span class="checkbox-mark" :class="{ checked: featurePermissions['sales_agent'] }">
+                        <svg v-if="featurePermissions['sales_agent']" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </span>
+                      <span class="perm-item-label">销售智能体</span>
                     </div>
-                    <span class="perm-template-name">销售智能体</span>
                   </div>
                 </div>
-              </div>
-              <div v-if="!permLoading" class="perm-templates">
-                <div class="perm-section-title">
-                  <span>可用模板</span>
-                  <span class="perm-count">{{ allTemplates.length }}</span>
-                  <button type="button" class="perm-select-all-btn" @click="togglePermSelectAll">
-                    {{ isPermAllSelected ? '取消全选' : '全选' }}
-                  </button>
-                </div>
-                <div class="perm-template-list">
-                  <div
-                    v-for="tpl in allTemplates"
-                    :key="tpl.id"
-                    class="perm-template-item"
-                    :class="{ checked: permSelectedIds[String(tpl.id)] }"
-                    @click="togglePermTemplate(String(tpl.id))"
-                  >
+
+                <!-- Template Permissions -->
+                <div v-if="!permLoading" class="perm-group">
+                  <div class="perm-group-title">
+                    <span>可用模板</span>
+                    <span class="perm-badge">{{ allTemplates.length }}</span>
+                    <button type="button" class="perm-toggle-all" @click="togglePermSelectAll">
+                      {{ isPermAllSelected ? '取消全选' : '全选' }}
+                    </button>
+                  </div>
+                  <div class="perm-list">
                     <div
-                      class="custom-checkbox"
+                      v-for="tpl in allTemplates"
+                      :key="tpl.id"
+                      class="perm-item"
                       :class="{ checked: permSelectedIds[String(tpl.id)] }"
+                      @click="togglePermTemplate(String(tpl.id))"
                     >
-                      <svg v-if="permSelectedIds[String(tpl.id)]" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span class="checkbox-mark" :class="{ checked: permSelectedIds[String(tpl.id)] }">
+                        <svg v-if="permSelectedIds[String(tpl.id)]" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </span>
+                      <span class="perm-item-label">{{ tpl.name }}</span>
                     </div>
-                    <span class="perm-template-name">{{ tpl.name }}</span>
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn-cancel" @click="closePermissionModal">取消</button>
-              <button type="button" class="btn-submit" :disabled="permSaving" @click="savePermissions">
-                {{ permSaving ? '保存中...' : '保存更改' }}
-              </button>
+              <div class="modal-footer">
+                <button type="button" class="btn-cancel" @click="closePermissionModal">取消</button>
+                <button type="button" class="btn-primary" :disabled="permSaving" @click="savePermissions">
+                  {{ permSaving ? '保存中...' : '保存更改' }}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Transition>
       </Teleport>
 
       <!-- ========== Batch Confirm Modal ========== -->
       <Teleport to="body">
-        <div v-if="showBatchConfirm" class="modal-overlay" @click.self="showBatchConfirm = false">
-          <div class="modal-card batch-confirm-modal">
-            <div class="modal-header">
-              <h2>{{ batchAction === 'grant' ? '批量授权确认' : '批量撤销确认' }}</h2>
-              <button class="modal-close" @click="showBatchConfirm = false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
-            </div>
-            <div class="modal-body">
-              <p v-if="batchAction === 'grant'">
-                确定要为选中的 <strong>{{ selectedIds.size }}</strong> 位用户授权全部 <strong>{{ allTemplates.length }}</strong> 个模板吗？
-              </p>
-              <p v-else class="batch-revoke-warning">
-                危险操作：确定要撤销选中的 <strong>{{ selectedIds.size }}</strong> 位用户的全部模板权限吗？
-              </p>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn-cancel" @click="showBatchConfirm = false">取消</button>
-              <button
-                type="button"
-                :class="batchAction === 'revoke' ? 'btn-danger' : 'btn-submit'"
-                @click="executeBatchAction"
-              >
-                确认{{ batchAction === 'grant' ? '授权' : '撤销' }}
-              </button>
+        <Transition name="overlay-fade">
+          <div v-if="showBatchConfirm" class="modal-overlay" @click.self="showBatchConfirm = false">
+            <div class="confirm-dialog">
+              <div class="confirm-icon" :class="batchAction === 'revoke' ? 'danger' : ''">
+                <svg v-if="batchAction === 'grant'" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div class="confirm-title">{{ batchAction === 'grant' ? '批量授权确认' : '批量撤销确认' }}</div>
+              <div class="confirm-message">
+                <template v-if="batchAction === 'grant'">
+                  确定要为选中的 <strong>{{ selectedIds.size }}</strong> 位用户授权全部 <strong>{{ allTemplates.length }}</strong> 个模板吗？
+                </template>
+                <template v-else>
+                  确定要撤销选中的 <strong>{{ selectedIds.size }}</strong> 位用户的全部模板权限吗？此操作不可恢复。
+                </template>
+              </div>
+              <div class="confirm-actions">
+                <button class="btn-cancel" @click="showBatchConfirm = false">取消</button>
+                <button :class="batchAction === 'revoke' ? 'btn-danger' : 'btn-primary'" @click="executeBatchAction">
+                  确认{{ batchAction === 'grant' ? '授权' : '撤销' }}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Transition>
       </Teleport>
 
       <!-- ========== Tier Upgrade Modal ========== -->
       <Teleport to="body">
-        <div v-if="showTierModal" class="modal-overlay" @click.self="closeTierModal">
-          <div class="modal-card tier-modal">
-            <div class="modal-header">
-              <h2>升级会员</h2>
-              <button class="modal-close" @click="closeTierModal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
-            </div>
-            <div class="modal-body">
-              <!-- User info -->
-              <div class="tier-user-info">
-                <div class="perm-user-avatar">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
-                <div>
-                  <div class="perm-user-name">{{ tierTarget?.nickname || tierTarget?.username || '用户' }}</div>
-                  <div class="perm-user-meta">
-                    当前等级：<span class="tier-badge tier-badge-sm" :class="tierTarget ? getTierClass(tierTarget) : ''">{{ tierTarget ? getTierLabel(tierTarget) : '' }}</span>
+        <Transition name="overlay-fade">
+          <div v-if="showTierModal" class="modal-overlay" @click.self="closeTierModal">
+            <div class="modal-dialog tier-dialog">
+              <div class="modal-header">
+                <h2 class="modal-title">升级会员</h2>
+                <button class="modal-close" @click="closeTierModal">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+              </div>
+              <div class="modal-body">
+                <div class="perm-user">
+                  <div class="perm-avatar">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="perm-name">{{ tierTarget?.nickname || tierTarget?.username || '用户' }}</div>
+                    <div class="perm-meta">
+                      当前等级：<span class="tier-badge tier-badge-sm" :class="tierTarget ? getTierClass(tierTarget) : ''">{{ tierTarget ? getTierLabel(tierTarget) : '' }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Tier options -->
-              <div v-if="tierTarget" class="tier-options">
-                <div
-                  v-if="getActualTier(tierTarget) === 'free'"
-                  class="tier-option-card tier-standard-card"
-                  :class="{ selected: tierForm.tier === 'standard' }"
-                  @click="tierForm.tier = 'standard'"
-                >
-                  <div class="tier-option-radio" :class="{ active: tierForm.tier === 'standard' }"></div>
-                  <div class="tier-option-content">
-                    <div class="tier-option-title tier-standard-text">普通会员</div>
-                    <div class="tier-option-desc">每月 20 次 SOP 运行</div>
+                <div v-if="tierTarget" class="upgrade-options">
+                  <div
+                    v-if="getActualTier(tierTarget) === 'free'"
+                    class="upgrade-card"
+                    :class="{ selected: tierForm.tier === 'standard' }"
+                    @click="tierForm.tier = 'standard'"
+                  >
+                    <div class="upgrade-radio" :class="{ active: tierForm.tier === 'standard' }"></div>
+                    <div>
+                      <div class="upgrade-name standard">普通会员</div>
+                      <div class="upgrade-desc">每月 20 次 SOP 运行</div>
+                    </div>
+                  </div>
+                  <div
+                    class="upgrade-card"
+                    :class="{ selected: tierForm.tier === 'premium' }"
+                    @click="tierForm.tier = 'premium'"
+                  >
+                    <div class="upgrade-radio" :class="{ active: tierForm.tier === 'premium' }"></div>
+                    <div>
+                      <div class="upgrade-name premium">高级会员</div>
+                      <div class="upgrade-desc">无限次 SOP 运行</div>
+                    </div>
                   </div>
                 </div>
-                <div
-                  class="tier-option-card tier-premium-card"
-                  :class="{ selected: tierForm.tier === 'premium' }"
-                  @click="tierForm.tier = 'premium'"
-                >
-                  <div class="tier-option-radio" :class="{ active: tierForm.tier === 'premium' }"></div>
-                  <div class="tier-option-content">
-                    <div class="tier-option-title tier-premium-text">高级会员</div>
-                    <div class="tier-option-desc">无限次 SOP 运行</div>
-                  </div>
+
+                <div class="form-group">
+                  <label class="form-label">开通时长</label>
+                  <select v-model="tierForm.months" class="form-input form-select">
+                    <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
+                  </select>
+                </div>
+                <div v-if="tierForm.tier" class="tier-preview">
+                  到期日期：<strong>{{ tierExpirePreview }}</strong>
+                  <span class="tier-preview-hint">（每月按 30 天计算）</span>
                 </div>
               </div>
-
-              <!-- Duration -->
-              <div class="tier-duration">
-                <label class="form-label">开通时长</label>
-                <select v-model="tierForm.months" class="form-input tier-select">
-                  <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
-                </select>
+              <div class="modal-footer">
+                <button type="button" class="btn-cancel" @click="closeTierModal">取消</button>
+                <button type="button" class="btn-primary" :disabled="isTierUpdating || !tierForm.tier" @click="handleTierUpgrade">
+                  {{ isTierUpdating ? '升级中...' : '确认升级' }}
+                </button>
               </div>
-
-              <!-- Preview -->
-              <div v-if="tierForm.tier" class="tier-preview">
-                到期日期：<strong>{{ tierExpirePreview }}</strong>
-                <span class="tier-preview-hint">（每月按 30 天计算）</span>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn-cancel" @click="closeTierModal">取消</button>
-              <button
-                type="button"
-                class="btn-submit"
-                :disabled="isTierUpdating || !tierForm.tier"
-                @click="handleTierUpgrade"
-              >
-                {{ isTierUpdating ? '升级中...' : '确认升级' }}
-              </button>
             </div>
           </div>
-        </div>
+        </Transition>
       </Teleport>
 
       <!-- ========== Toast ========== -->
       <Teleport to="body">
-        <Transition name="toast">
-          <div v-if="toast.visible" class="cm-toast" :class="'toast-' + toast.type">
+        <Transition name="toast-fade">
+          <div v-if="toast.visible" class="toast" :class="toast.type">
+            <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <svg v-else-if="toast.type === 'error'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
             {{ toast.message }}
           </div>
         </Transition>
@@ -515,8 +583,9 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 20
 const selectedIds = reactive(new Set<number | string>())
+const activeFilter = ref<'all' | 'free' | 'standard' | 'premium'>('all')
 
-// Register modal
+// Register
 type TierValue = 'free' | 'standard' | 'premium'
 const showRegisterModal = ref(false)
 const registerForm = ref<{ username: string; password: string; nickname: string; tier: TierValue; months: number }>({ username: '', password: '', nickname: '', tier: 'free', months: 1 })
@@ -524,11 +593,11 @@ const isRegistering = ref(false)
 const usernameStatus = ref<'available' | 'taken' | 'checking' | null>(null)
 const registerError = ref('')
 
-// Batch confirm
+// Batch
 const showBatchConfirm = ref(false)
 const batchAction = ref<'grant' | 'revoke'>('grant')
 
-// Permission modal
+// Permission
 const showPermModal = ref(false)
 const permTarget = ref<SubUser | null>(null)
 const permLoading = ref(false)
@@ -536,17 +605,17 @@ const permSaving = ref(false)
 const permSelectedIds = reactive<Record<string, boolean>>({})
 const permOriginalIds = ref<Set<string>>(new Set())
 
-// Feature permission state
+// Feature permission
 const featurePermissions = reactive<Record<string, boolean>>({})
 const featurePermOriginal = ref<Set<string>>(new Set())
 
-// Tier upgrade modal
+// Tier upgrade
 const showTierModal = ref(false)
 const tierTarget = ref<SubUser | null>(null)
 const tierForm = ref({ tier: '', months: 1 })
 const isTierUpdating = ref(false)
 
-// Action dropdown
+// Dropdown
 const openMenuId = ref<number | string | null>(null)
 
 // Toast
@@ -556,17 +625,22 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Computed ───────────────────────────────────────────────────────
 const filteredUsers = computed(() => {
+  let users = allSubUsers.value
+  if (activeFilter.value !== 'all') {
+    users = users.filter((u) => getActualTier(u) === activeFilter.value)
+  }
   const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return allSubUsers.value
-  return allSubUsers.value.filter((u) => {
-    const nickname = (u.nickname || '').toLowerCase()
-    const phone = (u.phone || '').toLowerCase()
-    return nickname.includes(q) || phone.includes(q)
-  })
+  if (q) {
+    users = users.filter((u) => {
+      const nickname = (u.nickname || '').toLowerCase()
+      const phone = (u.phone || '').toLowerCase()
+      return nickname.includes(q) || phone.includes(q)
+    })
+  }
+  return users
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize)))
-
 const pageUsers = computed(() => {
   const start = (currentPage.value - 1) * pageSize
   return filteredUsers.value.slice(start, start + pageSize)
@@ -580,6 +654,10 @@ const isPermAllSelected = computed(() => {
   return allTemplates.value.length > 0 && allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
 })
 
+const freeCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'free').length)
+const standardCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'standard').length)
+const premiumCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'premium').length)
+
 function computeExpireDate(months: number): string {
   if (!months) return ''
   const d = new Date()
@@ -590,7 +668,6 @@ function computeExpireDate(months: number): string {
 const tierExpirePreview = computed(() => computeExpireDate(tierForm.value.months))
 const registerExpirePreview = computed(() => computeExpireDate(registerForm.value.months))
 
-// Real-time field validation (mirrors old frontend validateRegForm logic)
 // eslint-disable-next-line no-useless-escape
 const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,18}$/
 
@@ -611,17 +688,14 @@ const isRegFormValid = computed(() => {
   const username = f.username.trim()
   const password = f.password
   const nickname = f.nickname.trim()
-  const usernameOk = /^[a-zA-Z0-9]{3,20}$/.test(username)
-  const passwordOk = passwordRegex.test(password)
-  const nicknameOk = nickname.length >= 2 && nickname.length <= 20
-  const usernameNotTaken = usernameStatus.value !== 'taken'
-  return usernameOk && passwordOk && nicknameOk && usernameNotTaken
+  return /^[a-zA-Z0-9]{3,20}$/.test(username) &&
+    passwordRegex.test(password) &&
+    nickname.length >= 2 && nickname.length <= 20 &&
+    usernameStatus.value !== 'taken'
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
-function handleGlobalClick() {
-  openMenuId.value = null
-}
+function handleGlobalClick() { openMenuId.value = null }
 
 onBeforeUnmount(() => {
   if (toastTimer) clearTimeout(toastTimer)
@@ -648,12 +722,9 @@ async function loadStatistics() {
       statistics.total_sub_users = d.total_sub_users ?? 0
       statistics.active_sub_users = d.active_sub_users ?? 0
       statistics.total_templates = d.total_templates_count ?? d.total_templates ?? 0
-      // total_runs will be computed from sub-users after they load
       statistics.total_runs = 0
     }
-  } catch (e) {
-    console.error('加载统计数据失败:', e)
-  }
+  } catch (e) { console.error('加载统计数据失败:', e) }
 }
 
 async function loadSubUsers() {
@@ -662,14 +733,9 @@ async function loadSubUsers() {
     if (res.code === 200 || res.code === 0) {
       const d = res.data as any
       allSubUsers.value = Array.isArray(d) ? d : d?.sub_users || []
-      // Aggregate total runs from all sub-users
-      statistics.total_runs = allSubUsers.value.reduce(
-        (sum, u) => sum + (u.total_sop_runs || 0), 0
-      )
+      statistics.total_runs = allSubUsers.value.reduce((sum, u) => sum + (u.total_sop_runs || 0), 0)
     }
-  } catch (e) {
-    console.error('加载子用户列表失败:', e)
-  }
+  } catch (e) { console.error('加载子用户列表失败:', e) }
 }
 
 async function loadAllTemplates() {
@@ -678,33 +744,25 @@ async function loadAllTemplates() {
     if (res.code === 200 || res.code === 0) {
       const td = res.data as any
       const raw: any[] = Array.isArray(td) ? td : td?.templates || []
-      // API returns uppercase "ID"; normalize to lowercase "id"
-      allTemplates.value = raw.map((t) => ({
-        ...t,
-        id: t.id ?? t.ID,
-        name: t.name || '',
-      }))
+      allTemplates.value = raw.map((t) => ({ ...t, id: t.id ?? t.ID, name: t.name || '' }))
     }
-  } catch (e) {
-    console.error('加载模板列表失败:', e)
-  }
+  } catch (e) { console.error('加载模板列表失败:', e) }
 }
 
-// ── Search ─────────────────────────────────────────────────────────
+// ── Search & Filter ────────────────────────────────────────────────
 function handleSearch() {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    currentPage.value = 1
-  }, 300)
+  searchTimer = setTimeout(() => { currentPage.value = 1 }, 300)
+}
+
+function setFilter(f: 'all' | 'free' | 'standard' | 'premium') {
+  activeFilter.value = f
+  currentPage.value = 1
 }
 
 // ── Selection ──────────────────────────────────────────────────────
 function toggleSelect(id: number | string) {
-  if (selectedIds.has(id)) {
-    selectedIds.delete(id)
-  } else {
-    selectedIds.add(id)
-  }
+  if (selectedIds.has(id)) { selectedIds.delete(id) } else { selectedIds.add(id) }
 }
 
 function toggleSelectAll() {
@@ -726,49 +784,31 @@ function closeRegisterModal() {
 async function checkUsernameAvailability() {
   const name = registerForm.value.username.trim()
   if (!name) { usernameStatus.value = null; return }
-
   usernameStatus.value = 'checking'
   try {
     const res = await checkUsername(name)
-    if (res.code === 200 || res.code === 0) {
-      usernameStatus.value = res.data?.available ? 'available' : 'taken'
-    } else {
-      usernameStatus.value = 'taken'
-    }
-  } catch {
-    // API 返回错误码（如用户名已存在）会被 axios 拦截器 reject 到这里
-    usernameStatus.value = 'taken'
-  }
+    usernameStatus.value = (res.code === 200 || res.code === 0) && res.data?.available ? 'available' : 'taken'
+  } catch { usernameStatus.value = 'taken' }
 }
 
 function validateRegisterForm(): string | null {
-  const username = registerForm.value.username.trim()
-  const password = registerForm.value.password
-  const nickname = registerForm.value.nickname.trim()
-
-  if (!/^[a-zA-Z0-9]{3,20}$/.test(username)) return '用户名需要3-20位字母数字'
-  if (password.length < 6 || password.length > 18) return '密码需要6-18位'
-  if (!nickname || nickname.length < 2 || nickname.length > 20) return '昵称需要2-20位'
-  if (registerForm.value.tier !== 'free') {
-    if (!['standard', 'premium'].includes(registerForm.value.tier)) return '无效的会员等级'
-    if (!registerForm.value.months || registerForm.value.months < 1 || registerForm.value.months > 12) return '开通时长需要1-12个月'
+  const { username: u, password: p, nickname: n, tier, months } = registerForm.value
+  if (!/^[a-zA-Z0-9]{3,20}$/.test(u.trim())) return '用户名需要3-20位字母数字'
+  if (p.length < 6 || p.length > 18) return '密码需要6-18位'
+  if (!n.trim() || n.trim().length < 2 || n.trim().length > 20) return '昵称需要2-20位'
+  if (tier !== 'free') {
+    if (!['standard', 'premium'].includes(tier)) return '无效的会员等级'
+    if (!months || months < 1 || months > 12) return '开通时长需要1-12个月'
   }
   return null
 }
 
 async function handleRegister() {
   const error = validateRegisterForm()
-  if (error) {
-    registerError.value = error
-    return
-  }
-  if (usernameStatus.value === 'taken') {
-    registerError.value = '用户名已被使用'
-    return
-  }
+  if (error) { registerError.value = error; return }
+  if (usernameStatus.value === 'taken') { registerError.value = '用户名已被使用'; return }
   registerError.value = ''
   isRegistering.value = true
-
   try {
     const payload: Parameters<typeof registerSubUser>[0] = {
       username: registerForm.value.username.trim(),
@@ -788,50 +828,32 @@ async function handleRegister() {
     }
   } catch (e: unknown) {
     registerError.value = e instanceof Error ? e.message : '注册失败'
-  } finally {
-    isRegistering.value = false
-  }
+  } finally { isRegistering.value = false }
 }
 
-// ── Permission Management ──────────────────────────────────────────
+// ── Permission ─────────────────────────────────────────────────────
 async function openPermissionModal(user: SubUser) {
   permTarget.value = user
   showPermModal.value = true
   permLoading.value = true
   Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
   permOriginalIds.value = new Set()
-
   const userId = user.user_id ?? user.id
-
-  // 并行加载模板权限和功能权限
   try {
     const [templateRes, featureRes] = await Promise.all([
       fetchUserTemplates(userId).catch((e) => { console.error('加载授权模板失败:', e); return null }),
       fetchUserFeatures(userId).catch((e) => { console.error('加载功能权限失败:', e); return null })
     ])
-
     if (templateRes && (templateRes.code === 200 || templateRes.code === 0)) {
       const d = templateRes.data as Record<string, unknown> | unknown[]
       const rawAuth = (Array.isArray(d) ? d : (d as Record<string, unknown>)?.templates || []) as Array<Record<string, unknown>>
-      rawAuth.forEach((t) => {
-        const id = String(t.id ?? t.ID)
-        permSelectedIds[id] = true
-        permOriginalIds.value.add(id)
-      })
+      rawAuth.forEach((t) => { const id = String(t.id ?? t.ID); permSelectedIds[id] = true; permOriginalIds.value.add(id) })
     }
-
     if (featureRes && (featureRes.code === 200 || featureRes.code === 0)) {
       const features = (featureRes.data as any)?.features || []
-      if (Array.isArray(features)) {
-        features.forEach((f: string) => {
-          featurePermissions[f] = true
-          featurePermOriginal.value.add(f)
-        })
-      }
+      if (Array.isArray(features)) { features.forEach((f: string) => { featurePermissions[f] = true; featurePermOriginal.value.add(f) }) }
     }
-  } finally {
-    permLoading.value = false
-  }
+  } finally { permLoading.value = false }
 }
 
 function closePermissionModal() {
@@ -845,11 +867,7 @@ function closePermissionModal() {
 }
 
 function togglePermTemplate(id: string) {
-  if (permSelectedIds[id]) {
-    delete permSelectedIds[id]
-  } else {
-    permSelectedIds[id] = true
-  }
+  if (permSelectedIds[id]) { delete permSelectedIds[id] } else { permSelectedIds[id] = true }
 }
 
 function togglePermSelectAll() {
@@ -864,79 +882,44 @@ async function savePermissions() {
   if (!permTarget.value) return
   const userId = permTarget.value.user_id ?? permTarget.value.id
   permSaving.value = true
-
   try {
-    // Calculate diff
-    const toGrant: string[] = []
-    const toRevoke: string[] = []
-
-    // Feature permission diff
     const featuresToGrant: string[] = []
     const featuresToRevoke: string[] = []
-    Object.keys(featurePermissions).forEach((key) => {
-      if (!featurePermOriginal.value.has(key)) featuresToGrant.push(key)
-    })
-    featurePermOriginal.value.forEach((key) => {
-      if (!featurePermissions[key]) featuresToRevoke.push(key)
-    })
+    Object.keys(featurePermissions).forEach((key) => { if (!featurePermOriginal.value.has(key)) featuresToGrant.push(key) })
+    featurePermOriginal.value.forEach((key) => { if (!featurePermissions[key]) featuresToRevoke.push(key) })
+    if (featuresToGrant.length > 0) await grantFeatures(userId, featuresToGrant)
+    if (featuresToRevoke.length > 0) await revokeFeatures(userId, featuresToRevoke)
 
-    if (featuresToGrant.length > 0) {
-      await grantFeatures(userId, featuresToGrant)
-    }
-    if (featuresToRevoke.length > 0) {
-      await revokeFeatures(userId, featuresToRevoke)
-    }
-
-    Object.keys(permSelectedIds).forEach((id) => {
-      if (!permOriginalIds.value.has(id)) toGrant.push(id)
-    })
-    permOriginalIds.value.forEach((id) => {
-      if (!permSelectedIds[id]) toRevoke.push(id)
-    })
+    const toGrant: string[] = []
+    const toRevoke: string[] = []
+    Object.keys(permSelectedIds).forEach((id) => { if (!permOriginalIds.value.has(id)) toGrant.push(id) })
+    permOriginalIds.value.forEach((id) => { if (!permSelectedIds[id]) toRevoke.push(id) })
 
     if (toGrant.length === 0 && toRevoke.length === 0 && featuresToGrant.length === 0 && featuresToRevoke.length === 0) {
-      showToast('没有变更', 'info')
-      closePermissionModal()
-      return
+      showToast('没有变更', 'info'); closePermissionModal(); return
     }
-
-    if (toGrant.length > 0) {
-      await grantTemplates(userId, toGrant.map(Number))
-    }
-    if (toRevoke.length > 0) {
-      await revokeTemplates(userId, toRevoke.map(Number))
-    }
-
+    if (toGrant.length > 0) await grantTemplates(userId, toGrant.map(Number))
+    if (toRevoke.length > 0) await revokeTemplates(userId, toRevoke.map(Number))
     showToast('权限已更新', 'success')
     closePermissionModal()
     await loadSubUsers()
   } catch (e: unknown) {
     showToast(`保存失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
-  } finally {
-    permSaving.value = false
-  }
+  } finally { permSaving.value = false }
 }
 
-// ── Batch Operations ───────────────────────────────────────────────
+// ── Batch ──────────────────────────────────────────────────────────
 function batchGrant() {
-  if (allTemplates.value.length === 0) {
-    showToast('没有可用模板', 'info')
-    return
-  }
-  batchAction.value = 'grant'
-  showBatchConfirm.value = true
+  if (allTemplates.value.length === 0) { showToast('没有可用模板', 'info'); return }
+  batchAction.value = 'grant'; showBatchConfirm.value = true
 }
 
-function batchRevoke() {
-  batchAction.value = 'revoke'
-  showBatchConfirm.value = true
-}
+function batchRevoke() { batchAction.value = 'revoke'; showBatchConfirm.value = true }
 
 async function executeBatchAction() {
   showBatchConfirm.value = false
   const userIds = Array.from(selectedIds)
   const templateIds = allTemplates.value.map((t) => t.id)
-
   try {
     if (batchAction.value === 'grant') {
       await batchGrantTemplates({ user_ids: userIds, template_ids: templateIds })
@@ -947,19 +930,19 @@ async function executeBatchAction() {
     }
     selectedIds.clear()
     await loadSubUsers()
-  } catch (e: unknown) {
-    showToast(`批量操作失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
-  }
+  } catch (e: unknown) { showToast(`批量操作失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error') }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
-function getTierClass(user: SubUser) {
+function getActualTier(user: SubUser): string {
   const tier = user.user_tier || 'free'
   const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
-  if (isExpired || tier === 'free') return 'tier-free'
-  if (tier === 'premium') return 'tier-premium'
-  if (tier === 'standard') return 'tier-standard'
-  return 'tier-free'
+  return (isExpired || tier === 'free') ? 'free' : tier
+}
+
+function getTierClass(user: SubUser) {
+  const t = getActualTier(user)
+  return t === 'premium' ? 'tier-premium' : t === 'standard' ? 'tier-standard' : 'tier-free'
 }
 
 function getTierLabel(user: SubUser) {
@@ -967,17 +950,13 @@ function getTierLabel(user: SubUser) {
   const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
   if (isExpired || tier === 'free') return '免费用户'
   if (tier === 'premium') return '高级会员'
-  if (tier === 'standard') {
-    const remaining = user.remaining_sop_runs
-    if (remaining !== undefined && remaining >= 0) return `普通会员 (剩余${remaining}次)`
-    return '普通会员'
-  }
+  if (tier === 'standard') return '普通会员'
   return '免费用户'
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('zh-CN')
-}
+function canUpgrade(user: SubUser): boolean { return getActualTier(user) !== 'premium' }
+
+function formatDate(dateStr: string) { return new Date(dateStr).toLocaleDateString('zh-CN') }
 
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'success', duration = 3000) {
   if (toastTimer) clearTimeout(toastTimer)
@@ -986,1179 +965,348 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 }
 
 // ── Action Dropdown ───────────────────────────────────────────────
-function toggleActionMenu(id: number | string) {
-  openMenuId.value = openMenuId.value === id ? null : id
-}
-
-function handleMenuPermission(user: SubUser) {
-  openMenuId.value = null
-  openPermissionModal(user)
-}
-
-function handleMenuUpgrade(user: SubUser) {
-  if (!canUpgrade(user)) return
-  openMenuId.value = null
-  openTierModal(user)
-}
+function toggleActionMenu(id: number | string) { openMenuId.value = openMenuId.value === id ? null : id }
+function handleMenuPermission(user: SubUser) { openMenuId.value = null; openPermissionModal(user) }
+function handleMenuUpgrade(user: SubUser) { if (!canUpgrade(user)) return; openMenuId.value = null; openTierModal(user) }
 
 // ── Tier Upgrade ──────────────────────────────────────────────────
-function getActualTier(user: SubUser): string {
-  const tier = user.user_tier || 'free'
-  const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
-  if (isExpired || tier === 'free') return 'free'
-  return tier
-}
-
-function canUpgrade(user: SubUser): boolean {
-  return getActualTier(user) !== 'premium'
-}
-
 function openTierModal(user: SubUser) {
   tierTarget.value = user
   const actual = getActualTier(user)
-  // 默认选中比当前高一级的等级
-  if (actual === 'free') {
-    tierForm.value = { tier: 'standard', months: 1 }
-  } else {
-    tierForm.value = { tier: 'premium', months: 1 }
-  }
+  tierForm.value = { tier: actual === 'free' ? 'standard' : 'premium', months: 1 }
   showTierModal.value = true
 }
 
-function closeTierModal() {
-  showTierModal.value = false
-  tierTarget.value = null
-  tierForm.value = { tier: '', months: 1 }
-}
+function closeTierModal() { showTierModal.value = false; tierTarget.value = null; tierForm.value = { tier: '', months: 1 } }
 
 async function handleTierUpgrade() {
   if (!tierTarget.value || !tierForm.value.tier) return
   const userId = tierTarget.value.user_id ?? tierTarget.value.id
   isTierUpdating.value = true
-
   try {
-    const res = await updateSubUserTier(userId, {
-      tier: tierForm.value.tier,
-      months: tierForm.value.months
-    })
-    if (res.code === 200 || res.code === 0) {
-      showToast('升级成功', 'success')
-      closeTierModal()
-      await loadSubUsers()
-    }
+    const res = await updateSubUserTier(userId, { tier: tierForm.value.tier, months: tierForm.value.months })
+    if (res.code === 200 || res.code === 0) { showToast('升级成功', 'success'); closeTierModal(); await loadSubUsers() }
   } catch (e: unknown) {
     showToast(`升级失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
-  } finally {
-    isTierUpdating.value = false
-  }
+  } finally { isTierUpdating.value = false }
 }
 </script>
 
 <style scoped>
-/* ── Page ─────────────────────────────────────────────────────── */
 .customers-page {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 100px;
 }
 
-.cm-page-header {
+/* ===== Hero ===== */
+.hero-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 28px;
+  padding: 20px 0 0;
 }
 
-.cm-title {
-  font-size: 28px;
-  font-weight: 800;
-  color: hsl(150, 10%, 15%);
-  margin: 0 0 4px;
-  letter-spacing: -0.01em;
+.hero-content { flex: 1; }
+
+.hero-title {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  font-weight: 700;
+  color: hsl(155, 30%, 15%);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
 }
 
-.cm-subtitle {
-  font-size: 14px;
-  color: hsl(150, 10%, 45%);
+.hero-subtitle {
+  font-size: 15px;
+  color: hsl(158, 20%, 45%);
   margin: 0;
 }
 
-/* ── Stats Grid ───────────────────────────────────────────────── */
+.hero-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 4px 16px hsl(158 64% 50% / 0.25);
+}
+
+.hero-action-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px hsl(158 64% 50% / 0.3);
+}
+
+/* ===== Stats Grid ===== */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .stat-card {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 16px 20px;
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
   border-radius: 16px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stat-icon-users {
-  background: hsl(220, 60%, 95%);
-  color: hsl(220, 60%, 50%);
-}
-
-.stat-icon-active {
-  background: hsl(158, 60%, 93%);
-  color: hsl(158, 64%, 40%);
-}
-
-.stat-icon-template {
-  background: hsl(280, 60%, 95%);
-  color: hsl(280, 60%, 50%);
-}
-
-.stat-icon-runs {
-  background: hsl(30, 80%, 95%);
-  color: hsl(30, 80%, 50%);
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 800;
-  color: hsl(150, 10%, 15%);
-  line-height: 1.2;
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
 }
 
 .stat-label {
-  font-size: 13px;
-  color: hsl(150, 10%, 50%);
-  margin-top: 2px;
+  font-size: 14px;
+  color: hsl(155, 25%, 18%);
+  white-space: nowrap;
 }
 
-/* ── Sub-users Section ────────────────────────────────────────── */
-.subusers-section {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
 }
 
-.section-header {
+/* ===== Toolbar ===== */
+.toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.section-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: hsl(150, 10%, 15%);
-  margin: 0;
-}
-
-.section-actions {
+/* ===== Filter Bar ===== */
+.filter-bar {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.cm-search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.cm-search-icon {
-  position: absolute;
-  left: 12px;
-  color: hsl(150, 10%, 55%);
-  pointer-events: none;
-}
-
-.cm-search-input {
-  width: 240px;
-  height: 38px;
-  padding: 0 12px 0 38px;
-  border-radius: 10px;
-  border: 1px solid hsl(150, 15%, 88%);
-  background: hsl(150, 20%, 98%);
-  font-size: 13px;
-  color: hsl(150, 10%, 15%);
-  transition: all 0.2s;
-  outline: none;
-}
-
-.cm-search-input:focus {
-  border-color: hsl(158, 64%, 50%);
-  box-shadow: 0 0 0 3px hsl(158, 50%, 92%);
-  background: #fff;
-}
-
-.cm-register-btn {
+.filter-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 10px;
-  background: hsl(158, 64%, 40%);
-  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  color: hsl(155, 12%, 45%);
   font-size: 13px;
   font-weight: 500;
-  border: none;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
+  user-select: none;
 }
 
-.cm-register-btn:hover {
-  background: hsl(158, 64%, 35%);
+.filter-btn:hover {
+  transform: translateY(-1px);
+  border-color: hsl(158, 40%, 82%);
+  color: hsl(155, 25%, 30%);
 }
 
-/* ── Loading / Empty ──────────────────────────────────────────── */
-.cm-loading {
-  padding: 60px;
+.filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px hsl(158 64% 50% / 0.3);
+}
+
+.filter-btn.active .filter-count { background: hsla(0, 0%, 100%, 0.25); color: #fff; }
+.filter-btn.active .filter-dot { background: #fff; box-shadow: none; }
+
+.filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.filter-dot.free { background: hsl(0, 0%, 65%); }
+.filter-dot.standard { background: hsl(158, 64%, 45%); }
+.filter-dot.premium { background: hsl(45, 90%, 50%); box-shadow: 0 0 5px hsl(45 90% 50% / 0.4); }
+
+.filter-count {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: hsl(150, 15%, 93%);
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(155, 15%, 45%);
+  min-width: 18px;
   text-align: center;
+  transition: all 0.2s;
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid hsl(150, 15%, 88%);
-  border-top-color: hsl(158, 64%, 50%);
-  border-radius: 50%;
-  animation: spinner 0.8s linear infinite;
-  margin: 0 auto 12px;
+/* ===== Search ===== */
+.search-box { position: relative; display: flex; align-items: center; }
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: hsl(155, 12%, 55%);
+  pointer-events: none;
 }
 
-@keyframes spinner {
-  to { transform: rotate(360deg); }
+.search-input {
+  width: 220px;
+  height: 36px;
+  padding: 0 12px 0 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  font-size: 13px;
+  color: hsl(155, 25%, 18%);
+  outline: none;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 2px 12px hsl(150 15% 0% / 0.05), 0 0 0 1px hsl(155 20% 92% / 0.3);
 }
 
-.cm-loading p {
-  font-size: 14px;
-  color: hsl(150, 10%, 50%);
+.search-input:focus {
+  border-color: hsl(158, 64%, 50%);
+  box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
 }
 
-.cm-empty {
-  padding: 80px 0;
-  text-align: center;
-  color: hsl(150, 10%, 55%);
+/* ===== Table ===== */
+.table-container {
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
+  overflow: hidden;
 }
 
-.cm-empty h3 {
-  font-size: 16px;
-  color: hsl(150, 10%, 25%);
-  margin: 16px 0 8px;
-}
+.table-scroll { overflow-x: auto; }
 
-.cm-empty p {
-  font-size: 14px;
-  color: hsl(150, 10%, 50%);
-  margin: 0;
-}
-
-/* ── Table ────────────────────────────────────────────────────── */
-.cm-table-wrap {
-  overflow-x: auto;
-}
-
-.cm-table {
+.data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
 
-.cm-table th {
+.data-table th {
   text-align: center;
-  padding: 12px 16px;
+  padding: 14px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: hsl(150, 10%, 45%);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid hsl(150, 15%, 92%);
+  color: hsl(155, 15%, 50%);
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid hsl(155, 20%, 93%);
   white-space: nowrap;
+  background: hsla(150, 15%, 98%, 0.5);
 }
 
-.cm-table td {
+.data-table td {
   padding: 14px 16px;
-  border-bottom: 1px solid hsl(150, 15%, 95%);
-  color: hsl(150, 10%, 25%);
+  border-bottom: 1px solid hsl(155, 20%, 95%);
+  color: hsl(155, 15%, 25%);
+  vertical-align: middle;
   text-align: center;
 }
 
-.cm-table tr:hover td {
-  background: hsl(150, 20%, 98%);
-}
+.data-table tbody tr { transition: background 0.15s; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: hsl(155, 20%, 98%); }
+.data-table tbody tr.row-selected td { background: hsl(158, 50%, 97%); }
 
-.cm-table tr.selected-row td {
-  background: hsl(158, 50%, 97%);
-}
-
-.th-checkbox, .td-checkbox {
-  width: 44px;
-  text-align: center;
-}
+.col-check { width: 48px; text-align: center; }
+.col-check .checkbox-mark { margin: 0 auto; }
+.col-user { min-width: 160px; }
+.col-action { width: 100px; text-align: center; }
 
 /* Checkbox */
-.custom-checkbox {
+.checkbox-mark {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  border: 2px solid hsl(155, 20%, 82%);
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  background: hsla(0, 0%, 100%, 0.8);
+  color: transparent;
 }
 
-.custom-checkbox.checked {
-  background: hsl(158, 64%, 40%);
-  border-color: hsl(158, 64%, 40%);
-}
-
-.custom-checkbox.checked svg {
+.checkbox-mark.checked {
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
 /* User info cell */
-.user-info-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.user-name-text {
-  font-weight: 600;
-  color: hsl(150, 10%, 15%);
-}
-
-.user-meta-text {
-  font-size: 12px;
-  color: hsl(150, 10%, 50%);
-}
+.user-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.user-name { font-weight: 600; color: hsl(155, 25%, 18%); }
+.user-meta { font-size: 12px; color: hsl(155, 12%, 55%); }
 
 /* Tier badge */
 .tier-badge {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.tier-free {
-  background: hsl(0, 0%, 92%);
-  color: hsl(150, 10%, 45%);
+.tier-badge-sm { font-size: 11px; padding: 2px 8px; }
+
+.tier-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
-.tier-standard {
-  background: linear-gradient(135deg, hsl(158, 60%, 95%), hsl(158, 60%, 90%));
-  color: hsl(158, 64%, 35%);
-}
+.tier-free { background: hsl(0, 0%, 93%); color: hsl(150, 10%, 45%); }
+.tier-standard { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
+.tier-premium { background: hsl(45, 90%, 94%); color: hsl(35, 80%, 35%); }
 
-.tier-premium {
-  background: linear-gradient(135deg, hsl(45, 100%, 95%), hsl(45, 100%, 90%));
-  color: hsl(45, 100%, 40%);
-}
+.cell-secondary { font-size: 13px; color: hsl(155, 12%, 50%); }
+.cell-metric { font-size: 14px; font-weight: 600; color: hsl(155, 25%, 22%); }
 
-.date-text {
-  font-size: 13px;
-  color: hsl(150, 10%, 45%);
-}
+/* Action dropdown */
+.action-dropdown { position: relative; display: inline-flex; justify-content: center; }
 
-.template-count-badge {
+.action-trigger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
-  color: hsl(150, 10%, 40%);
-}
-
-.template-count-badge svg {
-  color: hsl(150, 10%, 55%);
-}
-
-.runs-count {
-  font-size: 14px;
-  font-weight: 500;
-  color: hsl(150, 10%, 25%);
-}
-
-.action-btn {
   padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid hsl(150, 15%, 85%);
-  background: #fff;
+  border-radius: 10px;
+  border: 1px solid hsl(155, 20%, 88%);
+  background: hsla(0, 0%, 100%, 0.8);
   font-size: 13px;
-  color: hsl(158, 64%, 40%);
+  color: var(--accent);
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
 }
 
-.action-btn:hover {
-  background: hsl(158, 50%, 95%);
+.action-trigger:hover {
+  background: hsl(158, 50%, 96%);
   border-color: hsl(158, 64%, 50%);
-}
-
-/* ── Pagination ───────────────────────────────────────────────── */
-.cm-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 20px 0 4px;
-}
-
-.pagination-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid hsl(150, 15%, 88%);
-  background: #fff;
-  font-size: 13px;
-  color: hsl(150, 10%, 35%);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  background: hsl(150, 15%, 96%);
-  border-color: hsl(150, 15%, 80%);
-}
-
-.pagination-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pagination-info {
-  font-size: 13px;
-  color: hsl(150, 10%, 50%);
-}
-
-/* ── Batch Action Bar ─────────────────────────────────────────── */
-.batch-action-bar {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  background: hsl(150, 10%, 15%);
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  z-index: 100;
-}
-
-.batch-count {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 500;
-}
-
-.batch-btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.batch-grant {
-  background: hsl(158, 64%, 40%);
-  color: #fff;
-}
-
-.batch-grant:hover {
-  background: hsl(158, 64%, 35%);
-}
-
-.batch-revoke {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.batch-revoke:hover {
-  background: rgba(239, 68, 68, 0.8);
-  border-color: transparent;
-}
-
-.batch-bar-enter-active {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.batch-bar-leave-active {
-  transition: all 0.2s ease-in;
-}
-
-.batch-bar-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(20px);
-}
-
-.batch-bar-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(10px);
-}
-
-/* ── Modal ────────────────────────────────────────────────────── */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 1300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: modalFadeIn 0.2s ease-out;
-}
-
-@keyframes modalFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.modal-card {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-  width: 90%;
-  max-width: 520px;
-  animation: modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.perm-modal {
-  max-width: 560px;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.perm-modal .modal-body {
-  overflow-y: auto;
-  flex: 1;
-}
-
-@keyframes modalScaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid hsl(150, 15%, 92%);
-}
-
-.modal-header h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: hsl(150, 10%, 15%);
-  margin: 0;
-}
-
-.modal-close {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: hsl(150, 10%, 50%);
-  padding: 4px;
-  border-radius: 6px;
-}
-
-.modal-close:hover {
-  color: hsl(150, 10%, 25%);
-}
-
-.modal-body {
-  padding: 24px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 0 24px 24px;
-}
-
-/* Form */
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: hsl(150, 10%, 25%);
-  margin-bottom: 8px;
-}
-
-.required {
-  color: #ef4444;
-}
-
-.form-input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid hsl(150, 15%, 88%);
-  border-radius: 10px;
-  font-size: 14px;
-  color: hsl(150, 10%, 15%);
-  background: hsl(150, 20%, 98%);
-  outline: none;
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-
-.form-input:focus {
-  border-color: hsl(158, 64%, 50%);
-  box-shadow: 0 0 0 3px hsl(158, 50%, 92%);
-  background: #fff;
-}
-
-.form-input.input-error {
-  border-color: #ef4444;
-}
-
-.form-input.input-error:focus {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-}
-
-.field-error {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #ef4444;
-}
-
-.username-hint {
-  margin-top: 6px;
-  font-size: 12px;
-}
-
-.username-hint.available {
-  color: hsl(158, 64%, 40%);
-}
-
-.username-hint.taken {
-  color: #ef4444;
-}
-
-.username-hint.checking {
-  color: hsl(150, 10%, 50%);
-}
-
-.btn-cancel {
-  padding: 8px 20px;
-  border-radius: 10px;
-  border: 1px solid hsl(150, 15%, 85%);
-  background: #fff;
-  font-size: 14px;
-  color: hsl(150, 10%, 35%);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-cancel:hover {
-  background: hsl(150, 15%, 96%);
-}
-
-.btn-submit {
-  padding: 8px 24px;
-  border-radius: 10px;
-  border: none;
-  background: hsl(158, 64%, 40%);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-submit:hover:not(:disabled) {
-  background: hsl(158, 64%, 35%);
-}
-
-.btn-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ── Register Error ───────────────────────────────────────────── */
-.register-error {
-  color: #ef4444;
-  font-size: 13px;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: rgba(239, 68, 68, 0.06);
-  border-radius: 8px;
-  border-left: 3px solid #ef4444;
-}
-
-/* ── Batch Confirm ───────────────────────────────────────────── */
-.batch-confirm-modal {
-  max-width: 440px;
-}
-
-.batch-confirm-modal .modal-body p {
-  font-size: 14px;
-  color: hsl(150, 10%, 35%);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.batch-revoke-warning {
-  color: #ef4444 !important;
-}
-
-.btn-danger {
-  padding: 8px 24px;
-  border-radius: 10px;
-  border: none;
-  background: #ef4444;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-/* ── Permission Modal ─────────────────────────────────────────── */
-.perm-user-info {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid hsl(150, 15%, 92%);
-}
-
-.perm-user-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, hsl(158, 50%, 92%), hsl(158, 50%, 88%));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: hsl(158, 64%, 40%);
-}
-
-.perm-user-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: hsl(150, 10%, 15%);
-}
-
-.perm-user-meta {
-  font-size: 13px;
-  color: hsl(150, 10%, 50%);
-  margin-top: 2px;
-}
-
-.perm-features {
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-light, #e5e7eb);
-}
-
-.perm-section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: hsl(150, 10%, 25%);
-  margin-bottom: 12px;
-}
-
-.perm-count {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: hsl(150, 15%, 92%);
-  color: hsl(150, 10%, 45%);
-}
-
-.perm-select-all-btn {
-  margin-left: auto;
-  padding: 4px 12px;
-  border-radius: 6px;
-  border: 1px solid hsl(150, 15%, 85%);
-  background: #fff;
-  font-size: 12px;
-  color: hsl(158, 64%, 40%);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.perm-select-all-btn:hover {
-  background: hsl(158, 50%, 95%);
-  border-color: hsl(158, 64%, 50%);
-}
-
-.perm-template-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.perm-template-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border: 1px solid hsl(150, 15%, 92%);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.perm-template-item:hover {
-  background: hsl(150, 20%, 98%);
-}
-
-.perm-template-item.checked {
-  background: hsl(158, 50%, 97%);
-  border-color: hsl(158, 40%, 80%);
-}
-
-.perm-template-name {
-  font-size: 14px;
-  color: hsl(150, 10%, 20%);
-}
-
-/* ── Toast ────────────────────────────────────────────────────── */
-.cm-toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  z-index: 2000;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  pointer-events: none;
-}
-
-.toast-success {
-  background: hsl(158, 64%, 40%);
-  color: #fff;
-}
-
-.toast-error {
-  background: #ef4444;
-  color: #fff;
-}
-
-.toast-info {
-  background: hsl(150, 10%, 25%);
-  color: #fff;
-}
-
-.toast-enter-active {
-  transition: all 0.3s ease-out;
-}
-
-.toast-leave-active {
-  transition: all 0.2s ease-in;
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-16px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-8px);
-}
-
-/* ── Tier Upgrade ─────────────────────────────────────────────── */
-.tier-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tier-upgrade-btn {
-  padding: 3px 10px;
-  border-radius: 6px;
-  border: 1px solid hsl(158, 40%, 80%);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
-  color: hsl(158, 64%, 40%);
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.tier-upgrade-btn:hover {
-  background: hsl(158, 50%, 95%);
-  border-color: hsl(158, 64%, 50%);
-}
-
-.tier-modal {
-  max-width: 480px;
-}
-
-.tier-user-info {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid hsl(150, 15%, 92%);
-}
-
-.tier-badge-sm {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  vertical-align: middle;
-}
-
-.tier-options {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.tier-option-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border: 2px solid hsl(150, 15%, 90%);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tier-option-card:hover:not(.disabled) {
-  border-color: hsl(150, 15%, 80%);
-}
-
-.tier-standard-card.selected {
-  border-color: hsl(158, 64%, 50%);
-  background: hsl(158, 60%, 97%);
-}
-
-.tier-premium-card.selected {
-  border-color: hsl(45, 80%, 55%);
-  background: hsl(45, 100%, 97%);
-}
-
-.tier-option-card.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.tier-option-radio {
-  width: 18px;
-  height: 18px;
-  border: 2px solid hsl(150, 15%, 75%);
-  border-radius: 50%;
-  flex-shrink: 0;
-  position: relative;
-  transition: all 0.2s;
-}
-
-.tier-option-radio.active {
-  border-color: hsl(158, 64%, 45%);
-}
-
-.tier-option-radio.active::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: hsl(158, 64%, 45%);
-}
-
-.tier-option-content {
-  flex: 1;
-}
-
-.tier-option-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-
-.tier-standard-text {
-  color: hsl(158, 64%, 35%);
-}
-
-.tier-premium-text {
-  color: hsl(45, 100%, 40%);
-}
-
-.tier-option-desc {
-  font-size: 13px;
-  color: hsl(150, 10%, 50%);
-}
-
-.tier-duration {
-  margin-bottom: 16px;
-}
-
-.tier-select {
-  appearance: auto;
-  cursor: pointer;
-}
-
-.tier-preview {
-  padding: 12px 16px;
-  background: hsl(150, 20%, 97%);
-  border-radius: 10px;
-  font-size: 14px;
-  color: hsl(150, 10%, 35%);
-}
-
-.tier-preview strong {
-  color: hsl(150, 10%, 15%);
-}
-
-.tier-preview-hint {
-  font-size: 12px;
-  color: hsl(150, 10%, 55%);
-}
-
-/* ── Register Tier Section ───────────────────────────────────── */
-.reg-tier-section {
-  margin-bottom: 20px;
-}
-
-.reg-tier-divider {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.reg-tier-divider::before,
-.reg-tier-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: hsl(150, 15%, 90%);
-}
-
-.reg-tier-divider-text {
-  padding: 0 12px;
-  font-size: 12px;
-  color: hsl(150, 10%, 50%);
-  white-space: nowrap;
-}
-
-.reg-tier-radios {
-  display: flex;
-  gap: 0;
-  margin-bottom: 16px;
-  border: 1px solid hsl(150, 15%, 88%);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.reg-tier-radio {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 0;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: hsl(150, 10%, 40%);
-  background: hsl(150, 20%, 98%);
-  transition: all 0.2s;
-  border-right: 1px solid hsl(150, 15%, 88%);
-}
-
-.reg-tier-radio:last-child {
-  border-right: none;
-}
-
-.reg-tier-radio input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-}
-
-.reg-tier-radio.active {
-  background: hsl(158, 50%, 95%);
-  color: hsl(158, 64%, 35%);
-  font-weight: 600;
-}
-
-.form-group--compact {
-  margin-bottom: 12px;
-}
-
-.reg-tier-details {
-  animation: fadeSlideDown 0.2s ease-out;
-}
-
-@keyframes fadeSlideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Action Dropdown ─────────────────────────────────────────── */
-.action-dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .action-menu {
@@ -2167,13 +1315,18 @@ async function handleTierUpgrade() {
   top: 100%;
   margin-top: 4px;
   min-width: 140px;
-  background: #fff;
-  border: 1px solid hsl(150, 15%, 90%);
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px hsl(150 10% 0% / 0.10), 0 0 0 1px hsl(155 20% 92% / 0.3);
   z-index: 200;
   padding: 4px;
-  animation: fadeSlideDown 0.15s ease-out;
+  animation: menu-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes menu-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .action-menu-item {
@@ -2185,46 +1338,620 @@ async function handleTierUpgrade() {
   border: none;
   background: transparent;
   font-size: 13px;
-  color: hsl(150, 10%, 25%);
+  color: hsl(155, 12%, 25%);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: background 0.15s;
   white-space: nowrap;
 }
 
-.action-menu-item:hover:not(.disabled) {
-  background: hsl(150, 20%, 96%);
+.action-menu-item:hover:not(.disabled) { background: hsl(155, 20%, 95%); color: var(--accent); }
+.action-menu-item.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ===== Pagination ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0;
 }
 
-.action-menu-item.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.page-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid hsl(155, 20%, 90%);
+  background: transparent;
+  font-size: 13px;
+  color: hsl(155, 12%, 40%);
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-/* ── Responsive ───────────────────────────────────────────────── */
-@media (max-width: 1024px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.page-btn:hover:not(:disabled) { background: hsl(155, 20%, 96%); color: var(--accent); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: 13px; color: hsl(155, 12%, 50%); font-weight: 500; }
+
+/* ===== Loading ===== */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 20px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid hsl(155, 30%, 90%);
+  border-top-color: hsl(158, 64%, 45%);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; color: var(--text-secondary); }
+
+/* ===== Empty ===== */
+.empty-state { text-align: center; padding: 80px 20px; }
+.empty-state.compact { padding: 48px 20px; }
+
+.empty-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px hsl(150 15% 0% / 0.06);
+}
+
+.empty-icon { width: 36px; height: 36px; color: hsl(158, 30%, 65%); }
+.empty-title { font-weight: 650; font-size: 18px; color: hsl(155, 25%, 18%); margin-bottom: 6px; }
+.empty-desc { font-size: 14px; color: hsl(155, 12%, 50%); margin-bottom: 24px; }
+
+.empty-action {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 28px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 4px 12px hsl(158 64% 50% / 0.25);
+}
+
+.empty-action:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+}
+
+/* ===== Manage Bar ===== */
+.manage-bar {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 28px;
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.92));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 12px 40px hsl(150 15% 0% / 0.12), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  z-index: 100;
+}
+
+.manage-count { font-size: 14px; font-weight: 600; color: hsl(155, 25%, 18%); }
+
+.manage-select-all {
+  padding: 7px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(155, 20%, 88%);
+  background: hsla(0, 0%, 100%, 0.8);
+  color: hsl(155, 12%, 45%);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.manage-select-all:hover { border-color: var(--accent); color: var(--accent); }
+
+.manage-btn-grant {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px hsl(158 64% 50% / 0.25);
+}
+
+.manage-btn-grant:hover { background: var(--accent-hover); }
+
+.manage-btn-revoke {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: hsl(0, 72%, 56%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px hsl(0 72% 56% / 0.25);
+}
+
+.manage-btn-revoke:hover { background: hsl(0, 72%, 48%); }
+
+.bar-slide-enter-active, .bar-slide-leave-active { transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
+.bar-slide-enter-from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+.bar-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+
+/* ===== Modal Shared ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-fade-enter-active, .overlay-fade-leave-active { transition: opacity 0.2s ease; }
+.overlay-fade-enter-from, .overlay-fade-leave-to { opacity: 0; }
+
+.modal-dialog {
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 520px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dialog-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid hsl(155, 20%, 93%);
+}
+
+.modal-title { font-size: 18px; font-weight: 700; color: hsl(155, 25%, 18%); margin: 0; }
+
+.modal-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(155, 12%, 55%);
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover { color: hsl(155, 25%, 25%); background: hsl(155, 20%, 94%); }
+
+.modal-body { padding: 24px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 0 24px 24px; }
+
+/* Confirm Dialog */
+.confirm-dialog {
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  padding: 36px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.confirm-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: hsl(158, 50%, 93%);
+  color: hsl(158, 64%, 40%);
+  margin-bottom: 16px;
+}
+
+.confirm-icon.danger { background: hsl(0, 80%, 96%); color: hsl(0, 70%, 55%); }
+.confirm-title { font-size: 18px; font-weight: 700; color: hsl(155, 25%, 18%); margin-bottom: 8px; }
+.confirm-message { font-size: 14px; color: hsl(155, 12%, 45%); line-height: 1.5; margin-bottom: 24px; }
+.confirm-actions { display: flex; gap: 12px; width: 100%; }
+
+/* ===== Form ===== */
+.form-group { margin-bottom: 20px; }
+.form-group--compact { margin-bottom: 12px; }
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(155, 15%, 25%);
+  margin-bottom: 8px;
+}
+
+.required { color: #ef4444; }
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid hsl(155, 20%, 88%);
+  border-radius: 12px;
+  font-size: 14px;
+  color: hsl(155, 25%, 18%);
+  background: hsla(0, 0%, 100%, 0.8);
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-input:focus { border-color: hsl(158, 64%, 50%); box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12); background: #fff; }
+.form-input.input-error { border-color: #ef4444; }
+.form-input.input-error:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); }
+.form-select { appearance: auto; cursor: pointer; }
+
+.input-row { display: flex; gap: 8px; }
+.input-row .form-input { flex: 1; min-width: 0; }
+
+.btn-inline {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border: 1px solid hsl(158, 30%, 80%);
+  border-radius: 12px;
+  background: hsla(158, 40%, 96%, 0.8);
+  color: hsl(158, 64%, 35%);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-inline:hover:not(:disabled) { background: hsl(158, 50%, 92%); border-color: hsl(158, 64%, 50%); }
+.btn-inline:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.field-error { margin-top: 6px; font-size: 12px; color: #ef4444; }
+.field-hint { margin-top: 6px; font-size: 12px; }
+.field-hint.available { color: hsl(158, 64%, 40%); }
+.field-hint.taken { color: #ef4444; }
+
+.form-error {
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 10px;
+  border-left: 3px solid #ef4444;
+}
+
+/* Buttons */
+.btn-cancel {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid hsl(155, 20%, 88%);
+  background: hsla(0, 0%, 100%, 0.8);
+  color: hsl(155, 12%, 45%);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover { background: hsl(150, 15%, 95%); }
+
+.btn-primary {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px hsl(158 64% 45% / 0.25);
+}
+
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-danger {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: hsl(0, 72%, 56%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px hsl(0 72% 56% / 0.2);
+}
+
+.btn-danger:hover { background: hsl(0, 72%, 48%); }
+
+/* ===== Tier Section (Register) ===== */
+.tier-section { margin-bottom: 20px; }
+
+.tier-divider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.tier-divider::before, .tier-divider::after { content: ''; flex: 1; height: 1px; background: hsl(155, 20%, 92%); }
+.tier-divider span { padding: 0 12px; font-size: 12px; color: hsl(155, 12%, 50%); white-space: nowrap; }
+
+.tier-toggle {
+  display: flex;
+  margin-bottom: 16px;
+  border: 1px solid hsl(155, 20%, 88%);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tier-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 12%, 45%);
+  background: hsla(0, 0%, 100%, 0.6);
+  transition: all 0.2s;
+  border-right: 1px solid hsl(155, 20%, 88%);
+}
+
+.tier-option:last-child { border-right: none; }
+.tier-option input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+.tier-option.active { background: hsl(158, 50%, 95%); color: hsl(158, 64%, 35%); font-weight: 600; }
+
+.tier-detail { animation: fadeSlideDown 0.2s ease-out; }
+
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tier-preview {
+  padding: 12px 16px;
+  background: hsl(155, 20%, 97%);
+  border-radius: 12px;
+  font-size: 14px;
+  color: hsl(155, 12%, 40%);
+}
+
+.tier-preview strong { color: hsl(155, 25%, 18%); }
+.tier-preview-hint { font-size: 12px; color: hsl(155, 12%, 55%); }
+
+/* ===== Permission Modal ===== */
+.perm-dialog { max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; }
+.perm-body { overflow-y: auto; flex: 1; }
+.perm-loading { padding: 32px; display: flex; justify-content: center; }
+
+.perm-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid hsl(155, 20%, 93%);
+}
+
+.perm-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: hsl(158, 40%, 94%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(158, 64%, 40%);
+  flex-shrink: 0;
+}
+
+.perm-name { font-size: 16px; font-weight: 700; color: hsl(155, 25%, 18%); }
+.perm-meta { font-size: 13px; color: hsl(155, 12%, 50%); margin-top: 2px; }
+
+.perm-group { margin-bottom: 20px; }
+
+.perm-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(155, 15%, 25%);
+  margin-bottom: 12px;
+}
+
+.perm-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: hsl(155, 15%, 93%);
+  color: hsl(155, 12%, 45%);
+}
+
+.perm-toggle-all {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid hsl(155, 20%, 88%);
+  background: hsla(0, 0%, 100%, 0.8);
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.perm-toggle-all:hover { background: hsl(158, 50%, 95%); border-color: hsl(158, 64%, 50%); }
+
+.perm-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+
+.perm-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid hsl(155, 20%, 93%);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.perm-item:hover { background: hsl(155, 20%, 98%); }
+.perm-item.checked { background: hsl(158, 50%, 97%); border-color: hsl(158, 40%, 80%); }
+.perm-item-label { font-size: 14px; color: hsl(155, 12%, 20%); }
+
+/* ===== Tier Upgrade Modal ===== */
+.tier-dialog { max-width: 480px; }
+
+.upgrade-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+.upgrade-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 2px solid hsl(155, 20%, 90%);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upgrade-card:hover { border-color: hsl(155, 20%, 80%); }
+.upgrade-card.selected { border-color: hsl(158, 64%, 50%); background: hsl(158, 50%, 97%); }
+
+.upgrade-radio {
+  width: 18px;
+  height: 18px;
+  border: 2px solid hsl(155, 15%, 75%);
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.upgrade-radio.active { border-color: hsl(158, 64%, 45%); }
+
+.upgrade-radio.active::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(158, 64%, 45%);
+}
+
+.upgrade-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.upgrade-name.standard { color: hsl(158, 64%, 35%); }
+.upgrade-name.premium { color: hsl(45, 100%, 40%); }
+.upgrade-desc { font-size: 13px; color: hsl(155, 12%, 50%); }
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10001;
+  pointer-events: none;
+  box-shadow: 0 8px 24px hsl(0 0% 0% / 0.12);
+}
+
+.toast.success { background: hsl(155, 30%, 18%); color: hsl(158, 50%, 85%); }
+.toast.error { background: hsl(0, 80%, 96%); color: hsl(0, 70%, 45%); border: 1px solid hsl(0, 70%, 90%); }
+.toast.info { background: hsl(155, 30%, 18%); color: hsl(158, 50%, 85%); }
+
+.toast-fade-enter-active, .toast-fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.toast-fade-enter-from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+.toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+
+/* ===== Responsive ===== */
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
+  .hero-section { flex-direction: column; gap: 16px; }
+  .hero-title { font-size: 28px; }
 
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  .toolbar { flex-direction: column; align-items: flex-start; }
+  .filter-bar { gap: 6px; }
+  .filter-btn { padding: 7px 12px; font-size: 12px; }
+  .search-box { width: 100%; }
+  .search-input { width: 100%; }
+  .stats-grid { grid-template-columns: 1fr; }
 
-  .section-actions {
-    width: 100%;
-  }
 
-  .cm-search-input {
-    flex: 1;
+  .manage-bar {
+    left: 16px;
+    right: 16px;
+    transform: none;
     width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
   }
+
+  .bar-slide-enter-from, .bar-slide-leave-to { transform: translateY(20px); }
 }
 </style>

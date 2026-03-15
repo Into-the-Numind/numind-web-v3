@@ -1,16 +1,23 @@
 <template>
   <MainLayout>
     <div class="settings-page" :data-tier="tier">
-      <div class="settings-container">
-        <div class="settings-grid">
-          <!-- Left: Profile Card -->
-          <section class="settings-card">
-            <div class="profile-section">
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1 class="page-title">设置</h1>
+      </div>
+
+      <!-- Section: 个人信息 -->
+      <div class="settings-section">
+        <div class="section-label">个人信息</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-label">头像</div>
+            <div class="row-value">
               <div class="profile-avatar">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="40"
-                  height="40"
+                  width="24"
+                  height="24"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -22,109 +29,121 @@
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </div>
-
-              <div class="profile-name-area">
-                <div class="profile-name">{{ displayName }}</div>
-                <div class="profile-id">ID: {{ displayId }}</div>
-              </div>
-
-              <div class="profile-badges">
-                <span class="badge-pill badge-tier">{{ tierLabel }}</span>
-              </div>
-
-              <div class="profile-expiry-area">
-                <div class="expiry-label">会员有效期至</div>
-                <div class="expiry-value">{{ expiryText }}</div>
-              </div>
-
-              <button class="btn-logout" @click="handleLogout" title="退出登录">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                退出登录
-              </button>
             </div>
-          </section>
+          </div>
+          <div class="settings-row">
+            <div class="row-label">昵称</div>
+            <div class="row-value">{{ displayName }}</div>
+          </div>
+          <div class="settings-row">
+            <div class="row-label">用户 ID</div>
+            <div class="row-value row-value-mono">{{ displayId }}</div>
+          </div>
+        </div>
+      </div>
 
-          <!-- Right: Usage Stats Card -->
-          <section class="settings-card">
-            <div class="usage-header">
-              <div class="usage-icon-wrap">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-              </div>
-              <span>运行用量统计</span>
+      <!-- Section: 会员信息 -->
+      <div class="settings-section">
+        <div class="section-label">会员信息</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-label">当前套餐</div>
+            <div class="row-value">
+              <span class="badge-tier">{{ tierLabel }}</span>
             </div>
+          </div>
+          <div class="settings-row">
+            <div class="row-label">有效期至</div>
+            <div class="row-value">{{ expiryText }}</div>
+          </div>
+        </div>
+      </div>
 
-            <div class="usage-stats-row">
-              <div class="usage-stat-item">
-                <div class="usage-stat-num" :class="{ infinite: isPremium }">
-                  {{ isPremium ? '\u221E' : remainingRuns }}
+      <!-- Section: 用量统计 -->
+      <div class="settings-section">
+        <div class="section-label">用量统计</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-label">本月已用</div>
+            <div class="row-value row-value-num">{{ monthlyUsage }} 次</div>
+          </div>
+          <div class="settings-row">
+            <div class="row-label">本月剩余</div>
+            <div class="row-value row-value-num">
+              {{ isPremium ? '无限' : remainingRuns + ' 次' }}
+            </div>
+          </div>
+          <!-- Progress bar (non-premium only) -->
+          <div v-if="!isPremium" class="settings-row settings-row-block">
+            <div class="row-label">额度使用率</div>
+            <div class="row-value-full">
+              <div class="usage-progress-wrap">
+                <div class="usage-progress-bar">
+                  <div class="usage-progress-fill" :style="{ width: usagePercent + '%' }"></div>
                 </div>
-                <div class="usage-stat-label">本月剩余</div>
-              </div>
-              <div class="usage-stat-item">
-                <div class="usage-stat-num">{{ monthlyUsage }}</div>
-                <div class="usage-stat-label">本月已用</div>
+                <span class="usage-progress-text">{{ usagePercent }}%</span>
               </div>
             </div>
+          </div>
+          <!-- Premium unlimited hint -->
+          <div v-if="isPremium" class="premium-hint">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m2 4 3 12h14l3-12-5 4-5-6-5 6-5-4Z" />
+              <path d="M4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2" />
+            </svg>
+            尊享无限次运行权限
+          </div>
+        </div>
+      </div>
 
-            <!-- Progress bar (hidden for premium) -->
-            <div v-if="!isPremium" class="usage-progress-wrapper">
-              <div class="progress-header">
-                <span>额度使用率</span>
-                <span>{{ usagePercent }}%</span>
-              </div>
-              <div class="usage-progress-bar">
-                <div class="usage-progress-fill" :style="{ width: usagePercent + '%' }"></div>
-              </div>
-            </div>
-
-            <!-- Premium unlimited message -->
-            <div v-if="isPremium" class="premium-msg">
+      <!-- Section: 账号 -->
+      <div class="settings-section">
+        <div class="section-label">账号</div>
+        <div class="settings-group">
+          <button class="settings-row settings-row-action" @click="handleLogout">
+            <div class="row-label row-label-danger">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                style="vertical-align: middle; margin-right: 4px"
               >
-                <path
-                  d="m2 4 3 12h14l3-12-5 4-5-6-5 6-5-4Z"
-                />
-                <path d="M4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2" />
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              尊享无限次运行权限
+              退出登录
             </div>
-          </section>
+            <svg
+              class="row-chevron"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -242,266 +261,208 @@ onMounted(() => {
 
 <style scoped>
 .settings-page {
-  max-width: 1000px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 40px 0;
+  padding: 20px 0 60px;
 }
 
-.settings-container {
+/* ===== Page Header ===== */
+.page-header {
+  margin-bottom: 36px;
+}
+
+.page-title {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  color: #1A1D26;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* ===== Section ===== */
+.settings-section {
+  margin-bottom: 32px;
+}
+
+.section-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #8B90A0;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+/* ===== Settings Group (card wrapper) ===== */
+.settings-group {
+  background: #FFFFFF;
+  border: 1px solid #E8E9EE;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ===== Settings Row ===== */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  min-height: 48px;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid #F0F1F5;
+}
+
+.settings-row-block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* Action row (button) */
+.settings-row-action {
+  appearance: none;
+  background: none;
+  border: none;
+  width: 100%;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-row-action:hover {
+  background: #FAFBFC;
+}
+
+/* ===== Row Label / Value ===== */
+.row-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #3D4055;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-label-danger {
+  color: #EF4444;
+}
+
+.row-value {
+  font-size: 14px;
+  color: #1A1D26;
+  font-weight: 500;
+}
+
+.row-value-mono {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: #6B7085;
+}
+
+.row-value-num {
+  font-family: var(--font-mono, monospace);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.row-value-full {
   width: 100%;
 }
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: stretch;
+.row-chevron {
+  color: #C4C6D0;
+  flex-shrink: 0;
 }
 
-/* Card */
-.settings-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 240px;
-  transition: all 0.2s ease;
-}
-
-.settings-card:hover {
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
-  border-color: #d1fae5;
-}
-
-/* Premium card styling */
-.settings-page[data-tier='premium'] .settings-card {
-  border: 1px solid hsl(45, 100%, 85%);
-}
-
-.settings-page[data-tier='premium'] .settings-card:hover {
-  border-color: hsl(45, 100%, 60%);
-  box-shadow: 0 0 12px rgba(251, 191, 36, 0.25), 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-/* ===== Profile Section ===== */
-.profile-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 16px;
-}
-
+/* ===== Avatar ===== */
 .profile-avatar {
-  width: 88px;
-  height: 88px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #10b981, #059669);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 8px;
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
   color: #fff;
 }
 
 .settings-page[data-tier='premium'] .profile-avatar {
   background: linear-gradient(135deg, hsl(45, 100%, 55%), hsl(38, 100%, 50%));
-  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
 }
 
-.profile-name-area {
-  margin-bottom: 8px;
-}
-
-.profile-name {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.profile-id {
-  color: #6b7280;
-  font-size: 13px;
-  font-family: var(--font-mono, monospace);
-}
-
-/* Badges */
-.profile-badges {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-}
-
-.badge-pill {
-  padding: 4px 12px;
+/* ===== Tier Badge ===== */
+.badge-tier {
+  display: inline-block;
+  padding: 3px 12px;
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
-}
-
-.badge-tier {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: #F3F4F6;
+  color: #6B7280;
 }
 
 .settings-page[data-tier='standard'] .badge-tier {
-  background: #ecfdf5;
+  background: #ECFDF5;
   color: #059669;
 }
 
 .settings-page[data-tier='premium'] .badge-tier {
   background: linear-gradient(135deg, hsl(45, 100%, 55%), hsl(38, 100%, 50%));
   color: white;
-  border: none;
   box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
 }
 
-/* Expiry */
-.profile-expiry-area {
-  margin-top: 24px;
-  margin-bottom: 24px;
-  font-size: 12px;
-  color: #6b7280;
-  width: 100%;
-}
-
-.expiry-label {
-  margin-bottom: 4px;
-}
-
-.expiry-value {
-  color: #1f2937;
-  font-weight: 600;
-}
-
-/* Logout button */
-.btn-logout {
-  margin-top: 16px;
-  background: transparent;
-  border: 1px solid #ef4444;
-  color: #ef4444;
-  padding: 8px 24px;
-  border-radius: 9999px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
+/* ===== Usage Progress ===== */
+.usage-progress-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.btn-logout:hover {
-  background: #fef2f2;
-}
-
-/* ===== Usage Stats ===== */
-.usage-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 24px;
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.usage-icon-wrap {
-  background: #ecfdf5;
-  padding: 8px;
-  border-radius: 8px;
-  display: flex;
-  color: #10b981;
-}
-
-.settings-page[data-tier='premium'] .usage-icon-wrap {
-  background: hsl(45, 100%, 96%);
-  color: hsl(45, 100%, 55%);
-}
-
-.usage-stats-row {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 28px;
-}
-
-.usage-stat-item {
-  text-align: center;
-}
-
-.usage-stat-num {
-  font-size: 36px;
-  font-weight: 800;
-  color: #1f2937;
-  line-height: 1.2;
-  font-family: var(--font-mono, monospace);
-}
-
-.usage-stat-num.infinite {
-  font-size: 42px;
-  color: hsl(150, 10%, 15%);
-}
-
-.usage-stat-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-top: 4px;
-}
-
-.settings-page[data-tier='premium'] .usage-stat-label {
-  color: hsl(45, 100%, 40%);
-  font-weight: 500;
-}
-
-/* Progress bar */
-.usage-progress-wrapper {
-  background: #ecfdf5;
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 4px;
+  gap: 12px;
 }
 
 .usage-progress-bar {
-  height: 8px;
-  background: #fff;
-  border-radius: 4px;
+  flex: 1;
+  height: 6px;
+  background: #F0F1F5;
+  border-radius: 3px;
   overflow: hidden;
-  margin-top: 8px;
 }
 
 .usage-progress-fill {
   height: 100%;
-  background: #10b981;
-  border-radius: 4px;
+  background: #10B981;
+  border-radius: 3px;
   transition: width 0.5s ease;
 }
 
-/* Premium unlimited message */
-.premium-msg {
-  text-align: center;
-  margin-top: 12px;
-  background: #fffbeb;
-  color: #d97706;
-  padding: 8px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
+.usage-progress-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7085;
+  min-width: 36px;
+  text-align: right;
 }
 
-.settings-page[data-tier='premium'] .premium-msg {
-  background: linear-gradient(135deg, hsl(45, 100%, 95%), hsl(45, 100%, 90%));
+/* ===== Premium Hint ===== */
+.premium-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-top: 1px solid #F0F1F5;
+  font-size: 13px;
+  font-weight: 500;
+  color: #D97706;
+  background: #FFFBEB;
+}
+
+.settings-page[data-tier='premium'] .premium-hint {
+  background: linear-gradient(135deg, hsl(45, 100%, 97%), hsl(45, 100%, 93%));
   color: hsl(45, 100%, 40%);
 }
 
@@ -509,32 +470,40 @@ onMounted(() => {
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(15, 23, 42, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .confirm-dialog {
-  background: #fff;
+  background: #FFFFFF;
+  border: 1px solid #E8E9EE;
   border-radius: 16px;
   padding: 28px 32px;
   width: 360px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  animation: dialog-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dialog-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .confirm-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: #1A1D26;
   margin-bottom: 8px;
 }
 
 .confirm-message {
   font-size: 14px;
-  color: #6b7280;
+  color: #6B7085;
   margin-bottom: 24px;
 }
 
@@ -547,7 +516,7 @@ onMounted(() => {
 .confirm-btn-cancel,
 .confirm-btn-ok {
   padding: 8px 20px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -555,37 +524,37 @@ onMounted(() => {
 }
 
 .confirm-btn-cancel {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  color: #374151;
+  background: #F5F5F7;
+  border: 1px solid #E8E9EE;
+  color: #3D4055;
 }
 
 .confirm-btn-cancel:hover {
-  background: #f9fafb;
+  background: #EEEEF1;
 }
 
 .confirm-btn-ok {
-  background: #ef4444;
+  background: #EF4444;
   border: none;
   color: #fff;
 }
 
 .confirm-btn-ok:hover {
-  background: #dc2626;
+  background: #DC2626;
 }
 
-/* Responsive */
+/* ===== Responsive ===== */
 @media (max-width: 768px) {
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-card {
-    min-height: auto;
-  }
-
   .settings-page {
-    padding: 20px 0;
+    padding: 12px 0 40px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .settings-row {
+    padding: 12px 14px;
   }
 }
 </style>
