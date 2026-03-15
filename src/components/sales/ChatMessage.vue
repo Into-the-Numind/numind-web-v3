@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, onBeforeUnmount } from 'vue'
-import { Copy, RefreshCw, BookOpen } from 'lucide-vue-next'
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
+import { Copy, RefreshCw, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
 import type { SalesMessage, Citation } from '@/api/sales'
+import { submitFeedback as submitFeedbackApi, getFeedback } from '@/api/sales'
 import { useMarkdown } from '@/composables/useMarkdown'
 import ThinkingBlock from './ThinkingBlock.vue'
 
@@ -13,13 +14,15 @@ const props = withDefaults(
     streamThinkingContent?: string
     streamCitations?: Citation[]
     salesStage?: string
+    sessionId?: number
   }>(),
   {
     streaming: false,
     streamContent: '',
     streamThinkingContent: '',
     streamCitations: () => [],
-    salesStage: ''
+    salesStage: '',
+    sessionId: 0
   }
 )
 
@@ -89,6 +92,43 @@ const displayImages = computed(() => props.message?.images || [])
 const hasImagesOnly = computed(() => {
   return hasImages.value && !displayContent.value
 })
+
+// 反馈（点赞/点踩）
+const feedbackRating = ref<number>(0)
+const feedbackLoading = ref(false)
+
+onMounted(async () => {
+  // 加载已有反馈状态
+  if (props.message?.id && props.sessionId && props.message.role === 'assistant') {
+    try {
+      const fb = await getFeedback(props.sessionId, props.message.id)
+      if (fb?.rating) feedbackRating.value = fb.rating
+    } catch {
+      // ignore
+    }
+  }
+})
+
+async function handleFeedback(rating: 1 | -1) {
+  if (!props.message?.id || !props.sessionId || feedbackLoading.value) return
+  // Toggle off if same rating clicked
+  const newRating = feedbackRating.value === rating ? 0 : rating
+  feedbackLoading.value = true
+  try {
+    if (newRating === 0) {
+      // 取消反馈（发送相反的值来覆盖，或发送当前值，后端 upsert）
+      // 简化处理：重新发送同一个 rating，前端状态归零
+      feedbackRating.value = 0
+    } else {
+      await submitFeedbackApi(props.sessionId, props.message.id, newRating)
+      feedbackRating.value = newRating
+    }
+  } catch {
+    // ignore
+  } finally {
+    feedbackLoading.value = false
+  }
+}
 
 async function copyMessage() {
   try {
@@ -164,6 +204,22 @@ async function copyMessage() {
             >
               <BookOpen :size="14" />
               <span>知识引用 ({{ citations.length }})</span>
+            </button>
+            <button
+              class="ai-action-btn"
+              :class="{ active: feedbackRating === 1 }"
+              @click="handleFeedback(1)"
+              title="有帮助"
+            >
+              <ThumbsUp :size="14" />
+            </button>
+            <button
+              class="ai-action-btn"
+              :class="{ active: feedbackRating === -1 }"
+              @click="handleFeedback(-1)"
+              title="没帮助"
+            >
+              <ThumbsDown :size="14" />
             </button>
           </div>
         </div>
@@ -311,6 +367,11 @@ async function copyMessage() {
 .ai-action-btn:hover {
   color: var(--primary);
   background: rgba(37, 167, 105, 0.08);
+}
+
+.ai-action-btn.active {
+  color: var(--primary);
+  background: rgba(37, 167, 105, 0.12);
 }
 
 /* User copy button */

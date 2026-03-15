@@ -641,6 +641,30 @@ export const fetchOpinionTracks = async (): Promise<OpinionTrack[]> => {
   return tracks.map(normalizeOpinionTrack).filter(Boolean) as OpinionTrack[]
 }
 
+// ==================== Feedback APIs ====================
+
+export const submitFeedback = async (
+  sessionId: number,
+  messageId: number,
+  rating: 1 | -1,
+  comment?: string
+): Promise<void> => {
+  await request.post(`/v1/sales-rag/sessions/${sessionId}/messages/${messageId}/feedback`, {
+    rating,
+    comment: comment || ''
+  })
+}
+
+export const getFeedback = async (
+  sessionId: number,
+  messageId: number
+): Promise<{ rating?: number; comment?: string }> => {
+  const res = await request.get(
+    `/v1/sales-rag/sessions/${sessionId}/messages/${messageId}/feedback`
+  )
+  return (res as any)?.data || {}
+}
+
 // ==================== SOP Templates ====================
 
 // ==================== Permission APIs ====================

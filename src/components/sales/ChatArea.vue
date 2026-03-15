@@ -72,6 +72,7 @@ watch(
             :key="msg.id"
             :message="msg"
             :sales-stage="store.salesStage"
+            :session-id="store.currentSessionId"
             @show-citations="(c) => emit('showCitations', c)"
             @preview-image="(url) => emit('previewImage', url)"
             @regenerate="store.regenerateMessage()"
