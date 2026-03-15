@@ -169,6 +169,9 @@
         // 更新全局 SOP 名称
         if (config.sopName) {
             SOP_NAME = config.sopName;
+            // 同步更新顶部导航栏标题
+            const topBarTitle = document.getElementById('sop-top-bar-title');
+            if (topBarTitle) topBarTitle.textContent = config.sopName;
         }
 
         // 遍历并应用步骤配置
@@ -2260,6 +2263,18 @@
             step5.appendChild(step5LabelDiv);
             stepper.appendChild(step5);
 
+            // 重新添加分隔线 + 历史记录按钮（动态重建后恢复）
+            const divider = document.createElement('div');
+            divider.className = 'stepper-divider';
+            stepper.appendChild(divider);
+
+            const historyBtn = document.createElement('button');
+            historyBtn.className = 'stepper-history-btn';
+            historyBtn.onclick = () => openHistoryModal();
+            historyBtn.title = '历史记录';
+            historyBtn.innerHTML = '<svg class="history-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg><span class="stepper-history-label">历史记录</span>';
+            stepper.appendChild(historyBtn);
+
             // 初始化节点状态（在获取节点数据后）
             await updateNodeStatus();
 
@@ -2978,9 +2993,8 @@
                 if (titleSpan) {
                     console.log('🏁 标记思维链完成: 正在思考中... -> 深度思考');
                     titleSpan.textContent = '深度思考';
-                    thinkingContainer.classList.add('finished');
+                    thinkingContainer.classList.add('finished', 'collapsed');
                 }
-                // 思路完成后默认收起，或者保持展开？这里选择保持展开，让用户看到结果
             }
         }
     }
@@ -3990,93 +4004,6 @@
             const chatStepNumber = totalBackendNodes + 1;
             if (stepNumber === chatStepNumber) {
                 mainContent.classList.add('step-5-active');
-
-                // 动态计算聊天容器的位置：位于步骤指示器和输入框之间，上下各留20px
-                function updateChatbotContainerPosition() {
-                    const stepper = document.querySelector('.stepper');
-                    const chatbotContainer = document.querySelector(`#step-${chatStepNumber} .chatbot-container`);
-                    const chatbotInputArea = document.getElementById('chatbot-input-area');
-                    const stepContent = document.getElementById(`step-${chatStepNumber}`);
-
-                    if (stepper && chatbotContainer && stepContent) {
-                        // 获取步骤指示器的位置和高度（相对于视口）
-                        const stepperRect = stepper.getBoundingClientRect();
-                        const stepperBottom = stepperRect.bottom;
-
-                        // 动态获取输入框的实际位置（相对于视口）
-                        let inputAreaTop = window.innerHeight - 40 - 80; // 默认值：底部40px + 高度80px
-                        if (chatbotInputArea) {
-                            const inputAreaRect = chatbotInputArea.getBoundingClientRect();
-                            inputAreaTop = inputAreaRect.top;
-                        }
-
-                        // 获取step-content的位置（相对于视口）
-                        // step-content是fixed定位，覆盖整个视口，所以它的top应该是0，bottom应该是window.innerHeight
-                        const stepContentRect = stepContent.getBoundingClientRect();
-
-                        // 计算相对于step-content的位置：
-                        // step-content是fixed定位，覆盖整个视口，所以stepContentRect.top = 0, stepContentRect.bottom = window.innerHeight
-                        // top: 步骤指示器底部相对于step-content顶部的距离 + 20px（相对于视口）
-                        const topFromStepContent = stepperBottom - stepContentRect.top + 20;
-
-                        // 明确计算容器高度：从top位置到输入框顶部（减去20px间距）
-                        // 容器顶部位置（相对于视口）= topFromStepContent
-                        // 容器底部位置（相对于视口）= inputAreaTop - 20
-                        // 容器高度 = 底部位置 - 顶部位置 = (inputAreaTop - 20) - topFromStepContent
-                        const containerHeight = inputAreaTop - topFromStepContent - 20;
-
-                        // 确保高度为正数
-                        if (containerHeight <= 0) {
-                            console.error('计算出的容器高度无效:', containerHeight);
-                            return;
-                        }
-
-                        // 使用setProperty和!important强制应用样式
-                        chatbotContainer.style.setProperty('position', 'absolute', 'important');
-                        chatbotContainer.style.setProperty('top', topFromStepContent + 'px', 'important');
-                        chatbotContainer.style.setProperty('left', '50%', 'important');
-                        chatbotContainer.style.setProperty('transform', 'translateX(-50%)', 'important');
-                        chatbotContainer.style.setProperty('width', 'calc(100% - 48px)', 'important');
-                        chatbotContainer.style.setProperty('max-width', '1200px', 'important');
-                        chatbotContainer.style.setProperty('min-height', '0', 'important'); // 移除min-height
-                        chatbotContainer.style.setProperty('height', containerHeight + 'px', 'important'); // 明确设置高度
-                        chatbotContainer.style.setProperty('max-height', containerHeight + 'px', 'important'); // 限制最大高度
-                        chatbotContainer.style.setProperty('overflow-y', 'auto', 'important');
-                        chatbotContainer.style.setProperty('overflow-x', 'hidden', 'important');
-                        chatbotContainer.style.setProperty('box-sizing', 'border-box', 'important');
-
-                        // 强制重新计算布局
-                        chatbotContainer.offsetHeight; // 触发重排
-
-                        // 验证设置是否生效
-                        const computedStyle = window.getComputedStyle(chatbotContainer);
-                        const containerRect = chatbotContainer.getBoundingClientRect();
-                        console.log('聊天容器位置设置:', {
-                            stepperBottom: stepperBottom,
-                            inputAreaTop: inputAreaTop,
-                            stepContentTop: stepContentRect.top,
-                            stepContentBottom: stepContentRect.bottom,
-                            topFromStepContent: topFromStepContent,
-                            containerHeight: containerHeight,
-                            windowHeight: window.innerHeight,
-                            actualTop: computedStyle.top,
-                            actualHeight: computedStyle.height,
-                            actualMaxHeight: computedStyle.maxHeight,
-                            actualPosition: computedStyle.position,
-                            actualOverflowY: computedStyle.overflowY,
-                            containerActualTop: containerRect.top,
-                            containerActualBottom: containerRect.bottom,
-                            containerActualHeight: containerRect.height,
-                            gapToInput: inputAreaTop - containerRect.bottom
-                        });
-                    }
-                }
-
-                // 立即执行一次
-                setTimeout(updateChatbotContainerPosition, 100);
-
-                // 监听窗口大小变化，重新计算位置
-                window.addEventListener('resize', updateChatbotContainerPosition);
             } else {
                 mainContent.classList.remove('step-5-active');
             }
@@ -6879,10 +6806,8 @@
             // 滚动到底部，让用户看到内容
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    const chatbotMessages = document.getElementById('chatbot-messages');
-                    if (chatbotMessages) {
-                        chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-                    }
+                    const mc = document.querySelector('.main-content');
+                    if (mc) mc.scrollTop = mc.scrollHeight;
                 });
             });
         }
@@ -6952,15 +6877,11 @@
 
         // 恢复完成后，滚动到底部
         // 使用 requestAnimationFrame 确保DOM更新完成后再滚动
-        // 注意：第五步中，真正的滚动容器是 chatbot-messages，而不是 chatbot-container
+        // 滚动消息列表到底部
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 const chatbotMessages = document.getElementById('chatbot-messages');
-                if (chatbotMessages) {
-                    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-                    const container = document.getElementById('chatbot-container');
-                    if (container) container.scrollTop = container.scrollHeight;
-                }
+                if (chatbotMessages) chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
             });
         });
 
@@ -7159,9 +7080,7 @@
 
             requestAnimationFrame(() => {
                 const chatbotMessages = document.getElementById('chatbot-messages');
-                if (chatbotMessages) {
-                    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-                }
+                if (chatbotMessages) chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
             });
         }
 
@@ -7420,6 +7339,37 @@
         await __sopDOMContentLoadedMain();
         __sopDOMContentLoadedChat();
 
+        // ===== 步骤条滚动折叠 =====
+        (function initStepperCollapse() {
+            const mainContent = document.querySelector('.main-content');
+            const stepper = document.querySelector('.stepper');
+            if (!mainContent || !stepper) return;
+
+            let ticking = false;
+            const SCROLL_THRESHOLD = 60; // px 后触发折叠
+
+            function onScroll() {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(function () {
+                    const scrollTop = mainContent.scrollTop;
+                    if (scrollTop > SCROLL_THRESHOLD) {
+                        stepper.classList.add('stepper--collapsed');
+                    } else {
+                        stepper.classList.remove('stepper--collapsed');
+                    }
+                    ticking = false;
+                });
+            }
+
+            mainContent.addEventListener('scroll', onScroll, { passive: true });
+
+            // 存储清理引用
+            window.__sopStepperCollapseCleanup = function () {
+                mainContent.removeEventListener('scroll', onScroll);
+            };
+        })();
+
         // 初始化图标
         if (window.lucide) {
             window.lucide.createIcons();
@@ -7447,6 +7397,12 @@
         };
         originalInputValues = {};
         isUserAtBottom = true;
+
+        // 清除步骤条折叠监听
+        if (typeof window.__sopStepperCollapseCleanup === 'function') {
+            window.__sopStepperCollapseCleanup();
+            window.__sopStepperCollapseCleanup = null;
+        }
 
         // 清除 scrollFollowManager 定时器
         if (typeof scrollFollowManager !== 'undefined') {
@@ -7486,5 +7442,7 @@
     window.checkProductQuality = checkProductQuality;
     window.closeQualityResult = closeQualityResult;
     window.handleFileUpload = handleFileUpload;
+    window.switchSOPRun = switchSOPRun;
+    window.deleteHistoryRun = deleteHistoryRun;
 
 })();

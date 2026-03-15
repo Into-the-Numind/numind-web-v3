@@ -8,6 +8,30 @@
     <!-- 主内容，legacy 就绪后才显示 -->
     <div class="sop-page-container" v-show="legacyReady">
 
+    <!-- 顶部导航栏 -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="javascript:void(0)" class="top-bar-back" onclick="handleBackToHome(event)" title="返回首页">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
+            <div class="top-bar-divider"></div>
+            <div class="top-bar-title" id="sop-top-bar-title">SOP 工作流</div>
+        </div>
+        <div class="top-bar-right">
+            <button class="top-bar-action" onclick="openHistoryModal()" title="历史记录">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="top-bar-action-label">历史记录</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 主体区域（stepper + main-content 的 flex row） -->
+    <div class="sop-body">
+
     <!-- 左侧边栏（legacy CSS 已设 display:none） -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -49,49 +73,33 @@
         </div>
     </div>
 
-    <!-- 返回首页按钮 -->
-    <a href="javascript:void(0)" class="back-to-home-btn" onclick="handleBackToHome(event)">
-        <svg class="back-to-home-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-        </svg>
-    </a>
-
-    <!-- 历史记录按钮 -->
-    <button class="history-btn" onclick="openHistoryModal()" title="历史记录">
-        <svg class="history-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-                d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-    </button>
+    <!-- 步骤条（折叠式，悬停展开） -->
+    <div class="stepper">
+        <div class="step active" data-step="1" onclick="setActiveStep(1)">
+            <div class="step-number">1</div>
+            <div class="step-label">AI 拆解产品</div>
+        </div>
+        <div class="step" data-step="2" onclick="setActiveStep(2)">
+            <div class="step-number">2</div>
+            <div class="step-label">AI 拆解语言风格</div>
+        </div>
+        <div class="step" data-step="3" onclick="setActiveStep(3)">
+            <div class="step-number">3</div>
+            <div class="step-label">AI 拆解爆款文案</div>
+        </div>
+        <div class="step step-before-chat" data-step="4" onclick="setActiveStep(4)">
+            <div class="step-number">4</div>
+            <div class="step-label">AI 进行创作</div>
+        </div>
+        <div class="step step-chat" data-step="5" onclick="setActiveStep(5)">
+            <div class="step-number">5</div>
+            <div class="step-label">AI 聊天</div>
+        </div>
+    </div>
 
     <!-- 主内容区 -->
     <div class="main-content">
         <div class="content-wrapper">
-            <!-- 步骤条 -->
-            <div class="stepper">
-                <div class="step active" data-step="1" onclick="setActiveStep(1)">
-                    <div class="step-number">1</div>
-                    <div class="step-label">AI 拆解产品</div>
-                </div>
-                <div class="step" data-step="2" onclick="setActiveStep(2)">
-                    <div class="step-number">2</div>
-                    <div class="step-label">AI 拆解语言风格</div>
-                </div>
-                <div class="step" data-step="3" onclick="setActiveStep(3)">
-                    <div class="step-number">3</div>
-                    <div class="step-label">AI 拆解爆款文案</div>
-                </div>
-                <div class="step step-before-chat" data-step="4" onclick="setActiveStep(4)">
-                    <div class="step-number">4</div>
-                    <div class="step-label">AI 进行创作</div>
-                </div>
-                <div class="step step-chat" data-step="5" onclick="setActiveStep(5)">
-                    <div class="step-number">5</div>
-                    <div class="step-label">AI 聊天</div>
-                </div>
-            </div>
 
             <!-- 第 1 步：AI 拆解产品 -->
             <div class="step-content active" id="step-1">
@@ -470,32 +478,33 @@
                         <!-- 消息列表将动态添加到这里 -->
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- 输入区域 - 悬浮在body级别，完全独立 -->
-    <div class="chatbot-input-area" id="chatbot-input-area">
-        <div class="chatbot-input-wrapper">
-            <!-- 扩展/收缩按钮 - 右上角 -->
-            <button class="chatbot-expand-btn" id="chatbot-expand-btn" title="展开输入框" style="display: none;">
-                <i data-lucide="maximize-2" class="expand-icon" style="width: 14px; height: 14px;"></i>
-                <i data-lucide="minimize-2" class="collapse-icon" style="width: 14px; height: 14px; display: none;"></i>
-            </button>
-            <textarea class="chatbot-input" id="chatbot-input" placeholder="输入你的问题或需求..." rows="1"></textarea>
-            <div class="chatbot-input-toolbar">
-                <button class="deep-thinking-btn" id="deep-thinking-btn" title="开启后大模型会返回推理思维链">
-                    <span>深度思考</span>
-                </button>
-                <div class="toolbar-right">
-                    <button class="chatbot-send-btn" id="chatbot-send-btn" disabled>
-                        <i data-lucide="arrow-up"></i>
-                    </button>
+                <!-- 输入区域 - 卡片底部，与消息区完全分离 -->
+                <div class="chatbot-input-area" id="chatbot-input-area">
+                    <div class="chatbot-input-wrapper">
+                        <!-- 扩展/收缩按钮 - 右上角 -->
+                        <button class="chatbot-expand-btn" id="chatbot-expand-btn" title="展开输入框" style="display: none;">
+                            <i data-lucide="maximize-2" class="expand-icon" style="width: 14px; height: 14px;"></i>
+                            <i data-lucide="minimize-2" class="collapse-icon" style="width: 14px; height: 14px; display: none;"></i>
+                        </button>
+                        <textarea class="chatbot-input" id="chatbot-input" placeholder="输入你的问题或需求..." rows="1"></textarea>
+                        <div class="chatbot-input-toolbar">
+                            <button class="deep-thinking-btn" id="deep-thinking-btn" title="开启后大模型会返回推理思维链">
+                                <span>深度思考</span>
+                            </button>
+                            <div class="toolbar-right">
+                                <button class="chatbot-send-btn" id="chatbot-send-btn" disabled>
+                                    <i data-lucide="arrow-up"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    </div><!-- /sop-body -->
     </div><!-- /sop-page-container -->
 
     <!-- 弹窗层 — 放在 sop-page-container 外部，避免 flex 布局干扰 position:fixed -->
@@ -653,8 +662,108 @@ onBeforeUnmount(() => {
 .sop-page-container {
   height: 100%;
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+/* ---- Top Bar ---- */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  min-height: 52px;
+  padding: 0 20px;
+  background: hsla(0, 0%, 100%, 0.72);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid hsl(150 15% 90% / 0.4);
+  z-index: 100;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.top-bar-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: #475569;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.top-bar-back:hover {
+  background: hsl(150 20% 95%);
+  color: #25a769;
+}
+
+.top-bar-divider {
+  width: 1px;
+  height: 20px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.top-bar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.top-bar-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.top-bar-action:hover {
+  background: hsl(150 20% 95%);
+  color: #25a769;
+}
+
+.top-bar-action-label {
+  pointer-events: none;
+}
+
+/* ---- Body (row: stepper + main) ---- */
+:deep(.sop-body) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
 }
 
 .legacy-loading {
