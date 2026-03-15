@@ -116,8 +116,8 @@ async function handleFeedback(rating: 1 | -1) {
   feedbackLoading.value = true
   try {
     if (newRating === 0) {
-      // 取消反馈（发送相反的值来覆盖，或发送当前值，后端 upsert）
-      // 简化处理：重新发送同一个 rating，前端状态归零
+      // 取消反馈：发送 rating=0，后端 upsert 覆盖
+      await submitFeedbackApi(props.sessionId, props.message.id, 0)
       feedbackRating.value = 0
     } else {
       await submitFeedbackApi(props.sessionId, props.message.id, newRating)

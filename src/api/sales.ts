@@ -646,7 +646,7 @@ export const fetchOpinionTracks = async (): Promise<OpinionTrack[]> => {
 export const submitFeedback = async (
   sessionId: number,
   messageId: number,
-  rating: 1 | -1,
+  rating: 1 | -1 | 0,
   comment?: string
 ): Promise<void> => {
   await request.post(`/v1/sales-rag/sessions/${sessionId}/messages/${messageId}/feedback`, {
@@ -662,7 +662,12 @@ export const getFeedback = async (
   const res = await request.get(
     `/v1/sales-rag/sessions/${sessionId}/messages/${messageId}/feedback`
   )
-  return (res as any)?.data || {}
+  const data = (res as any)?.data
+  if (!data || typeof data !== 'object') return {}
+  return {
+    rating: typeof data.rating === 'number' ? data.rating : undefined,
+    comment: typeof data.comment === 'string' ? data.comment : undefined
+  }
 }
 
 // ==================== SOP Templates ====================
