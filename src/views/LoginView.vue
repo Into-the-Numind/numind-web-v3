@@ -149,7 +149,7 @@ const handleLogin = async () => {
 .login-logo {
   width: 270px;
   height: 108px;
-  background-image: url('@/assets/logo-dark.png');
+  background-image: url('https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/%E8%8E%AB%E5%B0%8F%E6%B4%BElogo%20%E9%BB%91%E8%89%B2.png');
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
