@@ -45,9 +45,9 @@ const resolveDirectBackendBase = (): string | null => {
     return null
   }
 
-  // dev: 9203 -> 9091, qa: 9204 -> 9093
+  // dev: 9200 -> 9091, qa: 9201 -> 9093
   const pagePort = window.location.port
-  const backendPort = pagePort === '9204' ? '9093' : '9091'
+  const backendPort = pagePort === '9201' ? '9093' : '9091'
   return `${window.location.protocol}//${host}:${backendPort}`
 }
 

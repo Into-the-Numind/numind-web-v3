@@ -1,11 +1,12 @@
-# 部署与共存方案
+# 部署方案
 
-## 与旧系统共存架构
+## 架构
 
 ```
-用户请求 → Nginx → 路由判断 → 旧系统 (numind-web)
-                            ↘ 新系统 (numind-web-v3) /v3/
+用户请求 → Nginx (youshu.asia) → numind-web-v3 (localhost:9202)
 ```
+
+> 注：原版前端 `numind-web` 已于 2026-03-15 下线。V3 现在是唯一的前端。
 
 ## 腾讯云服务器镜像加速（解决拉取慢的问题）
 
@@ -45,11 +46,6 @@ docker info | grep -A 10 "Registry Mirrors"
 ## 本地开发
 
 ```bash
-# 旧系统
-cd numind-web
-python3 -m http.server 8080
-
-# 新系统 (另一个终端)
 cd numind-web-v3
 npm install
 npm run dev  # http://localhost:5173
@@ -60,12 +56,12 @@ npm run dev  # http://localhost:5173
 1. **构建镜像**（GitHub Actions 自动完成）
    ```bash
    # 已在 .github/workflows/ci-cd.yml 中配置
-   # 推送到 Docker Hub: neozhang96/numind-web-v3
+   # 推送到 Docker Hub: pmtmyaggy/numind-web-v3
    ```
 
 2. **腾讯云服务器拉取**（使用镜像加速）
    ```bash
-   docker pull neozhang96/numind-web-v3:develop
+   docker pull pmtmyaggy/numind-web-v3:develop
    ```
 
 3. **启动服务**
@@ -92,40 +88,6 @@ docker run -e API_PROXY_PASS="http://<qa-backend-ip>:<port>/" ...
 # prod（域名访问）
 docker run -e API_PROXY_PASS="https://youshu.asia/" ...
 ```
-
-## Nginx 共存配置
-
-```nginx
-server {
-    listen 80;
-    server_name youshu.asia;
-    
-    # 新版本入口
-    location /v3/ {
-        proxy_pass http://numind-web-v3:80/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-    
-    # 默认旧版本
-    location / {
-        proxy_pass http://numind-web:80/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-## 迁移路线图
-
-| 阶段 | 内容 | 访问路径 |
-|------|------|----------|
-| Phase 0 | 项目搭建 | /v3/ (开发中) |
-| Phase 1 | 登录页迁移 | /v3/login |
-| Phase 2 | 设置页迁移 | /v3/settings |
-| Phase 3 | SOP 详情页 | /v3/sop/:id |
-| ... | 逐步迁移 | ... |
-| 最终 | 全部完成 | / (替换旧系统) |
 
 ## 故障排查
 
