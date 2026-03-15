@@ -1,124 +1,91 @@
 <template>
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-icon"></div>
-      <div class="sidebar-title"></div>
+  <aside class="sidebar" :class="{ collapsed, animating }" @transitionend="onTransitionEnd">
+    <!-- Logo -->
+    <div class="sidebar-logo" @click="collapsed && toggle()">
+      <div class="logo-mark">靓</div>
+      <span class="logo-text">靓靓·海外IP研究所</span>
     </div>
 
+    <!-- Navigation -->
     <nav class="nav-menu">
       <RouterLink
-        v-for="item in menuItems"
+        v-for="(item, index) in menuItems"
         :key="item.path"
         :to="item.path"
         class="nav-item"
         :class="{ active: isActive(item.path) }"
+        :style="{ '--item-index': index }"
+        :title="collapsed ? item.title : undefined"
       >
-        <span>{{ item.title }}</span>
+        <svg v-if="item.icon === 'workspace'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        </svg>
+        <svg v-else-if="item.icon === 'history'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/><path d="M12 7V12L15 15"/>
+        </svg>
+        <svg v-else-if="item.icon === 'customers'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21V19C16 16.7909 14.2091 15 12 15H6C3.79086 15 2 16.7909 2 19V21"/><circle cx="9" cy="7" r="4"/><path d="M22 21V19C22 17.1362 20.7252 15.5701 19 15.126"/><path d="M16 3.12602C17.7252 3.57006 19 5.13616 19 7.00002C19 8.86388 17.7252 10.43 16 10.874"/>
+        </svg>
+        <svg v-else-if="item.icon === 'knowledge'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5C4 18.1193 5.11929 17 6.5 17H20"/><path d="M6.5 2H20V22H6.5C5.11929 22 4 20.8807 4 19.5V4.5C4 3.11929 5.11929 2 6.5 2Z"/><path d="M8 7H16"/><path d="M8 11H13"/>
+        </svg>
+        <svg v-else-if="item.icon === 'settings'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        <span class="nav-label">{{ item.title }}</span>
       </RouterLink>
     </nav>
 
-    <div class="sidebar-footer">
-      <div class="run-count-card" :class="tierClass">
-        <!-- Premium -->
-        <template v-if="tier === 'premium'">
-          <div class="run-count-header">
-            <span class="run-count-title">本月运行次数</span>
-            <span class="premium-badge">&infin; 无限次</span>
-          </div>
-          <div class="run-count-value">{{ monthlyRuns }}</div>
-          <div class="run-count-label premium">本月累计 &uarr;</div>
-        </template>
-        <!-- Standard -->
-        <template v-else-if="tier === 'standard'">
-          <div class="run-count-title">本月运行次数</div>
-          <div class="run-count-value">{{ standardUsed }}<span class="run-count-total">/{{ standardTotal }}</span></div>
-          <div class="run-count-label standard">剩余 {{ standardRemaining }} 次</div>
-          <div class="run-count-progress">
-            <div class="run-count-progress-bar" :class="progressClass" :style="{ width: standardPercent + '%' }"></div>
-          </div>
-        </template>
-        <!-- Loading -->
-        <template v-else-if="userStore.loading">
-          <div class="run-count-title">SOP 运行次数</div>
-          <div class="run-count-value run-count-loading">加载中...</div>
-        </template>
-        <!-- No user info (load failed) -->
-        <template v-else-if="!userStore.userInfo && !userStore.loading">
-          <div class="run-count-title">SOP 运行次数</div>
-          <div class="run-count-value run-count-error">加载失败</div>
-        </template>
-        <!-- Free -->
-        <template v-else>
-          <div class="run-count-title">SOP 运行次数</div>
-          <div class="run-count-value">--</div>
-          <div class="run-count-label">升级会员解锁</div>
-        </template>
-      </div>
+    <!-- Toggle -->
+    <div class="sidebar-bottom">
+      <button class="toggle-btn" :title="collapsed ? '展开导航' : '折叠导航'" @click="toggle()">
+        <svg class="toggle-icon" :class="{ flipped: collapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12H3M3 12L9 6M3 12L9 18"/>
+        </svg>
+        <span class="toggle-label">折叠</span>
+      </button>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const userStore = useUserStore()
+const collapsed = ref(false)
+const animating = ref(false)
 
-// ── Run Count Card ─────────────────────────────────────────────
-// Tier: normalized from store (aligns with SettingsView logic)
-const tier = computed(() => {
-  const info = userStore.userInfo
-  if (!info) return 'free'
-  const raw = String(info.user_tier || info.tier || info.plan || 'free').toLowerCase()
-  if (raw === 'vip' || raw === 'pro') return 'premium'
-  return raw
-})
+const toggle = () => {
+  animating.value = true
+  collapsed.value = !collapsed.value
+}
 
-const monthlyRuns = computed(() => userStore.userInfo?.monthly_sop_runs ?? 0)
-const remainingRuns = computed(() => userStore.userInfo?.remaining_sop_runs ?? -1)
+const onTransitionEnd = (e: TransitionEvent) => {
+  if (e.propertyName === 'width') {
+    animating.value = false
+  }
+}
 
-const standardTotal = 20
-const standardUsed = computed(() => Math.min(monthlyRuns.value, standardTotal))
-const standardRemaining = computed(() => {
-  if (remainingRuns.value >= 0) return remainingRuns.value
-  return standardTotal - standardUsed.value
-})
-const standardPercent = computed(() => Math.round((standardUsed.value / standardTotal) * 100))
-
-const tierClass = computed(() => {
-  if (tier.value === 'premium') return 'premium'
-  if (tier.value === 'standard') return 'standard'
-  return 'free'
-})
-
-const progressClass = computed(() => {
-  if (standardRemaining.value <= 3) return 'danger'
-  if (standardRemaining.value <= 8) return 'warning'
-  return ''
-})
-
-// Refresh full user data from API; store updates reactively
 onMounted(() => {
   userStore.fetchUserInfo()
 })
 
-// ── Menu Items ─────────────────────────────────────────────────
 const menuItems = computed(() => {
-  const items = [
-    { path: '/', title: '工作区' },
-    { path: '/sop', title: '运行记录' }
+  const items: { path: string; title: string; icon: string }[] = [
+    { path: '/', title: '工作区', icon: 'workspace' },
+    { path: '/sop', title: '运行记录', icon: 'history' }
   ]
 
-  // 客户管理：仅父用户可见（parent_user_id 不存在时为父用户）
   const parentUserId = userStore.userInfo?.parent_user_id
   if (!parentUserId) {
-    items.push({ path: '/customers', title: '客户管理' })
+    items.push({ path: '/customers', title: '客户管理', icon: 'customers' })
   }
 
-  items.push({ path: '/knowledge', title: '知识库管理' })
-  items.push({ path: '/settings', title: '设置' })
+  items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
+  items.push({ path: '/settings', title: '设置', icon: 'settings' })
 
   return items
 })
@@ -132,234 +99,374 @@ const isActive = (path: string) => {
 </script>
 
 <style scoped>
+/*
+ * Sidebar Expand/Collapse Animation System
+ *
+ * Easing tokens:
+ *   --ease-spring:  slight overshoot → lively but not bouncy
+ *   --ease-decel:   fast start, gentle stop → elegant settle
+ *
+ * Choreography (collapse):
+ *   1. Text opacity fades out instantly (120ms)
+ *   2. Text max-width + gap shrink (240ms, delayed 0ms)
+ *   3. Sidebar width shrinks (360ms spring)
+ *   4. Icons get a subtle scale pulse via keyframe
+ *
+ * Choreography (expand):
+ *   1. Sidebar width grows (360ms spring)
+ *   2. Text max-width + gap grow (280ms, starts with width)
+ *   3. Text opacity fades in (180ms, delayed 200ms → appears after space opens)
+ */
+
 .sidebar {
-  width: 260px;
-  height: 100vh;
-  background: #003811;
-  border: none;
-  border-radius: 0;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-decel: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-width: 360ms;
+
+  width: 220px;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  box-shadow: none;
-  overflow: hidden;
+  align-items: stretch;
+  padding: 36px 0 16px;
   flex-shrink: 0;
+  overflow: hidden;
+  background: hsla(160, 30%, 96%, 0.65);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid hsla(160, 20%, 88%, 0.5);
+  transition: width var(--duration-width) var(--ease-spring);
+  will-change: width;
 }
 
-.sidebar-header {
-  padding: 24px 20px 20px;
+.sidebar.collapsed {
+  width: 68px;
+}
+
+/* ===== Logo ===== */
+.sidebar-logo {
+  margin-bottom: 36px;
+  padding: 0 16px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: gap 280ms var(--ease-decel);
+}
+
+.collapsed .sidebar-logo {
+  cursor: pointer;
+  padding: 0 16px;
+  gap: 0;
+}
+
+.logo-mark {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 12px;
+  background: hsl(160, 60%, 40%);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 12px;
-}
-
-.logo-icon {
-  width: 180px;
-  height: 72px;
-  background-image: url('https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/%E8%8E%AB%E5%B0%8F%E6%B4%BElogo2.png');
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.sidebar-title {
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 0;
+  box-shadow: none;
+  flex-shrink: 0;
+  transition: transform 400ms var(--ease-spring);
 }
 
+/* Pulse on toggle — driven by .animating */
+.animating .logo-mark {
+  animation: logo-breathe 400ms var(--ease-spring) both;
+}
+
+@keyframes logo-breathe {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+.collapsed .logo-mark:hover {
+  transform: scale(1.05);
+}
+
+.logo-text {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  color: hsl(160, 45%, 25%);
+  font-family: var(--font-sans);
+  letter-spacing: 0.01em;
+  opacity: 1;
+  max-width: 180px;
+  overflow: hidden;
+  /* Expand: opacity appears after space opens */
+  transition:
+    opacity 180ms var(--ease-decel) 200ms,
+    max-width 280ms var(--ease-decel);
+}
+
+.collapsed .logo-text {
+  opacity: 0;
+  max-width: 0;
+  /* Collapse: opacity disappears first */
+  transition:
+    opacity 120ms ease-out,
+    max-width 240ms var(--ease-decel) 40ms;
+}
+
+/* ===== Navigation ===== */
 .nav-menu {
   flex: 1;
-  padding: 0 12px 12px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  padding: 0 12px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  margin-bottom: 4px;
-  border-radius: var(--radius-md);
-  color: #fff;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  color: hsl(160, 18%, 52%);
   font-size: 14px;
-  text-decoration: none;
-  border: 1px solid transparent;
-  position: relative;
-  transition: all 0.2s;
-}
-
-.nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.nav-item.active {
-  background-color: var(--sidebar-active-bg);
-  color: var(--sidebar-active-text);
   font-weight: 500;
+  font-family: var(--font-sans);
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    color 200ms ease,
+    background 200ms ease,
+    gap 280ms var(--ease-decel);
+  cursor: pointer;
 }
 
-.nav-item.active::after {
-  content: '';
-  position: absolute;
-  right: 16px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--accent);
-}
-
-.sidebar-footer {
-  padding: 0 12px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  margin-top: auto;
+.collapsed .nav-item {
+  padding: 11px 16px;
   gap: 0;
 }
 
-.run-count-card {
-  width: 100%;
-  padding: 16px;
-  background-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(192, 202, 198, 0.5);
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 8%), 0 1px 2px -1px rgb(0 0 0 / 8%);
+.nav-icon-svg {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+  transition: transform 360ms var(--ease-spring);
 }
 
-.run-count-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: hsl(150, 10%, 15%);
-  margin-bottom: 8px;
+/* Staggered icon micro-pulse on toggle */
+.animating .nav-icon-svg {
+  animation: icon-pulse 380ms var(--ease-spring) both;
+  animation-delay: calc(60ms + var(--item-index, 0) * 30ms);
 }
 
-.run-count-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: hsl(150, 10%, 15%);
-  margin-bottom: 4px;
-  line-height: 1.2;
+@keyframes icon-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
-.run-count-label {
-  font-size: 12px;
-  color: hsl(150, 10%, 40%);
-}
-
-/* Run count header row (premium) */
-.run-count-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.run-count-header .run-count-title {
-  margin-bottom: 0;
-}
-
-.premium-badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: hsl(45, 100%, 40%);
-  background: linear-gradient(135deg, hsl(45, 100%, 95%), hsl(45, 100%, 88%));
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.run-count-total {
-  font-size: 16px;
-  font-weight: 500;
-  color: hsl(150, 10%, 45%);
-}
-
-.run-count-label.premium {
-  color: hsl(45, 100%, 40%);
-}
-
-.run-count-label.standard {
-  color: hsl(158, 64%, 35%);
-}
-
-/* Premium card */
-.run-count-card.premium {
-  background: linear-gradient(135deg, hsl(45, 60%, 97%), hsl(45, 50%, 92%));
-  border-color: hsl(45, 60%, 80%);
-}
-
-/* Standard card */
-.run-count-card.standard {
-  background: linear-gradient(135deg, hsl(158, 40%, 97%), hsl(158, 30%, 93%));
-  border-color: hsl(158, 40%, 80%);
-}
-
-/* Progress bar */
-.run-count-progress {
-  margin-top: 8px;
-  width: 100%;
-  height: 4px;
-  background: hsl(150, 10%, 88%);
-  border-radius: 2px;
+.nav-label {
+  display: inline-block;
+  max-width: 150px;
   overflow: hidden;
+  opacity: 1;
+  /* Expand: staggered fade-in after space opens */
+  transition:
+    opacity 180ms var(--ease-decel) calc(180ms + var(--item-index, 0) * 25ms),
+    max-width 280ms var(--ease-decel);
 }
 
-.run-count-progress-bar {
-  height: 100%;
-  background: hsl(158, 64%, 45%);
-  border-radius: 2px;
-  transition: width 0.3s ease;
+.collapsed .nav-label {
+  max-width: 0;
+  opacity: 0;
+  /* Collapse: quick fade-out, then shrink */
+  transition:
+    opacity 100ms ease-out,
+    max-width 240ms var(--ease-decel) 30ms;
 }
 
-.run-count-progress-bar.warning {
-  background: hsl(40, 90%, 50%);
+.nav-item:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.10);
 }
 
-.run-count-progress-bar.danger {
-  background: hsl(0, 70%, 55%);
+.nav-item.active {
+  color: hsl(160, 60%, 38%);
+  background: hsla(160, 50%, 50%, 0.14);
+  font-weight: 600;
 }
 
-.run-count-value.run-count-loading {
+/* ===== Bottom (Toggle + Run) ===== */
+.sidebar-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 12px;
+}
+
+.toggle-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  color: hsl(160, 18%, 52%);
   font-size: 14px;
-  color: hsl(150, 10%, 45%);
   font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
 }
 
-.run-count-value.run-count-error {
-  font-size: 14px;
-  color: hsl(0, 60%, 50%);
-  font-weight: 500;
+.toggle-icon {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+  transition: transform 400ms var(--ease-spring);
 }
 
-@media (max-width: 1024px) {
-  .sidebar {
-    width: 220px;
+.toggle-icon.flipped {
+  transform: rotate(180deg);
+}
+
+.toggle-label {
+  display: inline-block;
+  max-width: 80px;
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    opacity 180ms var(--ease-decel) 200ms,
+    max-width 280ms var(--ease-decel);
+}
+
+.collapsed .toggle-label {
+  max-width: 0;
+  opacity: 0;
+  transition:
+    opacity 100ms ease-out,
+    max-width 240ms var(--ease-decel) 30ms;
+}
+
+.toggle-btn:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.10);
+}
+
+.toggle-btn:active {
+  background: hsla(160, 45%, 50%, 0.16);
+}
+
+/* Micro-pulse on the toggle icon during animation */
+.animating .toggle-icon {
+  animation: icon-pulse 380ms var(--ease-spring) both;
+}
+
+/* ===== Accessibility ===== */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-logo,
+  .logo-mark,
+  .logo-text,
+  .nav-item,
+  .nav-label,
+  .nav-icon-svg,
+  .toggle-icon,
+  .toggle-label {
+    transition: none !important;
+    animation: none !important;
   }
 }
 
+/* ===== Mobile — no sidebar animation ===== */
 @media (max-width: 768px) {
-  .sidebar {
+  .sidebar,
+  .sidebar.collapsed {
     width: 100%;
     height: auto;
-    max-height: 260px;
+    flex-direction: row;
+    padding: 10px 16px;
+    gap: 2px;
+    transition: none;
+    will-change: auto;
   }
 
-  .sidebar-header {
-    padding-top: 16px;
-    padding-bottom: 12px;
+  .sidebar-logo {
+    margin-bottom: 0;
+    margin-right: 12px;
+    padding: 0;
   }
 
-  .logo-icon {
-    width: 150px;
-    height: 60px;
+  .logo-text {
+    font-size: 13px;
+    max-width: none;
+    opacity: 1;
+    transition: none;
+  }
+
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 14px;
+    border-radius: 9px;
+    animation: none !important;
+  }
+
+  .nav-menu {
+    flex-direction: row;
+    gap: 2px;
+    padding: 0;
+  }
+
+  .nav-item {
+    padding: 8px 10px;
+    font-size: 12px;
+    transition: color 200ms ease, background 200ms ease;
+  }
+
+  .nav-icon-svg {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    animation: none !important;
+  }
+
+  .nav-label {
+    max-width: none;
+    opacity: 1;
+    transition: none;
+  }
+
+  .sidebar-bottom {
+    margin-top: 0;
+    margin-left: auto;
+    flex-direction: row;
+    padding: 0;
+    gap: 0;
+  }
+
+  .toggle-btn {
+    display: none;
   }
 }
 </style>
