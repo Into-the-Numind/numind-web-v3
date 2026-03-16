@@ -114,7 +114,7 @@ jobs:
           build-args: |
             VITE_APP_ENV=${{ steps.meta.outputs.environment }}
             VITE_API_BASE_URL=/api
-          cache-from: type=gha
+          cache-from: ${{ github.event.inputs.refresh_cache == 'true' && '' || 'type=gha' }}
           cache-to: type=gha,mode=max
 
       - name: Notify success
