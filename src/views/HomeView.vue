@@ -16,20 +16,6 @@
             <span class="hero-title-sub">开始今天的工作吧</span>
           </h1>
         </div>
-        <div class="hero-mascot">
-          <div class="mascot-bubble">嗨，需要帮助吗？</div>
-          <div class="mascot-avatar">
-            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="12" y="20" width="40" height="28" rx="14" fill="#DCFCE7" stroke="#16A76A" stroke-width="1.5"/>
-              <circle cx="26" cy="34" r="3" fill="#16A76A"/>
-              <circle cx="38" cy="34" r="3" fill="#16A76A"/>
-              <path d="M28 40C28 40 30 43 32 43C34 43 36 40 36 40" stroke="#16A76A" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M20 20C20 20 22 10 32 10C42 10 44 20 44 20" stroke="#16A76A" stroke-width="1.5" stroke-linecap="round"/>
-              <circle cx="22" cy="12" r="3" fill="#BBF7D0" stroke="#16A76A" stroke-width="1"/>
-              <circle cx="42" cy="12" r="3" fill="#BBF7D0" stroke="#16A76A" stroke-width="1"/>
-            </svg>
-          </div>
-        </div>
       </div>
 
       <!-- SOP 工作流 -->
@@ -379,37 +365,6 @@ const comingSoonWorkflows = [
   font-weight: 500;
 }
 
-/* Mascot */
-.hero-mascot {
-  position: relative;
-  flex-shrink: 0;
-  margin-left: 40px;
-  margin-top: 4px;
-}
-
-.mascot-bubble {
-  position: absolute;
-  top: -8px;
-  right: 80px;
-  background: hsl(152, 45%, 96%);
-  border: 1px solid hsl(155, 25%, 90%);
-  border-radius: 12px 12px 4px 12px;
-  padding: 8px 14px;
-  font-size: 13px;
-  color: hsl(160, 45%, 34%);
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-
-.mascot-avatar {
-  width: 72px;
-  height: 72px;
-}
-
-.mascot-avatar svg {
-  width: 100%;
-  height: 100%;
-}
 
 /* ===== Section ===== */
 .workspace-section {
@@ -668,11 +623,6 @@ const comingSoonWorkflows = [
     font-size: 28px;
   }
 
-  .hero-mascot {
-    margin-left: 0;
-    margin-top: 20px;
-    align-self: flex-end;
-  }
 
   .feature-cards {
     grid-template-columns: 1fr;

@@ -254,6 +254,8 @@
             background: var(--bg);
             border-radius: 0;
             padding: var(--space-lg) var(--space-3xl);
+            /* 为固定定位的 stepper 留出空间 (16px margin + 40px width + 10px padding + 2px border + 4px gap) */
+            margin-left: 72px;
             overflow-y: auto;
             box-shadow: none;
             position: relative;
@@ -1309,8 +1311,10 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
-            margin: 16px 0 16px 16px;
-            flex-shrink: 0;
+            /* 脱离文档流，展开/收起不影响主内容区 */
+            position: fixed;
+            top: 68px;
+            left: 16px;
             /* 折叠态宽度：与返回按钮一致 40px */
             width: 40px;
             background: hsla(0, 0%, 100%, 0.5);
@@ -1321,10 +1325,7 @@
             border-radius: 10px;
             box-shadow: 0 2px 16px hsl(150 10% 0% / 0.06),
                         0 0 0 1px hsl(150 15% 90% / 0.25);
-            position: sticky;
-            top: 16px;
             z-index: 100;
-            align-self: flex-start;
             overflow: hidden;
             transition: width 0.3s cubic-bezier(0.2, 0, 0, 1),
                         box-shadow 0.35s cubic-bezier(0.2, 0, 0, 1);
@@ -3351,13 +3352,18 @@
             }
 
             .stepper {
+                position: sticky;
+                top: 0;
+                left: auto;
                 flex-direction: row;
                 width: auto;
                 margin: 0 16px 12px;
-                position: sticky;
-                top: 0;
                 align-self: stretch;
                 border-radius: var(--radius-pill);
+            }
+
+            .main-content {
+                margin-left: 0;
             }
 
             .step {
