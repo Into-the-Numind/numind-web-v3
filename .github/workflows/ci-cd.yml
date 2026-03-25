@@ -114,7 +114,7 @@ jobs:
           build-args: |
             VITE_APP_ENV=${{ steps.meta.outputs.environment }}
             VITE_API_BASE_URL=/api
-          cache-from: type=gha
+          cache-from: ${{ github.event.inputs.refresh_cache == 'true' && '' || 'type=gha' }}
           cache-to: type=gha,mode=max
 
       - name: Notify success
@@ -153,7 +153,7 @@ jobs:
             docker run -d \
               --name numind-web-v3-dev \
               --network numind-network \
-              -p 9203:80 \
+              -p 9200:80 \
               -e API_PROXY_PASS="http://numind-server-dev:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:develop
@@ -192,7 +192,7 @@ jobs:
             docker run -d \
               --name numind-web-v3-qa \
               --network numind-network \
-              -p 9204:80 \
+              -p 9201:80 \
               -e API_PROXY_PASS="http://numind-server-qa:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:release
@@ -237,7 +237,7 @@ jobs:
             docker run -d \
               --name numind-web-v3 \
               --network numind-network \
-              -p 9205:80 \
+              -p 9202:80 \
               -e API_PROXY_PASS="http://numind-server-prod:9091/" \
               --restart unless-stopped \
               ${{ env.IMAGE_NAME }}:$IMAGE_TAG

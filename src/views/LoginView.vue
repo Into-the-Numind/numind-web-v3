@@ -124,9 +124,9 @@ const handleLogin = async () => {
   justify-content: center;
   padding: 20px;
   background:
-    radial-gradient(at 0% 0%, rgba(37, 167, 105, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(37, 167, 105, 0.04) 0px, transparent 50%),
-    radial-gradient(circle at top left, hsl(150, 30%, 96%), hsl(160, 30%, 99%));
+    radial-gradient(at 0% 0%, rgba(37, 167, 105, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(37, 167, 105, 0.03) 0px, transparent 50%),
+    linear-gradient(165deg, #F7F8FB 0%, #FFFFFF 50%, #F5F7FA 100%);
   background-attachment: fixed;
   background-size: cover;
 }

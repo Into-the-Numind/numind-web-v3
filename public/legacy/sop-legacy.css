@@ -18,6 +18,16 @@
             overflow: hidden;
         }
 
+        /* 页面容器：铺满 body，传递 flex 布局给 main-content */
+        .sop-page-container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+        }
+
         /* 左侧边栏 - 深绿色主题 */
         .sidebar {
             width: 260px;
@@ -240,37 +250,36 @@
         /* 主内容区 - 纯灰色背景 */
         .main-content {
             flex: 1;
-            background: #fdfdfd;
+            min-height: 0;
+            background: var(--bg);
             border-radius: 0;
-            padding: var(--space-lg) var(--space-3xl) var(--space-3xl);
+            padding: var(--space-lg) var(--space-3xl);
+            /* 为固定定位的 stepper 留出空间 (16px margin + 40px width + 10px padding + 2px border + 4px gap) */
+            margin-left: 72px;
             overflow-y: auto;
             box-shadow: none;
             position: relative;
             font-family: var(--font-sans);
-            /* 与导航区字体一致 */
         }
 
         .content-wrapper {
-            max-width: 1200px;
+            max-width: 900px;
             margin: 0 auto;
             position: relative;
             z-index: 5;
-            /* 确保内容区域（包括步骤指示器）在step-content之上 */
         }
 
         /* 第五步时，确保步骤指示器可以点击 */
         .step-5-active .content-wrapper {
             z-index: 15;
             padding-top: 16px;
-            /* 补偿main-content被移除的padding-top（var(--space-lg)），确保stepper位置不变 */
         }
 
 
-        /* 返回首页按钮 */
+        /* 返回首页按钮 — 毛玻璃风格，与 stepper 一致 */
         .back-to-home-btn {
             position: fixed;
-            top: 36px;
-            /* 与步骤指示器顶部对齐：main-content padding-top (16px) + stepper margin-top (20px) */
+            top: 24px;
             left: 24px;
             z-index: 1000;
             display: flex;
@@ -279,22 +288,25 @@
             width: 40px;
             height: 40px;
             padding: 0;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            color: var(--text);
+            background: hsla(0, 0%, 100%, 0.5);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
+            border-radius: 10px;
+            color: var(--text-muted);
             cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+            box-shadow: 0 2px 16px hsl(150 10% 0% / 0.06),
+                        0 0 0 1px hsl(150 15% 90% / 0.25);
             text-decoration: none;
             font-family: var(--font-sans);
         }
 
         .back-to-home-btn:hover {
-            background: var(--surface-hover);
-            border-color: var(--accent);
+            background: hsla(0, 0%, 100%, 0.7);
             color: var(--accent);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 24px hsl(150 10% 0% / 0.10),
+                        0 0 0 1px hsl(150 15% 90% / 0.3);
             transform: translateY(-1px);
         }
 
@@ -310,23 +322,9 @@
             justify-content: center;
         }
 
-        /* 历史记录按钮 */
+        /* 历史记录按钮（旧版，已移入 stepper） */
         .history-btn {
-            position: fixed;
-            top: 36px;
-            /* 与返回按钮对齐 */
-            right: 24px;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            padding: 0;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            color: var(--text);
+            display: none;
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -334,15 +332,11 @@
         }
 
         .history-btn:hover {
-            background: var(--surface-hover);
-            border-color: var(--accent);
-            color: var(--accent);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transform: translateY(-1px);
+            display: none;
         }
 
         .history-btn:active {
-            transform: translateY(0);
+            display: none;
         }
 
         .history-icon {
@@ -928,63 +922,94 @@
             flex-direction: column;
         }
 
+        /* ── 历史记录步骤条 — 毛玻璃 + 绿色活跃态 ── */
         .history-sop-stepper {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 20px 24px;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border-light);
+            gap: 4px;
+            padding: 4px;
+            margin: 16px 24px 0;
+            background: hsla(0, 0%, 100%, 0.55);
+            backdrop-filter: blur(14px) saturate(1.3);
+            -webkit-backdrop-filter: blur(14px) saturate(1.3);
+            border: 1px solid hsla(0, 0%, 100%, 0.45);
+            border-bottom: none;
+            border-radius: var(--radius-pill);
+            box-shadow: 0 1px 8px hsl(150 10% 0% / 0.05);
             flex-shrink: 0;
         }
 
         .history-sop-step {
+            flex: 1;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
+            justify-content: center;
             gap: 8px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        transform 0.35s cubic-bezier(0.2, 0, 0, 1);
             position: relative;
-            padding: 0 12px;
+            padding: 8px 14px;
+            border-radius: var(--radius-pill);
+        }
+
+        .history-sop-step:hover {
+            background: hsla(158, 40%, 50%, 0.08);
+        }
+
+        .history-sop-step.active {
+            background: var(--accent);
+            box-shadow: 0 2px 8px hsl(158 64% 45% / 0.28);
+            animation: stepActivate 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .history-sop-step.active:hover {
+            background: var(--accent);
         }
 
         .history-sop-step.active .history-sop-step-number {
-            background-color: var(--primary);
+            background-color: hsla(0, 0%, 100%, 0.25);
             color: white;
-            border: none;
+            border-color: hsla(0, 0%, 100%, 0.5);
+            animation: stepNumberPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
 
         .history-sop-step.completed .history-sop-step-number {
             background-color: var(--accent);
             color: white;
-            border: none;
+            border-color: var(--accent);
         }
 
         .history-sop-step-number {
-            width: 32px;
-            height: 32px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
-            background-color: var(--border-light);
+            background-color: transparent;
             color: var(--text-muted);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            font-size: 14px;
+            font-weight: 500;
+            font-size: 11px;
+            border: 1.5px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
         }
 
         .history-sop-step-label {
             font-size: 12px;
-            color: var(--text-secondary);
+            color: var(--text-muted);
             text-align: center;
             white-space: nowrap;
+            font-weight: 450;
+            transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
         }
 
         .history-sop-step.active .history-sop-step-label {
-            color: var(--text);
-            font-weight: 500;
+            color: white;
+            font-weight: 550;
+            animation: stepLabelSlide 0.35s cubic-bezier(0.2, 0, 0, 1) 0.05s both;
         }
 
         .history-sop-content {
@@ -1248,133 +1273,349 @@
         }
 
         .page-tip {
-            background-color: var(--surface-tint);
-            border-left: 4px solid var(--accent);
+            background: hsla(158, 40%, 50%, 0.06);
+            border-left: 3px solid var(--accent);
             padding: 12px 16px;
             margin-top: 16px;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             font-size: 13px;
             color: var(--text-muted);
+            line-height: var(--line-height-normal);
         }
 
-        /* 步骤条 */
+        /* ===== 竖向步骤条 — 毛玻璃 + 绿色活跃态 + 切换动效 ===== */
+
+        @keyframes stepActivate {
+            0%   { transform: scale(0.96); opacity: 0.5; }
+            50%  { transform: scale(1.02); }
+            100% { transform: scale(1);    opacity: 1; }
+        }
+
+        @keyframes stepNumberPop {
+            0%   { transform: scale(0.4) rotate(-20deg); opacity: 0; }
+            60%  { transform: scale(1.18) rotate(4deg); }
+            100% { transform: scale(1) rotate(0deg);    opacity: 1; }
+        }
+
+        @keyframes stepLabelSlide {
+            0%   { transform: translateX(-8px); opacity: 0; }
+            100% { transform: translateX(0);    opacity: 1; }
+        }
+
+        /* ============================================
+           步骤指示器 — 折叠/悬停展开
+           默认折叠：仅显示数字圆圈，与返回按钮对齐
+           悬停展开：显示步骤名称 + 历史记录按钮
+           ============================================ */
         .stepper {
             display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-            margin-bottom: 40px;
-            background-color: var(--surface);
-            border: 1px solid var(--border-light);
-            padding: 24px;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-card);
-            position: relative;
-            z-index: 10;
-            /* 确保步骤指示器在step-content之上，可以点击 */
+            flex-direction: column;
+            gap: 4px;
+            /* 脱离文档流，展开/收起不影响主内容区 */
+            position: fixed;
+            top: 68px;
+            left: 16px;
+            /* 折叠态宽度：与返回按钮一致 40px */
+            width: 40px;
+            background: hsla(0, 0%, 100%, 0.5);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
+            padding: 5px;
+            border-radius: 10px;
+            box-shadow: 0 2px 16px hsl(150 10% 0% / 0.06),
+                        0 0 0 1px hsl(150 15% 90% / 0.25);
+            z-index: 100;
+            overflow: hidden;
+            transition: width 0.3s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.35s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        /* 悬停展开态 — 仅横向扩展，竖向保持不变 */
+        .stepper:hover {
+            width: 175px;
+            box-shadow: 0 4px 24px hsl(150 10% 0% / 0.10),
+                        0 0 0 1px hsl(150 15% 90% / 0.3);
+        }
+
+        /* 滚动折叠态 — 保留以兼容 JS 逻辑 */
+        .stepper.stepper--collapsed {
+            background: hsla(0, 0%, 100%, 0.6);
+            backdrop-filter: blur(24px) saturate(1.5);
+            -webkit-backdrop-filter: blur(24px) saturate(1.5);
         }
 
         .step {
-            flex: 1;
+            flex: none;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
+            justify-content: center;
+            /* 折叠态：gap 为 0，避免隐藏的 label 占据 gap 空间 */
+            gap: 0;
             position: relative;
             cursor: pointer;
+            padding: 6px 0;
+            border-radius: var(--radius-md);
+            /* 折叠态：不显示行背景色 */
+            background: transparent !important;
+            box-shadow: none !important;
+            transition: background 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        padding 0.3s cubic-bezier(0.2, 0, 0, 1),
+                        gap 0.3s cubic-bezier(0.2, 0, 0, 1);
         }
 
+        /* 悬停展开时恢复行样式 — 竖向 padding 不变，仅横向展开 */
+        .stepper:hover .step {
+            padding: 6px 8px;
+            justify-content: flex-start;
+            gap: 10px;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .stepper:hover .step:hover {
+            background: hsla(158, 40%, 50%, 0.08) !important;
+        }
+
+        .stepper:hover .step.active {
+            background: var(--accent) !important;
+            box-shadow: 0 2px 12px hsl(158 64% 45% / 0.30),
+                        0 0 0 1px hsl(158 64% 45% / 0.08) !important;
+            animation: stepActivate 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .stepper:hover .step.active:hover {
+            background: var(--accent) !important;
+        }
+
+        .step:hover .step-number {
+            transform: none;
+        }
+
+        .step:hover .step-label {
+            color: var(--text);
+        }
+
+        .step.active:hover .step-label {
+            color: white;
+        }
+
+        /* 连接线 — 移除 */
         .step:not(:last-child)::after {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            width: 100%;
-            height: 2px;
-            background-color: #e0e0e0;
-            z-index: 0;
+            content: none;
         }
 
         .step.completed:not(:last-child)::after {
-            background-color: var(--primary);
+            content: none;
         }
 
         .step.active:not(:last-child)::after {
-            background-color: #e0e0e0;
+            content: none;
         }
 
-        /* 第4步和第5步之间的连接线使用虚线 */
         .step.step-before-chat::after {
-            background: repeating-linear-gradient(to right,
-                    #e0e0e0 0px,
-                    #e0e0e0 8px,
-                    transparent 8px,
-                    transparent 16px);
+            content: none;
+            background: none;
             background-color: transparent;
         }
 
         .step.step-before-chat.completed::after {
-            background: repeating-linear-gradient(to right,
-                    var(--primary) 0px,
-                    var(--primary) 8px,
-                    transparent 8px,
-                    transparent 16px);
+            content: none;
+            background: none;
             background-color: transparent;
         }
 
         .step-number {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--border-light);
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            border-radius: 7px;
+            background-color: transparent;
             color: var(--text-muted);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            font-size: 18px;
-            margin-bottom: 12px;
+            font-weight: 500;
+            font-size: 12px;
+            margin-bottom: 0;
             position: relative;
             z-index: 1;
-            border: 2px solid transparent;
+            border: 1.5px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
         }
 
+        /* 折叠态：active 直接高亮圆圈 */
         .step.active .step-number {
             background-color: var(--accent);
             color: white;
-            border: none;
+            border-color: var(--accent);
+            box-shadow: none;
+            animation: stepNumberPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        /* 展开态：active 圆圈改回半透明白（因为行背景是绿色） */
+        .stepper:hover .step.active .step-number {
+            background-color: hsla(0, 0%, 100%, 0.25);
+            border-color: hsla(0, 0%, 100%, 0.5);
         }
 
         .step.completed .step-number {
-            background-color: var(--accent);
+            background-color: var(--text-muted);
             color: white;
+            border-color: var(--text-muted);
         }
 
+        /* 步骤标签 — 折叠态隐藏 */
         .step-label {
-            font-size: 14px;
-            color: var(--text-secondary);
-            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: left;
+            white-space: nowrap;
+            line-height: 1;
+            letter-spacing: 0.01em;
+            font-weight: 450;
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+            transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
+                        width 0.3s cubic-bezier(0.2, 0, 0, 1),
+                        color 0.3s cubic-bezier(0.2, 0, 0, 1),
+                        font-weight 0.3s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        /* 悬停展开时显示标签 */
+        .stepper:hover .step-label {
+            opacity: 1;
+            width: auto;
+            overflow: visible;
         }
 
         .step.active .step-label {
-            color: var(--primary);
-            font-weight: 600;
+            color: white;
+            font-weight: 550;
         }
 
-        /* 不可访问的步骤之间的连线只连接到圆周，而不是圆心，并且强制使用灰色 */
+        /* 展开时 active 标签动画 */
+        .stepper:hover .step.active .step-label {
+            animation: stepLabelSlide 0.35s cubic-bezier(0.2, 0, 0, 1) 0.05s both;
+        }
+
+        .step.completed .step-label {
+            color: var(--text-secondary);
+            font-weight: 450;
+        }
+
+        /* 分隔线 */
+        .stepper-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 3px 4px;
+            flex-shrink: 0;
+            opacity: 0.5;
+        }
+
+        /* 历史记录按钮（stepper 内） */
+        .stepper-history-btn {
+            flex: none;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            cursor: pointer;
+            padding: 6px 0;
+            border-radius: var(--radius-md);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            transition: background 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        color 0.3s cubic-bezier(0.2, 0, 0, 1),
+                        padding 0.3s cubic-bezier(0.2, 0, 0, 1),
+                        gap 0.3s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .stepper:hover .stepper-history-btn {
+            padding: 6px 8px;
+            justify-content: flex-start;
+            gap: 10px;
+        }
+
+        .stepper-history-btn:hover {
+            background: hsla(158, 40%, 50%, 0.08);
+            color: var(--accent);
+        }
+
+        .stepper-history-btn .history-icon {
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stepper-history-label {
+            font-size: 13px;
+            white-space: nowrap;
+            line-height: 1;
+            letter-spacing: 0.01em;
+            font-weight: 450;
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+            transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
+                        width 0.3s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .stepper:hover .stepper-history-label {
+            opacity: 1;
+            width: auto;
+            overflow: visible;
+        }
+
+        /* 旧 stepper--collapsed 兼容 */
+        .stepper.stepper--collapsed .step-number {
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            font-size: 12px;
+        }
+
+        .stepper.stepper--collapsed .step.active .step-number {
+            box-shadow: none;
+        }
+
         .step.step-disabled-link:not(:last-child)::after {
-            /* 连线从当前步骤圆形的右边缘开始（50% + 20px），到下一个步骤圆形的左边缘结束 */
-            left: calc(50% + 20px);
-            width: calc(100% - 40px);
-            background-color: #e0e0e0 !important;
+            content: none;
         }
 
-        /* 步骤内容区 */
+        /* 尊重用户的动效偏好 */
+        @media (prefers-reduced-motion: reduce) {
+            .step.active,
+            .step.active .step-number,
+            .step.active .step-label {
+                animation: none;
+            }
+            .stepper {
+                transition: none;
+            }
+        }
+
+        /* 步骤内容区 — 毛玻璃风格，与指示器一致 */
         .step-content {
             display: none;
-            background-color: var(--surface);
-            border: 1px solid var(--border-light);
+            flex: 1;
+            min-width: 0;
+            background: hsla(0, 0%, 100%, 0.5);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
             border-radius: var(--radius-lg);
-            padding: 32px;
-            box-shadow: var(--shadow-card);
+            padding: 32px 32px 16px;
+            box-shadow: 0 2px 16px hsl(150 10% 0% / 0.06),
+                        0 0 0 1px hsl(150 15% 90% / 0.25);
             animation: fadeIn 0.5s;
         }
 
@@ -1385,7 +1626,7 @@
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(12px);
             }
 
             to {
@@ -1401,18 +1642,18 @@
 
         .step-content-title {
             font-family: var(--font-sans);
-            /* 与主页字体一致 */
-            font-size: 28px;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: 650;
             color: var(--text);
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
+            letter-spacing: -0.01em;
         }
 
         .step-content-description {
-            font-size: 15px;
-            color: var(--text-secondary);
+            font-size: 14px;
+            color: var(--text-muted);
             line-height: var(--line-height-normal);
         }
 
@@ -1423,28 +1664,30 @@
 
         .input-label {
             font-family: var(--font-sans);
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 550;
+            color: var(--text-muted);
             margin-bottom: 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
         }
 
         .check-quality-btn,
         .upload-btn {
-            padding: 6px 16px;
-            background-color: var(--surface);
-            color: var(--primary);
-            border: 1px solid var(--primary);
+            padding: 5px 14px;
+            background: hsla(0, 0%, 100%, 0.6);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
             border-radius: var(--radius-pill);
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
 
         .upload-btn {
@@ -1453,16 +1696,17 @@
 
         .check-quality-btn:hover,
         .upload-btn:hover {
-            background-color: var(--accent-ultra-soft);
+            background: var(--accent);
             border-color: var(--accent);
-            color: var(--accent-hover);
+            color: white;
+            box-shadow: 0 2px 8px hsl(158 64% 45% / 0.25);
         }
 
         .check-quality-btn:active,
         .upload-btn:active {
-            background-color: var(--primary);
+            background-color: var(--accent-hover);
             color: white;
-            transform: scale(0.98);
+            transform: scale(0.97);
         }
 
         .file-input {
@@ -1480,9 +1724,12 @@
             margin-top: 16px;
             margin-bottom: 16px;
             padding: 20px;
-            background-color: white;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            background: hsla(0, 0%, 100%, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--radius-md);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
+            box-shadow: 0 1px 8px hsl(150 10% 0% / 0.05);
             animation: fadeIn 0.5s;
         }
 
@@ -1492,9 +1739,12 @@
             margin-top: 12px;
             margin-bottom: 12px;
             padding: 16px 20px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            background: hsla(0, 0%, 100%, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--radius-md);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
+            box-shadow: 0 1px 8px hsl(150 10% 0% / 0.05);
             animation: fadeIn 0.3s;
         }
 
@@ -1523,9 +1773,12 @@
             margin-top: 16px;
             margin-bottom: 16px;
             padding: 20px;
-            background-color: white;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            background: hsla(0, 0%, 100%, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--radius-md);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
+            box-shadow: 0 1px 8px hsl(150 10% 0% / 0.05);
             animation: fadeIn 0.5s;
             position: relative;
         }
@@ -1564,26 +1817,27 @@
 
         .quality-close-btn {
             position: absolute;
-            top: 16px;
-            right: 16px;
-            width: 28px;
-            height: 28px;
-            border: none;
-            background-color: transparent;
-            color: #999;
-            font-size: 20px;
+            top: 14px;
+            right: 14px;
+            width: 26px;
+            height: 26px;
+            border: 1px solid var(--border-light);
+            background: hsla(0, 0%, 100%, 0.6);
+            color: var(--text-muted);
+            font-size: 14px;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s;
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
             line-height: 1;
         }
 
         .quality-close-btn:hover {
-            background-color: var(--surface-hover);
+            background: var(--surface-hover);
             color: var(--text);
+            border-color: var(--border);
         }
 
         .quality-result.excellent {
@@ -1684,20 +1938,23 @@
             width: 100%;
             min-height: 200px;
             padding: 16px;
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-light);
             border-radius: var(--radius-md);
             font-size: 14px;
             font-family: var(--font-sans);
             color: var(--text);
-            background-color: var(--surface);
+            background: hsla(0, 0%, 100%, 0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             resize: vertical;
-            transition: all 0.2s;
+            transition: border-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.25s cubic-bezier(0.2, 0, 0, 1);
         }
 
         .input-textarea:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: var(--shadow-focus);
+            box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
         }
 
         .input-textarea::placeholder {
@@ -1708,8 +1965,10 @@
         .image-preview-container {
             margin-bottom: 12px;
             padding: 12px;
-            background-color: var(--surface);
-            border: 1px solid var(--border-light);
+            background: hsla(0, 0%, 100%, 0.45);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
             border-radius: var(--radius-md);
             display: none;
         }
@@ -1731,8 +1990,8 @@
             height: 120px;
             border-radius: var(--radius-md);
             overflow: hidden;
-            border: 1px solid var(--border-light);
-            background-color: #f5f5f5;
+            border: 1px solid hsla(0, 0%, 100%, 0.5);
+            background: hsla(0, 0%, 100%, 0.3);
         }
 
         .image-preview-item img {
@@ -1804,82 +2063,94 @@
         .input-text {
             width: 100%;
             padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
             font-size: 14px;
             font-family: inherit;
-            transition: all 0.3s;
+            background: hsla(0, 0%, 100%, 0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: border-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.25s cubic-bezier(0.2, 0, 0, 1);
         }
 
         .input-text:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: var(--shadow-focus);
+            box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
         }
 
         .input-select {
             width: 100%;
             padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
             font-size: 14px;
             font-family: inherit;
-            background-color: white;
+            background: hsla(0, 0%, 100%, 0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             cursor: pointer;
-            transition: all 0.3s;
+            transition: border-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.25s cubic-bezier(0.2, 0, 0, 1);
         }
 
         .input-select:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: var(--shadow-focus);
+            box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
         }
 
-        /* 按钮 */
+        /* 按钮 — 毛玻璃风格 */
         .btn {
-            padding: 12px 32px;
+            padding: 10px 28px;
             border: 1px solid transparent;
             border-radius: var(--radius-pill);
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
             font-family: var(--font-sans);
         }
 
         .btn-primary {
-            background-color: var(--primary);
-            color: var(--surface);
-            border-color: var(--primary);
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 2px 10px hsl(158 64% 45% / 0.25);
         }
 
         .btn-primary:hover {
-            background-color: var(--primary-hover);
-            box-shadow: var(--shadow-md);
+            background: var(--accent-hover);
+            box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35);
             transform: translateY(-1px);
         }
 
         .btn-secondary {
-            background-color: var(--surface);
+            background: hsla(0, 0%, 100%, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             color: var(--text);
-            border-color: var(--border);
-            box-shadow: var(--shadow-sm);
+            border-color: hsla(0, 0%, 100%, 0.5);
+            box-shadow: 0 1px 6px hsl(150 10% 0% / 0.06);
         }
 
         .btn-secondary:hover {
-            background-color: var(--surface-hover);
-            border-color: var(--text-secondary);
+            background: hsla(0, 0%, 100%, 0.8);
+            border-color: var(--border);
+            box-shadow: 0 2px 10px hsl(150 10% 0% / 0.08);
         }
 
         .btn-success {
-            background-color: var(--accent);
+            background: var(--accent);
             color: white;
+            box-shadow: 0 2px 10px hsl(158 64% 45% / 0.25);
         }
 
         .btn-success:hover {
-            background-color: var(--accent-hover);
+            background: var(--accent-hover);
             transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35);
         }
 
         .button-group {
@@ -1893,10 +2164,12 @@
             display: none;
             margin-top: 32px;
             padding: 40px 24px;
-            background-color: var(--surface);
-            border: 1px solid var(--border-light);
+            background: hsla(0, 0%, 100%, 0.35);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid hsla(0, 0%, 100%, 0.45);
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-card);
+            box-shadow: 0 1px 8px hsl(150 10% 0% / 0.04);
             min-height: 400px;
         }
 
@@ -1975,18 +2248,25 @@
             padding-top: 16px;
         }
 
+        /* 深度思考后的正文：缩小顶部间距，与标题到深度思考的间距一致 */
+        .thinking-container + .message-content {
+            padding-top: 6px;
+        }
+
         /* Markdown styling handled by .prose class in ui.css */
 
         /* 加载动画 */
         .loading-message {
-            display: flex;
+            display: inline-block;
             align-items: center;
             gap: 12px;
-            padding: 16px 20px;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            display: inline-block;
+            padding: 14px 20px;
+            background: hsla(0, 0%, 100%, 0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--radius-md);
+            border: 1px solid hsla(0, 0%, 100%, 0.45);
+            box-shadow: 0 1px 6px hsl(150 10% 0% / 0.05);
         }
 
         .loading-dots {
@@ -2325,7 +2605,7 @@
         .nav-buttons {
             display: flex;
             justify-content: space-between;
-            margin-top: 32px;
+            margin-top: 16px;
             padding-top: 0;
         }
 
@@ -2388,69 +2668,58 @@
             /* Firefox */
         }
 
-        /* 第五步中，聊天容器位于步骤指示器和输入框之间，上下各留20px，宽度与步骤指示器一致 */
-        #step-5 .chatbot-container {
-            position: absolute !important;
-            /* top和height将通过JavaScript动态计算并设置 */
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            width: calc(100% - 48px) !important;
-            max-width: 1200px !important;
-            /* 移除height和max-height的CSS规则，完全由JavaScript控制 */
-            margin-bottom: 0 !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            padding-left: 24px !important;
-            padding-right: 24px !important;
-            box-sizing: border-box !important;
-            overflow-y: auto !important;
-            /* 确保内容不会溢出 */
-            overflow-x: hidden !important;
-        }
+        /* ===== 第5步：沉浸式 AI 聊天布局 ===== */
+        /* 全局滚动（main-content），居中对话流，消息宽度 = 输入框宽度 */
 
-        /* 第5步：删除所有框线，只保留输入框的边框 */
-        #step-5.step-content {
-            border: none !important;
-            box-shadow: none !important;
-            background-color: transparent !important;
-            padding: 0 !important;
-            /* 移除所有内边距，让chatbot-messages的padding生效 */
-            height: 100vh !important;
-            /* 固定高度，防止页面滚动 */
-            overflow: hidden !important;
-            /* 禁用页面滚动 */
-            position: fixed !important;
-            /* 使用fixed定位，相对于视口 */
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100% !important;
-            z-index: 0;
-            /* 降低z-index，确保步骤指示器可以点击 */
-            pointer-events: none;
-            /* 禁用点击事件，让下层元素可以点击 */
-        }
-
-        /* 第五步中的聊天容器需要重新启用pointer-events */
-        #step-5 .chatbot-container {
-            pointer-events: auto;
-        }
-
-        /* 当第五步激活时，禁用主内容区域的滚动 */
-        /* 使用JavaScript动态添加类来控制 */
+        /* 第五步激活时，main-content 作为滚动容器，上下 padding 归零 */
         .main-content.step-5-active {
-            overflow: hidden !important;
-            height: 100vh !important;
-            /* 固定高度 */
-            padding: 0 !important;
-            /* 移除padding，让step-content占满整个视口 */
+            overflow-y: auto !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
         }
 
-        #step-5 .chatbot-container {
+        /* step-5：普通块级流，内容自然撑高，由 main-content 滚动 */
+        /* 注意：display 不能用 !important 覆盖，否则切走后 step-5 仍然可见 */
+        #step-5.step-content {
+            position: relative;
+            overflow: visible;
+            pointer-events: auto;
+            padding: 0 !important;
+            background: transparent !important;
             border: none !important;
+            border-radius: 0 !important;
             box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+
+        #step-5.step-content.active {
+            display: block !important;
+        }
+
+        /* 聊天容器：普通块级流 */
+        #step-5 .chatbot-container {
+            position: relative !important;
+            left: auto !important;
+            transform: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
             background-color: transparent !important;
+        }
+
+        /* 消息列表：普通块级流，内容自然撑高 */
+        #step-5 .chatbot-messages {
+            overflow: visible !important;
+            padding: 32px 0 24px 0 !important;
+            gap: 28px !important;
+            /* 居中，宽度与输入框一致 */
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
         }
 
         .chatbot-messages {
@@ -2466,32 +2735,9 @@
         /* 确保在step-5中chatbot-messages的padding生效 */
         #step-5 .chatbot-messages {
             padding-top: 0 !important;
-            /* 上边界不变 */
-            padding-bottom: 20px !important;
-            /* 减少padding-bottom，只保留20px用于最后一条消息的间距 */
         }
 
-        /* 确保chatbot-container的内容不会溢出，使用flex布局 */
-        #step-5 .chatbot-container {
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            /* 容器本身不滚动，由chatbot-messages滚动 */
-        }
-
-        #step-5 .chatbot-messages {
-            flex: 1 1 auto !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            min-height: 0 !important;
-            /* 允许flex子元素缩小 */
-            max-height: 100% !important;
-            /* 确保不超过容器高度 */
-            padding-right: 12px !important;
-            /* 防止滚动条遮挡内容 */
-            scrollbar-gutter: stable;
-            /* 在支持的浏览器中预留滚动条空间 */
-        }
+        /* 第五步使用全局滚动条（main-content），无需独立滚动条样式 */
 
         /* 欢迎消息 */
         .chatbot-welcome {
@@ -2499,8 +2745,10 @@
             flex-direction: column;
             align-items: center;
             text-align: center;
-            padding: 40px 20px;
+            padding: 60px 20px 40px;
             color: var(--text-secondary);
+            max-width: 780px;
+            margin: 0 auto;
         }
 
         .chatbot-welcome-icon {
@@ -2592,14 +2840,19 @@
             color: white;
         }
 
-        /* 第五步中，AI消息删除气泡样式，铺开显示，不保留头像 */
+        /* 第五步中，AI消息：全宽排版，无气泡 */
         #step-5 .chatbot-message.ai {
             flex-direction: column;
             gap: 0;
             align-items: flex-start;
         }
 
-        /* AI消息内容包装器，包含内容和操作栏 */
+        /* 隐藏 AI 头像（沉浸式体验中不需要） */
+        #step-5 .chatbot-message.ai .chatbot-message-avatar {
+            display: none;
+        }
+
+        /* AI消息内容包装器 */
         #step-5 .chatbot-message.ai .chatbot-content-wrapper {
             width: 100%;
             display: flex;
@@ -2620,14 +2873,14 @@
             margin-left: 2px;
         }
 
-        /* AI消息操作栏（分割线和复制按钮） */
+        /* AI消息操作栏 — 始终可见 */
         .chatbot-message-actions {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border-light);
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 0;
+            border-top: none;
             width: 100%;
         }
 
@@ -2639,21 +2892,20 @@
         .chatbot-copy-btn {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
+            gap: 5px;
+            padding: 4px 10px;
             background-color: transparent;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            color: var(--text-secondary);
-            font-size: 13px;
+            border: none;
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            font-size: 12px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s ease-out;
         }
 
         .chatbot-copy-btn:hover {
             background-color: var(--surface-hover);
-            border-color: var(--accent);
-            color: var(--accent);
+            color: var(--text-secondary);
         }
 
         .chatbot-copy-icon {
@@ -2662,17 +2914,30 @@
             opacity: 0.7;
         }
 
-        /* 用户消息保持原有样式 */
+        /* 第五步消息宽度约束（与输入框一致） */
+        #step-5 .chatbot-message {
+            width: 100%;
+        }
+
+        /* 用户消息：右对齐，圆润气泡 */
         #step-5 .chatbot-message.user {
             flex-direction: row-reverse;
         }
 
         #step-5 .chatbot-message.user .chatbot-bubble {
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 12px;
-            background-color: var(--accent);
+            max-width: 75%;
+            padding: 10px 16px;
+            border-radius: 18px 18px 4px 18px;
+            background: linear-gradient(135deg, hsl(158, 64%, 48%), hsl(158, 64%, 42%));
             color: white;
+            box-shadow: 0 1px 3px hsl(158 64% 30% / 0.15);
+        }
+
+        /* 用户消息头像微调 */
+        #step-5 .chatbot-message.user .chatbot-message-avatar.user {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
         }
 
         .chatbot-bubble-content {
@@ -2692,26 +2957,25 @@
 
         /* Markdown 渲染样式复用现有的 .prose 样式 */
 
-        /* 输入区域 - 完全悬浮，不参与文档流 */
+        /* 输入区域 - sticky 贴底，全局滚动时始终可见 */
         .chatbot-input-area {
-            position: fixed;
-            /* 固定位置，不依赖计算 */
-            bottom: 40px;
-            left: 50%;
-            /* 使用transform居中，但固定宽度避免重排 */
-            transform: translateX(-50%);
-            width: 800px;
-            max-width: 800px;
-            padding: 0;
-            z-index: 1000;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 16px 0 28px 0;
             box-sizing: border-box;
-            /* 使用visibility和opacity控制显示，而不是display，避免重排 */
+            /* 渐变遮罩：让消息在接近输入框时平滑消失 */
+            background: linear-gradient(to bottom,
+                hsla(150, 20%, 97%, 0) 0%,
+                var(--bg) 12px,
+                var(--bg) 100%);
+            /* 使用visibility和opacity控制显示 */
             visibility: hidden;
             opacity: 0;
             pointer-events: none;
-            /* 完全脱离文档流，不触发重排 */
-            contain: layout style;
-            /* 固定transform，避免重排 */
             will-change: opacity;
         }
 
@@ -2727,30 +2991,25 @@
             width: 100%;
             display: flex;
             flex-direction: column;
-            /* 玻璃态设计 */
-            background: rgba(255, 255, 255, 0.85);
-            /* 玻璃态透明度 */
-            backdrop-filter: blur(20px);
-            /* 毛玻璃效果 */
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 19px 16px 11px 16px;
-            box-shadow: 0 4px 12px rgba(37, 167, 105, 0.05);
-            /* Softer shadow from Design 3 */
-            /* 内部高光 */
-            border: 1px solid rgba(37, 167, 105, 0.3);
-            /* Green tint border from Design 3 */
-            transition: all 0.3s ease;
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            padding: 16px 16px 10px 16px;
+            /* 精致阴影：多层叠加，营造浮起感 */
+            box-shadow:
+                0 0 0 1px var(--border-light),
+                0 2px 4px hsl(150 10% 0% / 0.04),
+                0 8px 24px hsl(150 10% 0% / 0.06);
+            border: none;
+            transition: box-shadow 0.25s ease-out;
             min-height: auto;
             box-sizing: border-box;
-            contain: layout style;
         }
 
         .chatbot-input-wrapper:focus-within {
             box-shadow:
-                0 8px 24px rgba(37, 167, 105, 0.12),
-                0 0 0 2px rgba(37, 167, 105, 0.15);
-            border-color: rgba(37, 167, 105, 0.6);
+                0 0 0 2px hsl(158 64% 50% / 0.2),
+                0 2px 4px hsl(150 10% 0% / 0.04),
+                0 12px 32px hsl(150 10% 0% / 0.08);
         }
 
         /* 扩展/收缩按钮样式 */
@@ -2843,23 +3102,28 @@
         .deep-thinking-btn {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 999px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            background: white;
-            color: var(--text-secondary);
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border-light);
+            background: transparent;
+            color: var(--text-muted);
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s ease-out;
             height: auto;
         }
 
-        /* 深度思考激活状态：与销售话术激活样式一致 */
+        .deep-thinking-btn:hover {
+            border-color: var(--border);
+            color: var(--text-secondary);
+        }
+
+        /* 深度思考激活状态 */
         .deep-thinking-btn.active {
-            background: rgba(37, 167, 105, 0.08);
-            border-color: rgba(37, 167, 105, 0.2);
+            background: var(--accent-ultra-soft);
+            border-color: hsl(158 64% 50% / 0.25);
             color: var(--primary);
         }
 
@@ -2867,28 +3131,25 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #25A769, #34C67D);
+            background: var(--accent);
             color: white;
             border: none;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease-out;
             padding: 0;
-            box-shadow: 0 2px 8px rgba(37, 167, 105, 0.3);
+            box-shadow: none;
         }
 
         .chatbot-send-btn:hover:not(:disabled) {
-            background: linear-gradient(135deg, #34C67D, #25A769);
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(37, 167, 105, 0.4);
+            background: var(--accent-hover);
         }
 
         .chatbot-send-btn:disabled {
-            background: #ccc;
+            background: var(--border);
             cursor: not-allowed;
-            opacity: 0.6;
             box-shadow: none;
         }
 
@@ -2898,68 +3159,93 @@
             stroke-width: 2;
         }
 
-        /* 思考过程折叠样式 */
+        /* ============================================
+           思考过程折叠区域 — 毛玻璃风格
+           ============================================ */
         .thinking-container {
-            margin-bottom: 16px;
-            border-radius: 8px;
+            margin-bottom: 0;
+            border-radius: 12px;
             overflow: hidden;
-            border: 1px solid var(--divider);
-            background-color: var(--bg);
+            border: none;
+            background: hsla(158, 40%, 50%, 0.06);
+            box-shadow: none;
+            transition: background 0.3s;
+        }
+
+        .thinking-container:hover {
+            background: hsla(158, 40%, 50%, 0.06);
         }
 
         .thinking-header {
-            padding: 8px 16px;
-            background-color: var(--surface-hover);
+            padding: 10px 16px;
+            background: transparent;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: space-between;
             font-size: 13px;
-            color: var(--text-secondary);
+            color: hsl(158, 25%, 30%);
             user-select: none;
+            transition: background 0.2s;
+            border-radius: 12px;
         }
 
         .thinking-header:hover {
-            background-color: var(--divider);
+            background: transparent;
         }
 
         .thinking-title {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+        }
+
+        .thinking-title span {
+            font-weight: 500;
+            letter-spacing: 0.01em;
         }
 
         .thinking-icon {
-            width: 14px;
-            height: 14px;
-            transition: transform 0.3s;
+            width: 15px;
+            height: 15px;
+            color: var(--accent);
+            opacity: 0.7;
+            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), opacity 0.3s;
             transform: rotate(180deg);
-            /* 展开时：向上 */
+        }
+
+        .thinking-header:hover .thinking-icon {
+            opacity: 0.7;
         }
 
         .thinking-container.collapsed .thinking-icon {
             transform: rotate(0deg);
-            /* 收起时：向下 */
         }
 
         .thinking-content {
-            padding: 12px 16px;
+            padding: 0 16px 14px;
             font-size: 13px;
-            color: var(--text-secondary);
-            line-height: 1.6;
+            color: hsl(158, 20%, 35%);
+            line-height: 1.75;
             white-space: pre-wrap;
-            border-top: 1px solid var(--divider);
-            transition: max-height 0.3s ease-out;
+            border-top: none;
+            margin: 0;
+            padding-top: 12px;
+            transition: max-height 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        padding 0.35s cubic-bezier(0.2, 0, 0, 1),
+                        opacity 0.25s;
             max-height: 4000px;
             overflow-y: auto;
+            opacity: 1;
         }
 
         .thinking-container.collapsed .thinking-content {
             max-height: 0;
             padding-top: 0;
             padding-bottom: 0;
+            margin-top: 0;
             border-top-color: transparent;
-
+            opacity: 0;
         }
 
         .thinking-container.finished .thinking-icon {
@@ -2968,6 +3254,34 @@
 
         .thinking-container.collapsed.finished .thinking-icon {
             transform: rotate(0deg);
+        }
+
+        /* 思考中状态 — 脉冲呼吸动画 */
+        .thinking-container:not(.finished):not(.collapsed) {
+            animation: thinkingPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes thinkingPulse {
+            0%, 100% { background: hsla(158, 40%, 50%, 0.06); }
+            50%      { background: hsla(158, 40%, 50%, 0.10); }
+        }
+
+        /* 滚动条美化 */
+        .thinking-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .thinking-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .thinking-content::-webkit-scrollbar-thumb {
+            background: hsla(158, 20%, 60%, 0.25);
+            border-radius: 4px;
+        }
+
+        .thinking-content::-webkit-scrollbar-thumb:hover {
+            background: hsla(158, 20%, 60%, 0.4);
         }
 
         /* 第5步：只保留输入框的边框，删除其他所有框线 */
@@ -2998,16 +3312,25 @@
                 width: 220px;
             }
 
+            /* 窄屏：竖向步骤条隐藏标签，缩窄宽度；移除右侧占位 */
             .stepper {
-                flex-wrap: wrap;
+                width: auto;
+            }
+
+            .step-label {
+                display: none;
             }
 
             .step {
-                flex-basis: 50%;
-                margin-bottom: 20px;
+                gap: 0;
+                justify-content: center;
             }
 
-            .step:nth-child(2)::after {
+            .content-wrapper {
+                gap: 16px;
+            }
+
+            .content-wrapper::after {
                 display: none;
             }
         }
@@ -3016,6 +3339,46 @@
             body {
                 flex-direction: column;
                 padding: var(--space-md);
+            }
+
+            /* 移动端：步骤条回归水平排列 */
+            .content-wrapper {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .content-wrapper::after {
+                display: none;
+            }
+
+            .stepper {
+                position: sticky;
+                top: 0;
+                left: auto;
+                flex-direction: row;
+                width: auto;
+                margin: 0 16px 12px;
+                align-self: stretch;
+                border-radius: var(--radius-pill);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .step {
+                flex: 1;
+                justify-content: center;
+                padding: 8px 4px;
+                border-radius: var(--radius-pill);
+            }
+
+            .step-label {
+                display: none;
+            }
+
+            .step {
+                gap: 0;
             }
 
             .sidebar {
@@ -3028,8 +3391,8 @@
             }
 
             .back-to-home-btn {
-                top: 40px;
-                /* 移动端：main-content padding (20px) + stepper margin-top (20px) */
+                top: 32px;
+                /* 移动端：main-content padding (20px) + stepper margin-top (12px) */
                 left: 16px;
                 width: 36px;
                 height: 36px;
@@ -3108,11 +3471,8 @@
             }
 
             .chatbot-input-area {
-                left: 20px;
-                right: 20px;
-                width: calc(100% - 40px);
+                width: 100%;
                 max-width: none;
-                transform: none;
             }
 
             .page-header {
@@ -3124,15 +3484,27 @@
             }
 
             .stepper {
-                flex-direction: column;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                padding: 12px 16px;
+            }
+
+            .step-label {
+                display: none;
             }
 
             .step {
-                flex-basis: 100%;
+                gap: 0;
             }
 
             .step::after {
-                display: none !important;
+                left: calc(50% + 20px) !important;
+                width: calc(100% - 40px) !important;
+            }
+
+            .stepper.stepper--collapsed .step::after {
+                left: calc(50% + 16px) !important;
+                width: calc(100% - 32px) !important;
             }
 
             .button-group {
@@ -3427,9 +3799,9 @@
         .step.from-bookmark::before {
             content: '\1F4D1';
             position: absolute;
-            top: -8px;
-            right: -8px;
-            font-size: 18px;
+            top: -6px;
+            right: -4px;
+            font-size: 14px;
             z-index: 10;
             animation: bookmarkBounce 0.6s ease-out;
         }

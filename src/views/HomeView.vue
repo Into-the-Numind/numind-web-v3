@@ -7,74 +7,115 @@
     </div>
 
     <template v-else>
+      <!-- Hero 区域 -->
+      <div class="hero-section">
+        <div class="hero-content">
+          <h1 class="hero-title">
+            {{ greeting }}，{{ displayName }}
+            <br />
+            <span class="hero-title-sub">开始今天的工作吧</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- SOP 工作流 -->
       <div class="workspace-section">
-        <div class="workspace-section-title">已上线</div>
-        <div class="cards-grid">
+        <div class="section-label">SOP 工作流</div>
+        <div class="feature-cards">
           <button
-            v-for="workflow in onlineWorkflows"
+            v-for="(workflow, index) in sopWorkflows"
             :key="workflow.key"
             type="button"
-            class="card"
-            :class="{
-              loading: launchingWorkflowKey === workflow.key,
-              'no-permission': workflow.type === 'agent' && !hasSalesPermission
-            }"
+            class="feature-card"
+            :class="{ loading: launchingWorkflowKey === workflow.key }"
             :disabled="launchingWorkflowKey === workflow.key"
             @click="handleWorkflowClick(workflow)"
           >
-            <!-- 销售智能体专用图标 -->
-            <svg v-if="workflow.type === 'agent'" class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="10" r="4" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <path d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M20 10L24 6M24 6L28 10M24 6V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <!-- Lock icon for no-permission -->
-            <svg v-if="workflow.type === 'agent' && !hasSalesPermission" class="lock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <!-- SOP 工作流图标 -->
-            <svg v-if="workflow.type !== 'agent'" class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-              <path
-                d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              />
-              <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
-              <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
-            </svg>
-            <div class="card-title">{{ workflow.title }}</div>
-            <div class="card-subtitle">{{ workflow.subtitle }}</div>
+            <div class="card-left">
+              <div class="feature-card-title">{{ workflow.title }}</div>
+              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
+            </div>
+            <div class="card-right">
+              <div class="feature-card-icon" :class="'icon-variant-' + (index % 3)">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
+                  <path d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
+                  <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+                </svg>
+              </div>
+              <div class="feature-card-label">SOP 工作流</div>
+            </div>
           </button>
         </div>
       </div>
 
+      <!-- AI 智能体 -->
       <div class="workspace-section">
-        <div class="workspace-section-title">本月上线</div>
-        <div class="cards-grid">
-          <div v-for="workflow in comingSoonWorkflows" :key="workflow.title" class="card disabled">
-            <svg class="workflow-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-              <path
-                d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              />
-              <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
-              <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+        <div class="section-label">AI 智能体</div>
+        <div class="feature-cards">
+          <button
+            v-for="(workflow, index) in agentWorkflows"
+            :key="workflow.key"
+            type="button"
+            class="feature-card"
+            :class="{
+              loading: launchingWorkflowKey === workflow.key,
+              'no-permission': !hasSalesPermission
+            }"
+            :disabled="launchingWorkflowKey === workflow.key"
+            @click="handleWorkflowClick(workflow)"
+          >
+            <svg v-if="!hasSalesPermission" class="lock-badge" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            <div class="card-title">{{ workflow.title }}</div>
-            <div class="card-subtitle">{{ workflow.subtitle }}</div>
+            <div class="card-left">
+              <div class="feature-card-title">{{ workflow.title }}</div>
+              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
+            </div>
+            <div class="card-right">
+              <div class="feature-card-icon" :class="'icon-variant-' + ((index + 1) % 3)">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="16" cy="10" r="4" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                  <path d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <path d="M20 10L24 6M24 6L28 10M24 6V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="feature-card-label">AI 智能体</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 即将上线 -->
+      <div class="workspace-section">
+        <div class="section-label">即将上线</div>
+        <div class="feature-cards">
+          <div v-for="workflow in comingSoonWorkflows" :key="workflow.title" class="feature-card disabled">
+            <div class="card-left">
+              <div class="feature-card-title">{{ workflow.title }}</div>
+              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
+            </div>
+            <div class="card-right">
+              <div class="feature-card-icon">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
+                  <path d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
+                  <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+                </svg>
+              </div>
+              <div class="feature-card-label">即将上线</div>
+            </div>
           </div>
         </div>
       </div>
+
     </template>
 
     <!-- 权限不足模态框 -->
@@ -106,6 +147,7 @@ import { useRouter } from 'vue-router'
 import request from '@/api/request'
 import { checkSalesPermission } from '@/api/sales'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import { useUserStore } from '@/stores/user'
 
 interface SopTemplate {
   ID?: number
@@ -124,6 +166,7 @@ interface OnlineWorkflow {
 }
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const templateWorkflows = ref<OnlineWorkflow[]>([])
 const launchingWorkflowKey = ref<string | null>(null)
@@ -132,14 +175,26 @@ const showPermissionModal = ref(false)
 const hasSalesPermission = ref(true)
 const permissionMessage = ref('')
 
+const displayName = computed(() => userStore.nickname || userStore.username || '用户')
+
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 6) return '夜深了'
+  if (hour < 12) return '早上好'
+  if (hour < 14) return '中午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
+
 const salesWorkflow: OnlineWorkflow = {
   key: 'agent-sales',
   type: 'agent',
   title: '销售智能体',
-  subtitle: 'AI驱动的智能销售助手，支持客户管理和多风格回复'
+  subtitle: 'AI驱动的智能销售助手'
 }
 
-const onlineWorkflows = computed<OnlineWorkflow[]>(() => [salesWorkflow, ...templateWorkflows.value])
+const sopWorkflows = computed<OnlineWorkflow[]>(() => templateWorkflows.value)
+const agentWorkflows = computed<OnlineWorkflow[]>(() => [salesWorkflow])
 
 const getTemplateId = (template: SopTemplate): number | null => {
   const rawId = template.ID ?? template.id ?? template.Id
@@ -281,7 +336,177 @@ const comingSoonWorkflows = [
 </script>
 
 <style scoped>
-/* 加载状态 */
+/* ===== Hero Section ===== */
+.hero-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto 48px;
+  padding: 20px 0 0;
+}
+
+.hero-content {
+  flex: 1;
+}
+
+.hero-title {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  font-weight: 700;
+  color: #1A1D26;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.hero-title-sub {
+  color: hsl(160, 55%, 44%);
+  font-weight: 500;
+}
+
+
+/* ===== Section ===== */
+.workspace-section {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+}
+
+.section-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #8B90A0;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  padding-left: 4px;
+}
+
+/* ===== Feature Cards (已上线) ===== */
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.feature-card {
+  appearance: none;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  text-align: left;
+  padding: 20px 20px 20px 22px;
+  min-height: 0;
+  gap: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E8E9EE;
+  border-radius: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  text-decoration: none;
+}
+
+.feature-card:hover {
+  transform: translateY(-3px);
+  background: #FFFFFF;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.08),
+    0 0 0 1px hsl(158 40% 80% / 0.5);
+  border-color: hsl(158, 50%, 78%);
+}
+
+.feature-card.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.feature-card.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
+}
+
+.feature-card.no-permission {
+  opacity: 0.5;
+  filter: grayscale(0.35);
+}
+
+.feature-card.no-permission:hover {
+  transform: none;
+  cursor: not-allowed;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  background: #FAFBFC;
+  border-color: #E8E9EE;
+}
+
+/* Card layout */
+.card-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Card icon */
+.feature-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(160, 50%, 62%);
+}
+
+.feature-card-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.feature-card-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: hsl(160, 45%, 58%);
+  white-space: nowrap;
+}
+
+/* Lock badge */
+.lock-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  color: #8B90A0;
+  opacity: 0.7;
+}
+
+.feature-card-title {
+  font-size: 17px;
+  font-weight: 650;
+  color: #1E2130;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.feature-card-desc {
+  font-size: 13.5px;
+  color: #6B7085;
+  line-height: 1.55;
+  flex: 1;
+}
+
+/* ===== Loading ===== */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -294,8 +519,8 @@ const comingSoonWorkflows = [
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--border-light);
-  border-top-color: var(--accent);
+  border: 3px solid #EEEFF3;
+  border-top-color: hsl(160, 75%, 42%);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 16px;
@@ -310,118 +535,11 @@ const comingSoonWorkflows = [
   color: var(--text-secondary);
 }
 
-.workspace-section {
-  margin-bottom: 40px;
-}
-
-.workspace-section-title {
-  font-family: var(--font-sans);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 20px;
-  max-width: 1600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.cards-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 40px;
-  max-width: 1600px;
-  margin: 0 auto;
-  justify-items: center;
-}
-
-.card {
-  appearance: none;
-  background-color: var(--surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  padding: 32px 24px;
-  box-shadow: var(--shadow-card);
-  position: relative;
-  transition: all 0.25s ease;
-  cursor: pointer;
-  text-decoration: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 180px;
-  width: 100%;
-  text-align: center;
-  font-family: var(--font-sans);
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  background-color: var(--accent-soft);
-  border-color: var(--accent);
-}
-
-.card.loading {
-  opacity: 0.75;
-  pointer-events: none;
-}
-
-.card.disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.card.disabled:hover {
-  transform: none;
-  box-shadow: var(--shadow-card);
-  background-color: var(--surface);
-  border-color: var(--border-light);
-}
-
-.workflow-icon {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
-  opacity: 0.6;
-  color: hsl(158, 64%, 70%);
-  transition: opacity 0.2s ease, color 0.2s ease;
-}
-
-.card:hover .workflow-icon {
-  opacity: 0.9;
-  color: hsl(158, 64%, 50%);
-}
-
-.card-title {
-  font-family: var(--font-sans);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.card-subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-.card-meta {
-  display: none;
-}
-
-/* 权限不足模态框 */
+/* ===== Permission Modal ===== */
 .permission-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.55);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -429,12 +547,13 @@ const comingSoonWorkflows = [
 }
 
 .permission-dialog {
-  background: var(--surface, #fff);
-  border-radius: 16px;
-  padding: 32px;
+  background: #FFFFFF;
+  border: 1px solid #E8E9EE;
+  border-radius: 20px;
+  padding: 36px;
   width: 90%;
-  max-width: 360px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 380px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   flex-direction: column;
@@ -450,82 +569,63 @@ const comingSoonWorkflows = [
 .permission-icon {
   width: 48px;
   height: 48px;
-  color: hsl(152, 69%, 41%);
+  color: hsl(160, 75%, 42%);
   margin-bottom: 16px;
 }
 
 .permission-title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--text, #1a1a1a);
+  color: #1E2130;
   margin-bottom: 8px;
 }
 
 .permission-desc {
   font-size: 14px;
-  color: var(--text-secondary, #6b7280);
+  color: #6B7085;
   line-height: 1.5;
   margin-bottom: 24px;
 }
 
 .permission-btn {
-  padding: 10px 32px;
-  border-radius: 10px;
+  padding: 10px 36px;
+  border-radius: 12px;
   border: none;
-  background: hsl(152, 69%, 41%);
+  background: hsl(160, 75%, 42%);
   color: #fff;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 2px 10px hsl(160 75% 42% / 0.25);
 }
 
 .permission-btn:hover {
-  background: hsl(152, 69%, 35%);
+  background: hsl(160, 75%, 36%);
+  box-shadow: 0 4px 16px hsl(160 75% 42% / 0.35);
+  transform: translateY(-1px);
 }
 
-@media (max-width: 1400px) {
-  .cards-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 1024px) {
-  .cards-grid {
+/* ===== Responsive ===== */
+@media (max-width: 1100px) {
+  .feature-cards {
     grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
   }
 }
 
 @media (max-width: 768px) {
-  .cards-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  .hero-section {
+    flex-direction: column;
+    margin-bottom: 32px;
   }
-}
 
-/* No permission card */
-.card.no-permission {
-  opacity: 0.55;
-  filter: grayscale(0.4);
-  position: relative;
-}
+  .hero-title {
+    font-size: 28px;
+  }
 
-.card.no-permission:hover {
-  transform: none;
-  box-shadow: var(--shadow-card);
-  background-color: var(--surface);
-  border-color: var(--border-light);
-  cursor: not-allowed;
-}
 
-.lock-icon {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  width: 20px;
-  height: 20px;
-  color: var(--text-secondary);
-  opacity: 0.6;
+  .feature-cards {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
