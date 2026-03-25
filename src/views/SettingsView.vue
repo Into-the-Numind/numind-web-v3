@@ -192,6 +192,7 @@ const isPremium = computed(() => tier.value === 'premium' || tier.value === 'vip
 const tierLabel = computed(() => {
   const labels: Record<string, string> = {
     free: '免费用户',
+    trial: '体验会员',
     standard: '普通会员',
     premium: '高级会员',
     vip: '高级会员',
@@ -404,6 +405,11 @@ onMounted(() => {
   font-weight: 600;
   background: #F3F4F6;
   color: #6B7280;
+}
+
+.settings-page[data-tier='trial'] .badge-tier {
+  background: #EFF6FF;
+  color: #2563EB;
 }
 
 .settings-page[data-tier='standard'] .badge-tier {

@@ -65,6 +65,15 @@
             </button>
             <button
               class="filter-btn"
+              :class="{ active: activeFilter === 'trial' }"
+              @click="setFilter('trial')"
+            >
+              <span class="filter-dot trial"></span>
+              体验会员
+              <span class="filter-count">{{ trialCount }}</span>
+            </button>
+            <button
+              class="filter-btn"
               :class="{ active: activeFilter === 'standard' }"
               @click="setFilter('standard')"
             >
@@ -300,6 +309,10 @@
                 <div class="tier-section">
                   <div class="tier-divider"><span>会员设置（可选）</span></div>
                   <div class="tier-toggle">
+                    <label class="tier-option" :class="{ active: registerForm.tier === 'trial' }">
+                      <input v-model="registerForm.tier" type="radio" name="register-tier" value="trial" />
+                      <span>体验会员</span>
+                    </label>
                     <label class="tier-option" :class="{ active: registerForm.tier === 'standard' }">
                       <input v-model="registerForm.tier" type="radio" name="register-tier" value="standard" />
                       <span>普通会员</span>
@@ -309,7 +322,10 @@
                       <span>高级会员</span>
                     </label>
                   </div>
-                  <div v-if="registerForm.tier !== 'free'" class="tier-detail">
+                  <div v-if="registerForm.tier === 'trial'" class="tier-detail">
+                    <div class="tier-preview">体验会员：3天 / 10次SOP运行 / ¥9.9</div>
+                  </div>
+                  <div v-if="registerForm.tier !== 'free' && registerForm.tier !== 'trial'" class="tier-detail">
                     <div class="form-group form-group--compact">
                       <label class="form-label">开通时长</label>
                       <select v-model="registerForm.months" class="form-input form-select">
@@ -481,6 +497,18 @@
                   <div
                     v-if="getActualTier(tierTarget) === 'free'"
                     class="upgrade-card"
+                    :class="{ selected: tierForm.tier === 'trial' }"
+                    @click="tierForm.tier = 'trial'"
+                  >
+                    <div class="upgrade-radio" :class="{ active: tierForm.tier === 'trial' }"></div>
+                    <div>
+                      <div class="upgrade-name trial">体验会员</div>
+                      <div class="upgrade-desc">3天 / 10次SOP运行 / ¥9.9</div>
+                    </div>
+                  </div>
+                  <div
+                    v-if="getActualTier(tierTarget) === 'free' || getActualTier(tierTarget) === 'trial'"
+                    class="upgrade-card"
                     :class="{ selected: tierForm.tier === 'standard' }"
                     @click="tierForm.tier = 'standard'"
                   >
@@ -503,13 +531,16 @@
                   </div>
                 </div>
 
-                <div class="form-group">
+                <div v-if="tierForm.tier === 'trial'" class="tier-preview">
+                  体验会员固定3天有效期，无需选择时长
+                </div>
+                <div v-if="tierForm.tier && tierForm.tier !== 'trial'" class="form-group">
                   <label class="form-label">开通时长</label>
                   <select v-model="tierForm.months" class="form-input form-select">
                     <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
                   </select>
                 </div>
-                <div v-if="tierForm.tier" class="tier-preview">
+                <div v-if="tierForm.tier && tierForm.tier !== 'trial'" class="tier-preview">
                   到期日期：<strong>{{ tierExpirePreview }}</strong>
                   <span class="tier-preview-hint">（每月按 30 天计算）</span>
                 </div>
@@ -583,10 +614,10 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 20
 const selectedIds = reactive(new Set<number | string>())
-const activeFilter = ref<'all' | 'free' | 'standard' | 'premium'>('all')
+const activeFilter = ref<'all' | 'free' | 'trial' | 'standard' | 'premium'>('all')
 
 // Register
-type TierValue = 'free' | 'standard' | 'premium'
+type TierValue = 'free' | 'trial' | 'standard' | 'premium'
 const showRegisterModal = ref(false)
 const registerForm = ref<{ username: string; password: string; nickname: string; tier: TierValue; months: number }>({ username: '', password: '', nickname: '', tier: 'free', months: 1 })
 const isRegistering = ref(false)
@@ -655,6 +686,7 @@ const isPermAllSelected = computed(() => {
 })
 
 const freeCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'free').length)
+const trialCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'trial').length)
 const standardCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'standard').length)
 const premiumCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'premium').length)
 
@@ -755,7 +787,7 @@ function handleSearch() {
   searchTimer = setTimeout(() => { currentPage.value = 1 }, 300)
 }
 
-function setFilter(f: 'all' | 'free' | 'standard' | 'premium') {
+function setFilter(f: 'all' | 'free' | 'trial' | 'standard' | 'premium') {
   activeFilter.value = f
   currentPage.value = 1
 }
@@ -797,8 +829,8 @@ function validateRegisterForm(): string | null {
   if (p.length < 6 || p.length > 18) return '密码需要6-18位'
   if (!n.trim() || n.trim().length < 2 || n.trim().length > 20) return '昵称需要2-20位'
   if (tier !== 'free') {
-    if (!['standard', 'premium'].includes(tier)) return '无效的会员等级'
-    if (!months || months < 1 || months > 12) return '开通时长需要1-12个月'
+    if (!['trial', 'standard', 'premium'].includes(tier)) return '无效的会员等级'
+    if (tier !== 'trial' && (!months || months < 1 || months > 12)) return '开通时长需要1-12个月'
   }
   return null
 }
@@ -942,13 +974,17 @@ function getActualTier(user: SubUser): string {
 
 function getTierClass(user: SubUser) {
   const t = getActualTier(user)
-  return t === 'premium' ? 'tier-premium' : t === 'standard' ? 'tier-standard' : 'tier-free'
+  if (t === 'premium') return 'tier-premium'
+  if (t === 'standard') return 'tier-standard'
+  if (t === 'trial') return 'tier-trial'
+  return 'tier-free'
 }
 
 function getTierLabel(user: SubUser) {
   const tier = user.user_tier || 'free'
   const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
   if (isExpired || tier === 'free') return '免费用户'
+  if (tier === 'trial') return '体验会员'
   if (tier === 'premium') return '高级会员'
   if (tier === 'standard') return '普通会员'
   return '免费用户'
@@ -973,7 +1009,10 @@ function handleMenuUpgrade(user: SubUser) { if (!canUpgrade(user)) return; openM
 function openTierModal(user: SubUser) {
   tierTarget.value = user
   const actual = getActualTier(user)
-  tierForm.value = { tier: actual === 'free' ? 'standard' : 'premium', months: 1 }
+  let defaultTier = 'premium'
+  if (actual === 'free') defaultTier = 'trial'
+  else if (actual === 'trial') defaultTier = 'standard'
+  tierForm.value = { tier: defaultTier, months: 1 }
   showTierModal.value = true
 }
 
@@ -1137,6 +1176,7 @@ async function handleTierUpgrade() {
 
 .filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .filter-dot.free { background: hsl(0, 0%, 65%); }
+.filter-dot.trial { background: hsl(217, 71%, 53%); }
 .filter-dot.standard { background: hsl(158, 64%, 45%); }
 .filter-dot.premium { background: hsl(45, 90%, 50%); box-shadow: 0 0 5px hsl(45 90% 50% / 0.4); }
 
@@ -1279,6 +1319,7 @@ async function handleTierUpgrade() {
 }
 
 .tier-free { background: hsl(0, 0%, 93%); color: hsl(150, 10%, 45%); }
+.tier-trial { background: hsl(217, 91%, 95%); color: hsl(217, 71%, 45%); }
 .tier-standard { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
 .tier-premium { background: hsl(45, 90%, 94%); color: hsl(35, 80%, 35%); }
 
@@ -1896,6 +1937,7 @@ async function handleTierUpgrade() {
 }
 
 .upgrade-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.upgrade-name.trial { color: hsl(217, 71%, 45%); }
 .upgrade-name.standard { color: hsl(158, 64%, 35%); }
 .upgrade-name.premium { color: hsl(45, 100%, 40%); }
 .upgrade-desc { font-size: 13px; color: hsl(155, 12%, 50%); }
