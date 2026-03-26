@@ -7339,8 +7339,11 @@
         await __sopDOMContentLoadedMain();
         __sopDOMContentLoadedChat();
 
-        // ===== 步骤条滚动折叠 =====
+        // ===== 步骤条滚动折叠（仅桌面端） =====
         (function initStepperCollapse() {
+            // 移动端禁用折叠 — 无 hover 交互，折叠后无法展开
+            if (window.matchMedia('(max-width: 768px)').matches) return;
+
             const mainContent = document.querySelector('.main-content');
             const stepper = document.querySelector('.stepper');
             if (!mainContent || !stepper) return;

@@ -3370,17 +3370,32 @@
                 overflow: visible;
             }
 
-            /* 移动端禁用 stepper 折叠 — 始终展示所有步骤 */
+            /* 移动端完全禁用 stepper 折叠 — 用 !important 强制覆盖 */
             .stepper.stepper--collapsed {
-                width: auto;
-                background: hsla(0, 0%, 100%, 0.92);
+                width: auto !important;
+                flex-direction: row !important;
+                padding: 8px 10px !important;
+                background: hsla(0, 0%, 100%, 0.92) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
+            }
+
+            .stepper.stepper--collapsed .step {
+                flex: 1 !important;
+                justify-content: center !important;
+                padding: 6px 2px !important;
+                gap: 0 !important;
             }
 
             .stepper.stepper--collapsed .step-number {
-                width: 28px;
-                height: 28px;
-                min-width: 28px;
-                font-size: 12px;
+                width: 28px !important;
+                height: 28px !important;
+                min-width: 28px !important;
+                font-size: 12px !important;
+            }
+
+            .stepper.stepper--collapsed .step-label {
+                display: none !important;
             }
 
             .main-content {
@@ -3522,18 +3537,14 @@
                 overflow: visible;
             }
 
-            /* 第五步：使用 flex column 布局，消息在上、输入在下 */
-            #step-5.step-content {
-                display: flex !important;
-                flex-direction: column !important;
-                height: calc(100dvh - 100px) !important;
-                overflow: hidden !important;
+            /* ===== 第五步：输入框固定在底部，消息区可滚动 ===== */
+
+            /* 让 main-content 在第五步时可滚动并留出底部输入框空间 */
+            .main-content.step-5-active {
+                padding-bottom: 120px !important;
             }
 
-            #step-5.step-content:not(.active) {
-                display: none !important;
-            }
-
+            /* 聊天消息容器 — 正常文档流，跟随 main-content 滚动 */
             #step-5 .chatbot-container {
                 position: relative !important;
                 left: auto !important;
@@ -3541,24 +3552,32 @@
                 width: 100% !important;
                 max-width: none !important;
                 margin: 0 !important;
-                padding: 0 12px !important;
+                padding: 0 4px !important;
                 box-sizing: border-box !important;
-                flex: 1 !important;
-                overflow-y: auto !important;
+                overflow: visible !important;
                 min-height: 0 !important;
             }
 
             #step-5 .chatbot-messages {
-                padding: 16px 0 12px 0 !important;
+                padding: 12px 0 !important;
+                overflow: visible !important;
             }
 
+            /* 输入框 — 固定在屏幕底部 */
             .chatbot-input-area {
-                width: 100%;
-                max-width: none;
-                padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-                position: relative !important;
-                bottom: auto !important;
-                flex-shrink: 0;
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                width: 100% !important;
+                max-width: none !important;
+                z-index: 200 !important;
+                padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+                background: linear-gradient(to bottom,
+                    hsla(150, 20%, 97%, 0) 0%,
+                    hsl(150, 20%, 97%) 8px,
+                    hsl(150, 20%, 97%) 100%) !important;
+                box-sizing: border-box !important;
             }
 
             .chatbot-input-wrapper {
@@ -3566,7 +3585,7 @@
             }
 
             .chatbot-input {
-                font-size: 15px;
+                font-size: 16px !important;
             }
 
             /* 消息气泡 */
