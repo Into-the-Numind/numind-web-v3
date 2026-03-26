@@ -8,6 +8,7 @@
     <div class="app-container">
       <!-- Sidebar -->
       <SessionSidebar
+        :mobile-open="sidebarOpen"
         @new-chat="showNewChatModal = true"
         @rename="openRenameModal"
         @delete="openDeleteModal"
@@ -363,6 +364,7 @@ body.sales-agent-route #app {
 
 .sidebar-overlay.show {
   display: block;
+  touch-action: none;
 }
 
 /* Start chat container */
@@ -396,11 +398,12 @@ body.sales-agent-route #app {
 
 @media (max-width: 768px) {
   .back-to-home-btn {
-    top: 12px;
-    left: 12px;
-    width: 36px;
-    height: 36px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: 10px;
+    width: 34px;
+    height: 34px;
     border-radius: 10px;
+    z-index: 15;
   }
 }
 </style>

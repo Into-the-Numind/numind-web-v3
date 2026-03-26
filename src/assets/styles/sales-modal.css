@@ -350,23 +350,65 @@
 
 /* ---- Mobile Responsive ---- */
 @media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
   .modal-card {
-    max-width: 95%;
+    max-width: 100%;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    max-height: 85vh;
   }
 
   .modal-card-compact {
-    max-width: 95%;
+    max-width: 100%;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal-card-simple {
+    max-width: 100%;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
   }
 
   .profile-modal-card {
-    max-width: 95%;
+    max-width: 100%;
+    width: 100%;
     max-height: 90vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+  }
+
+  .modal-footer {
+    padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    flex-direction: column;
+  }
+
+  .modal-footer-compact {
+    padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .profile-modal-body {
+    padding: 16px 20px;
+  }
+
+  .profile-modal-footer {
+    padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    flex-direction: column;
+    gap: 8px;
   }
 
   .btn-secondary,
-  .btn-primary {
+  .btn-primary,
+  .btn-danger {
     width: 100%;
     justify-content: center;
+    padding: 12px 24px;
   }
 }
 

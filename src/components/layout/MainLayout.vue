@@ -50,12 +50,15 @@ import Sidebar from './AppSidebar.vue'
 @media (max-width: 768px) {
   .app-shell {
     flex-direction: column;
-    padding: 8px;
+    padding: 0;
   }
 
   .main-panel {
-    border-radius: 18px;
-    padding: 20px 16px;
+    border-radius: 0;
+    border: none;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(var(--mobile-tab-bar-height, 64px) + 16px);
+    box-shadow: none;
+    height: 100dvh;
   }
 }
 </style>

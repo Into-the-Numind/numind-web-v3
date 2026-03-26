@@ -616,16 +616,34 @@ const comingSoonWorkflows = [
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
+    padding: 12px 0 0;
   }
 
   .hero-title {
-    font-size: 28px;
+    font-size: 24px;
   }
 
+  .workspace-section {
+    margin-bottom: 28px;
+  }
 
   .feature-cards {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .feature-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .feature-card-title {
+    font-size: 15px;
+  }
+
+  .feature-card-desc {
+    font-size: 13px;
   }
 }
 </style>

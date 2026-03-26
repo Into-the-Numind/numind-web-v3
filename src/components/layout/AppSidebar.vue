@@ -397,57 +397,58 @@ const isActive = (path: string) => {
   }
 }
 
-/* ===== Mobile — no sidebar animation ===== */
+/* ===== Mobile — bottom tab bar ===== */
 @media (max-width: 768px) {
   .sidebar,
   .sidebar.collapsed {
     width: 100%;
     height: auto;
     flex-direction: row;
-    padding: 10px 16px;
-    gap: 2px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: 0;
     transition: none;
     will-change: auto;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: hsl(160, 30%, 97%);
+    border-right: none;
+    border-top: 1px solid hsla(160, 20%, 88%, 0.6);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+    justify-content: center;
   }
 
   .sidebar-logo {
-    margin-bottom: 0;
-    margin-right: 12px;
-    padding: 0;
-  }
-
-  .logo-text {
-    font-size: 13px;
-    max-width: none;
-    opacity: 1;
-    transition: none;
-  }
-
-  .logo-mark {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    font-size: 14px;
-    border-radius: 9px;
-    animation: none !important;
+    display: none;
   }
 
   .nav-menu {
     flex-direction: row;
-    gap: 2px;
+    gap: 0;
     padding: 0;
+    flex: 1;
+    justify-content: space-around;
   }
 
   .nav-item {
-    padding: 8px 10px;
-    font-size: 12px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 10px;
+    gap: 3px;
+    border-radius: 10px;
+    min-width: 0;
+    flex: 1;
     transition: color 200ms ease, background 200ms ease;
   }
 
   .nav-icon-svg {
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
     animation: none !important;
   }
 
@@ -455,17 +456,20 @@ const isActive = (path: string) => {
     max-width: none;
     opacity: 1;
     transition: none;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .collapsed .nav-label {
+    max-width: none;
+    opacity: 1;
+  }
+
+  .collapsed .nav-item {
+    gap: 3px;
   }
 
   .sidebar-bottom {
-    margin-top: 0;
-    margin-left: auto;
-    flex-direction: row;
-    padding: 0;
-    gap: 0;
-  }
-
-  .toggle-btn {
     display: none;
   }
 }
