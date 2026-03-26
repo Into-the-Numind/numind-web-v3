@@ -1,5 +1,5 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ 'mobile-open': mobileOpen }">
     <button class="new-chat-btn" @click="emit('newChat')">
       <Plus :size="18" />
       <span>新对话</span>
@@ -45,6 +45,10 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { Plus, MessageSquare, Pin, PinOff, MoreVertical, Edit3, Trash2 } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import type { SalesSession } from '@/api/sales'
+
+defineProps<{
+  mobileOpen?: boolean
+}>()
 
 const store = useSalesStore()
 
@@ -276,5 +280,32 @@ onBeforeUnmount(() => {
 
 .session-menu-item.danger:hover {
   background: rgba(239, 68, 68, 0.08);
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 25;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    padding-top: 60px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .session-menu-btn {
+    opacity: 1;
+  }
 }
 </style>

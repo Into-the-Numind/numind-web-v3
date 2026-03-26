@@ -328,6 +328,28 @@ async function copyMessage() {
   transform: scale(1.05);
 }
 
+/* ===== Mobile ===== */
+@media (max-width: 768px) {
+  .message {
+    max-width: 92%;
+  }
+
+  .msg-bubble {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    border-radius: 14px;
+  }
+
+  .message-img-grid {
+    grid-template-columns: repeat(2, minmax(45px, 1fr));
+  }
+
+  .message-img-item {
+    width: 50px;
+    height: 42px;
+  }
+}
+
 .msg-bubble.img-only {
   padding: 8px;
 }

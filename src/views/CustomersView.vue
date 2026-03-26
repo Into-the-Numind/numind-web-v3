@@ -1974,24 +1974,30 @@ async function handleTierUpgrade() {
 }
 
 @media (max-width: 768px) {
-  .hero-section { flex-direction: column; gap: 16px; }
-  .hero-title { font-size: 28px; }
+  .hero-section { flex-direction: column; gap: 12px; }
+  .hero-title { font-size: 24px; }
 
-  .toolbar { flex-direction: column; align-items: flex-start; }
-  .filter-bar { gap: 6px; }
-  .filter-btn { padding: 7px 12px; font-size: 12px; }
+  .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .filter-bar { gap: 4px; flex-wrap: wrap; }
+  .filter-btn { padding: 7px 10px; font-size: 12px; }
   .search-box { width: 100%; }
   .search-input { width: 100%; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 
+  .table-container { border-radius: 14px; }
+  .data-table { font-size: 13px; }
+  .data-table th { padding: 10px 12px; font-size: 11px; }
+  .data-table td { padding: 10px 12px; }
 
   .manage-bar {
-    left: 16px;
-    right: 16px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-tab-bar-height, 64px) + 8px);
     transform: none;
     width: auto;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 8px;
   }
 
   .bar-slide-enter-from, .bar-slide-leave-to { transform: translateY(20px); }

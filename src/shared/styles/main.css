@@ -76,3 +76,27 @@ select {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
+/* ===== Mobile Global ===== */
+@media (max-width: 768px) {
+  :root {
+    --mobile-tab-bar-height: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Prevent text size adjust on iOS */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Thinner scrollbars on mobile */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  /* Prevent overscroll bounce on iOS */
+  body {
+    overscroll-behavior: none;
+  }
+}

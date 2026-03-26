@@ -1220,14 +1220,16 @@ function getCategoryEditHint(): string {
 }
 
 /* Responsive */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .kb-overview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .kb-modal-card {
-    max-width: 95%;
+    max-width: 100%;
+    width: 100%;
     max-height: 90vh;
+    border-radius: 20px 20px 0 0;
   }
 }
 </style>

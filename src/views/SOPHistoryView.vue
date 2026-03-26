@@ -1156,29 +1156,32 @@ onMounted(() => {
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
   }
 
   .hero-title {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .filter-bar {
-    gap: 8px;
+    gap: 4px;
+    flex-wrap: wrap;
   }
 
   .filter-btn {
-    padding: 8px 14px;
+    padding: 7px 10px;
     font-size: 12px;
   }
 
   .card-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .manage-bar {
-    left: 16px;
-    right: 16px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-tab-bar-height, 64px) + 8px);
     transform: none;
     width: auto;
   }
