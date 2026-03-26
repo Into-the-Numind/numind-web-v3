@@ -3338,13 +3338,13 @@
         @media (max-width: 768px) {
             body {
                 flex-direction: column;
-                padding: var(--space-md);
+                padding: 0;
             }
 
             /* 移动端：步骤条回归水平排列 */
             .content-wrapper {
                 flex-direction: column;
-                gap: 12px;
+                gap: 8px;
             }
 
             .content-wrapper::after {
@@ -3356,14 +3356,22 @@
                 top: 0;
                 left: auto;
                 flex-direction: row;
+                flex-wrap: nowrap;
                 width: auto;
-                margin: 0 16px 12px;
+                margin: 0;
+                padding: 10px 12px;
                 align-self: stretch;
-                border-radius: var(--radius-pill);
+                border-radius: 0;
+                background: hsla(0, 0%, 100%, 0.92);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                z-index: 50;
+                border-bottom: 1px solid hsl(150 15% 90% / 0.5);
             }
 
             .main-content {
                 margin-left: 0;
+                padding: 16px;
             }
 
             .step {
@@ -3371,56 +3379,37 @@
                 justify-content: center;
                 padding: 8px 4px;
                 border-radius: var(--radius-pill);
+                gap: 0;
             }
 
             .step-label {
                 display: none;
             }
 
-            .step {
-                gap: 0;
-            }
-
             .sidebar {
-                width: 100%;
-                max-height: 200px;
+                display: none;
             }
 
-            .main-content {
-                padding: 20px;
-            }
-
+            /* 隐藏旧版固定按钮（Vue 已在 top-bar 中提供） */
             .back-to-home-btn {
-                top: 32px;
-                /* 移动端：main-content padding (20px) + stepper margin-top (12px) */
-                left: 16px;
-                width: 36px;
-                height: 36px;
-                padding: 0;
-            }
-
-            .back-to-home-icon {
-                width: 18px;
-                height: 18px;
+                display: none;
             }
 
             .history-btn {
-                top: 40px;
-                right: 16px;
-                width: 36px;
-                height: 36px;
+                display: none;
             }
 
-            .history-icon {
-                width: 18px;
-                height: 18px;
-            }
-
+            /* 历史记录弹窗 — 底部 sheet */
             .history-modal {
-                width: 95%;
-                height: 95vh;
-                max-height: 95vh;
-                min-height: 500px;
+                width: 100%;
+                height: 90vh;
+                max-height: 90vh;
+                min-height: auto;
+                border-radius: 20px 20px 0 0;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
             }
 
             .history-list-header {
@@ -3428,51 +3417,123 @@
             }
 
             .history-list-content {
-                padding: 16px;
+                padding: 12px;
             }
 
             .history-run-header {
-                padding: 12px 16px;
+                padding: 10px 14px;
                 flex-wrap: wrap;
             }
 
             .history-run-info {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 8px;
+                gap: 6px;
             }
 
             .history-run-meta {
                 flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            /* 输入区域 */
+            .input-section {
+                margin-bottom: 12px;
+            }
+
+            .input-textarea {
+                min-height: 100px;
+                font-size: 14px;
+            }
+
+            .input-label {
+                flex-wrap: wrap;
                 gap: 8px;
             }
 
-            .chatbot-container {
-                margin-bottom: 70px;
-                /* 与输入框上边界相接 */
-                padding: 0 20px;
-                /* 移除上下内边距，由chatbot-messages的padding控制上下边界 */
-                max-height: calc(100vh - 400px + 70px);
-                /* 增加50px以容纳下边界的padding */
+            .label-actions {
+                flex-wrap: wrap;
+                gap: 6px;
             }
 
-            /* 第五步中，聊天容器位置完全由JavaScript控制，CSS不设置height和max-height */
+            .upload-btn,
+            .check-quality-btn {
+                font-size: 12px;
+                padding: 4px 10px;
+            }
+
+            /* 步骤标题 */
+            .step-content-header {
+                margin-bottom: 12px;
+            }
+
+            .step-content-title {
+                font-size: 18px;
+            }
+
+            .step-content-description {
+                font-size: 13px;
+            }
+
+            /* 提示信息 */
+            .page-tip {
+                font-size: 13px;
+                padding: 10px 12px;
+            }
+
+            /* 导航按钮 */
+            .nav-buttons {
+                flex-direction: column;
+                gap: 8px;
+                padding: 16px 0;
+            }
+
+            .nav-buttons .btn {
+                width: 100%;
+            }
+
+            /* 聊天容器 */
+            .chatbot-container {
+                margin-bottom: 60px;
+                padding: 0 12px;
+                max-height: calc(100dvh - 350px);
+            }
+
             #step-5 .chatbot-container {
                 position: absolute !important;
                 left: 50% !important;
                 transform: translateX(-50%) !important;
-                width: calc(100% - 48px) !important;
-                max-width: 1200px !important;
-                /* 不设置height和max-height，完全由JavaScript控制 */
+                width: calc(100% - 24px) !important;
+                max-width: none !important;
                 margin-bottom: 0 !important;
-                padding-left: 24px !important;
-                padding-right: 24px !important;
+                padding-left: 12px !important;
+                padding-right: 12px !important;
                 box-sizing: border-box !important;
             }
 
             .chatbot-input-area {
                 width: 100%;
                 max-width: none;
+                padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .chatbot-input-wrapper {
+                border-radius: 14px;
+            }
+
+            .chatbot-input {
+                font-size: 15px;
+            }
+
+            /* 消息气泡 */
+            .message-bubble {
+                max-width: 95%;
+                font-size: 14px;
+                padding: 10px 14px;
+            }
+
+            .chat-message {
+                padding: 8px 0;
             }
 
             .page-header {
@@ -3483,28 +3544,14 @@
                 display: none;
             }
 
-            .stepper {
-                flex-direction: row;
-                flex-wrap: nowrap;
-                padding: 12px 16px;
-            }
-
-            .step-label {
-                display: none;
-            }
-
-            .step {
-                gap: 0;
-            }
-
             .step::after {
-                left: calc(50% + 20px) !important;
-                width: calc(100% - 40px) !important;
+                left: calc(50% + 16px) !important;
+                width: calc(100% - 32px) !important;
             }
 
             .stepper.stepper--collapsed .step::after {
-                left: calc(50% + 16px) !important;
-                width: calc(100% - 32px) !important;
+                left: calc(50% + 14px) !important;
+                width: calc(100% - 28px) !important;
             }
 
             .button-group {
@@ -3513,6 +3560,39 @@
 
             .btn {
                 width: 100%;
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+
+            /* 确认对话框 — 底部 sheet */
+            .confirm-dialog {
+                width: 100%;
+                max-width: 100%;
+                border-radius: 20px 20px 0 0;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .confirm-dialog-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .confirm-dialog-btn {
+                width: 100%;
+            }
+
+            /* 质量检测结果 */
+            .quality-result {
+                font-size: 13px;
+            }
+
+            /* 图片预览 */
+            .image-preview-list {
+                gap: 6px;
             }
         }
 

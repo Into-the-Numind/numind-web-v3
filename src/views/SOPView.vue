@@ -799,4 +799,65 @@ onBeforeUnmount(() => {
   font-size: 13px;
   max-width: 420px;
 }
+
+/* ===== Mobile ===== */
+@media (max-width: 768px) {
+  :global(body.sop-route) {
+    height: 100dvh;
+  }
+
+  .sop-page-container {
+    height: 100dvh;
+  }
+
+  /* Top bar: compact for mobile with safe area */
+  .top-bar {
+    height: 48px;
+    min-height: 48px;
+    padding: env(safe-area-inset-top, 0px) 12px 0;
+    height: calc(48px + env(safe-area-inset-top, 0px));
+    min-height: calc(48px + env(safe-area-inset-top, 0px));
+  }
+
+  .top-bar-back {
+    width: 32px;
+    height: 32px;
+  }
+
+  .top-bar-title {
+    font-size: 14px;
+  }
+
+  .top-bar-action {
+    height: 32px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .top-bar-action-label {
+    display: none;
+  }
+
+  .top-bar-divider {
+    height: 16px;
+  }
+
+  /* Body: column layout on mobile */
+  :deep(.sop-body) {
+    flex-direction: column;
+  }
+
+  /* Legacy loading */
+  .legacy-loading {
+    height: 100dvh;
+  }
+
+  .legacy-error {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    max-width: none;
+    font-size: 12px;
+  }
+}
 </style>
