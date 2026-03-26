@@ -3352,22 +3352,35 @@
             }
 
             .stepper {
-                position: sticky;
-                top: 0;
-                left: auto;
-                flex-direction: row;
-                flex-wrap: nowrap;
-                width: auto;
-                margin: 0;
-                padding: 8px 10px;
-                align-self: stretch;
-                border-radius: 0;
-                background: hsla(0, 0%, 100%, 0.92);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                z-index: 50;
-                border-bottom: 1px solid hsl(150 15% 90% / 0.5);
-                overflow: visible;
+                /* 完全重置桌面端所有样式 */
+                position: sticky !important;
+                top: 0 !important;
+                left: auto !important;
+                right: auto !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 8px 10px !important;
+                align-self: stretch !important;
+                border-radius: 0 !important;
+                background: hsla(0, 0%, 100%, 0.95) !important;
+                z-index: 50 !important;
+                overflow: visible !important;
+                /* 重置桌面端的卡片效果 */
+                border: none !important;
+                border-bottom: 1px solid hsl(150 15% 90% / 0.5) !important;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+                transition: none !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                gap: 4px !important;
+            }
+
+            /* 禁用桌面端的 hover 展开 */
+            .stepper:hover {
+                width: 100% !important;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
             }
 
             /* 移动端完全禁用 stepper 折叠 — 用 !important 强制覆盖 */
@@ -3564,7 +3577,7 @@
             }
 
             /* 输入框 — 固定在屏幕底部 */
-            .chatbot-input-area {
+            .chatbot-input-area.show {
                 position: fixed !important;
                 bottom: 0 !important;
                 left: 0 !important;
@@ -3572,6 +3585,9 @@
                 width: 100% !important;
                 max-width: none !important;
                 z-index: 200 !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
                 padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
                 background: linear-gradient(to bottom,
                     hsla(150, 20%, 97%, 0) 0%,
