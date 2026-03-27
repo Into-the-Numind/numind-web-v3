@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginApi, getUserInfo } from '@/api/auth'
 import request from '@/api/request'
+import { getCreditBalance } from '@/api/credits'
 
 export interface UserInfo {
   id: string | number
@@ -19,6 +20,7 @@ export const useUserStore = defineStore('user', () => {
   const token = ref<string>(localStorage.getItem('token') || localStorage.getItem('auth_token') || '')
   const userInfo = ref<UserInfo | null>(null)
   const loading = ref(false)
+  const creditBalance = ref<number>(0)
 
   // Getters
   const isLoggedIn = computed(() => !!token.value)
@@ -85,16 +87,29 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async (): Promise<boolean> => {
     try {
       if (!token.value) return false
-      
+
       const res = await getUserInfo()
       if (res.code === 200 || res.code === 0) {
         setUserInfo(res.data)
+        fetchCreditBalance()
         return true
       }
       return false
     } catch (error) {
       console.error('获取用户信息失败:', error)
       return false
+    }
+  }
+
+  // 获取积分余额
+  const fetchCreditBalance = async () => {
+    try {
+      const res = await getCreditBalance()
+      if (res.data) {
+        creditBalance.value = res.data.balance
+      }
+    } catch (e) {
+      // 静默失败
     }
   }
 
@@ -130,6 +145,7 @@ export const useUserStore = defineStore('user', () => {
   const logout = () => {
     stopTokenValidation()
     clearToken()
+    creditBalance.value = 0
   }
 
   // 初始化（从本地存储恢复，兼容原版 auth_token / user_info key）
@@ -159,12 +175,14 @@ export const useUserStore = defineStore('user', () => {
     token,
     userInfo,
     loading,
+    creditBalance,
     isLoggedIn,
     username,
     nickname,
     login,
     logout,
     fetchUserInfo,
+    fetchCreditBalance,
     init,
     setToken,
     clearToken,
