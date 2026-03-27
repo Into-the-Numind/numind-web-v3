@@ -46,21 +46,33 @@
       <div class="settings-section">
         <div class="section-label">会员信息</div>
         <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-label">当前套餐</div>
-            <div class="row-value">
-              <span class="badge-tier">{{ tierLabel }}</span>
+          <template v-if="isOldMember">
+            <div class="settings-row">
+              <div class="row-label">当前套餐</div>
+              <div class="row-value">
+                <span class="badge-tier">{{ tierLabel }}</span>
+              </div>
             </div>
-          </div>
-          <div class="settings-row">
-            <div class="row-label">有效期至</div>
-            <div class="row-value">{{ expiryText }}</div>
-          </div>
+            <div class="settings-row">
+              <div class="row-label">有效期至</div>
+              <div class="row-value">{{ expiryText }}</div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="settings-row">
+              <div class="row-label">积分余额</div>
+              <div class="row-value">
+                <span class="credit-display" :class="{ 'credit-low': creditBalance <= 0 }">
+                  {{ creditBalance }} 积分
+                </span>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
-      <!-- Section: 用量统计 -->
-      <div class="settings-section">
+      <!-- Section: 用量统计 (old members only) -->
+      <div v-if="isOldMember" class="settings-section">
         <div class="section-label">用量统计</div>
         <div class="settings-group">
           <div class="settings-row">
@@ -188,6 +200,13 @@ const tier = computed(() => {
 })
 
 const isPremium = computed(() => tier.value === 'premium' || tier.value === 'vip')
+
+const isOldMember = computed(() => {
+  const t = userData.value.user_tier || userData.value.tier || userData.value.plan || 'free'
+  return String(t).toLowerCase() !== 'free'
+})
+
+const creditBalance = computed(() => userStore.creditBalance)
 
 const tierLabel = computed(() => {
   const labels: Record<string, string> = {
@@ -547,6 +566,17 @@ onMounted(() => {
 
 .confirm-btn-ok:hover {
   background: #DC2626;
+}
+
+/* ===== Credit Display ===== */
+.credit-display {
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--primary, #10b981);
+}
+
+.credit-display.credit-low {
+  color: #e53e3e;
 }
 
 /* ===== Responsive ===== */
