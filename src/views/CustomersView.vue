@@ -146,6 +146,7 @@
                   <th class="col-user">用户信息</th>
                   <th>用户等级</th>
                   <th>到期时间</th>
+                  <th>积分</th>
                   <th>已授权模板</th>
                   <th>总运行次数</th>
                   <th>本月运行</th>
@@ -183,6 +184,9 @@
                   </td>
                   <td>
                     <span class="cell-secondary">{{ user.tier_expires ? formatDate(user.tier_expires) : '-' }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-metric">{{ user.credit_balance ?? '—' }}</span>
                   </td>
                   <td>
                     <span class="cell-metric">{{ user.authorized_templates || user.template_count || 0 }}</span>
