@@ -228,18 +228,6 @@
                         <button
                           class="action-menu-item"
                           role="menuitem"
-                          :class="{ disabled: !canUpgrade(user) }"
-                          :disabled="!canUpgrade(user)"
-                          @click="handleMenuUpgrade(user)"
-                        >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m18 15-6-6-6 6"/>
-                          </svg>
-                          升级等级
-                        </button>
-                        <button
-                          class="action-menu-item"
-                          role="menuitem"
                           @click="handleMenuPurchase(user)"
                         >
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -460,95 +448,6 @@
         </Transition>
       </Teleport>
 
-      <!-- ========== Tier Upgrade Modal ========== -->
-      <Teleport to="body">
-        <Transition name="overlay-fade">
-          <div v-if="showTierModal" class="modal-overlay" @click.self="closeTierModal">
-            <div class="modal-dialog tier-dialog">
-              <div class="modal-header">
-                <h2 class="modal-title">升级会员</h2>
-                <button class="modal-close" @click="closeTierModal">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                </button>
-              </div>
-              <div class="modal-body">
-                <div class="perm-user">
-                  <div class="perm-avatar">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="perm-name">{{ tierTarget?.nickname || tierTarget?.username || '用户' }}</div>
-                    <div class="perm-meta">
-                      当前等级：<span class="tier-badge tier-badge-sm" :class="tierTarget ? getStatusClass(tierTarget) : ''">{{ tierTarget ? getStatusLabel(tierTarget) : '' }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="tierTarget" class="upgrade-options">
-                  <div
-                    v-if="getActualTier(tierTarget) === 'free'"
-                    class="upgrade-card"
-                    :class="{ selected: tierForm.tier === 'trial' }"
-                    @click="tierForm.tier = 'trial'"
-                  >
-                    <div class="upgrade-radio" :class="{ active: tierForm.tier === 'trial' }"></div>
-                    <div>
-                      <div class="upgrade-name trial">体验会员</div>
-                      <div class="upgrade-desc">3天 / 10次SOP运行 / ¥9.9</div>
-                    </div>
-                  </div>
-                  <div
-                    v-if="getActualTier(tierTarget) === 'free' || getActualTier(tierTarget) === 'trial'"
-                    class="upgrade-card"
-                    :class="{ selected: tierForm.tier === 'standard' }"
-                    @click="tierForm.tier = 'standard'"
-                  >
-                    <div class="upgrade-radio" :class="{ active: tierForm.tier === 'standard' }"></div>
-                    <div>
-                      <div class="upgrade-name standard">普通会员</div>
-                      <div class="upgrade-desc">每月 20 次 SOP 运行</div>
-                    </div>
-                  </div>
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: tierForm.tier === 'premium' }"
-                    @click="tierForm.tier = 'premium'"
-                  >
-                    <div class="upgrade-radio" :class="{ active: tierForm.tier === 'premium' }"></div>
-                    <div>
-                      <div class="upgrade-name premium">高级会员</div>
-                      <div class="upgrade-desc">无限次 SOP 运行</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="tierForm.tier === 'trial'" class="tier-preview">
-                  体验会员固定3天有效期，无需选择时长
-                </div>
-                <div v-if="tierForm.tier && tierForm.tier !== 'trial'" class="form-group">
-                  <label class="form-label">开通时长</label>
-                  <select v-model="tierForm.months" class="form-input form-select">
-                    <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
-                  </select>
-                </div>
-                <div v-if="tierForm.tier && tierForm.tier !== 'trial'" class="tier-preview">
-                  到期日期：<strong>{{ tierExpirePreview }}</strong>
-                  <span class="tier-preview-hint">（每月按 30 天计算）</span>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn-cancel" @click="closeTierModal">取消</button>
-                <button type="button" class="btn-primary" :disabled="isTierUpdating || !tierForm.tier" @click="handleTierUpgrade">
-                  {{ isTierUpdating ? '升级中...' : '确认升级' }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
-
       <!-- ========== Upgrade Membership Modal ========== -->
       <Teleport to="body">
         <Transition name="overlay-fade">
@@ -750,7 +649,6 @@ import {
   batchGrantTemplates,
   batchRevokeTemplates,
   fetchAllTemplates,
-  updateSubUserTier,
   fetchUserFeatures,
   grantFeatures,
   revokeFeatures,
@@ -800,11 +698,6 @@ const permOriginalIds = ref<Set<string>>(new Set())
 const featurePermissions = reactive<Record<string, boolean>>({})
 const featurePermOriginal = ref<Set<string>>(new Set())
 
-// Tier upgrade
-const showTierModal = ref(false)
-const tierTarget = ref<SubUser | null>(null)
-const tierForm = ref({ tier: '', months: 1 })
-const isTierUpdating = ref(false)
 
 // Purchase credits
 const showPurchaseModal = ref(false)
@@ -864,14 +757,6 @@ const trialCount = computed(() => allSubUsers.value.filter((u) => getMemberStatu
 const standardCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'standard').length)
 const premiumCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'premium').length)
 
-function computeExpireDate(months: number): string {
-  if (!months) return ''
-  const d = new Date()
-  d.setDate(d.getDate() + months * 30)
-  return d.toLocaleDateString('zh-CN')
-}
-
-const tierExpirePreview = computed(() => computeExpireDate(tierForm.value.months))
 
 const purchaseAmount = computed(() => {
   switch (purchaseForm.productType) {
@@ -1203,7 +1088,6 @@ function getExpiryDisplay(user: SubUser): string {
   return user.credit_expires ? formatDate(user.credit_expires) : '—'
 }
 
-function canUpgrade(user: SubUser): boolean { return getActualTier(user) !== 'premium' }
 
 function formatDate(dateStr: string) { return new Date(dateStr).toLocaleDateString('zh-CN') }
 
@@ -1216,33 +1100,6 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 // ── Action Dropdown ───────────────────────────────────────────────
 function toggleActionMenu(id: number | string) { openMenuId.value = openMenuId.value === id ? null : id }
 function handleMenuPermission(user: SubUser) { openMenuId.value = null; openPermissionModal(user) }
-function handleMenuUpgrade(user: SubUser) { if (!canUpgrade(user)) return; openMenuId.value = null; openTierModal(user) }
-
-// ── Tier Upgrade ──────────────────────────────────────────────────
-function openTierModal(user: SubUser) {
-  tierTarget.value = user
-  const actual = getActualTier(user)
-  let defaultTier = 'premium'
-  if (actual === 'free') defaultTier = 'trial'
-  else if (actual === 'trial') defaultTier = 'standard'
-  tierForm.value = { tier: defaultTier, months: 1 }
-  showTierModal.value = true
-}
-
-function closeTierModal() { showTierModal.value = false; tierTarget.value = null; tierForm.value = { tier: '', months: 1 } }
-
-async function handleTierUpgrade() {
-  if (!tierTarget.value || !tierForm.value.tier) return
-  const userId = tierTarget.value.user_id ?? tierTarget.value.id
-  isTierUpdating.value = true
-  try {
-    const res = await updateSubUserTier(userId, { tier: tierForm.value.tier, months: tierForm.value.months })
-    if (res.code === 200 || res.code === 0) { showToast('升级成功', 'success'); closeTierModal(); await loadSubUsers() }
-  } catch (e: unknown) {
-    showToast(`升级失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
-  } finally { isTierUpdating.value = false }
-}
-
 // ── Purchase Credits ─────────────────────────────────────────────
 function handleMenuPurchase(user: SubUser) {
   openMenuId.value = null
