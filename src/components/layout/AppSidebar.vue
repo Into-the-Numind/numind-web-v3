@@ -38,17 +38,6 @@
 
     <!-- Toggle -->
     <div class="sidebar-bottom">
-      <div v-if="!isOldMember" class="credit-balance" :class="{ collapsed: collapsed }">
-        <div class="credit-icon">✦</div>
-        <Transition name="fade">
-          <span v-if="!collapsed" class="credit-text">
-            <span class="credit-number" :class="{ 'low-balance': creditBalance <= 0 }">
-              {{ creditBalance }}
-            </span>
-            <span class="credit-label">积分</span>
-          </span>
-        </Transition>
-      </div>
       <button class="toggle-btn" :title="collapsed ? '展开导航' : '折叠导航'" @click="toggle()">
         <svg class="toggle-icon" :class="{ flipped: collapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12H3M3 12L9 6M3 12L9 18"/>
@@ -68,12 +57,6 @@ const route = useRoute()
 const userStore = useUserStore()
 const collapsed = ref(false)
 const animating = ref(false)
-
-const creditBalance = computed(() => userStore.creditBalance)
-const isOldMember = computed(() => {
-  const tier = userStore.userInfo?.user_tier
-  return tier && tier !== 'free'
-})
 
 const toggle = () => {
   animating.value = true
@@ -413,35 +396,6 @@ const isActive = (path: string) => {
     animation: none !important;
   }
 }
-
-/* ===== Credit Balance ===== */
-.credit-balance {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  margin: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-  color: var(--primary);
-  font-size: 13px;
-  transition: all 0.3s ease;
-}
-.credit-balance.collapsed {
-  justify-content: center;
-  padding: var(--space-sm);
-  margin: var(--space-sm) var(--space-xs);
-}
-.credit-icon { font-size: 16px; flex-shrink: 0; }
-.credit-text { display: flex; align-items: baseline; gap: 2px; }
-.credit-number { font-weight: 600; font-size: 15px; }
-.credit-number.low-balance { color: #e53e3e; }
-.credit-label { color: var(--text-secondary); font-size: 12px; margin-left: 2px; }
-
-.fade-enter-active { transition: opacity 180ms var(--ease-decel) 200ms; }
-.fade-leave-active { transition: opacity 100ms ease-out; }
-.fade-enter-from,
-.fade-leave-to { opacity: 0; }
 
 /* ===== Mobile — bottom tab bar ===== */
 @media (max-width: 768px) {

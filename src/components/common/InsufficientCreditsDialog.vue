@@ -4,7 +4,7 @@
       <div v-if="visible" class="modal-overlay" @click.self="close">
         <div class="modal-dialog">
           <div class="modal-icon">✦</div>
-          <div class="modal-title">积分不足</div>
+          <div class="modal-title">额度不足</div>
           <div class="modal-message">{{ message }}</div>
           <button class="modal-btn" @click="close">我知道了</button>
         </div>
@@ -17,7 +17,7 @@
 import { ref } from 'vue'
 
 const visible = ref(false)
-const message = ref('积分不足，请联系管理员充值')
+const message = ref('额度不足，请联系管理员充值')
 
 function show(msg?: string) {
   if (msg) message.value = msg

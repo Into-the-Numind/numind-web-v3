@@ -21,6 +21,10 @@ export const useUserStore = defineStore('user', () => {
   const userInfo = ref<UserInfo | null>(null)
   const loading = ref(false)
   const creditBalance = ref<number>(0)
+  const quotaSubTotal = ref<number>(0)
+  const quotaSubRemain = ref<number>(0)
+  const quotaBoosterTotal = ref<number>(0)
+  const quotaBoosterRemain = ref<number>(0)
 
   // Getters
   const isLoggedIn = computed(() => !!token.value)
@@ -101,12 +105,16 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  // 获取积分余额
+  // 获取额度余额及分布
   const fetchCreditBalance = async () => {
     try {
       const res = await getCreditBalance()
       if (res.data) {
         creditBalance.value = res.data.balance
+        quotaSubTotal.value = res.data.sub_total ?? 0
+        quotaSubRemain.value = res.data.sub_remain ?? 0
+        quotaBoosterTotal.value = res.data.booster_total ?? 0
+        quotaBoosterRemain.value = res.data.booster_remain ?? 0
       }
     } catch (e) {
       // 静默失败
@@ -146,6 +154,10 @@ export const useUserStore = defineStore('user', () => {
     stopTokenValidation()
     clearToken()
     creditBalance.value = 0
+    quotaSubTotal.value = 0
+    quotaSubRemain.value = 0
+    quotaBoosterTotal.value = 0
+    quotaBoosterRemain.value = 0
   }
 
   // 初始化（从本地存储恢复，兼容原版 auth_token / user_info key）
@@ -176,6 +188,10 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     loading,
     creditBalance,
+    quotaSubTotal,
+    quotaSubRemain,
+    quotaBoosterTotal,
+    quotaBoosterRemain,
     isLoggedIn,
     username,
     nickname,

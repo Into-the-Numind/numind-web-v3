@@ -59,12 +59,32 @@
             </div>
           </template>
           <template v-else>
-            <div class="settings-row">
-              <div class="row-label">积分余额</div>
-              <div class="row-value">
-                <span class="credit-display" :class="{ 'credit-low': creditBalance <= 0 }">
-                  {{ creditBalance }} 积分
-                </span>
+            <div class="settings-row settings-row-block">
+              <div class="row-label">剩余额度</div>
+              <div class="row-value-full">
+                <div class="quota-bar-wrap">
+                  <div class="quota-bar">
+                    <div
+                      class="quota-fill quota-fill-subscription"
+                      :style="{ width: subscriptionPercent + '%' }"
+                    ></div>
+                    <div
+                      class="quota-fill quota-fill-booster"
+                      :style="{ width: boosterPercent + '%', left: subscriptionPercent + '%' }"
+                    ></div>
+                  </div>
+                  <span class="quota-percent">{{ totalQuotaPercent }}%</span>
+                </div>
+                <div class="quota-legend">
+                  <span class="quota-legend-item">
+                    <span class="quota-legend-dot subscription"></span>
+                    订阅额度
+                  </span>
+                  <span class="quota-legend-item">
+                    <span class="quota-legend-dot booster"></span>
+                    加量包
+                  </span>
+                </div>
               </div>
             </div>
           </template>
@@ -206,7 +226,20 @@ const isOldMember = computed(() => {
   return String(t).toLowerCase() !== 'free'
 })
 
-const creditBalance = computed(() => userStore.creditBalance)
+// 额度进度条计算
+const totalCapacity = computed(() => userStore.quotaSubTotal + userStore.quotaBoosterTotal)
+const subscriptionPercent = computed(() => {
+  if (totalCapacity.value <= 0) return 0
+  return Math.round((userStore.quotaSubRemain / totalCapacity.value) * 100)
+})
+const boosterPercent = computed(() => {
+  if (totalCapacity.value <= 0) return 0
+  return Math.round((userStore.quotaBoosterRemain / totalCapacity.value) * 100)
+})
+const totalQuotaPercent = computed(() => {
+  if (totalCapacity.value <= 0) return 0
+  return Math.min(subscriptionPercent.value + boosterPercent.value, 100)
+})
 
 const tierLabel = computed(() => {
   const labels: Record<string, string> = {
@@ -568,15 +601,75 @@ onMounted(() => {
   background: #DC2626;
 }
 
-/* ===== Credit Display ===== */
-.credit-display {
-  font-weight: 600;
-  font-size: 18px;
-  color: var(--primary, #10b981);
+/* ===== Quota Progress Bar ===== */
+.quota-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.credit-display.credit-low {
-  color: #e53e3e;
+.quota-bar {
+  flex: 1;
+  height: 8px;
+  background: #E2E4EA;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.quota-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.quota-fill-subscription {
+  left: 0;
+  background: #10b981;
+  z-index: 2;
+}
+
+.quota-fill-booster {
+  background: #34d399;
+  z-index: 1;
+}
+
+.quota-percent {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3D4055;
+  min-width: 40px;
+  text-align: right;
+}
+
+.quota-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.quota-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8B90A0;
+}
+
+.quota-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.quota-legend-dot.subscription {
+  background: #10b981;
+}
+
+.quota-legend-dot.booster {
+  background: #34d399;
 }
 
 /* ===== Responsive ===== */

@@ -146,7 +146,7 @@
                   <th class="col-user">用户信息</th>
                   <th>用户等级</th>
                   <th>到期时间</th>
-                  <th>积分</th>
+                  <th>额度</th>
                   <th>已授权模板</th>
                   <th>总运行次数</th>
                   <th>本月运行</th>
@@ -236,7 +236,7 @@
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>
                           </svg>
-                          购买积分
+                          升级会员
                         </button>
                       </div>
                     </div>
@@ -570,13 +570,13 @@
         </Transition>
       </Teleport>
 
-      <!-- ========== Purchase Credits Modal ========== -->
+      <!-- ========== Upgrade Membership Modal ========== -->
       <Teleport to="body">
         <Transition name="overlay-fade">
           <div v-if="showPurchaseModal" class="modal-overlay" @click.self="closePurchaseModal">
             <div class="modal-dialog tier-dialog">
               <div class="modal-header">
-                <h2 class="modal-title">购买积分</h2>
+                <h2 class="modal-title">升级会员</h2>
                 <button class="modal-close" @click="closePurchaseModal">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
@@ -590,7 +590,7 @@
                   </div>
                   <div>
                     <div class="perm-name">{{ purchaseTargetUser?.nickname || purchaseTargetUser?.username || '用户' }}</div>
-                    <div class="perm-meta">为该用户购买积分套餐</div>
+                    <div class="perm-meta">为该用户选择会员套餐</div>
                   </div>
                 </div>
 
@@ -603,7 +603,7 @@
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'trial' }"></div>
                     <div>
                       <div class="upgrade-name trial">体验卡</div>
-                      <div class="upgrade-desc">200积分 / 3天 / ¥9.9</div>
+                      <div class="upgrade-desc">200额度 / 3天 / ¥9.9</div>
                     </div>
                   </div>
                   <div
@@ -614,7 +614,7 @@
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'monthly' }"></div>
                     <div>
                       <div class="upgrade-name standard">月卡</div>
-                      <div class="upgrade-desc">2000积分/月 / ¥99/月</div>
+                      <div class="upgrade-desc">2000额度/月 / ¥99/月</div>
                     </div>
                   </div>
                   <div
@@ -625,7 +625,7 @@
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'yearly' }"></div>
                     <div>
                       <div class="upgrade-name premium">年卡</div>
-                      <div class="upgrade-desc">2000积分/月×12 / ¥949/年</div>
+                      <div class="upgrade-desc">2000额度/月×12 / ¥949/年</div>
                     </div>
                   </div>
                   <div
@@ -635,8 +635,8 @@
                   >
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'booster' }"></div>
                     <div>
-                      <div class="upgrade-name">加油包</div>
-                      <div class="upgrade-desc">600积分 / 90天 / ¥29.9</div>
+                      <div class="upgrade-name">加量包</div>
+                      <div class="upgrade-desc">600额度 / 90天 / ¥29.9</div>
                     </div>
                   </div>
                 </div>
@@ -1248,7 +1248,7 @@ function startPaymentPolling(orderId: number) {
         stopPaymentPolling()
         showPaymentModal.value = false
         purchaseOrder.value = null
-        showToast('支付成功！积分已到账', 'success')
+        showToast('支付成功！额度已到账', 'success')
         await loadSubUsers()
       }
     } catch { /* ignore polling errors */ }

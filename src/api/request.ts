@@ -203,8 +203,8 @@ request.interceptors.response.use(
         case 403: {
           // 区分 token 过期（后端可能返回 403）和真正的权限不足
           const msg403 = response.data?.message || response.data?.msg || ''
-          // 积分不足检测：先于其他 403 处理派发事件
-          if (msg403.includes('积分不足')) {
+          // 额度不足检测：先于其他 403 处理派发事件
+          if (msg403.includes('额度不足')) {
             window.dispatchEvent(new CustomEvent('insufficient-credits', { detail: msg403 }))
           }
           const isAuthExpired = !getToken() || msg403.includes('token') || msg403.includes('过期') || msg403.includes('expired')
