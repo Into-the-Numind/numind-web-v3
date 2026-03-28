@@ -601,9 +601,13 @@
                     @click="purchaseForm.productType = 'trial'"
                   >
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'trial' }"></div>
-                    <div>
-                      <div class="upgrade-name trial">体验卡</div>
-                      <div class="upgrade-desc">200额度 / 3天 / ¥9.9</div>
+                    <div class="upgrade-info">
+                      <div class="upgrade-header">
+                        <span class="upgrade-name trial">体验会员</span>
+                        <span class="upgrade-price">¥9.9</span>
+                      </div>
+                      <div class="upgrade-desc">200 额度 · 有效期 3 天</div>
+                      <div class="upgrade-note">适合首次体验 AI 工作流</div>
                     </div>
                   </div>
                   <div
@@ -612,9 +616,13 @@
                     @click="purchaseForm.productType = 'monthly'"
                   >
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'monthly' }"></div>
-                    <div>
-                      <div class="upgrade-name standard">月卡</div>
-                      <div class="upgrade-desc">2000额度/月 / ¥99/月</div>
+                    <div class="upgrade-info">
+                      <div class="upgrade-header">
+                        <span class="upgrade-name standard">月度会员</span>
+                        <span class="upgrade-price">¥99<small>/月</small></span>
+                      </div>
+                      <div class="upgrade-desc">每月 2,000 额度 · 按月续费</div>
+                      <div class="upgrade-note">适合日常使用</div>
                     </div>
                   </div>
                   <div
@@ -623,9 +631,13 @@
                     @click="purchaseForm.productType = 'yearly'"
                   >
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'yearly' }"></div>
-                    <div>
-                      <div class="upgrade-name premium">年卡</div>
-                      <div class="upgrade-desc">2000额度/月×12 / ¥949/年</div>
+                    <div class="upgrade-info">
+                      <div class="upgrade-header">
+                        <span class="upgrade-name premium">年度会员</span>
+                        <span class="upgrade-price">¥949<small>/年</small></span>
+                      </div>
+                      <div class="upgrade-desc">每月 2,000 额度 · 12 个月</div>
+                      <div class="upgrade-tag">省 ¥239</div>
                     </div>
                   </div>
                   <div
@@ -634,9 +646,13 @@
                     @click="purchaseForm.productType = 'booster'"
                   >
                     <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'booster' }"></div>
-                    <div>
-                      <div class="upgrade-name">加量包</div>
-                      <div class="upgrade-desc">600额度 / 90天 / ¥29.9</div>
+                    <div class="upgrade-info">
+                      <div class="upgrade-header">
+                        <span class="upgrade-name">加量包</span>
+                        <span class="upgrade-price">¥29.9</span>
+                      </div>
+                      <div class="upgrade-desc">600 额度 · 有效期 90 天</div>
+                      <div class="upgrade-note">额度不够时随时补充</div>
                     </div>
                   </div>
                 </div>
@@ -2200,11 +2216,48 @@ async function handlePurchase() {
   background: hsl(158, 64%, 45%);
 }
 
-.upgrade-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.upgrade-info { flex: 1; min-width: 0; }
+
+.upgrade-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.upgrade-name { font-size: 15px; font-weight: 600; }
 .upgrade-name.trial { color: hsl(217, 71%, 45%); }
 .upgrade-name.standard { color: hsl(158, 64%, 35%); }
 .upgrade-name.premium { color: hsl(45, 100%, 40%); }
-.upgrade-desc { font-size: 13px; color: hsl(155, 12%, 50%); }
+
+.upgrade-price {
+  font-size: 17px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+}
+.upgrade-price small {
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(155, 12%, 50%);
+}
+
+.upgrade-desc { font-size: 13px; color: hsl(155, 12%, 50%); margin-bottom: 2px; }
+
+.upgrade-note {
+  font-size: 12px;
+  color: hsl(155, 12%, 62%);
+}
+
+.upgrade-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(45, 100%, 40%);
+  background: hsl(45, 100%, 95%);
+  padding: 1px 8px;
+  border-radius: 99px;
+  margin-top: 2px;
+}
 
 /* ===== Toast ===== */
 .toast {
