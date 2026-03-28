@@ -1588,8 +1588,12 @@ async function handlePurchase() {
 .tier-standard { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
 .tier-premium { background: hsl(45, 90%, 94%); color: hsl(35, 80%, 35%); }
 
-.cell-secondary { font-size: 13px; color: hsl(155, 12%, 50%); }
-.cell-metric { font-size: 14px; font-weight: 600; color: hsl(155, 25%, 22%); }
+.cell-secondary,
+.cell-metric {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 15%, 35%);
+}
 
 /* Action dropdown */
 .action-dropdown { position: relative; display: inline-flex; justify-content: center; }
