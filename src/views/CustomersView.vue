@@ -60,8 +60,17 @@
               @click="setFilter('free')"
             >
               <span class="filter-dot free"></span>
-              免费用户
+              Free
               <span class="filter-count">{{ freeCount }}</span>
+            </button>
+            <button
+              class="filter-btn"
+              :class="{ active: activeFilter === 'pro' }"
+              @click="setFilter('pro')"
+            >
+              <span class="filter-dot pro"></span>
+              Pro
+              <span class="filter-count">{{ proCount }}</span>
             </button>
             <button
               class="filter-btn"
@@ -765,7 +774,7 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 20
 const selectedIds = reactive(new Set<number | string>())
-const activeFilter = ref<'all' | 'free' | 'trial' | 'standard' | 'premium'>('all')
+const activeFilter = ref<'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premium'>('all')
 
 // Register
 type TierValue = 'free' | 'trial' | 'standard' | 'premium'
@@ -822,7 +831,7 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 const filteredUsers = computed(() => {
   let users = allSubUsers.value
   if (activeFilter.value !== 'all') {
-    users = users.filter((u) => getActualTier(u) === activeFilter.value)
+    users = users.filter((u) => getMemberStatus(u) === activeFilter.value)
   }
   const q = searchQuery.value.toLowerCase().trim()
   if (q) {
@@ -849,10 +858,11 @@ const isPermAllSelected = computed(() => {
   return allTemplates.value.length > 0 && allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
 })
 
-const freeCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'free').length)
-const trialCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'trial').length)
-const standardCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'standard').length)
-const premiumCount = computed(() => allSubUsers.value.filter((u) => getActualTier(u) === 'premium').length)
+const freeCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'free').length)
+const proCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'pro').length)
+const trialCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'trial').length)
+const standardCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'standard').length)
+const premiumCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'premium').length)
 
 function computeExpireDate(months: number): string {
   if (!months) return ''
@@ -961,7 +971,7 @@ function handleSearch() {
   searchTimer = setTimeout(() => { currentPage.value = 1 }, 300)
 }
 
-function setFilter(f: 'all' | 'free' | 'trial' | 'standard' | 'premium') {
+function setFilter(f: 'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premium') {
   activeFilter.value = f
   currentPage.value = 1
 }
@@ -1144,6 +1154,13 @@ function getActualTier(user: SubUser): string {
   const tier = user.user_tier || 'free'
   const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
   return (isExpired || tier === 'free') ? 'free' : tier
+}
+
+// 统一会员状态：free / pro / trial / standard / premium
+function getMemberStatus(user: SubUser): string {
+  const tier = getActualTier(user)
+  if (tier === 'free' && (user.credit_balance ?? 0) > 0) return 'pro'
+  return tier
 }
 
 function isOldMember(user: SubUser): boolean {
@@ -1440,6 +1457,7 @@ async function handlePurchase() {
 
 .filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .filter-dot.free { background: hsl(0, 0%, 65%); }
+.filter-dot.pro { background: hsl(158, 64%, 45%); }
 .filter-dot.trial { background: hsl(217, 71%, 53%); }
 .filter-dot.standard { background: hsl(158, 64%, 45%); }
 .filter-dot.premium { background: hsl(45, 90%, 50%); box-shadow: 0 0 5px hsl(45 90% 50% / 0.4); }
