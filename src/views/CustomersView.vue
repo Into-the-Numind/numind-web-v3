@@ -699,7 +699,7 @@
               <div class="modal-body" style="text-align: center; padding: 24px;">
                 <template v-if="purchaseOrder">
                   <p style="margin-bottom: 8px; color: #666;">订单号：{{ purchaseOrder.order_no }}</p>
-                  <p style="margin-bottom: 16px; font-size: 1.3em; font-weight: 600; color: var(--accent);">¥{{ purchaseOrder.amount }}</p>
+                  <p style="margin-bottom: 16px; font-size: 1.3em; font-weight: 600; color: var(--accent);">¥{{ (purchaseOrder.amount / 100).toFixed(2) }}</p>
                   <template v-if="purchaseForm.payChannel === 'wechat'">
                     <p style="margin-bottom: 12px;">请使用微信扫描下方二维码完成支付</p>
                     <img
