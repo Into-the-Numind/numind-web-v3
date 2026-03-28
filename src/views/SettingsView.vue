@@ -46,94 +46,50 @@
       <div class="settings-section">
         <div class="section-label">会员信息</div>
         <div class="settings-group">
-          <template v-if="isOldMember">
-            <div class="settings-row">
-              <div class="row-label">当前套餐</div>
-              <div class="row-value">
-                <span class="badge-tier">{{ tierLabel }}</span>
-              </div>
+          <div class="settings-row">
+            <div class="row-label">会员状态</div>
+            <div class="row-value">
+              <span class="badge-tier">{{ tierLabel }}</span>
             </div>
-            <div class="settings-row">
-              <div class="row-label">有效期至</div>
-              <div class="row-value">{{ expiryText }}</div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="settings-row settings-row-block">
-              <div class="row-label">剩余额度</div>
-              <div class="row-value-full">
-                <div class="quota-bar-wrap">
-                  <div class="quota-bar">
-                    <div
-                      class="quota-fill quota-fill-subscription"
-                      :style="{ width: subscriptionPercent + '%' }"
-                    ></div>
-                    <div
-                      class="quota-fill quota-fill-booster"
-                      :style="{ width: boosterPercent + '%', left: subscriptionPercent + '%' }"
-                    ></div>
-                  </div>
-                  <span class="quota-percent">{{ totalQuotaPercent }}%</span>
-                </div>
-                <div class="quota-legend">
-                  <span class="quota-legend-item">
-                    <span class="quota-legend-dot subscription"></span>
-                    订阅额度
-                  </span>
-                  <span class="quota-legend-item">
-                    <span class="quota-legend-dot booster"></span>
-                    加量包
-                  </span>
-                </div>
-              </div>
-            </div>
-          </template>
+          </div>
+          <div v-if="expiryText !== '—'" class="settings-row">
+            <div class="row-label">有效期至</div>
+            <div class="row-value">{{ expiryText }}</div>
+          </div>
         </div>
       </div>
 
-      <!-- Section: 用量统计 (old members only) -->
-      <div v-if="isOldMember" class="settings-section">
+      <!-- Section: 用量统计 -->
+      <div class="settings-section">
         <div class="section-label">用量统计</div>
         <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-label">本月已用</div>
-            <div class="row-value row-value-num">{{ monthlyUsage }} 次</div>
-          </div>
-          <div class="settings-row">
-            <div class="row-label">本月剩余</div>
-            <div class="row-value row-value-num">
-              {{ isPremium ? '无限' : remainingRuns + ' 次' }}
-            </div>
-          </div>
-          <!-- Progress bar (non-premium only) -->
-          <div v-if="!isPremium" class="settings-row settings-row-block">
+          <div class="settings-row settings-row-block">
             <div class="row-label">额度使用率</div>
             <div class="row-value-full">
-              <div class="usage-progress-wrap">
-                <div class="usage-progress-bar">
-                  <div class="usage-progress-fill" :style="{ width: usagePercent + '%' }"></div>
+              <div class="quota-bar-wrap">
+                <div class="quota-bar">
+                  <div
+                    class="quota-fill quota-fill-subscription"
+                    :style="{ width: subscriptionPercent + '%' }"
+                  ></div>
+                  <div
+                    class="quota-fill quota-fill-booster"
+                    :style="{ width: boosterPercent + '%', left: subscriptionPercent + '%' }"
+                  ></div>
                 </div>
-                <span class="usage-progress-text">{{ usagePercent }}%</span>
+                <span class="quota-percent">{{ totalQuotaPercent }}%</span>
+              </div>
+              <div class="quota-legend">
+                <span class="quota-legend-item">
+                  <span class="quota-legend-dot subscription"></span>
+                  订阅额度
+                </span>
+                <span class="quota-legend-item">
+                  <span class="quota-legend-dot booster"></span>
+                  加量包
+                </span>
               </div>
             </div>
-          </div>
-          <!-- Premium unlimited hint -->
-          <div v-if="isPremium" class="premium-hint">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="m2 4 3 12h14l3-12-5 4-5-6-5 6-5-4Z" />
-              <path d="M4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2" />
-            </svg>
-            尊享无限次运行权限
           </div>
         </div>
       </div>
@@ -219,8 +175,6 @@ const tier = computed(() => {
   return String(raw).toLowerCase()
 })
 
-const isPremium = computed(() => tier.value === 'premium' || tier.value === 'vip')
-
 const isOldMember = computed(() => {
   const t = userData.value.user_tier || userData.value.tier || userData.value.plan || 'free'
   return String(t).toLowerCase() !== 'free'
@@ -242,15 +196,12 @@ const totalQuotaPercent = computed(() => {
 })
 
 const tierLabel = computed(() => {
-  const labels: Record<string, string> = {
-    free: '免费用户',
-    trial: '体验会员',
-    standard: '普通会员',
-    premium: '高级会员',
-    vip: '高级会员',
-    pro: '高级会员'
-  }
-  return labels[tier.value] || '免费用户'
+  const t = tier.value
+  if (t === 'premium' || t === 'vip') return '高级会员'
+  if (t === 'standard') return '普通会员'
+  if (t === 'trial') return '体验会员'
+  if (t === 'free' && userStore.creditBalance > 0) return 'Pro'
+  return 'Free'
 })
 
 // Computed: profile
@@ -261,25 +212,19 @@ const displayId = computed(
 
 // Computed: expiry
 const expiryText = computed(() => {
-  const expiry =
-    userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
-  if (!expiry) return '永久有效'
-  const d = new Date(expiry)
-  if (d.getFullYear() > 2090) return '永久有效'
-  return d.toLocaleDateString('zh-CN')
+  // 老会员用 tier_expires
+  const tierExpiry = userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
+  if (isOldMember.value && tierExpiry) {
+    const d = new Date(tierExpiry)
+    if (d.getFullYear() > 2090) return '永久有效'
+    return d.toLocaleDateString('zh-CN')
+  }
+  // 新用户用 credit_expires (需要后端返回)
+  // 目前设置页 getUserInfo 不返回 credit_expires，暂用 '—'
+  if (!isOldMember.value && userStore.creditBalance > 0) return '—'
+  return '—'
 })
 
-// Computed: usage
-const monthlyUsage = computed(() => userData.value.monthly_sop_runs ?? 0)
-
-const remainingRuns = computed(() => userData.value.remaining_sop_runs ?? 0)
-
-const usagePercent = computed(() => {
-  if (isPremium.value) return 0
-  const totalLimit = tier.value === 'standard' ? 20 : 10
-  const pct = Math.min(Math.round((monthlyUsage.value / totalLimit) * 100), 100)
-  return pct
-})
 
 // Fetch user data
 const fetchData = async () => {
@@ -473,55 +418,6 @@ onMounted(() => {
   background: linear-gradient(135deg, hsl(45, 100%, 55%), hsl(38, 100%, 50%));
   color: white;
   box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
-}
-
-/* ===== Usage Progress ===== */
-.usage-progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.usage-progress-bar {
-  flex: 1;
-  height: 6px;
-  background: #F0F1F5;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.usage-progress-fill {
-  height: 100%;
-  background: #10B981;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-.usage-progress-text {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6B7085;
-  min-width: 36px;
-  text-align: right;
-}
-
-/* ===== Premium Hint ===== */
-.premium-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 18px;
-  border-top: 1px solid #F0F1F5;
-  font-size: 13px;
-  font-weight: 500;
-  color: #D97706;
-  background: #FFFBEB;
-}
-
-.settings-page[data-tier='premium'] .premium-hint {
-  background: linear-gradient(135deg, hsl(45, 100%, 97%), hsl(45, 100%, 93%));
-  color: hsl(45, 100%, 40%);
 }
 
 /* ===== Confirm Dialog ===== */
