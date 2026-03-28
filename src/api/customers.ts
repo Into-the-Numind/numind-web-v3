@@ -15,6 +15,9 @@ export interface SubUser {
   phone?: string
   user_tier?: string
   tier_expires?: string
+  credit_balance?: number
+  credit_expires?: string
+  remaining_sop_runs?: number
   template_count?: number
   total_sop_runs?: number
   monthly_sop_runs?: number

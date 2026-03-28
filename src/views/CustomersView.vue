@@ -144,9 +144,9 @@
                     </span>
                   </th>
                   <th class="col-user">用户信息</th>
-                  <th>用户等级</th>
-                  <th>到期时间</th>
+                  <th>服务状态</th>
                   <th>额度</th>
+                  <th>到期时间</th>
                   <th>已授权模板</th>
                   <th>总运行次数</th>
                   <th>本月运行</th>
@@ -177,16 +177,16 @@
                     </div>
                   </td>
                   <td>
-                    <span class="tier-badge" :class="getTierClass(user)">
+                    <span class="tier-badge" :class="getStatusClass(user)">
                       <span class="tier-dot"></span>
-                      {{ getTierLabel(user) }}
+                      {{ getStatusLabel(user) }}
                     </span>
                   </td>
                   <td>
-                    <span class="cell-secondary">{{ user.tier_expires ? formatDate(user.tier_expires) : '-' }}</span>
+                    <span class="cell-metric">{{ getQuotaDisplay(user) }}</span>
                   </td>
                   <td>
-                    <span class="cell-metric">{{ user.credit_balance ?? '—' }}</span>
+                    <span class="cell-secondary">{{ getExpiryDisplay(user) }}</span>
                   </td>
                   <td>
                     <span class="cell-metric">{{ user.authorized_templates || user.template_count || 0 }}</span>
@@ -543,7 +543,7 @@
                   <div>
                     <div class="perm-name">{{ tierTarget?.nickname || tierTarget?.username || '用户' }}</div>
                     <div class="perm-meta">
-                      当前等级：<span class="tier-badge tier-badge-sm" :class="tierTarget ? getTierClass(tierTarget) : ''">{{ tierTarget ? getTierLabel(tierTarget) : '' }}</span>
+                      当前等级：<span class="tier-badge tier-badge-sm" :class="tierTarget ? getStatusClass(tierTarget) : ''">{{ tierTarget ? getStatusLabel(tierTarget) : '' }}</span>
                     </div>
                   </div>
                 </div>
@@ -1218,22 +1218,44 @@ function getActualTier(user: SubUser): string {
   return (isExpired || tier === 'free') ? 'free' : tier
 }
 
-function getTierClass(user: SubUser) {
-  const t = getActualTier(user)
-  if (t === 'premium') return 'tier-premium'
-  if (t === 'standard') return 'tier-standard'
-  if (t === 'trial') return 'tier-trial'
+function isOldMember(user: SubUser): boolean {
+  const tier = getActualTier(user)
+  return tier === 'standard' || tier === 'premium'
+}
+
+function getStatusClass(user: SubUser) {
+  const tier = getActualTier(user)
+  if (tier === 'premium') return 'tier-premium'
+  if (tier === 'standard') return 'tier-standard'
+  if (tier === 'trial') return 'tier-trial'
+  if (tier === 'free' && (user.credit_balance ?? 0) > 0) return 'tier-pro'
   return 'tier-free'
 }
 
-function getTierLabel(user: SubUser) {
-  const tier = user.user_tier || 'free'
-  const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
-  if (isExpired || tier === 'free') return '免费用户'
-  if (tier === 'trial') return '体验会员'
+function getStatusLabel(user: SubUser) {
+  const tier = getActualTier(user)
   if (tier === 'premium') return '高级会员'
   if (tier === 'standard') return '普通会员'
-  return '免费用户'
+  if (tier === 'trial') return '体验会员'
+  if (tier === 'free' && (user.credit_balance ?? 0) > 0) return 'Pro'
+  return 'Free'
+}
+
+function getQuotaDisplay(user: SubUser): string {
+  if (isOldMember(user)) {
+    const tier = getActualTier(user)
+    if (tier === 'premium') return '无限次'
+    return `${user.remaining_sop_runs ?? 0}次/月`
+  }
+  const balance = user.credit_balance ?? 0
+  return balance > 0 ? String(balance) : '—'
+}
+
+function getExpiryDisplay(user: SubUser): string {
+  if (isOldMember(user)) {
+    return user.tier_expires ? formatDate(user.tier_expires) : '—'
+  }
+  return user.credit_expires ? formatDate(user.credit_expires) : '—'
 }
 
 function canUpgrade(user: SubUser): boolean { return getActualTier(user) !== 'premium' }
@@ -1634,6 +1656,7 @@ async function handlePurchase() {
 
 .tier-free { background: hsl(0, 0%, 93%); color: hsl(150, 10%, 45%); }
 .tier-trial { background: hsl(217, 91%, 95%); color: hsl(217, 71%, 45%); }
+.tier-pro { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
 .tier-standard { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
 .tier-premium { background: hsl(45, 90%, 94%); color: hsl(35, 80%, 35%); }
 
