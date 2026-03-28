@@ -1820,6 +1820,8 @@ async function handlePurchase() {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
+  padding: 24px 0;
 }
 
 .overlay-fade-enter-active, .overlay-fade-leave-active { transition: opacity 0.2s ease; }
@@ -1831,6 +1833,9 @@ async function handlePurchase() {
   border-radius: 20px;
   width: 90%;
   max-width: 520px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  flex-shrink: 0;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
