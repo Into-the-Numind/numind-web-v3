@@ -144,7 +144,7 @@
                     </span>
                   </th>
                   <th class="col-user">用户信息</th>
-                  <th>服务状态</th>
+                  <th>会员状态</th>
                   <th>额度</th>
                   <th>到期时间</th>
                   <th>已授权模板</th>
