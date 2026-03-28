@@ -37,7 +37,7 @@ import Sidebar from './AppSidebar.vue'
   position: relative;
   background: #FFFFFF;
   border: 1px solid #E8E9EE;
-  border-radius: 22px 0 0 22px;
+  border-radius: 0;
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.03),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
