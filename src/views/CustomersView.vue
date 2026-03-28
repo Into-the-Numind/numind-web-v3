@@ -319,77 +319,6 @@
                   <div v-if="regFieldErrors.nickname" class="field-error">{{ regFieldErrors.nickname }}</div>
                 </div>
 
-                <!-- 会员设置 -->
-                <div class="tier-section">
-                  <div class="tier-divider"><span>开通会员（可选）</span></div>
-                  <div class="upgrade-options register-tier-options">
-                    <div
-                      class="upgrade-card"
-                      :class="{ selected: registerForm.tier === 'free' }"
-                      @click="registerForm.tier = 'free'"
-                    >
-                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'free' }"></div>
-                      <div class="upgrade-info">
-                        <div class="upgrade-header">
-                          <span class="upgrade-name">免费用户</span>
-                        </div>
-                        <div class="upgrade-desc">注册后再通过「升级会员」开通</div>
-                      </div>
-                    </div>
-                    <div
-                      class="upgrade-card"
-                      :class="{ selected: registerForm.tier === 'trial' }"
-                      @click="registerForm.tier = 'trial'"
-                    >
-                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'trial' }"></div>
-                      <div class="upgrade-info">
-                        <div class="upgrade-header">
-                          <span class="upgrade-name trial">体验会员</span>
-                          <span class="upgrade-price">¥9.9</span>
-                        </div>
-                        <div class="upgrade-desc">200 额度 · 有效期 3 天</div>
-                      </div>
-                    </div>
-                    <div
-                      class="upgrade-card"
-                      :class="{ selected: registerForm.tier === 'standard' }"
-                      @click="registerForm.tier = 'standard'"
-                    >
-                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'standard' }"></div>
-                      <div class="upgrade-info">
-                        <div class="upgrade-header">
-                          <span class="upgrade-name standard">月度会员</span>
-                          <span class="upgrade-price">¥99<small>/月</small></span>
-                        </div>
-                        <div class="upgrade-desc">每月 2,000 额度 · 按月续费</div>
-                      </div>
-                    </div>
-                    <div
-                      class="upgrade-card"
-                      :class="{ selected: registerForm.tier === 'premium' }"
-                      @click="registerForm.tier = 'premium'"
-                    >
-                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'premium' }"></div>
-                      <div class="upgrade-info">
-                        <div class="upgrade-header">
-                          <span class="upgrade-name premium">年度会员</span>
-                          <span class="upgrade-price">¥949<small>/年</small></span>
-                        </div>
-                        <div class="upgrade-desc">每月 2,000 额度 · 12 个月</div>
-                        <div class="upgrade-tag">省 ¥239</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="registerForm.tier !== 'free' && registerForm.tier !== 'trial'" class="tier-detail">
-                    <div class="form-group form-group--compact">
-                      <label class="form-label">开通时长</label>
-                      <select v-model="registerForm.months" class="form-input form-select">
-                        <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
-                      </select>
-                    </div>
-                    <div class="tier-preview">到期日期：<strong>{{ registerExpirePreview }}</strong></div>
-                  </div>
-                </div>
                 <div v-if="registerError" class="form-error">{{ registerError }}</div>
               </form>
               <div class="modal-footer">
@@ -933,7 +862,6 @@ function computeExpireDate(months: number): string {
 }
 
 const tierExpirePreview = computed(() => computeExpireDate(tierForm.value.months))
-const registerExpirePreview = computed(() => computeExpireDate(registerForm.value.months))
 
 const purchaseAmount = computed(() => {
   switch (purchaseForm.productType) {
@@ -2102,24 +2030,6 @@ async function handlePurchase() {
 .btn-danger:hover { background: hsl(0, 72%, 48%); }
 
 /* ===== Tier Section (Register) ===== */
-.tier-section { margin-bottom: 20px; }
-
-.tier-divider {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.tier-divider::before, .tier-divider::after { content: ''; flex: 1; height: 1px; background: hsl(155, 20%, 92%); }
-.tier-divider span { padding: 0 12px; font-size: 12px; color: hsl(155, 12%, 50%); white-space: nowrap; }
-
-.register-tier-options { gap: 8px; }
-.register-tier-options .upgrade-card { padding: 12px 14px; }
-.register-tier-options .upgrade-name { font-size: 14px; }
-.register-tier-options .upgrade-price { font-size: 15px; }
-.register-tier-options .upgrade-desc { font-size: 12px; }
-
-.tier-detail { animation: fadeSlideDown 0.2s ease-out; }
 
 @keyframes fadeSlideDown {
   from { opacity: 0; transform: translateY(-8px); }
