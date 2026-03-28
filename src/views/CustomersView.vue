@@ -321,23 +321,64 @@
 
                 <!-- 会员设置 -->
                 <div class="tier-section">
-                  <div class="tier-divider"><span>会员设置（可选）</span></div>
-                  <div class="tier-toggle">
-                    <label class="tier-option" :class="{ active: registerForm.tier === 'trial' }">
-                      <input v-model="registerForm.tier" type="radio" name="register-tier" value="trial" />
-                      <span>体验会员</span>
-                    </label>
-                    <label class="tier-option" :class="{ active: registerForm.tier === 'standard' }">
-                      <input v-model="registerForm.tier" type="radio" name="register-tier" value="standard" />
-                      <span>普通会员</span>
-                    </label>
-                    <label class="tier-option" :class="{ active: registerForm.tier === 'premium' }">
-                      <input v-model="registerForm.tier" type="radio" name="register-tier" value="premium" />
-                      <span>高级会员</span>
-                    </label>
-                  </div>
-                  <div v-if="registerForm.tier === 'trial'" class="tier-detail">
-                    <div class="tier-preview">体验会员：3天 / 10次SOP运行 / ¥9.9</div>
+                  <div class="tier-divider"><span>开通会员（可选）</span></div>
+                  <div class="upgrade-options register-tier-options">
+                    <div
+                      class="upgrade-card"
+                      :class="{ selected: registerForm.tier === 'free' }"
+                      @click="registerForm.tier = 'free'"
+                    >
+                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'free' }"></div>
+                      <div class="upgrade-info">
+                        <div class="upgrade-header">
+                          <span class="upgrade-name">免费用户</span>
+                        </div>
+                        <div class="upgrade-desc">注册后再通过「升级会员」开通</div>
+                      </div>
+                    </div>
+                    <div
+                      class="upgrade-card"
+                      :class="{ selected: registerForm.tier === 'trial' }"
+                      @click="registerForm.tier = 'trial'"
+                    >
+                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'trial' }"></div>
+                      <div class="upgrade-info">
+                        <div class="upgrade-header">
+                          <span class="upgrade-name trial">体验会员</span>
+                          <span class="upgrade-price">¥9.9</span>
+                        </div>
+                        <div class="upgrade-desc">200 额度 · 有效期 3 天</div>
+                      </div>
+                    </div>
+                    <div
+                      class="upgrade-card"
+                      :class="{ selected: registerForm.tier === 'standard' }"
+                      @click="registerForm.tier = 'standard'"
+                    >
+                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'standard' }"></div>
+                      <div class="upgrade-info">
+                        <div class="upgrade-header">
+                          <span class="upgrade-name standard">月度会员</span>
+                          <span class="upgrade-price">¥99<small>/月</small></span>
+                        </div>
+                        <div class="upgrade-desc">每月 2,000 额度 · 按月续费</div>
+                      </div>
+                    </div>
+                    <div
+                      class="upgrade-card"
+                      :class="{ selected: registerForm.tier === 'premium' }"
+                      @click="registerForm.tier = 'premium'"
+                    >
+                      <div class="upgrade-radio" :class="{ active: registerForm.tier === 'premium' }"></div>
+                      <div class="upgrade-info">
+                        <div class="upgrade-header">
+                          <span class="upgrade-name premium">年度会员</span>
+                          <span class="upgrade-price">¥949<small>/年</small></span>
+                        </div>
+                        <div class="upgrade-desc">每月 2,000 额度 · 12 个月</div>
+                        <div class="upgrade-tag">省 ¥239</div>
+                      </div>
+                    </div>
                   </div>
                   <div v-if="registerForm.tier !== 'free' && registerForm.tier !== 'trial'" class="tier-detail">
                     <div class="form-group form-group--compact">
@@ -2049,32 +2090,11 @@ async function handlePurchase() {
 .tier-divider::before, .tier-divider::after { content: ''; flex: 1; height: 1px; background: hsl(155, 20%, 92%); }
 .tier-divider span { padding: 0 12px; font-size: 12px; color: hsl(155, 12%, 50%); white-space: nowrap; }
 
-.tier-toggle {
-  display: flex;
-  margin-bottom: 16px;
-  border: 1px solid hsl(155, 20%, 88%);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.tier-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 0;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: hsl(155, 12%, 45%);
-  background: hsla(0, 0%, 100%, 0.6);
-  transition: all 0.2s;
-  border-right: 1px solid hsl(155, 20%, 88%);
-}
-
-.tier-option:last-child { border-right: none; }
-.tier-option input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
-.tier-option.active { background: hsl(158, 50%, 95%); color: hsl(158, 64%, 35%); font-weight: 600; }
+.register-tier-options { gap: 8px; }
+.register-tier-options .upgrade-card { padding: 12px 14px; }
+.register-tier-options .upgrade-name { font-size: 14px; }
+.register-tier-options .upgrade-price { font-size: 15px; }
+.register-tier-options .upgrade-desc { font-size: 12px; }
 
 .tier-detail { animation: fadeSlideDown 0.2s ease-out; }
 
