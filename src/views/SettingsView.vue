@@ -73,13 +73,14 @@
                     :style="{ width: subscriptionPercent + '%' }"
                   ></div>
                   <div
+                    v-if="!isOldMember"
                     class="quota-fill quota-fill-booster"
                     :style="{ width: boosterPercent + '%', left: subscriptionPercent + '%' }"
                   ></div>
                 </div>
-                <span class="quota-percent">{{ totalQuotaPercent }}%</span>
+                <span class="quota-percent">{{ quotaLabel }}</span>
               </div>
-              <div class="quota-legend">
+              <div v-if="!isOldMember" class="quota-legend">
                 <span class="quota-legend-item">
                   <span class="quota-legend-dot subscription"></span>
                   订阅额度
@@ -180,19 +181,35 @@ const isOldMember = computed(() => {
   return String(t).toLowerCase() !== 'free'
 })
 
-// 额度进度条计算
-const totalCapacity = computed(() => userStore.quotaSubTotal + userStore.quotaBoosterTotal)
+// 额度进度条计算（兼容新老会员）
 const subscriptionPercent = computed(() => {
-  if (totalCapacity.value <= 0) return 0
-  return Math.round((userStore.quotaSubRemain / totalCapacity.value) * 100)
+  if (isOldMember.value) {
+    const t = tier.value
+    if (t === 'premium' || t === 'vip') return 100
+    const limit = t === 'standard' ? 20 : 10 // standard 20次/月, trial 10次
+    const used = userData.value.monthly_sop_runs ?? 0
+    const remain = Math.max(limit - used, 0)
+    return Math.round((remain / limit) * 100)
+  }
+  const total = userStore.quotaSubTotal + userStore.quotaBoosterTotal
+  if (total <= 0) return 0
+  return Math.round((userStore.quotaSubRemain / total) * 100)
 })
 const boosterPercent = computed(() => {
-  if (totalCapacity.value <= 0) return 0
-  return Math.round((userStore.quotaBoosterRemain / totalCapacity.value) * 100)
+  if (isOldMember.value) return 0
+  const total = userStore.quotaSubTotal + userStore.quotaBoosterTotal
+  if (total <= 0) return 0
+  return Math.round((userStore.quotaBoosterRemain / total) * 100)
 })
-const totalQuotaPercent = computed(() => {
-  if (totalCapacity.value <= 0) return 0
-  return Math.min(subscriptionPercent.value + boosterPercent.value, 100)
+const quotaLabel = computed(() => {
+  if (isOldMember.value) {
+    const t = tier.value
+    if (t === 'premium' || t === 'vip') return '无限次'
+    const limit = t === 'standard' ? 20 : 10
+    const used = userData.value.monthly_sop_runs ?? 0
+    return `${Math.max(limit - used, 0)}/${limit} 次`
+  }
+  return `${userStore.creditBalance}`
 })
 
 const tierLabel = computed(() => {
