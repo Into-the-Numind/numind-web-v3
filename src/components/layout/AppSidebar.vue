@@ -15,7 +15,7 @@
         class="nav-item"
         :class="{ active: isActive(item.path) }"
         :style="{ '--item-index': index }"
-        :title="collapsed ? item.title : undefined"
+        :data-tooltip="collapsed ? item.title : undefined"
       >
         <svg v-if="item.icon === 'workspace'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
@@ -38,7 +38,7 @@
 
     <!-- Toggle -->
     <div class="sidebar-bottom">
-      <button class="toggle-btn" :title="collapsed ? '展开导航' : '折叠导航'" @click="toggle()">
+      <button class="toggle-btn" :data-tooltip="collapsed ? '展开导航' : undefined" @click="toggle()">
         <svg class="toggle-icon" :class="{ flipped: collapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12H3M3 12L9 6M3 12L9 18"/>
         </svg>
@@ -52,15 +52,16 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useSidebarState } from '@/composables/useSidebarState'
 
 const route = useRoute()
 const userStore = useUserStore()
-const collapsed = ref(false)
+const { collapsed, toggle: toggleCollapsed } = useSidebarState()
 const animating = ref(false)
 
 const toggle = () => {
   animating.value = true
-  collapsed.value = !collapsed.value
+  toggleCollapsed()
 }
 
 const onTransitionEnd = (e: TransitionEvent) => {
@@ -381,6 +382,34 @@ const isActive = (path: string) => {
   animation: icon-pulse 380ms var(--ease-spring) both;
 }
 
+/* ===== Tooltip (collapsed state) ===== */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  background: hsl(160, 20%, 22%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: 1000;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
 /* ===== Accessibility ===== */
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
@@ -470,6 +499,10 @@ const isActive = (path: string) => {
   }
 
   .sidebar-bottom {
+    display: none;
+  }
+
+  [data-tooltip]::after {
     display: none;
   }
 }

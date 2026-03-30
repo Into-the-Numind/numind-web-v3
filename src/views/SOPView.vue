@@ -812,8 +812,6 @@ onBeforeUnmount(() => {
 
   /* Top bar: compact for mobile with safe area */
   .top-bar {
-    height: 48px;
-    min-height: 48px;
     padding: env(safe-area-inset-top, 0px) 12px 0;
     height: calc(48px + env(safe-area-inset-top, 0px));
     min-height: calc(48px + env(safe-area-inset-top, 0px));

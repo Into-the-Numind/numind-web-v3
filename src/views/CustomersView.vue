@@ -565,7 +565,8 @@
                 </div>
 
                 <div class="tier-preview">
-                  应付金额：<strong style="color: var(--accent); font-size: 1.2em;">¥{{ purchaseAmount }}</strong>
+                  参考价格：<strong style="color: var(--accent); font-size: 1.2em;">¥{{ purchaseAmount }}</strong>
+                  <span style="font-size: 12px; color: #999; display: block; margin-top: 4px;">实际金额以提交订单后为准</span>
                 </div>
               </div>
               <div class="modal-footer">
@@ -596,11 +597,8 @@
                   <p style="margin-bottom: 16px; font-size: 1.3em; font-weight: 600; color: var(--accent);">¥{{ (purchaseOrder.amount / 100).toFixed(2) }}</p>
                   <template v-if="purchaseForm.payChannel === 'wechat'">
                     <p style="margin-bottom: 12px;">请使用微信扫描下方二维码完成支付</p>
-                    <img
-                      :src="'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(purchaseOrder.code_url)"
-                      alt="支付二维码"
-                      style="width: 200px; height: 200px; border: 1px solid #eee; border-radius: 8px;"
-                    />
+                    <canvas v-show="!qrError" ref="qrCanvas" style="width: 200px; height: 200px; border: 1px solid #eee; border-radius: 8px;"></canvas>
+                    <p v-if="qrError" style="color: #e65100; font-size: 14px; padding: 20px;">{{ qrError }}</p>
                   </template>
                   <template v-else>
                     <p style="margin-bottom: 12px;">请在新打开的标签页中完成支付宝支付</p>
@@ -636,7 +634,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, reactive, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import QRCode from 'qrcode'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import {
   fetchStatistics,
@@ -711,6 +710,25 @@ const purchaseLoading = ref(false)
 const purchaseOrder = ref<Order | null>(null)
 const showPaymentModal = ref(false)
 const paymentPolling = ref<number | null>(null)
+const qrCanvas = ref<HTMLCanvasElement>()
+
+const qrError = ref('')
+
+watch(
+  () => showPaymentModal.value && purchaseForm.payChannel === 'wechat' && purchaseOrder.value?.code_url,
+  async (url) => {
+    qrError.value = ''
+    if (!url) return
+    await nextTick()
+    if (qrCanvas.value) {
+      try {
+        await QRCode.toCanvas(qrCanvas.value, url as string, { width: 200, margin: 2 })
+      } catch {
+        qrError.value = '二维码生成失败，请复制订单号联系客服完成支付'
+      }
+    }
+  }
+)
 
 // Dropdown
 const openMenuId = ref<number | string | null>(null)
@@ -1122,7 +1140,16 @@ function closePaymentModal() {
 }
 
 function startPaymentPolling(orderId: number) {
+  stopPaymentPolling()
+  const MAX_POLLS = 100 // 5 minutes at 3s intervals
+  let pollCount = 0
   paymentPolling.value = window.setInterval(async () => {
+    pollCount++
+    if (pollCount >= MAX_POLLS) {
+      stopPaymentPolling()
+      showToast('支��超时，请刷新页面查看支付状态', 'info')
+      return
+    }
     try {
       const res = await getOrder(orderId)
       if (res.data?.pay_status === 'paid') {

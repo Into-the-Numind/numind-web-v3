@@ -177,8 +177,8 @@ const tier = computed(() => {
 })
 
 const isOldMember = computed(() => {
-  const t = userData.value.user_tier || userData.value.tier || userData.value.plan || 'free'
-  return String(t).toLowerCase() !== 'free'
+  const t = tier.value
+  return t === 'standard' || t === 'premium' || t === 'vip'
 })
 
 // 额度进度条计算（兼容新老会员）
