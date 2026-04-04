@@ -30,25 +30,8 @@
           </div>
         </div>
 
-        <!-- Stats placeholder (Task 14: MonitorStats) -->
-        <div class="stats-placeholder">
-          <div class="stat-card">
-            <span class="stat-label">监控博主</span>
-            <span class="stat-value">{{ store.stats?.total_bloggers ?? '-' }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">活跃博主</span>
-            <span class="stat-value">{{ store.stats?.active_bloggers ?? '-' }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">收录笔记</span>
-            <span class="stat-value">{{ store.stats?.total_notes ?? '-' }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">本周新增</span>
-            <span class="stat-value">{{ store.stats?.notes_this_week ?? '-' }}</span>
-          </div>
-        </div>
+        <!-- Stats -->
+        <MonitorStats />
 
         <!-- Tab navigation -->
         <div class="tab-bar">
@@ -67,14 +50,8 @@
         <div class="tab-content">
           <BloggerList v-if="activeTab === 'bloggers'" />
           <ContentFeed v-else-if="activeTab === 'notes'" />
-          <!-- BriefingList — Task 14 -->
-          <div v-else-if="activeTab === 'briefings'" class="placeholder-panel">
-            <p class="placeholder-text">简报功能开发中...</p>
-          </div>
-          <!-- MonitorConfig — Task 14 -->
-          <div v-else-if="activeTab === 'config'" class="placeholder-panel">
-            <p class="placeholder-text">配置功能开发中...</p>
-          </div>
+          <BriefingList v-else-if="activeTab === 'briefings'" />
+          <MonitorConfig v-else-if="activeTab === 'config'" />
         </div>
       </template>
     </div>
@@ -88,6 +65,9 @@ import { useMonitorStore } from '@/stores/monitor'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import BloggerList from '@/components/monitor/BloggerList.vue'
 import ContentFeed from '@/components/monitor/ContentFeed.vue'
+import MonitorStats from '@/components/monitor/MonitorStats.vue'
+import BriefingList from '@/components/monitor/BriefingList.vue'
+import MonitorConfig from '@/components/monitor/MonitorConfig.vue'
 
 const router = useRouter()
 const store = useMonitorStore()
@@ -210,36 +190,6 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* Stats placeholder */
-.stats-placeholder {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-lg);
-  margin-bottom: var(--space-xl);
-}
-
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg) var(--space-xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.stat-label {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--text);
-}
-
 /* Tabs */
 .tab-bar {
   display: flex;
@@ -275,25 +225,8 @@ onMounted(async () => {
   min-height: 300px;
 }
 
-/* Placeholder panels for Task 14 */
-.placeholder-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4xl) 0;
-}
-
-.placeholder-text {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
 /* Responsive */
 @media (max-width: 768px) {
-  .stats-placeholder {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .tab-bar {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
