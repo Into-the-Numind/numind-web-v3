@@ -68,6 +68,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/monitor',
+    name: 'monitor',
+    component: () => import('@/views/MonitorView.vue'),
+    meta: {
+      title: '竞品监控',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),
