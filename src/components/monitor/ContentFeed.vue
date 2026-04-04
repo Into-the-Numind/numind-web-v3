@@ -153,8 +153,8 @@ const showDetail = ref(false)
 async function loadNotes(page: number) {
   currentPage.value = page
   await store.fetchNotes({
-    page,
-    page_size: pageSize,
+    offset: (page - 1) * pageSize,
+    limit: pageSize,
     blogger_id: filterBloggerId.value || undefined,
     note_type: filterNoteType.value || undefined,
     keyword: keyword.value.trim() || undefined
@@ -204,7 +204,7 @@ function formatNumber(n: number): string {
 onMounted(() => {
   // Load bloggers for the filter dropdown if not already loaded
   if (store.bloggers.length === 0) {
-    store.fetchBloggers({ page: 1, page_size: 100 })
+    store.fetchBloggers({ offset: 0, limit: 100 })
   }
   loadNotes(1)
 })

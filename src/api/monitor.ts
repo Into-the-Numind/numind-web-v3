@@ -101,8 +101,8 @@ export interface UpdateBloggerParams {
 }
 
 export interface ListBloggersParams {
-  page?: number
-  page_size?: number
+  offset?: number
+  limit?: number
   is_active?: boolean
   category?: string
 }
@@ -113,8 +113,8 @@ export interface ListBloggersResponse {
 }
 
 export interface ListNotesParams {
-  page?: number
-  page_size?: number
+  offset?: number
+  limit?: number
   blogger_id?: number
   note_type?: string
   keyword?: string
@@ -126,8 +126,8 @@ export interface ListNotesResponse {
 }
 
 export interface ListBriefingsParams {
-  page?: number
-  page_size?: number
+  offset?: number
+  limit?: number
   type?: string
 }
 
@@ -156,15 +156,14 @@ export interface CheckBatchParams {
 }
 
 export interface PermissionResponse {
-  has_permission: boolean
-  reason?: string
+  allowed: boolean
 }
 
 // ==================== API Functions ====================
 
 // 权限检查
 export const checkMonitorPermission = (): Promise<ApiResponse<PermissionResponse>> => {
-  return request.get('/v1/monitor/permission')
+  return request.get('/v1/monitor/check-permission')
 }
 
 // 博主管理
@@ -194,7 +193,7 @@ export const checkBlogger = (id: number): Promise<ApiResponse<null>> => {
 }
 
 export const checkBatch = (params: CheckBatchParams): Promise<ApiResponse<null>> => {
-  return request.post('/v1/monitor/bloggers/check-batch', params)
+  return request.post('/v1/monitor/check-batch', params)
 }
 
 // 笔记管理

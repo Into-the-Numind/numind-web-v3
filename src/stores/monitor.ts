@@ -39,7 +39,7 @@ export const useMonitorStore = defineStore('monitor', () => {
   async function checkPermission() {
     try {
       const res = await checkMonitorPermission()
-      hasPermission.value = res.data?.has_permission ?? false
+      hasPermission.value = res.data?.allowed ?? false
     } catch (e) {
       console.error('[monitor] checkPermission failed:', e)
       hasPermission.value = false

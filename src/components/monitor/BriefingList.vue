@@ -132,8 +132,8 @@ const showDetail = ref(false)
 async function loadBriefings(page: number) {
   currentPage.value = page
   await store.fetchBriefings({
-    page,
-    page_size: pageSize,
+    offset: (page - 1) * pageSize,
+    limit: pageSize,
     type: filterType.value || undefined,
   })
 }

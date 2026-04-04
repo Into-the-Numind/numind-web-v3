@@ -288,8 +288,8 @@ async function loadBloggers(page: number) {
   currentPage.value = page
   selectedIds.value = []
   await store.fetchBloggers({
-    page,
-    page_size: pageSize,
+    offset: (page - 1) * pageSize,
+    limit: pageSize,
     category: filterCategory.value || undefined
   })
 }
