@@ -9,6 +9,7 @@ import {
   listChatbotMessages,
   sendChatbotMessageStream
 } from '@/api/chatbot'
+import { useLLMModelStore } from '@/stores/llmModel'
 
 let nextLocalId = -1
 
@@ -143,6 +144,10 @@ export const useChatbotStore = defineStore('chatbot', () => {
     let content = ''
     let thinking = ''
 
+    const llmStore = useLLMModelStore()
+    const selectedModelKey = llmStore.getSelectedModelKey('chatbot')
+    const thinkingEnabled = llmStore.isThinkingEnabled('chatbot')
+
     try {
       await sendChatbotMessageStream(
         sessionId,
@@ -168,7 +173,9 @@ export const useChatbotStore = defineStore('chatbot', () => {
               break
           }
         },
-        controller.signal
+        controller.signal,
+        selectedModelKey || undefined,
+        thinkingEnabled
       )
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== 'AbortError') {

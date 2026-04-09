@@ -2512,7 +2512,13 @@
 
             console.log(`正在执行当前步骤 ${currentStep} 的节点 (node_id: ${nodeId}, run_id: ${currentRunId})...`);
 
-            const response = await fetch(`${API_BASE_URL}/v1/sop/runs/${currentRunId}/nodes/${nodeId}/execute`, {
+            const selectedModel = window.__selectedModel || {};
+            let executeUrl = `${API_BASE_URL}/v1/sop/runs/${currentRunId}/nodes/${nodeId}/execute`;
+            if (selectedModel.modelKey) {
+                executeUrl += `?model_key=${encodeURIComponent(selectedModel.modelKey)}&thinking=${selectedModel.thinking ? '1' : '0'}`;
+            }
+
+            const response = await fetch(executeUrl, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
