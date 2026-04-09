@@ -246,12 +246,9 @@ onBeforeUnmount(() => {
                     :content="msg.thinking"
                     :finished="true"
                   />
-                  <div
-                    class="message-bubble"
-                    :class="msg.role"
-                    v-html="msg.role === 'assistant' ? render(msg.content) : undefined"
-                  >
-                    <template v-if="msg.role === 'user'">{{ msg.content }}</template>
+                  <div class="message-bubble" :class="msg.role">
+                    <div v-if="msg.role === 'assistant'" v-html="render(msg.content)"></div>
+                    <template v-else>{{ msg.content }}</template>
                   </div>
                 </div>
 
