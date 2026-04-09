@@ -211,12 +211,29 @@ export const useConfigStore = defineStore('config', () => {
 
   // ==================== SOP Template Actions ====================
 
+  // SopTemplate uses shared gorm.Model which serializes ID/CreatedAt as uppercase
+  function normalizeSopTemplate(raw: Record<string, unknown>): ConfigSopTemplate {
+    return {
+      id: (raw.id ?? raw.ID) as number,
+      name: raw.name as string,
+      description: (raw.description ?? '') as string,
+      creator_user_id: (raw.creator_user_id ?? null) as number | null,
+      publish_status: (raw.publish_status ?? '') as string,
+      status: (raw.status ?? '') as string,
+      node_count: raw.node_count as number | undefined,
+      created_at: (raw.created_at ?? raw.CreatedAt ?? '') as string,
+      updated_at: (raw.updated_at ?? raw.UpdatedAt ?? '') as string
+    }
+  }
+
   async function fetchSopTemplates(offset = 0, limit = 20) {
     loading.value = true
     try {
       const res = await apiListSopTemplates(offset, limit)
-      const data = (res as any)?.data as { list: ConfigSopTemplate[]; total: number } | undefined
-      sopTemplates.value = data?.list ?? []
+      const data = (res as any)?.data as
+        | { list: Record<string, unknown>[]; total: number }
+        | undefined
+      sopTemplates.value = (data?.list ?? []).map(normalizeSopTemplate)
       sopTemplatesTotal.value = data?.total ?? 0
     } catch (e) {
       console.error('[config] fetchSopTemplates failed:', e)
@@ -225,12 +242,27 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
+  function normalizeSopNode(raw: Record<string, unknown>): SopNode {
+    return {
+      id: (raw.id ?? raw.ID) as number,
+      template_id: (raw.template_id ?? 0) as number,
+      prompt: (raw.prompt ?? '') as string,
+      sort: (raw.sort ?? raw.sort_order ?? 0) as number
+    }
+  }
+
   async function fetchSopTemplateDetail(
     id: number
   ): Promise<(ConfigSopTemplate & { nodes: SopNode[] }) | null> {
     try {
       const res = await apiGetSopTemplate(id)
-      return ((res as any)?.data as ConfigSopTemplate & { nodes: SopNode[] }) ?? null
+      const raw = (res as any)?.data as Record<string, unknown> | undefined
+      if (!raw) return null
+      // API returns { template: {...}, nodes: [...] }
+      const rawTpl = (raw.template ?? raw) as Record<string, unknown>
+      const tpl = normalizeSopTemplate(rawTpl)
+      const rawNodes = (raw.nodes ?? raw.Nodes ?? []) as Record<string, unknown>[]
+      return { ...tpl, nodes: rawNodes.map(normalizeSopNode) }
     } catch (e) {
       console.error('[config] fetchSopTemplateDetail failed:', e)
       return null
