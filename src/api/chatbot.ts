@@ -46,10 +46,15 @@ export const sendChatbotMessageStream = async (
   sessionId: number,
   query: string,
   onEvent: (event: ChatbotEvent) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  modelKey?: string,
+  thinking?: boolean
 ): Promise<void> => {
+  const body: Record<string, unknown> = { message: query }
+  if (modelKey) body.model_key = modelKey
+  if (thinking !== undefined) body.thinking = thinking
   const response = await fetchSSE(`/v1/chatbot/sessions/${sessionId}/chat`, {
-    body: JSON.stringify({ message: query }),
+    body: JSON.stringify(body),
     signal
   })
   await readSSEStream(response, (event) => {

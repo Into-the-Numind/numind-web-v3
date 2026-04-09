@@ -6,6 +6,7 @@ import { useChatbotStore } from '@/stores/chatbot'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import { useMarkdown } from '@/composables/useMarkdown'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
+import ModelSelector from '@/components/common/ModelSelector.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -335,7 +336,9 @@ onBeforeUnmount(() => {
               @input="autoResize"
             />
             <div class="input-toolbar">
-              <div class="toolbar-left" />
+              <div class="toolbar-left">
+                <ModelSelector feature="chatbot" />
+              </div>
               <div class="toolbar-right">
                 <button
                   v-if="store.streaming"

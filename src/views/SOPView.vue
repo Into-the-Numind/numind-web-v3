@@ -35,6 +35,7 @@
         <div class="top-bar-title" id="sop-top-bar-title">SOP 工作流</div>
       </div>
       <div class="top-bar-right">
+        <ModelSelector feature="sop" />
         <button class="top-bar-action" onclick="openHistoryModal()" title="历史记录">
           <svg
             width="16"
@@ -703,16 +704,30 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSopStore } from '@/stores/sop'
+import { useLLMModelStore } from '@/stores/llmModel'
 import request from '@/api/request'
+import ModelSelector from '@/components/common/ModelSelector.vue'
 
 const router = useRouter()
 const route = useRoute()
 const sopStore = useSopStore()
+const llmStore = useLLMModelStore()
 const errorText = ref('')
 const legacyReady = ref(false)
+
+watch(
+  () => ({
+    modelKey: llmStore.getSelectedModelKey('sop'),
+    thinking: llmStore.isThinkingEnabled('sop')
+  }),
+  (val) => {
+    ;(window as unknown as Record<string, unknown>).__selectedModel = val
+  },
+  { immediate: true }
+)
 
 const goHome = async () => {
   await router.push('/')
