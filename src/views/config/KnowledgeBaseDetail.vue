@@ -57,19 +57,25 @@
 
       <!-- 上传区域 -->
       <div class="upload-section">
-        <label class="upload-area">
+        <label class="upload-area" :class="{ disabled: docLimitReached }">
           <input
             ref="fileInput"
             type="file"
             class="file-input"
             accept=".txt,.pdf,.md,.doc,.docx"
+            multiple
+            :disabled="uploading || docLimitReached"
             @change="handleFileSelect"
           />
-          <span v-if="!uploading" class="upload-text">
-            点击选择文件上传（支持 txt、pdf、md、doc、docx）
+          <span v-if="uploading" class="upload-text">上传中（{{ uploadingCount }} 个文件）...</span>
+          <span v-else-if="docLimitReached" class="upload-text upload-text--disabled">
+            已达文档上限（10 份）
           </span>
-          <span v-else class="upload-text">上传中...</span>
+          <span v-else class="upload-text">
+            点击选择文件上传（支持 txt、pdf、md、doc、docx，单次最多 5 个，单文件不超过 50MB）
+          </span>
         </label>
+        <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
       </div>
 
       <!-- 文档列表 -->
@@ -116,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
@@ -129,11 +135,21 @@ const store = useConfigStore()
 
 const kbId = Number(route.params.id)
 
+const MAX_FILES_PER_BATCH = 5
+const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+const MAX_DOCS_PER_KB = 10
+
 const loading = ref(false)
 const loadError = ref('')
 const detail = ref<KBDetail | null>(null)
 const uploading = ref(false)
+const uploadingCount = ref(0)
+const uploadError = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+
+const docLimitReached = computed(() => {
+  return (detail.value?.documents?.length ?? 0) >= MAX_DOCS_PER_KB
+})
 
 // Meta editing
 const editingMeta = ref(false)
@@ -214,18 +230,49 @@ async function loadDetail() {
 
 async function handleFileSelect(e: Event) {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+  const fileList = input.files
+  if (!fileList || fileList.length === 0) return
+
+  uploadError.value = ''
+  const files = Array.from(fileList)
+
+  // 客户端校验：文件数量
+  const currentDocCount = detail.value?.documents?.length ?? 0
+  const remaining = MAX_DOCS_PER_KB - currentDocCount
+  if (files.length > remaining) {
+    uploadError.value = `知识库还可上传 ${remaining} 份文档，本次选择了 ${files.length} 份`
+    if (fileInput.value) fileInput.value.value = ''
+    return
+  }
+  if (files.length > MAX_FILES_PER_BATCH) {
+    uploadError.value = `单次最多上传 ${MAX_FILES_PER_BATCH} 个文件`
+    if (fileInput.value) fileInput.value.value = ''
+    return
+  }
+
+  // 客户端校验：单文件大小
+  const oversized = files.filter((f) => f.size > MAX_FILE_SIZE)
+  if (oversized.length > 0) {
+    uploadError.value = `以下文件超过 50MB 限制：${oversized.map((f) => f.name).join('、')}`
+    if (fileInput.value) fileInput.value.value = ''
+    return
+  }
 
   uploading.value = true
+  uploadingCount.value = files.length
   try {
-    const ok = await store.uploadDocument(kbId, file)
-    if (ok) {
-      await loadDetail()
+    const { ok, results, errorMsg } = await store.uploadDocuments(kbId, files)
+    if (errorMsg) {
+      uploadError.value = errorMsg
+    } else if (!ok && results.length > 0) {
+      const failed = results.filter((r) => !r.success)
+      uploadError.value = failed.map((r) => `${r.filename}: ${r.error}`).join('；')
     }
+    // 无论部分成功还是全部成功都刷新列表
+    await loadDetail()
   } finally {
     uploading.value = false
-    // Reset file input so same file can be re-selected
+    uploadingCount.value = 0
     if (fileInput.value) {
       fileInput.value.value = ''
     }
@@ -400,9 +447,30 @@ onMounted(loadDetail)
   display: none;
 }
 
+.upload-area.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  border-color: var(--color-border, #e5e7eb);
+}
+
+.upload-area.disabled:hover {
+  border-color: var(--color-border, #e5e7eb);
+  background: transparent;
+}
+
 .upload-text {
   font-size: 0.875rem;
   color: var(--color-text-muted, #6b7280);
+}
+
+.upload-text--disabled {
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.upload-error {
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  color: #ef4444;
 }
 
 /* Document section */

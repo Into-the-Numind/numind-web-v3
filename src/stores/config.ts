@@ -15,7 +15,7 @@ import {
   getKB as apiGetKB,
   updateKB as apiUpdateKB,
   deleteKB as apiDeleteKB,
-  uploadKBDocument as apiUploadKBDocument,
+  uploadKBDocuments as apiUploadKBDocuments,
   removeKBDocument as apiRemoveKBDocument,
   listChatbots as apiListChatbots,
   createChatbot as apiCreateChatbot,
@@ -104,13 +104,29 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  async function uploadDocument(kbId: number, file: File) {
+  interface UploadResult {
+    filename: string
+    success: boolean
+    error?: string
+  }
+
+  async function uploadDocuments(
+    kbId: number,
+    files: File[]
+  ): Promise<{ ok: boolean; results: UploadResult[]; errorMsg?: string }> {
     try {
-      await apiUploadKBDocument(kbId, file)
-      return true
-    } catch (e) {
-      console.error('[config] uploadDocument failed:', e)
-      return false
+      const res = await apiUploadKBDocuments(kbId, files)
+      const data = (res as any).data?.data ?? (res as any).data
+      if (data?.results) {
+        const results = data.results as UploadResult[]
+        const allOk = results.every((r: UploadResult) => r.success)
+        return { ok: allOk, results }
+      }
+      return { ok: true, results: [] }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '上传失败'
+      console.error('[config] uploadDocuments failed:', e)
+      return { ok: false, results: [], errorMsg: msg }
     }
   }
 
@@ -376,7 +392,7 @@ export const useConfigStore = defineStore('config', () => {
     addKnowledgeBase,
     editKnowledgeBase,
     removeKnowledgeBase,
-    uploadDocument,
+    uploadDocuments,
     removeDocument,
 
     // Chatbot Actions

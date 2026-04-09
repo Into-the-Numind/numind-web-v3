@@ -34,11 +34,13 @@ export const deleteKB = (id: number) => {
   return request.delete(`/v1/config/knowledge-bases/${id}`)
 }
 
-export const uploadKBDocument = (kbId: number, file: File) => {
+export const uploadKBDocuments = (kbId: number, files: File[]) => {
   const formData = new FormData()
-  formData.append('file', file)
+  for (const file of files) {
+    formData.append('files', file)
+  }
   return request.post(`/v1/config/knowledge-bases/${kbId}/documents`, formData, {
-    timeout: 120000
+    timeout: 300000
   })
 }
 
