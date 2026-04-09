@@ -94,6 +94,57 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true
     }
   },
+  {
+    path: '/config',
+    component: () => import('@/views/config/ConfigLayout.vue'),
+    meta: {
+      title: '配置中心',
+      requiresAuth: true,
+      requiresParent: true
+    },
+    children: [
+      { path: '', redirect: '/config/chatbots' },
+      {
+        path: 'chatbots',
+        component: () => import('@/views/config/ChatbotList.vue'),
+        meta: { title: '智能体管理', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'chatbots/:id/edit',
+        component: () => import('@/views/config/ChatbotEdit.vue'),
+        meta: { title: '编辑智能体', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'sop-templates',
+        component: () => import('@/views/config/SopTemplateList.vue'),
+        meta: { title: 'SOP 管理', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'sop-templates/:id/edit',
+        component: () => import('@/views/config/SopTemplateEdit.vue'),
+        meta: { title: '编辑 SOP 模板', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'knowledge-bases',
+        component: () => import('@/views/config/KnowledgeBaseList.vue'),
+        meta: { title: '知识库管理', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'knowledge-bases/:id',
+        component: () => import('@/views/config/KnowledgeBaseDetail.vue'),
+        meta: { title: '知识库详情', requiresAuth: true, requiresParent: true }
+      }
+    ]
+  },
+  {
+    path: '/chatbot/:id',
+    name: 'chatbot-chat',
+    component: () => import('@/views/chatbot/ChatbotChat.vue'),
+    meta: {
+      title: '智能体对话',
+      requiresAuth: true
+    }
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',
@@ -139,7 +190,7 @@ router.beforeEach((to, from, next) => {
   }
 
   // 父用户专属页面：子用户（有 parent_user_id）不可访问
-  if (to.meta.parentOnly && userStore.userInfo?.parent_user_id) {
+  if ((to.meta.parentOnly || to.meta.requiresParent) && !userStore.isParentUser) {
     next('/')
     return
   }
