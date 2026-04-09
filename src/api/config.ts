@@ -124,14 +124,17 @@ export const updateSopTemplateStatus = (id: number, status: string) => {
 
 // ==================== SOP Nodes ====================
 
-export const createNode = (templateId: number, data: { prompt: string; sort?: number }) => {
+export const createNode = (
+  templateId: number,
+  data: { name?: string; description?: string; prompt: string; sort?: number }
+) => {
   return request.post<{ data: SopNode }>(`/v1/config/sop-templates/${templateId}/nodes`, data)
 }
 
 export const updateNode = (
   templateId: number,
   nodeId: number,
-  data: { prompt?: string; sort?: number }
+  data: { name?: string; description?: string; prompt?: string; sort?: number }
 ) => {
   return request.put<{ data: SopNode }>(
     `/v1/config/sop-templates/${templateId}/nodes/${nodeId}`,

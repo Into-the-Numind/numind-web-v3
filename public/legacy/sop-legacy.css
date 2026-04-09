@@ -269,10 +269,12 @@
             z-index: 5;
         }
 
-        /* 第五步时，确保步骤指示器可以点击 */
+        /* 聊天步骤时，确保步骤指示器可以点击，并传递高度给子元素 */
         .step-5-active .content-wrapper {
             z-index: 15;
             padding-top: 16px;
+            height: 100%;
+            box-sizing: border-box;
         }
 
 
@@ -2691,13 +2693,16 @@
             box-shadow: none !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
+            /* flex 列布局：内容少时输入框也在底部，内容多时 sticky 接管 */
+            min-height: 100%;
         }
 
         #step-5.step-content.active {
-            display: block !important;
+            display: flex !important;
+            flex-direction: column;
         }
 
-        /* 聊天容器：普通块级流 */
+        /* 聊天容器：flex 子元素，撑满剩余空间把输入框推到底部 */
         #step-5 .chatbot-container {
             position: relative !important;
             left: auto !important;
@@ -2709,6 +2714,7 @@
             box-sizing: border-box !important;
             overflow: visible !important;
             background-color: transparent !important;
+            flex: 1;
         }
 
         /* 消息列表：普通块级流，内容自然撑高 */

@@ -2263,6 +2263,44 @@
             step5.appendChild(step5LabelDiv);
             stepper.appendChild(step5);
 
+            // 隐藏多余的硬编码 step-content 容器（B端节点数可能 < 4）
+            // 例如 3 个节点时，step-4 的硬编码内容应隐藏，step-5（chatbot）由映射逻辑处理
+            for (let i = nodes.length + 1; i <= 4; i++) {
+                const unusedContent = document.getElementById(`step-${i}`);
+                if (unusedContent) {
+                    unusedContent.style.display = 'none';
+                    unusedContent.classList.remove('active');
+                }
+            }
+
+            // 用 B 端配置的节点数据覆盖硬编码步骤标题和描述（仅非硬编码模板）
+            if (!TEMPLATE_CONFIGS[templateId]) nodes.forEach((node, index) => {
+                const stepContent = document.getElementById(`step-${index + 1}`);
+                if (!stepContent) return;
+
+                // 覆盖标题
+                const titleEl = stepContent.querySelector('.step-content-title');
+                if (titleEl && node.name) {
+                    titleEl.textContent = `第 ${index + 1} 步：${node.name}`;
+                }
+
+                // 覆盖描述
+                const descEl = stepContent.querySelector('.step-content-description');
+                if (descEl) {
+                    if (node.description) {
+                        descEl.textContent = node.description;
+                    } else {
+                        descEl.textContent = '请在下方输入内容';
+                    }
+                }
+
+                // 隐藏硬编码的 page-tip（B 端配置的 SOP 不需要显示旧 SOP 的提示文字）
+                const tipEl = stepContent.querySelector('.page-tip');
+                if (tipEl) {
+                    tipEl.style.display = 'none';
+                }
+            });
+
             // 重新添加分隔线 + 历史记录按钮（动态重建后恢复）
             const divider = document.createElement('div');
             divider.className = 'stepper-divider';
@@ -3676,10 +3714,11 @@
     // 点击弹窗外部关闭
     // [V3] 转换为命名函数，由 __sopLegacyInit 调用
     async function __sopDOMContentLoadedMain() {
-        // 初始化聊天输入框的显示状态（默认隐藏，仅在步骤5显示）
+        // 初始化聊天输入框的显示状态（默认隐藏，仅在聊天步骤显示）
         const chatbotInputArea = document.getElementById('chatbot-input-area');
         if (chatbotInputArea) {
-            if (currentStep === 5) {
+            const initChatStep = (nodesData && nodesData.length > 0) ? nodesData.length + 1 : 5;
+            if (currentStep === initChatStep) {
                 chatbotInputArea.classList.add('show');
             } else {
                 chatbotInputArea.classList.remove('show');
@@ -4013,7 +4052,12 @@
         document.querySelectorAll('.step-content').forEach(content => {
             content.classList.remove('active');
         });
-        const stepContent = document.getElementById(`step-${stepNumber}`);
+        // 聊天步骤始终映射到 step-5 的 DOM 容器（chatbot UI）
+        const totalBackendNodesForContent = nodesData.length;
+        const chatStepForContent = totalBackendNodesForContent + 1;
+        const isChatStep = totalBackendNodesForContent > 0 && stepNumber === chatStepForContent;
+        const contentId = isChatStep ? 'step-5' : `step-${stepNumber}`;
+        const stepContent = document.getElementById(contentId);
         if (stepContent) {
             stepContent.classList.add('active');
 
@@ -4114,7 +4158,8 @@
 
     // 下一步
     function nextStep() {
-        if (currentStep < 5) {
+        const totalSteps = (nodesData && nodesData.length > 0) ? nodesData.length + 1 : 5;
+        if (currentStep < totalSteps) {
             setActiveStep(currentStep + 1);
         }
     }
@@ -5024,12 +5069,11 @@
                         hideNextStepLoading();
                     }, 300);
                 } else {
-                    // 如果没有返回 node_id，说明真的没有下一个节点了
-                    // 将当前步骤的按钮改为"完成"
-                    updateButtonToComplete(currentStep);
-                    showToast('所有步骤已完成');
+                    // 没有下一个后端节点了，跳转到 AI 聊天步骤
+                    const chatStepNum = nodesData.length + 1;
+                    setActiveStep(chatStepNum);
                     // 隐藏加载提示
-                    hideNextStepLoading();
+                    setTimeout(() => { hideNextStepLoading(); }, 300);
                 }
             } catch (error) {
                 console.error('获取下一个节点失败:', error);
@@ -5167,12 +5211,11 @@
                         hideNextStepLoading();
                     }, 300);
                 } else {
-                    // 如果没有返回 node_id，说明真的没有下一个节点了
-                    // 将当前步骤的按钮改为"完成"
-                    updateButtonToComplete(currentStep);
-                    showToast('所有步骤已完成');
+                    // 没有下一个后端节点了，跳转到 AI 聊天步骤
+                    const chatStepNum = nodesData.length + 1;
+                    setActiveStep(chatStepNum);
                     // 隐藏加载提示
-                    hideNextStepLoading();
+                    setTimeout(() => { hideNextStepLoading(); }, 300);
                 }
             } catch (error) {
                 console.error('获取下一个节点失败:', error);
@@ -5311,12 +5354,11 @@
                         hideNextStepLoading();
                     }, 300);
                 } else {
-                    // 如果没有返回 node_id，说明真的没有下一个节点了
-                    // 将当前步骤的按钮改为"完成"
-                    updateButtonToComplete(currentStep);
-                    showToast('所有步骤已完成');
+                    // 没有下一个后端节点了，跳转到 AI 聊天步骤
+                    const chatStepNum = nodesData.length + 1;
+                    setActiveStep(chatStepNum);
                     // 隐藏加载提示
-                    hideNextStepLoading();
+                    setTimeout(() => { hideNextStepLoading(); }, 300);
                 }
             } catch (error) {
                 console.error('获取下一个节点失败:', error);
@@ -5891,8 +5933,9 @@
         const scrollContainer = document.querySelector('.main-content');
         if (!scrollContainer) return;
 
-        // 如果当前在步骤5，不滚动主内容区域
-        if (currentStep === 5) {
+        // 如果当前在聊天步骤，不滚动主内容区域
+        const scrollChatStep = (nodesData && nodesData.length > 0) ? nodesData.length + 1 : 5;
+        if (currentStep === scrollChatStep) {
             return;
         }
 

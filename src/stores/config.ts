@@ -262,6 +262,8 @@ export const useConfigStore = defineStore('config', () => {
     return {
       id: (raw.id ?? raw.ID) as number,
       template_id: (raw.template_id ?? 0) as number,
+      name: (raw.name ?? '') as string,
+      description: (raw.description ?? '') as string,
       prompt: (raw.prompt ?? '') as string,
       sort: (raw.sort ?? raw.sort_order ?? 0) as number
     }
@@ -332,7 +334,10 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  async function addNode(templateId: number, data: { prompt: string; sort?: number }) {
+  async function addNode(
+    templateId: number,
+    data: { name?: string; description?: string; prompt: string; sort?: number }
+  ) {
     try {
       await apiCreateNode(templateId, data)
       return true
@@ -345,7 +350,7 @@ export const useConfigStore = defineStore('config', () => {
   async function editNode(
     templateId: number,
     nodeId: number,
-    data: { prompt?: string; sort?: number }
+    data: { name?: string; description?: string; prompt?: string; sort?: number }
   ) {
     try {
       await apiUpdateNode(templateId, nodeId, data)

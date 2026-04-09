@@ -62,6 +62,8 @@ export interface ConfigSopTemplate {
 export interface SopNode {
   id: number
   template_id: number
+  name: string
+  description: string
   prompt: string
   sort: number
 }

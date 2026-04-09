@@ -70,7 +70,7 @@
               @click="selectedIndex = idx"
             >
               <span class="step-number">{{ idx + 1 }}</span>
-              <span class="step-preview">{{ node.prompt || '(空步骤)' }}</span>
+              <span class="step-preview">{{ node.name || '(未命名)' }}</span>
               <div class="step-actions">
                 <button
                   class="step-arrow"
@@ -96,19 +96,38 @@
           </div>
         </div>
 
-        <!-- 右侧：提示词编辑 -->
+        <!-- 右侧：步骤详情编辑 -->
         <div class="prompt-panel">
           <div v-if="selectedIndex < 0 || selectedIndex >= nodes.length" class="prompt-empty">
-            选择左侧步骤以编辑提示词
+            选择左侧步骤以编辑详情
           </div>
           <template v-else>
-            <label class="form-label">步骤 {{ selectedIndex + 1 }} 提示词</label>
-            <textarea
-              v-model="nodes[selectedIndex].prompt"
-              class="form-textarea prompt-textarea"
-              placeholder="请输入该步骤的提示词"
-              rows="12"
-            ></textarea>
+            <div class="form-group">
+              <label class="form-label">步骤名称</label>
+              <input
+                v-model="nodes[selectedIndex].name"
+                class="form-input"
+                placeholder="请输入步骤名称，如：AI 拆解产品"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">步骤说明</label>
+              <textarea
+                v-model="nodes[selectedIndex].description"
+                class="form-textarea"
+                placeholder="请输入步骤说明（可选），如：请将你的产品介绍输入或上传到下方"
+                rows="2"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">提示词</label>
+              <textarea
+                v-model="nodes[selectedIndex].prompt"
+                class="form-textarea prompt-textarea"
+                placeholder="请输入该步骤的提示词"
+                rows="10"
+              ></textarea>
+            </div>
           </template>
         </div>
       </div>
@@ -126,6 +145,8 @@ import AppInput from '@/components/common/AppInput.vue'
 interface LocalNode {
   localId: number
   serverId: number | null
+  name: string
+  description: string
   prompt: string
   sort: number
 }
@@ -167,6 +188,8 @@ function addStep() {
   nodes.value.push({
     localId: localIdCounter,
     serverId: null,
+    name: '',
+    description: '',
     prompt: '',
     sort: nodes.value.length
   })
@@ -210,6 +233,8 @@ async function loadDetail() {
           return {
             localId: localIdCounter,
             serverId: n.id,
+            name: n.name ?? '',
+            description: n.description ?? '',
             prompt: n.prompt,
             sort: n.sort
           }
@@ -264,16 +289,25 @@ async function handleSave() {
     // Create or update each node
     for (let i = 0; i < nodes.value.length; i++) {
       const node = nodes.value[i]
+      let ok: boolean
       if (node.serverId) {
-        await store.editNode(templateId, node.serverId, {
+        ok = await store.editNode(templateId, node.serverId, {
+          name: node.name || `步骤 ${i + 1}`,
+          description: node.description || undefined,
           prompt: node.prompt,
           sort: i
         })
       } else {
-        await store.addNode(templateId, {
+        ok = await store.addNode(templateId, {
+          name: node.name || `步骤 ${i + 1}`,
+          description: node.description || undefined,
           prompt: node.prompt,
           sort: i
         })
+      }
+      if (!ok) {
+        alert(`步骤 ${i + 1} 保存失败，请重试`)
+        return
       }
     }
 
@@ -400,6 +434,23 @@ onMounted(loadDetail)
 }
 
 .form-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent, #3b82f6);
+  box-shadow: var(--shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.15));
+}
+
+.form-input {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #111827);
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus {
   outline: none;
   border-color: var(--color-accent, #3b82f6);
   box-shadow: var(--shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.15));
