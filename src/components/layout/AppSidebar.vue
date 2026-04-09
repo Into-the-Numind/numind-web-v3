@@ -180,15 +180,14 @@ const menuItems = computed(() => {
     { path: '/sop', title: '运行记录', icon: 'history' }
   ]
 
-  const parentUserId = userStore.userInfo?.parent_user_id
-  if (!parentUserId) {
+  if (userStore.isParentUser) {
     items.push({ path: '/customers', title: '客户管理', icon: 'customers' })
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
   items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
 
-  if (!parentUserId) {
+  if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
   }
 
