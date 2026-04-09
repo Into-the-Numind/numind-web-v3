@@ -1,24 +1,27 @@
 <template>
-  <div class="config-layout">
-    <div class="config-tabs">
-      <router-link
-        v-for="tab in tabs"
-        :key="tab.path"
-        :to="tab.path"
-        class="config-tab"
-        :class="{ active: isActive(tab.path) }"
-      >
-        {{ tab.label }}
-      </router-link>
+  <MainLayout>
+    <div class="config-layout">
+      <div class="config-tabs">
+        <router-link
+          v-for="tab in tabs"
+          :key="tab.path"
+          :to="tab.path"
+          class="config-tab"
+          :class="{ active: isActive(tab.path) }"
+        >
+          {{ tab.label }}
+        </router-link>
+      </div>
+      <div class="config-content">
+        <router-view />
+      </div>
     </div>
-    <div class="config-content">
-      <router-view />
-    </div>
-  </div>
+  </MainLayout>
 </template>
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import MainLayout from '@/components/layout/MainLayout.vue'
 
 const route = useRoute()
 
@@ -40,6 +43,9 @@ function isActive(path: string) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: -36px -40px;
+  width: calc(100% + 80px);
+  height: calc(100% + 72px);
 }
 
 .config-tabs {
