@@ -7,6 +7,33 @@
     </div>
 
     <template v-else>
+      <!-- XHS Account Binding Section -->
+      <div class="xhs-bind-section">
+        <div class="section-header">
+          <label class="form-label">小红书账号</label>
+        </div>
+        <div v-if="xhsBound" class="xhs-bound">
+          <div class="xhs-info">
+            <span class="xhs-badge">已绑定</span>
+            <span class="xhs-nickname">{{ xhsNickname || xhsUserID || '已绑定' }}</span>
+          </div>
+          <button class="unbind-btn" :disabled="unbinding" @click="handleUnbind">
+            <span v-if="unbinding" class="btn-spinner"></span>
+            解绑
+          </button>
+        </div>
+        <div v-else class="xhs-unbound">
+          <span class="xhs-hint">绑定小红书账号后才能抓取博主内容</span>
+          <button class="bind-btn" @click="showBindModal = true">绑定账号</button>
+        </div>
+      </div>
+
+      <XhsBindModal
+        :visible="showBindModal"
+        @close="showBindModal = false"
+        @bound="onXhsBound"
+      />
+
       <div class="config-form">
         <!-- Crawl frequency -->
         <div class="form-group">
@@ -74,8 +101,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useMonitorStore } from '@/stores/monitor'
-import { updateMonitorConfig } from '@/api/monitor'
+import { updateMonitorConfig, getXhsBindStatus, unbindXhs } from '@/api/monitor'
 import CronPicker from './CronPicker.vue'
+import XhsBindModal from './XhsBindModal.vue'
 
 const store = useMonitorStore()
 
@@ -83,6 +111,13 @@ const configLoading = ref(true)
 const saving = ref(false)
 const saveMessage = ref('')
 const saveSuccess = ref(false)
+
+// XHS binding state
+const showBindModal = ref(false)
+const xhsBound = ref(false)
+const xhsNickname = ref('')
+const xhsUserID = ref('')
+const unbinding = ref(false)
 
 const form = reactive({
   crawl_cron: '0 */6 * * *',
@@ -92,10 +127,42 @@ const form = reactive({
   notify_on_update: true,
 })
 
+async function loadXhsBindStatus() {
+  try {
+    const res = await getXhsBindStatus()
+    xhsBound.value = res.data.bound
+    xhsNickname.value = res.data.nickname
+    xhsUserID.value = res.data.xhs_user_id
+  } catch {
+    // If fetch fails, assume unbound
+    xhsBound.value = false
+  }
+}
+
+async function handleUnbind() {
+  if (unbinding.value) return
+  if (!confirm('确认解绑小红书账号？解绑后将无法抓取博主内容。')) return
+  unbinding.value = true
+  try {
+    await unbindXhs()
+    xhsBound.value = false
+    xhsNickname.value = ''
+    xhsUserID.value = ''
+  } catch {
+    // handled by interceptor
+  } finally {
+    unbinding.value = false
+  }
+}
+
+function onXhsBound() {
+  loadXhsBindStatus()
+}
+
 async function loadConfig() {
   configLoading.value = true
   try {
-    await store.fetchConfig()
+    await Promise.all([store.fetchConfig(), loadXhsBindStatus()])
     if (store.config) {
       form.crawl_cron = store.config.crawl_cron || '0 */6 * * *'
       form.briefing_cron = store.config.briefing_cron || '0 9 * * *'
@@ -326,5 +393,95 @@ onMounted(loadConfig)
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+/* XHS Bind Section */
+.xhs-bind-section {
+  padding: var(--space-lg, 16px);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: var(--radius-sm, 8px);
+  margin-bottom: var(--space-xl, 24px);
+  background: var(--surface, #fff);
+}
+
+.section-header {
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.xhs-bound {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.xhs-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+}
+
+.xhs-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 500;
+  color: hsl(160, 72%, 34%);
+  background: hsl(160, 72%, 95%);
+  border-radius: 10px;
+}
+
+.xhs-nickname {
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--text, #1a1a1a);
+  font-weight: 500;
+}
+
+.unbind-btn {
+  padding: 6px 14px;
+  font-size: var(--text-sm, 0.875rem);
+  color: hsl(0, 70%, 50%);
+  background: none;
+  border: 1px solid hsl(0, 70%, 85%);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unbind-btn:hover:not(:disabled) {
+  background: hsl(0, 70%, 97%);
+}
+
+.unbind-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.xhs-unbound {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.xhs-hint {
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--text-muted, #999);
+}
+
+.bind-btn {
+  padding: 8px 18px;
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--primary-foreground, #fff);
+  background: var(--primary, #6366f1);
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.bind-btn:hover {
+  background: var(--primary-hover, #5558e6);
 }
 </style>

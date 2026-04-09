@@ -235,3 +235,41 @@ export const updateMonitorConfig = (params: UpdateMonitorConfigParams): Promise<
 export const getMonitorStats = (): Promise<ApiResponse<MonitorStats>> => {
   return request.get('/v1/monitor/stats')
 }
+
+// XHS 账号绑定
+export interface XhsQRCreateResponse {
+  qr_id: string
+  code: string
+  qr_url: string
+}
+
+export interface XhsQRStatusResponse {
+  status: number // 0=waiting, 1=scanned, 2=confirmed
+  message: string
+}
+
+export interface XhsBindStatusResponse {
+  bound: boolean
+  nickname: string
+  xhs_user_id: string
+}
+
+export const createXhsQR = (): Promise<ApiResponse<XhsQRCreateResponse>> => {
+  return request.post('/v1/monitor/xhs/qr/create')
+}
+
+export const checkXhsQRStatus = (qrId: string): Promise<ApiResponse<XhsQRStatusResponse>> => {
+  return request.get(`/v1/monitor/xhs/qr/status/${qrId}`)
+}
+
+export const completeXhsQR = (qrId: string): Promise<ApiResponse<{ message: string }>> => {
+  return request.post(`/v1/monitor/xhs/qr/complete/${qrId}`)
+}
+
+export const getXhsBindStatus = (): Promise<ApiResponse<XhsBindStatusResponse>> => {
+  return request.get('/v1/monitor/xhs/bind-status')
+}
+
+export const unbindXhs = (): Promise<ApiResponse<{ message: string }>> => {
+  return request.post('/v1/monitor/xhs/unbind')
+}
