@@ -17,23 +17,107 @@
         :style="{ '--item-index': index }"
         :data-tooltip="collapsed ? item.title : undefined"
       >
-        <svg v-if="item.icon === 'workspace'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        <svg
+          v-if="item.icon === 'workspace'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
         </svg>
-        <svg v-else-if="item.icon === 'history'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/><path d="M12 7V12L15 15"/>
+        <svg
+          v-else-if="item.icon === 'history'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7V12L15 15" />
         </svg>
-        <svg v-else-if="item.icon === 'customers'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 21V19C16 16.7909 14.2091 15 12 15H6C3.79086 15 2 16.7909 2 19V21"/><circle cx="9" cy="7" r="4"/><path d="M22 21V19C22 17.1362 20.7252 15.5701 19 15.126"/><path d="M16 3.12602C17.7252 3.57006 19 5.13616 19 7.00002C19 8.86388 17.7252 10.43 16 10.874"/>
+        <svg
+          v-else-if="item.icon === 'customers'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M16 21V19C16 16.7909 14.2091 15 12 15H6C3.79086 15 2 16.7909 2 19V21" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21V19C22 17.1362 20.7252 15.5701 19 15.126" />
+          <path
+            d="M16 3.12602C17.7252 3.57006 19 5.13616 19 7.00002C19 8.86388 17.7252 10.43 16 10.874"
+          />
         </svg>
-        <svg v-else-if="item.icon === 'knowledge'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5C4 18.1193 5.11929 17 6.5 17H20"/><path d="M6.5 2H20V22H6.5C5.11929 22 4 20.8807 4 19.5V4.5C4 3.11929 5.11929 2 6.5 2Z"/><path d="M8 7H16"/><path d="M8 11H13"/>
+        <svg
+          v-else-if="item.icon === 'knowledge'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 19.5C4 18.1193 5.11929 17 6.5 17H20" />
+          <path d="M6.5 2H20V22H6.5C5.11929 22 4 20.8807 4 19.5V4.5C4 3.11929 5.11929 2 6.5 2Z" />
+          <path d="M8 7H16" />
+          <path d="M8 11H13" />
         </svg>
-        <svg v-else-if="item.icon === 'monitor'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        <svg
+          v-else-if="item.icon === 'monitor'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
-        <svg v-else-if="item.icon === 'settings'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        <svg
+          v-else-if="item.icon === 'config'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+          />
+        </svg>
+        <svg
+          v-else-if="item.icon === 'settings'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+          />
         </svg>
         <span class="nav-label">{{ item.title }}</span>
       </RouterLink>
@@ -41,9 +125,22 @@
 
     <!-- Toggle -->
     <div class="sidebar-bottom">
-      <button class="toggle-btn" :data-tooltip="collapsed ? '展开导航' : undefined" @click="toggle()">
-        <svg class="toggle-icon" :class="{ flipped: collapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12H3M3 12L9 6M3 12L9 18"/>
+      <button
+        class="toggle-btn"
+        :data-tooltip="collapsed ? '展开导航' : undefined"
+        @click="toggle()"
+      >
+        <svg
+          class="toggle-icon"
+          :class="{ flipped: collapsed }"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 12H3M3 12L9 6M3 12L9 18" />
         </svg>
         <span class="toggle-label">折叠</span>
       </button>
@@ -83,13 +180,17 @@ const menuItems = computed(() => {
     { path: '/sop', title: '运行记录', icon: 'history' }
   ]
 
-  const parentUserId = userStore.userInfo?.parent_user_id
-  if (!parentUserId) {
+  if (userStore.isParentUser) {
     items.push({ path: '/customers', title: '客户管理', icon: 'customers' })
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
   items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
+
+  if (userStore.isParentUser) {
+    items.push({ path: '/config', title: '配置中心', icon: 'config' })
+  }
+
   items.push({ path: '/settings', title: '设置', icon: 'settings' })
 
   return items
@@ -190,9 +291,15 @@ const isActive = (path: string) => {
 }
 
 @keyframes logo-breathe {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(0.9); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .collapsed .logo-mark:hover {
@@ -275,9 +382,15 @@ const isActive = (path: string) => {
 }
 
 @keyframes icon-pulse {
-  0%   { transform: scale(1); }
-  35%  { transform: scale(1.15); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .nav-label {
@@ -302,7 +415,7 @@ const isActive = (path: string) => {
 
 .nav-item:hover {
   color: hsl(160, 40%, 36%);
-  background: hsla(160, 45%, 50%, 0.10);
+  background: hsla(160, 45%, 50%, 0.1);
 }
 
 .nav-item.active {
@@ -374,7 +487,7 @@ const isActive = (path: string) => {
 
 .toggle-btn:hover {
   color: hsl(160, 40%, 36%);
-  background: hsla(160, 45%, 50%, 0.10);
+  background: hsla(160, 45%, 50%, 0.1);
 }
 
 .toggle-btn:active {
@@ -475,7 +588,9 @@ const isActive = (path: string) => {
     border-radius: 10px;
     min-width: 0;
     flex: 1;
-    transition: color 200ms ease, background 200ms ease;
+    transition:
+      color 200ms ease,
+      background 200ms ease;
   }
 
   .nav-icon-svg {

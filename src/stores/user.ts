@@ -17,7 +17,9 @@ export interface UserInfo {
 
 export const useUserStore = defineStore('user', () => {
   // State
-  const token = ref<string>(localStorage.getItem('token') || localStorage.getItem('auth_token') || '')
+  const token = ref<string>(
+    localStorage.getItem('token') || localStorage.getItem('auth_token') || ''
+  )
   const userInfo = ref<UserInfo | null>(null)
   const loading = ref(false)
   const creditBalance = ref<number>(0)
@@ -28,6 +30,7 @@ export const useUserStore = defineStore('user', () => {
 
   // Getters
   const isLoggedIn = computed(() => !!token.value)
+  const isParentUser = computed(() => userInfo.value?.parent_user_id == null)
   const username = computed(() => userInfo.value?.username || '')
   const nickname = computed(() => userInfo.value?.nickname || userInfo.value?.username || '')
 
@@ -55,15 +58,18 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // 登录
-  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (
+    username: string,
+    password: string
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       loading.value = true
       const res = await loginApi({ username, password })
-      
+
       if (res.code === 200 || res.code === 0) {
         const { access_token, token: userToken, user } = res.data || {}
         const actualToken = access_token || userToken
-        
+
         if (actualToken) {
           setToken(actualToken)
           if (user) {
@@ -78,8 +84,8 @@ export const useUserStore = defineStore('user', () => {
       }
     } catch (error: any) {
       console.error('登录错误:', error)
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: error.message || '网络错误，请稍后重试'
       }
     } finally {
@@ -193,6 +199,7 @@ export const useUserStore = defineStore('user', () => {
     quotaBoosterTotal,
     quotaBoosterRemain,
     isLoggedIn,
+    isParentUser,
     username,
     nickname,
     login,
