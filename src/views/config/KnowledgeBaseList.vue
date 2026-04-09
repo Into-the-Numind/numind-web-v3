@@ -40,7 +40,7 @@
           <tbody>
             <tr v-for="kb in store.knowledgeBases" :key="kb.id">
               <td class="cell-name">{{ kb.name }}</td>
-              <td>{{ (kb as any).document_count ?? '-' }}</td>
+              <td>{{ kb.doc_count ?? '-' }}</td>
               <td class="cell-secondary">{{ formatDate(kb.created_at) }}</td>
               <td class="col-action">
                 <div class="action-group">

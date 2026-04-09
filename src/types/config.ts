@@ -6,6 +6,7 @@ export interface KnowledgeBase {
   name: string
   description: string
   status: string
+  doc_count?: number
   created_at: string
   updated_at: string
 }
@@ -35,6 +36,7 @@ export interface ChatbotConfig {
   avatar: string
   system_prompt: string
   status: ChatbotStatus
+  knowledge_base_count?: number
   created_at: string
   updated_at: string
 }
@@ -52,6 +54,7 @@ export interface ConfigSopTemplate {
   creator_user_id: number | null
   publish_status: string
   status: string
+  node_count?: number
   created_at: string
   updated_at: string
 }

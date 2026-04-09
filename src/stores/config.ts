@@ -237,14 +237,17 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  async function addSopTemplate(data: { name: string; description?: string }) {
+  async function addSopTemplate(data: {
+    name: string
+    description?: string
+  }): Promise<ConfigSopTemplate | null> {
     try {
-      await apiCreateSopTemplate(data)
+      const res = await apiCreateSopTemplate(data)
       await fetchSopTemplates()
-      return true
+      return ((res as any)?.data as ConfigSopTemplate) ?? null
     } catch (e) {
       console.error('[config] addSopTemplate failed:', e)
-      return false
+      return null
     }
   }
 

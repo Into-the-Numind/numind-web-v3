@@ -45,7 +45,7 @@
           <tbody>
             <tr v-for="tpl in store.sopTemplates" :key="tpl.id">
               <td class="cell-name">{{ tpl.name }}</td>
-              <td>{{ (tpl as any).node_count ?? '-' }}</td>
+              <td>{{ tpl.node_count ?? '-' }}</td>
               <td>
                 <span class="status-badge" :class="'status--' + tpl.publish_status">
                   {{ statusLabel(tpl.publish_status) }}

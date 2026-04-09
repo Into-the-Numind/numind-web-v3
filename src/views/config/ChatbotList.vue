@@ -50,7 +50,7 @@
                   {{ statusLabel(bot.status) }}
                 </span>
               </td>
-              <td>{{ (bot as any).knowledge_base_count ?? '-' }}</td>
+              <td>{{ bot.knowledge_base_count ?? '-' }}</td>
               <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
               <td class="col-action">
                 <div class="action-group">

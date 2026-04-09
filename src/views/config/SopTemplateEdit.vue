@@ -232,14 +232,10 @@ async function handleSave() {
     let templateId = editId
 
     if (isCreate) {
-      const ok = await store.addSopTemplate({
+      const created = await store.addSopTemplate({
         name: form.name.trim(),
         description: form.description.trim() || undefined
       })
-      if (!ok) return
-      // Refresh to get the newly created template ID
-      await store.fetchSopTemplates()
-      const created = store.sopTemplates.find((t) => t.name === form.name.trim())
       if (!created) return
       templateId = created.id
     } else {
