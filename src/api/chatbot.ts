@@ -49,7 +49,7 @@ export const sendChatbotMessageStream = async (
   signal?: AbortSignal
 ): Promise<void> => {
   const response = await fetchSSE(`/v1/chatbot/sessions/${sessionId}/chat`, {
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ message: query }),
     signal
   })
   await readSSEStream(response, (event) => {
