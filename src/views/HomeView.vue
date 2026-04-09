@@ -168,6 +168,55 @@
         </div>
       </div>
 
+      <!-- 自定义智能体 -->
+      <div v-if="chatbots.length > 0" class="workspace-section">
+        <div class="section-label">自定义智能体</div>
+        <div class="feature-cards">
+          <button
+            v-for="bot in chatbots"
+            :key="bot.id"
+            type="button"
+            class="feature-card"
+            @click="router.push(`/chatbot/${bot.id}`)"
+          >
+            <div class="card-left">
+              <div class="feature-card-title">{{ bot.name }}</div>
+              <div class="feature-card-desc">{{ bot.description || '智能对话助手' }}</div>
+            </div>
+            <div class="card-right">
+              <div v-if="bot.avatar" class="chatbot-avatar">
+                <img :src="bot.avatar" :alt="bot.name" />
+              </div>
+              <div v-else class="feature-card-icon icon-variant-1">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle
+                    cx="16"
+                    cy="12"
+                    r="4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M8 26C8 21.5817 11.5817 18 16 18C20.4183 18 24 21.5817 24 26"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M22 8L26 4M26 8L22 4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-label">智能体</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
       <!-- 即将上线 -->
       <div class="workspace-section">
         <div class="section-label">即将上线</div>
@@ -433,8 +482,19 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
   }
 }
 
+const fetchChatbots = async () => {
+  try {
+    const res = await listVisibleChatbots()
+    chatbots.value = ((res as any)?.data as ChatbotConfig[]) ?? []
+  } catch (error) {
+    console.error('获取智能体列表失败:', error)
+    chatbots.value = []
+  }
+}
+
 onMounted(async () => {
   void fetchTemplates()
+  void fetchChatbots()
   hasSalesPermission.value = await checkSalesPermission()
 })
 
