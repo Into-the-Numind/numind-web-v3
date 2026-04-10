@@ -511,12 +511,6 @@ onMounted(async () => {
   pointer-events: none;
 }
 
-.feature-card.disabled {
-  opacity: 0.5;
-  pointer-events: none;
-  cursor: default;
-}
-
 .feature-card.no-permission {
   opacity: 0.5;
   filter: grayscale(0.35);
