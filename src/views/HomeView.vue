@@ -18,9 +18,9 @@
         </div>
       </div>
 
-      <!-- SOP 工作流 -->
+      <!-- AI 工作流 -->
       <div class="workspace-section">
-        <div class="section-label">SOP 工作流</div>
+        <div class="section-label">AI 工作流</div>
         <div class="feature-cards">
           <button
             v-for="(workflow, index) in sopWorkflows"
@@ -86,7 +86,7 @@
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">SOP 工作流</div>
+              <div class="feature-card-label">AI 工作流</div>
             </div>
           </button>
         </div>
@@ -165,16 +165,10 @@
               <div class="feature-card-label">AI 智能体</div>
             </div>
           </button>
-        </div>
-      </div>
 
-      <!-- 自定义智能体 -->
-      <div v-if="chatbots.length > 0" class="workspace-section">
-        <div class="section-label">自定义智能体</div>
-        <div class="feature-cards">
           <button
             v-for="bot in chatbots"
-            :key="bot.id"
+            :key="`chatbot-${bot.id}`"
             type="button"
             class="feature-card"
             @click="router.push(`/chatbot/${bot.id}`)"
@@ -211,79 +205,9 @@
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">智能体</div>
+              <div class="feature-card-label">AI 智能体</div>
             </div>
           </button>
-        </div>
-      </div>
-
-      <!-- 即将上线 -->
-      <div class="workspace-section">
-        <div class="section-label">即将上线</div>
-        <div class="feature-cards">
-          <div
-            v-for="workflow in comingSoonWorkflows"
-            :key="workflow.title"
-            class="feature-card disabled"
-          >
-            <div class="card-left">
-              <div class="feature-card-title">{{ workflow.title }}</div>
-              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
-            </div>
-            <div class="card-right">
-              <div class="feature-card-icon">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect
-                    x="4"
-                    y="6"
-                    width="10"
-                    height="10"
-                    rx="2"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                  <path
-                    d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M22 11H26"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                  <circle
-                    cx="7"
-                    cy="25"
-                    r="3"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                  <path
-                    d="M10 25H14"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                  <rect
-                    x="14"
-                    y="22"
-                    width="10"
-                    height="6"
-                    rx="1"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                </svg>
-              </div>
-              <div class="feature-card-label">即将上线</div>
-            </div>
-          </div>
         </div>
       </div>
     </template>
@@ -497,45 +421,6 @@ onMounted(async () => {
   void fetchChatbots()
   hasSalesPermission.value = await checkSalesPermission()
 })
-
-const comingSoonWorkflows = [
-  {
-    title: 'AI生成剪辑脚本',
-    subtitle: '一键生成脚本，视频剪辑快人一步'
-  },
-  {
-    title: 'AI销售成交指导',
-    subtitle: '专业话术引导，搞定最终成交'
-  },
-  {
-    title: 'AI朋友圈：晒学员战绩',
-    subtitle: '花式晒好评，用口碑刺激成交'
-  },
-  {
-    title: 'AI文稿创作：营销选题口播稿',
-    subtitle: '打造置顶广告牌，精准捕捞成交'
-  },
-  {
-    title: 'AI文稿创作：人设选题口播稿',
-    subtitle: '用经历引共鸣，吸引同频客户'
-  },
-  {
-    title: 'AI文稿创作：案例选题口播稿',
-    subtitle: '拆解成功案例，让客户看见你的专业'
-  },
-  {
-    title: 'AI找选题',
-    subtitle: '挖掘跨行爆款，直接对标拿来即用'
-  },
-  {
-    title: 'AI生成图文笔记',
-    subtitle: '告别制作痛苦，一键生成获客图文'
-  },
-  {
-    title: 'AI私域发售全案策划',
-    subtitle: '全套发售SOP，引爆批量收钱'
-  }
-]
 </script>
 
 <style scoped>
