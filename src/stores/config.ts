@@ -238,6 +238,8 @@ export const useConfigStore = defineStore('config', () => {
       creator_user_id: (raw.creator_user_id ?? null) as number | null,
       publish_status: (raw.publish_status ?? 'draft') as string,
       status: (raw.status ?? '') as string,
+      // 历史记录可能缺字段：默认 true 与后端 migration 默认值一致
+      trailing_chat_enabled: (raw.trailing_chat_enabled ?? true) as boolean,
       node_count: raw.node_count as number | undefined,
       created_at: (raw.created_at ?? raw.CreatedAt ?? '') as string,
       updated_at: (raw.updated_at ?? raw.UpdatedAt ?? '') as string
@@ -292,6 +294,7 @@ export const useConfigStore = defineStore('config', () => {
   async function addSopTemplate(data: {
     name: string
     description?: string
+    trailing_chat_enabled?: boolean
   }): Promise<ConfigSopTemplate | null> {
     try {
       const res = await apiCreateSopTemplate(data)
@@ -304,7 +307,10 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  async function editSopTemplate(id: number, data: { name?: string; description?: string }) {
+  async function editSopTemplate(
+    id: number,
+    data: { name?: string; description?: string; trailing_chat_enabled?: boolean }
+  ) {
     try {
       await apiUpdateSopTemplate(id, data)
       await fetchSopTemplates()
