@@ -178,10 +178,7 @@
               <div class="feature-card-desc">{{ bot.description || '智能对话助手' }}</div>
             </div>
             <div class="card-right">
-              <div v-if="bot.avatar" class="chatbot-avatar">
-                <img :src="bot.avatar" :alt="bot.name" />
-              </div>
-              <div v-else class="feature-card-icon icon-variant-1">
+              <div class="feature-card-icon icon-variant-1">
                 <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle
                     cx="16"

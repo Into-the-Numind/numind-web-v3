@@ -169,7 +169,6 @@ export const useConfigStore = defineStore('config', () => {
   async function addChatbot(data: {
     name: string
     description?: string
-    avatar?: string
     system_prompt?: string
     knowledge_base_ids?: number[]
   }) {
@@ -188,7 +187,6 @@ export const useConfigStore = defineStore('config', () => {
     data: {
       name?: string
       description?: string
-      avatar?: string
       system_prompt?: string
       knowledge_base_ids?: number[]
     }

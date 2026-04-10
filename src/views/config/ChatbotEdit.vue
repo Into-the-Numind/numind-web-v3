@@ -39,9 +39,6 @@
           ></textarea>
         </div>
 
-        <!-- 头像 URL -->
-        <AppInput v-model="form.avatar" label="头像 URL" placeholder="请输入头像图片地址（可选）" />
-
         <!-- 系统提示词 -->
         <div class="form-group">
           <label class="form-label"> 系统提示词 <span class="required">*</span> </label>
@@ -118,7 +115,6 @@ const selectedKbIds = ref<Set<number>>(new Set())
 const form = reactive({
   name: '',
   description: '',
-  avatar: '',
   system_prompt: ''
 })
 
@@ -161,7 +157,6 @@ async function loadDetail() {
     }
     form.name = detail.name
     form.description = detail.description ?? ''
-    form.avatar = detail.avatar ?? ''
     form.system_prompt = detail.system_prompt ?? ''
     if (detail.knowledge_bases) {
       selectedKbIds.value = new Set(detail.knowledge_bases.map((kb) => kb.id))
@@ -193,7 +188,6 @@ async function handleSubmit() {
     const payload = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      avatar: form.avatar.trim() || undefined,
       system_prompt: form.system_prompt.trim(),
       knowledge_base_ids: [...selectedKbIds.value]
     }

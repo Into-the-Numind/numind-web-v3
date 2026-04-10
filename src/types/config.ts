@@ -33,7 +33,6 @@ export interface ChatbotConfig {
   user_id: number
   name: string
   description: string
-  avatar: string
   system_prompt: string
   status: ChatbotStatus
   knowledge_base_count?: number

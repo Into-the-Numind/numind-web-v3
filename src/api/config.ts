@@ -53,7 +53,6 @@ export const removeKBDocument = (kbId: number, docId: number) => {
 export const createChatbot = (data: {
   name: string
   description?: string
-  avatar?: string
   system_prompt?: string
   knowledge_base_ids?: number[]
 }) => {
@@ -75,7 +74,6 @@ export const updateChatbot = (
   data: {
     name?: string
     description?: string
-    avatar?: string
     system_prompt?: string
     knowledge_base_ids?: number[]
   }
