@@ -35,6 +35,8 @@ export interface ChatbotConfig {
   description: string
   system_prompt: string
   status: ChatbotStatus
+  greeting_enabled: boolean
+  greeting_message: string
   knowledge_base_count?: number
   created_at: string
   updated_at: string

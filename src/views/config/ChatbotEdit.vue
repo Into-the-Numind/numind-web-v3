@@ -52,6 +52,23 @@
           <span v-if="errors.system_prompt" class="field-error">{{ errors.system_prompt }}</span>
         </div>
 
+        <!-- 打招呼 -->
+        <div class="form-group">
+          <label class="greeting-toggle">
+            <input v-model="form.greeting_enabled" type="checkbox" class="greeting-checkbox" />
+            <span class="greeting-label">打招呼</span>
+            <span class="greeting-hint">开启后，用户首次打开会话时智能体将主动发送这句话</span>
+          </label>
+          <textarea
+            v-model="form.greeting_message"
+            class="form-textarea"
+            :class="{ 'form-textarea--disabled': !form.greeting_enabled }"
+            placeholder="请输入打招呼的内容，例如：你好！我是你的智能助手，有什么可以帮你的？"
+            rows="3"
+            :disabled="!form.greeting_enabled"
+          ></textarea>
+        </div>
+
         <!-- 知识库选择 -->
         <div class="form-group">
           <label class="form-label">关联知识库</label>
@@ -115,7 +132,9 @@ const selectedKbIds = ref<Set<number>>(new Set())
 const form = reactive({
   name: '',
   description: '',
-  system_prompt: ''
+  system_prompt: '',
+  greeting_enabled: false,
+  greeting_message: ''
 })
 
 const errors = reactive({
@@ -158,6 +177,8 @@ async function loadDetail() {
     form.name = detail.name
     form.description = detail.description ?? ''
     form.system_prompt = detail.system_prompt ?? ''
+    form.greeting_enabled = detail.greeting_enabled ?? false
+    form.greeting_message = detail.greeting_message ?? ''
     if (detail.knowledge_bases) {
       selectedKbIds.value = new Set(detail.knowledge_bases.map((kb) => kb.id))
     }
@@ -189,7 +210,9 @@ async function handleSubmit() {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
       system_prompt: form.system_prompt.trim(),
-      knowledge_base_ids: [...selectedKbIds.value]
+      knowledge_base_ids: [...selectedKbIds.value],
+      greeting_enabled: form.greeting_enabled,
+      greeting_message: form.greeting_enabled ? form.greeting_message.trim() : ''
     }
 
     let ok: boolean
@@ -333,6 +356,37 @@ onMounted(() => {
 
 .form-textarea--lg {
   min-height: 160px;
+}
+
+.form-textarea--disabled {
+  background: var(--color-surface-tint, #f9fafb);
+  color: var(--color-text-muted, #8b90a0);
+  cursor: not-allowed;
+}
+
+.greeting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.greeting-checkbox {
+  accent-color: var(--color-primary, #26a86d);
+  width: 16px;
+  height: 16px;
+}
+
+.greeting-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text, #1a1d26);
+}
+
+.greeting-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .field-error {

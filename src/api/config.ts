@@ -55,6 +55,8 @@ export const createChatbot = (data: {
   description?: string
   system_prompt?: string
   knowledge_base_ids?: number[]
+  greeting_enabled?: boolean
+  greeting_message?: string
 }) => {
   return request.post<{ data: ChatbotConfig }>('/v1/config/chatbots', data)
 }
@@ -76,6 +78,8 @@ export const updateChatbot = (
     description?: string
     system_prompt?: string
     knowledge_base_ids?: number[]
+    greeting_enabled?: boolean
+    greeting_message?: string
   }
 ) => {
   return request.put<{ data: ChatbotConfig }>(`/v1/config/chatbots/${id}`, data)
