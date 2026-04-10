@@ -119,9 +119,8 @@ const error = ref('')
 
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    draft: '草稿',
-    published: '已发布',
-    offline: '已下线'
+    draft: '未发布',
+    published: '已发布'
   }
   return map[status] ?? status
 }
@@ -148,7 +147,7 @@ async function handlePublish(id: number) {
 
 async function handleOffline(id: number) {
   if (!confirm('确认下线该SOP模板？')) return
-  await store.setSopTemplateStatus(id, 'offline')
+  await store.setSopTemplateStatus(id, 'draft')
 }
 
 async function handleDelete(id: number) {

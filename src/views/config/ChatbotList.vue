@@ -124,9 +124,8 @@ const error = ref('')
 
 function statusLabel(status: ChatbotStatus): string {
   const map: Record<ChatbotStatus, string> = {
-    draft: '草稿',
-    published: '已发布',
-    offline: '已下线'
+    draft: '未发布',
+    published: '已发布'
   }
   return map[status] ?? status
 }
@@ -153,7 +152,7 @@ async function handlePublish(id: number) {
 
 async function handleOffline(id: number) {
   if (!confirm('确认下线该智能体？下线后用户将无法使用。')) return
-  await store.setChatbotStatus(id, 'offline')
+  await store.setChatbotStatus(id, 'draft')
 }
 
 async function handleDelete(id: number) {

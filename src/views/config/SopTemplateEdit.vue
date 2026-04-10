@@ -188,8 +188,8 @@ const router = useRouter()
 const store = useConfigStore()
 
 const paramId = route.params.id as string
-const isCreate = paramId === 'new'
-const editId = isCreate ? 0 : Number(paramId)
+const isCreate = ref(paramId === 'new')
+const editId = ref(isCreate.value ? 0 : Number(paramId))
 
 const loading = ref(false)
 const loadError = ref('')
@@ -246,11 +246,11 @@ function moveStep(idx: number, direction: number) {
 }
 
 async function loadDetail() {
-  if (isCreate) return
+  if (isCreate.value) return
   loading.value = true
   loadError.value = ''
   try {
-    const detail = await store.fetchSopTemplateDetail(editId)
+    const detail = await store.fetchSopTemplateDetail(editId.value)
     if (!detail) {
       loadError.value = 'SOP模板不存在'
       return
@@ -286,17 +286,21 @@ async function handleSave() {
 
   saving.value = true
   try {
-    let templateId = editId
+    let templateId = editId.value
 
-    if (isCreate) {
+    if (isCreate.value) {
       const created = await store.addSopTemplate({
         name: form.name.trim(),
         description: form.description.trim() || undefined
       })
       if (!created) return
       templateId = created.id
+      // 切换到编辑模式，避免后续步骤保存失败时重试又重复创建模板
+      editId.value = templateId
+      isCreate.value = false
+      router.replace(`/config/sop-templates/${templateId}/edit`)
     } else {
-      const ok = await store.editSopTemplate(editId, {
+      const ok = await store.editSopTemplate(editId.value, {
         name: form.name.trim(),
         description: form.description.trim() || undefined
       })
@@ -304,7 +308,7 @@ async function handleSave() {
     }
 
     // Sync nodes: delete removed server nodes, create/update others
-    if (!isCreate) {
+    {
       const detail = await store.fetchSopTemplateDetail(templateId)
       const existingServerIds = new Set((detail?.nodes ?? []).map((n) => n.id))
       const currentServerIds = new Set(
@@ -321,25 +325,30 @@ async function handleSave() {
     // Create or update each node
     for (let i = 0; i < nodes.value.length; i++) {
       const node = nodes.value[i]
-      let ok: boolean
       if (node.serverId) {
-        ok = await store.editNode(templateId, node.serverId, {
+        const ok = await store.editNode(templateId, node.serverId, {
           name: node.name || `步骤 ${i + 1}`,
           description: node.description || undefined,
           prompt: node.prompt,
           sort: i
         })
+        if (!ok) {
+          alert(`步骤 ${i + 1} 保存失败，请重试`)
+          return
+        }
       } else {
-        ok = await store.addNode(templateId, {
+        const created = await store.addNode(templateId, {
           name: node.name || `步骤 ${i + 1}`,
           description: node.description || undefined,
           prompt: node.prompt,
           sort: i
         })
-      }
-      if (!ok) {
-        alert(`步骤 ${i + 1} 保存失败，请重试`)
-        return
+        if (!created) {
+          alert(`步骤 ${i + 1} 保存失败，请重试`)
+          return
+        }
+        // 回填 serverId，避免保存失败重试时重复创建
+        node.serverId = created.id
       }
     }
 
