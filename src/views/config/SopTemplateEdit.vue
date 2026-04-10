@@ -114,6 +114,17 @@
             <button class="add-step-btn" :disabled="nodes.length >= 20" @click="addStep">
               + 添加步骤
             </button>
+            <label class="trailing-chat-toggle">
+              <input
+                v-model="form.trailingChatEnabled"
+                type="checkbox"
+                class="trailing-chat-checkbox"
+              />
+              <span class="trailing-chat-label">
+                <span class="trailing-chat-title">在流程末尾追加 AI 聊天</span>
+                <span class="trailing-chat-hint">开启后，用户完成所有步骤后可与 AI 继续对话</span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -199,7 +210,8 @@ let localIdCounter = 0
 
 const form = reactive({
   name: '',
-  description: ''
+  description: '',
+  trailingChatEnabled: true
 })
 
 const errors = reactive({
@@ -257,6 +269,7 @@ async function loadDetail() {
     }
     form.name = detail.name
     form.description = detail.description ?? ''
+    form.trailingChatEnabled = detail.trailing_chat_enabled !== false
     if (detail.nodes) {
       nodes.value = detail.nodes
         .sort((a, b) => a.sort - b.sort)
@@ -291,7 +304,8 @@ async function handleSave() {
     if (isCreate.value) {
       const created = await store.addSopTemplate({
         name: form.name.trim(),
-        description: form.description.trim() || undefined
+        description: form.description.trim() || undefined,
+        trailing_chat_enabled: form.trailingChatEnabled
       })
       if (!created) return
       templateId = created.id
@@ -302,7 +316,8 @@ async function handleSave() {
     } else {
       const ok = await store.editSopTemplate(editId.value, {
         name: form.name.trim(),
-        description: form.description.trim() || undefined
+        description: form.description.trim() || undefined,
+        trailing_chat_enabled: form.trailingChatEnabled
       })
       if (!ok) return
     }
@@ -626,6 +641,48 @@ onMounted(loadDetail)
   color: var(--color-accent-hover, #1e8b5a);
   border-color: var(--color-accent-link, #26a86d);
   background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+}
+
+.trailing-chat-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light, #eeeff3);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface, #ffffff);
+  cursor: pointer;
+  transition: border-color var(--transition-fast, 150ms ease);
+}
+
+.trailing-chat-toggle:hover {
+  border-color: var(--color-accent-link, #26a86d);
+}
+
+.trailing-chat-checkbox {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent-link, #26a86d);
+  cursor: pointer;
+}
+
+.trailing-chat-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.trailing-chat-title {
+  color: var(--color-text, #1f2937);
+  font-weight: 500;
+}
+
+.trailing-chat-hint {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.75rem;
 }
 
 /* ── Step List ── */

@@ -122,6 +122,8 @@
 
     // 保存节点数据，用于获取node_id
     let nodesData = [];
+    // 是否在流程末尾追加 AI 聊天步骤（由模板配置决定，默认 true 保持向后兼容）
+    let trailingChatEnabled = true;
 
     // 节点状态管理
     let nodeStatus = {
@@ -2174,6 +2176,8 @@
 
             const responseData = await response.json();
             const nodes = responseData.data?.nodes || [];
+            // 读取末尾聊天开关（后端始终返回；字段缺失时兜底为 true 保持老行为）
+            trailingChatEnabled = responseData.data?.trailing_chat_enabled !== false;
 
             if (nodes.length === 0) {
                 console.log('节点数据为空，使用默认步骤条');
@@ -2238,30 +2242,35 @@
                 stepper.appendChild(step);
             });
 
-            // 手动添加AI聊天步骤（前端特殊节点）- 步骤编号为后端节点数量+1，适用于所有templateId
+            // 手动添加AI聊天步骤（前端特殊节点）- 步骤编号为后端节点数量+1
+            // 仅在模板配置开启 trailing_chat_enabled 时注入；关闭时最后一个后端节点即为流程终点
+            // 注意：chatStepNumber 保留在此作用域声明，下游恢复逻辑（L2361 等）仍引用它；
+            // 关闭时该编号在 canAccessStep 中被显式拒绝，跳转路径也改为回落到最后一个后端节点
             const chatStepNumber = nodes.length + 1;
-            const step5 = document.createElement('div');
-            step5.className = 'step step-chat';
-            step5.setAttribute('data-step', chatStepNumber.toString());
-            step5.onclick = () => {
-                if (canAccessStep(chatStepNumber)) {
-                    setActiveStep(chatStepNumber);
-                } else {
-                    showToast('该步骤尚未完成，无法访问');
-                }
-            };
+            if (trailingChatEnabled) {
+                const step5 = document.createElement('div');
+                step5.className = 'step step-chat';
+                step5.setAttribute('data-step', chatStepNumber.toString());
+                step5.onclick = () => {
+                    if (canAccessStep(chatStepNumber)) {
+                        setActiveStep(chatStepNumber);
+                    } else {
+                        showToast('该步骤尚未完成，无法访问');
+                    }
+                };
 
-            const step5NumberDiv = document.createElement('div');
-            step5NumberDiv.className = 'step-number';
-            step5NumberDiv.textContent = chatStepNumber.toString();
+                const step5NumberDiv = document.createElement('div');
+                step5NumberDiv.className = 'step-number';
+                step5NumberDiv.textContent = chatStepNumber.toString();
 
-            const step5LabelDiv = document.createElement('div');
-            step5LabelDiv.className = 'step-label';
-            step5LabelDiv.textContent = 'AI 聊天';
+                const step5LabelDiv = document.createElement('div');
+                step5LabelDiv.className = 'step-label';
+                step5LabelDiv.textContent = 'AI 聊天';
 
-            step5.appendChild(step5NumberDiv);
-            step5.appendChild(step5LabelDiv);
-            stepper.appendChild(step5);
+                step5.appendChild(step5NumberDiv);
+                step5.appendChild(step5LabelDiv);
+                stepper.appendChild(step5);
+            }
 
             // 隐藏多余的硬编码 step-content 容器（B端节点数可能 < 4）
             // 例如 3 个节点时，step-4 的硬编码内容应隐藏，step-5（chatbot）由映射逻辑处理
@@ -2350,9 +2359,9 @@
                     }
                 }
             } else if (statusData && statusData.completed_count === statusData.total_nodes) {
-                // 所有后端节点都完成了，应该显示第五步（AI聊天）
-                targetStep = chatStepNumber;
-                console.log(`[初始化] 所有后端节点已完成，跳转到第五步（AI聊天）`);
+                // 所有后端节点都完成：开启聊天则跳到聊天步骤，关闭则停留在最后一个后端节点
+                targetStep = trailingChatEnabled ? chatStepNumber : nodesData.length;
+                console.log(`[初始化] 所有后端节点已完成，跳转到第 ${targetStep} 步`);
             } else {
                 // 如果没有下一个节点且不是全部完成，查找第一个可访问的步骤
                 // 这种情况可能发生在状态异常时，使用fallback逻辑
@@ -3893,6 +3902,11 @@
         const totalBackendNodes = nodesData.length;
         const chatStepNumber = totalBackendNodes + 1;
 
+        // 模板关闭末尾 AI 聊天时，chat step 永远不可访问
+        if (stepNumber === chatStepNumber && !trailingChatEnabled) {
+            return false;
+        }
+
         // AI聊天步骤（最后一步）只有在所有后端节点都完成后才可以访问
         if (stepNumber === chatStepNumber) {
             // 检查所有后端节点是否都已完成
@@ -4164,7 +4178,11 @@
 
     // 下一步
     function nextStep() {
-        const totalSteps = (nodesData && nodesData.length > 0) ? nodesData.length + 1 : 5;
+        // 总步数 = 后端节点数 + (开启聊天时 +1)；无节点回退到默认 5 步硬编码布局
+        const hasNodes = nodesData && nodesData.length > 0;
+        const totalSteps = hasNodes
+            ? nodesData.length + (trailingChatEnabled ? 1 : 0)
+            : 5;
         if (currentStep < totalSteps) {
             setActiveStep(currentStep + 1);
         }

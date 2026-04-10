@@ -95,7 +95,11 @@ export const updateChatbotStatus = (id: number, status: ChatbotStatus) => {
 
 // ==================== SOP Template ====================
 
-export const createSopTemplate = (data: { name: string; description?: string }) => {
+export const createSopTemplate = (data: {
+  name: string
+  description?: string
+  trailing_chat_enabled?: boolean
+}) => {
   return request.post<{ data: ConfigSopTemplate }>('/v1/config/sop-templates', data)
 }
 
@@ -112,7 +116,10 @@ export const getSopTemplate = (id: number) => {
   )
 }
 
-export const updateSopTemplate = (id: number, data: { name?: string; description?: string }) => {
+export const updateSopTemplate = (
+  id: number,
+  data: { name?: string; description?: string; trailing_chat_enabled?: boolean }
+) => {
   return request.put<{ data: ConfigSopTemplate }>(`/v1/config/sop-templates/${id}`, data)
 }
 

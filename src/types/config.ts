@@ -55,6 +55,7 @@ export interface ConfigSopTemplate {
   creator_user_id: number | null
   publish_status: string
   status: string
+  trailing_chat_enabled: boolean
   node_count?: number
   created_at: string
   updated_at: string
