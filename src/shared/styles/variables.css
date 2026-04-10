@@ -1,5 +1,18 @@
 /* =====================================================
- * 莫小派设计系统变量
+ * 莫小派设计系统变量 — 用户端 (numind-web-v3)
+ *
+ * ⭐ THIS FILE IS THE SOURCE OF TRUTH for brand tokens (v3 = master).
+ *
+ * Numerical reference (mirror): /DESIGN.md §2-§5
+ *   — DESIGN.md is derived FROM this file, not the other way around.
+ *   — When you change a value here, update DESIGN.md tables to match.
+ *
+ * Brand narrative: /.impeccable.md
+ *   — Used by impeccable runtime tools (/frontend-design, /normalize, etc.)
+ *
+ * Admin (numind-admin-web) is currently NOT compliant; pending rebrand.
+ *   — Follow-up feature: admin-rebrand-to-design-md
+ *
  * 以旧版 ui.css 为基准，同时保留 v3 的 --color-* 兼容别名
  * ===================================================== */
 

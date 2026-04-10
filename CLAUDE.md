@@ -13,6 +13,7 @@
 - **图标**: Lucide Vue Next（`lucide-vue-next`）
 - **工具库**: @vueuse/core, marked, highlight.js, DOMPurify, qrcode
 - **UI**: 自研组件体系，不使用任何外部 UI 框架（如 Element Plus、Ant Design Vue 等）
+- **设计语言**: 见根目录 `DESIGN.md`（v3 是 master 品牌）+ `.impeccable.md`（品牌叙事）
 
 ---
 
