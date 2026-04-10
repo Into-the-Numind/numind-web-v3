@@ -160,6 +160,12 @@ export function useScrollFollow(): UseScrollFollowReturn {
    *
    * 由"跳回底部"按钮点击或新一轮节点执行触发。调用方需要自行传入容器元素
    * 来触发立即滚动；如果不传，只更新状态。
+   *
+   * 调用后：
+   *   - isInterrupted 立即变为 false
+   *   - 如果传入 el，立即 scrollTop = scrollHeight（命令式一次性滚动）
+   *   - 后续流式内容更新时，`checkAndScroll` 会继续自动保持在底部
+   *     （因为已回到 Following 状态），无需调用方手动持续滚动
    */
   function resume(el?: HTMLElement): void {
     isInterrupted.value = false
