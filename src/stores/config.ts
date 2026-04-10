@@ -234,7 +234,7 @@ export const useConfigStore = defineStore('config', () => {
       name: raw.name as string,
       description: (raw.description ?? '') as string,
       creator_user_id: (raw.creator_user_id ?? null) as number | null,
-      publish_status: (raw.publish_status ?? '') as string,
+      publish_status: (raw.publish_status ?? 'draft') as string,
       status: (raw.status ?? '') as string,
       node_count: raw.node_count as number | undefined,
       created_at: (raw.created_at ?? raw.CreatedAt ?? '') as string,
@@ -293,8 +293,9 @@ export const useConfigStore = defineStore('config', () => {
   }): Promise<ConfigSopTemplate | null> {
     try {
       const res = await apiCreateSopTemplate(data)
+      const raw = (res as any)?.data as Record<string, unknown> | undefined
       await fetchSopTemplates()
-      return ((res as any)?.data as ConfigSopTemplate) ?? null
+      return raw ? normalizeSopTemplate(raw) : null
     } catch (e) {
       console.error('[config] addSopTemplate failed:', e)
       return null
@@ -337,13 +338,14 @@ export const useConfigStore = defineStore('config', () => {
   async function addNode(
     templateId: number,
     data: { name?: string; description?: string; prompt: string; sort?: number }
-  ) {
+  ): Promise<SopNode | null> {
     try {
-      await apiCreateNode(templateId, data)
-      return true
+      const res = await apiCreateNode(templateId, data)
+      const raw = (res as any)?.data as Record<string, unknown> | undefined
+      return raw ? normalizeSopNode(raw) : null
     } catch (e) {
       console.error('[config] addNode failed:', e)
-      return false
+      return null
     }
   }
 

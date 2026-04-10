@@ -26,7 +26,7 @@ export interface KnowledgeDocument {
 
 // ==================== Chatbot Config ====================
 
-export type ChatbotStatus = 'draft' | 'published' | 'offline'
+export type ChatbotStatus = 'draft' | 'published'
 
 export interface ChatbotConfig {
   id: number
