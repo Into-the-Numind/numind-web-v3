@@ -171,6 +171,8 @@ export const useConfigStore = defineStore('config', () => {
     description?: string
     system_prompt?: string
     knowledge_base_ids?: number[]
+    greeting_enabled?: boolean
+    greeting_message?: string
   }) {
     try {
       await apiCreateChatbot(data)
@@ -189,6 +191,8 @@ export const useConfigStore = defineStore('config', () => {
       description?: string
       system_prompt?: string
       knowledge_base_ids?: number[]
+      greeting_enabled?: boolean
+      greeting_message?: string
     }
   ) {
     try {
