@@ -2,7 +2,7 @@
   <div class="chatbot-list">
     <!-- 加载状态 -->
     <div v-if="store.loading" class="loading-state">
-      <div class="skeleton-row" v-for="i in 4" :key="i"></div>
+      <div v-for="i in 4" :key="i" class="skeleton-row"></div>
     </div>
 
     <!-- 错误状态 -->
@@ -14,7 +14,10 @@
     <template v-else>
       <!-- 头部 -->
       <div class="page-header">
-        <h2 class="page-title">智能体管理</h2>
+        <div class="header-left">
+          <h2 class="page-title">智能体管理</h2>
+          <p class="page-desc">创建和管理 AI 智能体，为客户提供智能对话服务</p>
+        </div>
         <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
           + 新建智能体
         </AppButton>
@@ -22,16 +25,34 @@
 
       <!-- 空状态 -->
       <div v-if="store.chatbots.length === 0" class="empty-state">
-        <div class="empty-icon">🤖</div>
-        <div class="empty-title">暂无智能体，立即创建</div>
-        <div class="empty-desc">创建智能体，为客户提供智能对话服务</div>
+        <div class="empty-illustration">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 8V4H8" />
+            <rect width="16" height="12" x="4" y="8" rx="2" />
+            <path d="M2 14h2" />
+            <path d="M20 14h2" />
+            <path d="M15 13v2" />
+            <path d="M9 13v2" />
+          </svg>
+        </div>
+        <div class="empty-title">暂无智能体</div>
+        <div class="empty-desc">创建第一个智能体，开始为客户提供智能对话服务</div>
         <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
           新建智能体
         </AppButton>
       </div>
 
       <!-- 数据表格 -->
-      <div v-else class="table-container">
+      <div v-else class="table-card">
         <table class="data-table">
           <thead>
             <tr>
@@ -50,7 +71,7 @@
                   {{ statusLabel(bot.status) }}
                 </span>
               </td>
-              <td>{{ bot.knowledge_base_count ?? '-' }}</td>
+              <td class="cell-secondary">{{ bot.knowledge_base_count ?? '-' }}</td>
               <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
               <td class="col-action">
                 <div class="action-group">
@@ -148,6 +169,8 @@ onMounted(loadData)
   width: 100%;
 }
 
+/* ── Loading & Error ── */
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -157,8 +180,8 @@ onMounted(loadData)
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f3f4f6);
-  border-radius: 8px;
+  background: var(--color-surface-tint, #f9fafb);
+  border-radius: var(--radius-md, 12px);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -168,13 +191,13 @@ onMounted(loadData)
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.4;
   }
 }
 
 .error-state {
   text-align: center;
-  padding: 48px 0;
+  padding: 64px 0;
 }
 
 .error-text {
@@ -183,44 +206,73 @@ onMounted(loadData)
   font-size: 0.875rem;
 }
 
+/* ── Page Header ── */
+
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text, #111827);
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
+
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
+  letter-spacing: -0.01em;
+}
+
+.page-desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #8b90a0);
+}
+
+/* ── Empty State ── */
 
 .empty-state {
   text-align: center;
-  padding: 64px 0;
+  padding: 80px 0;
 }
 
-.empty-icon {
-  font-size: 2.5rem;
-  margin-bottom: 16px;
+.empty-illustration {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-surface-tint, #f9fafb);
+  color: var(--color-text-muted, #8b90a0);
+  margin-bottom: 20px;
 }
 
 .empty-title {
   font-size: 1rem;
-  font-weight: 500;
-  color: var(--color-text, #111827);
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
   margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, #8b90a0);
   margin-bottom: 24px;
 }
 
-.table-container {
-  overflow-x: auto;
+/* ── Table Card ── */
+
+.table-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
 }
 
 .data-table {
@@ -231,17 +283,33 @@ onMounted(loadData)
 
 .data-table th {
   text-align: left;
-  padding: 12px 16px;
-  font-weight: 500;
-  color: var(--color-text-muted, #6b7280);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  padding: 12px 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #8b90a0);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-border, #e2e4ea);
+  background: var(--color-surface-tint, #f9fafb);
   white-space: nowrap;
 }
 
 .data-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  color: var(--color-text, #111827);
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border-light, #eeeff3);
+  color: var(--color-text, #1a1d26);
+}
+
+.data-table tbody tr {
+  transition: background var(--transition-fast, 150ms ease);
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-surface-hover, #f3f4f8);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .cell-name {
@@ -249,19 +317,23 @@ onMounted(loadData)
 }
 
 .cell-secondary {
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-secondary, #5f6577);
 }
 
 .col-action {
   text-align: right;
 }
 
+/* ── Status Badge ── */
+
 .status-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill, 999px);
   font-size: 0.75rem;
   font-weight: 500;
+  line-height: 1.4;
 }
 
 .status--draft {
@@ -279,9 +351,11 @@ onMounted(loadData)
   color: #dc2626;
 }
 
+/* ── Action Links ── */
+
 .action-group {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   justify-content: flex-end;
 }
 
@@ -290,13 +364,15 @@ onMounted(loadData)
   border: none;
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-link, #3b82f6);
-  padding: 4px 0;
-  transition: color 0.15s;
+  color: var(--color-accent-link, #26a86d);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 6px);
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .action-link:hover {
-  color: var(--color-accent-hover, #2563eb);
+  color: var(--color-accent-hover, #1e8b5a);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
 }
 
 .action--publish {
@@ -305,6 +381,7 @@ onMounted(loadData)
 
 .action--publish:hover {
   color: #15803d;
+  background: #f0fdf4;
 }
 
 .action--offline {
@@ -313,6 +390,7 @@ onMounted(loadData)
 
 .action--offline:hover {
   color: #b45309;
+  background: #fffbeb;
 }
 
 .action--danger {
@@ -321,5 +399,6 @@ onMounted(loadData)
 
 .action--danger:hover {
   color: #dc2626;
+  background: #fef2f2;
 }
 </style>

@@ -224,6 +224,8 @@ onMounted(() => {
   max-width: 720px;
 }
 
+/* ── Loading & Error ── */
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -233,8 +235,8 @@ onMounted(() => {
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f3f4f6);
-  border-radius: 8px;
+  background: var(--color-surface-tint, #f9fafb);
+  border-radius: var(--radius-md, 12px);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -244,13 +246,13 @@ onMounted(() => {
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.4;
   }
 }
 
 .error-state {
   text-align: center;
-  padding: 48px 0;
+  padding: 64px 0;
 }
 
 .error-text {
@@ -259,6 +261,8 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+/* ── Page Header ── */
+
 .page-header {
   margin-bottom: 24px;
 }
@@ -266,23 +270,27 @@ onMounted(() => {
 .back-link {
   background: none;
   border: none;
-  color: var(--color-accent-link, #3b82f6);
+  color: var(--color-accent-link, #26a86d);
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0;
   margin-bottom: 8px;
   display: inline-block;
+  transition: color var(--transition-fast, 150ms ease);
 }
 
 .back-link:hover {
-  color: var(--color-accent-hover, #2563eb);
+  color: var(--color-accent-hover, #1e8b5a);
 }
 
 .page-title {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
+  letter-spacing: -0.01em;
 }
+
+/* ── Form ── */
 
 .edit-form {
   display: flex;
@@ -293,13 +301,13 @@ onMounted(() => {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
 }
 
 .required {
@@ -307,21 +315,26 @@ onMounted(() => {
 }
 
 .form-textarea {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-sm, 6px);
   font-size: 0.875rem;
+  line-height: 1.5;
   background: var(--color-surface, #fff);
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
   resize: vertical;
   font-family: inherit;
-  transition: border-color 0.15s;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.form-textarea::placeholder {
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #3b82f6);
-  box-shadow: var(--shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.15));
+  border-color: var(--color-accent, #26a86d);
+  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
 }
 
 .form-textarea--lg {
@@ -333,10 +346,12 @@ onMounted(() => {
   color: #ef4444;
 }
 
+/* ── Knowledge Base Selection ── */
+
 .kb-loading,
 .kb-empty {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, #8b90a0);
   padding: 8px 0;
 }
 
@@ -346,8 +361,8 @@ onMounted(() => {
   gap: 4px;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-sm, 6px);
   padding: 8px;
 }
 
@@ -355,32 +370,34 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition-fast, 150ms ease);
 }
 
 .kb-item:hover {
-  background: var(--color-surface-hover, #f9fafb);
+  background: var(--color-surface-hover, #f3f4f8);
 }
 
 .kb-item.selected {
-  background: var(--color-accent-ultra-soft, #eff6ff);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
 }
 
 .kb-checkbox {
-  accent-color: var(--color-primary, #3b82f6);
+  accent-color: var(--color-primary, #26a86d);
 }
 
 .kb-name {
   font-size: 0.875rem;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
 }
+
+/* ── Form Actions ── */
 
 .form-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
   padding-top: 8px;
 }

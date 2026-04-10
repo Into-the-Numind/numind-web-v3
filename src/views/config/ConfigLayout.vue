@@ -51,36 +51,38 @@ function isActive(path: string) {
 .config-tabs {
   display: flex;
   gap: 4px;
-  padding: 16px 24px 0;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  padding: 20px 28px 0;
+  border-bottom: 1px solid var(--color-border, #e2e4ea);
   flex-shrink: 0;
+  background: var(--color-surface, #fff);
 }
 
 .config-tab {
-  padding: 8px 16px;
+  padding: 10px 18px;
   font-size: 0.875rem;
-  color: var(--text-secondary, #6b7280);
+  color: var(--color-text-secondary, #5f6577);
   text-decoration: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition:
-    color 0.2s,
-    border-color 0.2s;
+  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0;
 }
 
 .config-tab:hover {
-  color: var(--text, #111827);
+  color: var(--color-text, #1a1d26);
+  background: var(--color-surface-hover, #f3f4f8);
 }
 
 .config-tab.active {
-  color: var(--primary, #3b82f6);
-  border-bottom-color: var(--primary, #3b82f6);
-  font-weight: 500;
+  color: var(--color-primary, #26a86d);
+  border-bottom-color: var(--color-primary, #26a86d);
+  font-weight: 600;
+  background: transparent;
 }
 
 .config-content {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 28px;
 }
 </style>

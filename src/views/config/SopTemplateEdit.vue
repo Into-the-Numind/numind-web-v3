@@ -20,113 +20,145 @@
           </button>
           <h2 class="page-title">{{ isCreate ? '新建SOP模板' : '编辑SOP模板' }}</h2>
         </div>
-        <AppButton
-          :loading="saving"
-          :disabled="!isFormValid || saving"
-          size="sm"
-          @click="handleSave"
-        >
-          {{ saving ? '保存中...' : '保存' }}
-        </AppButton>
+        <div class="header-actions">
+          <AppButton variant="secondary" size="sm" @click="router.push('/config/sop-templates')">
+            取消
+          </AppButton>
+          <AppButton
+            :loading="saving"
+            :disabled="!isFormValid || saving"
+            size="sm"
+            @click="handleSave"
+          >
+            {{ saving ? '保存中...' : '保存' }}
+          </AppButton>
+        </div>
       </div>
 
-      <!-- 基本信息 -->
-      <div class="meta-section">
-        <AppInput
-          v-model="form.name"
-          label="模板名称"
-          placeholder="请输入SOP模板名称"
-          :error="errors.name"
-          @blur="validateName"
-        />
-        <div class="form-group">
-          <label class="form-label">描述</label>
-          <textarea
-            v-model="form.description"
-            class="form-textarea"
-            placeholder="请输入模板描述（可选）"
-            rows="2"
-          ></textarea>
+      <!-- 基本信息卡片 -->
+      <div class="meta-card">
+        <h3 class="section-title">基本信息</h3>
+        <div class="meta-fields">
+          <AppInput
+            v-model="form.name"
+            label="模板名称"
+            placeholder="请输入SOP模板名称"
+            :error="errors.name"
+            @blur="validateName"
+          />
+          <div class="form-group">
+            <label class="form-label">描述</label>
+            <textarea
+              v-model="form.description"
+              class="form-textarea"
+              placeholder="请输入模板描述（可选）"
+              rows="2"
+            ></textarea>
+          </div>
         </div>
       </div>
 
       <!-- 步骤编辑区（分栏） -->
+      <div class="section-title">步骤配置</div>
       <div class="split-layout">
         <!-- 左侧：步骤列表 -->
         <div class="step-panel">
           <div class="panel-header">
-            <span class="panel-title">步骤列表（{{ nodes.length }}/20）</span>
+            <span class="panel-title">步骤列表</span>
+            <span class="panel-count">{{ nodes.length }}/20</span>
+          </div>
+          <div class="step-list-wrapper">
+            <div v-if="nodes.length === 0" class="step-empty">
+              <span class="empty-icon">&#9776;</span>
+              <span class="empty-text">暂无步骤</span>
+            </div>
+            <div v-else class="step-list">
+              <div
+                v-for="(node, idx) in nodes"
+                :key="node.localId"
+                class="step-item"
+                :class="{ active: selectedIndex === idx }"
+                @click="selectedIndex = idx"
+              >
+                <span class="step-number">{{ idx + 1 }}</span>
+                <span class="step-preview">{{ node.name || '未命名步骤' }}</span>
+                <div class="step-actions">
+                  <button
+                    class="step-action-btn"
+                    :disabled="idx === 0"
+                    title="上移"
+                    @click.stop="moveStep(idx, -1)"
+                  >
+                    &#9650;
+                  </button>
+                  <button
+                    class="step-action-btn"
+                    :disabled="idx === nodes.length - 1"
+                    title="下移"
+                    @click.stop="moveStep(idx, 1)"
+                  >
+                    &#9660;
+                  </button>
+                  <button
+                    class="step-action-btn step-action-btn--danger"
+                    title="删除"
+                    @click.stop="removeStep(idx)"
+                  >
+                    &times;
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel-footer">
             <button class="add-step-btn" :disabled="nodes.length >= 20" @click="addStep">
               + 添加步骤
             </button>
           </div>
-          <div v-if="nodes.length === 0" class="step-empty">暂无步骤，点击上方按钮添加</div>
-          <div v-else class="step-list">
-            <div
-              v-for="(node, idx) in nodes"
-              :key="node.localId"
-              class="step-item"
-              :class="{ active: selectedIndex === idx }"
-              @click="selectedIndex = idx"
-            >
-              <span class="step-number">{{ idx + 1 }}</span>
-              <span class="step-preview">{{ node.name || '(未命名)' }}</span>
-              <div class="step-actions">
-                <button
-                  class="step-arrow"
-                  :disabled="idx === 0"
-                  title="上移"
-                  @click.stop="moveStep(idx, -1)"
-                >
-                  &#9650;
-                </button>
-                <button
-                  class="step-arrow"
-                  :disabled="idx === nodes.length - 1"
-                  title="下移"
-                  @click.stop="moveStep(idx, 1)"
-                >
-                  &#9660;
-                </button>
-                <button class="step-delete" title="删除" @click.stop="removeStep(idx)">
-                  &times;
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- 右侧：步骤详情编辑 -->
-        <div class="prompt-panel">
-          <div v-if="selectedIndex < 0 || selectedIndex >= nodes.length" class="prompt-empty">
-            选择左侧步骤以编辑详情
+        <div class="detail-panel">
+          <div v-if="selectedIndex < 0 || selectedIndex >= nodes.length" class="detail-empty">
+            <span class="empty-icon-lg">&#9998;</span>
+            <span class="empty-title">选择步骤以编辑</span>
+            <span class="empty-hint">点击左侧步骤查看和编辑详情</span>
           </div>
           <template v-else>
-            <div class="form-group">
-              <label class="form-label">步骤名称</label>
-              <input
-                v-model="nodes[selectedIndex].name"
-                class="form-input"
-                placeholder="请输入步骤名称，如：AI 拆解产品"
-              />
+            <div class="detail-header">
+              <span class="detail-badge">步骤 {{ selectedIndex + 1 }}</span>
             </div>
-            <div class="form-group">
-              <label class="form-label">步骤说明</label>
-              <textarea
-                v-model="nodes[selectedIndex].description"
-                class="form-textarea"
-                placeholder="请输入步骤说明（可选），如：请将你的产品介绍输入或上传到下方"
-                rows="2"
-              ></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">提示词</label>
-              <textarea
-                v-model="nodes[selectedIndex].prompt"
-                class="form-textarea prompt-textarea"
-                placeholder="请输入该步骤的提示词"
-                rows="10"
-              ></textarea>
+            <div class="detail-form">
+              <div class="form-group">
+                <label class="form-label">步骤名称</label>
+                <input
+                  v-model="nodes[selectedIndex].name"
+                  class="form-input"
+                  placeholder="请输入步骤名称，如：AI 拆解产品"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">步骤说明</label>
+                <textarea
+                  v-model="nodes[selectedIndex].description"
+                  class="form-textarea"
+                  placeholder="用户在该步骤中会看到的说明文字（可选）"
+                  rows="2"
+                ></textarea>
+                <span class="form-hint">此说明将展示在用户端对应步骤的顶部</span>
+              </div>
+              <div class="form-group form-group--flex">
+                <label class="form-label">
+                  提示词（Prompt）
+                  <span class="label-required">*</span>
+                </label>
+                <textarea
+                  v-model="nodes[selectedIndex].prompt"
+                  class="form-textarea prompt-textarea"
+                  placeholder="请输入该步骤的 AI 提示词"
+                  rows="10"
+                ></textarea>
+              </div>
             </div>
           </template>
         </div>
@@ -332,6 +364,8 @@ onMounted(loadDetail)
   width: 100%;
 }
 
+/* ── Loading & Error ── */
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -341,8 +375,8 @@ onMounted(loadDetail)
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f3f4f6);
-  border-radius: 8px;
+  background: var(--color-surface-tint, #f9fafb);
+  border-radius: var(--radius-md, 12px);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -352,13 +386,13 @@ onMounted(loadDetail)
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.4;
   }
 }
 
 .error-state {
   text-align: center;
-  padding: 48px 0;
+  padding: 64px 0;
 }
 
 .error-text {
@@ -366,6 +400,8 @@ onMounted(loadDetail)
   margin-bottom: 16px;
   font-size: 0.875rem;
 }
+
+/* ── Page Header ── */
 
 .page-header {
   display: flex;
@@ -379,6 +415,11 @@ onMounted(loadDetail)
   flex-direction: column;
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .back-link {
   background: none;
   border: none;
@@ -389,6 +430,7 @@ onMounted(loadDetail)
   margin-bottom: 8px;
   display: inline-block;
   text-align: left;
+  transition: color var(--transition-fast, 150ms ease);
 }
 
 .back-link:hover {
@@ -396,81 +438,134 @@ onMounted(loadDetail)
 }
 
 .page-title {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
+  letter-spacing: -0.01em;
 }
 
-.meta-section {
+/* ── Meta Card ── */
+
+.meta-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
+  margin-bottom: 16px;
+}
+
+.meta-fields {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 24px;
   max-width: 480px;
 }
+
+/* ── Form Elements ── */
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+
+.form-group--flex {
+  flex: 1;
 }
 
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.label-required {
+  color: #ef4444;
+  font-weight: 400;
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #8b90a0);
+  margin-top: 2px;
 }
 
 .form-textarea {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-sm, 6px);
   font-size: 0.875rem;
+  line-height: 1.5;
   background: var(--color-surface, #fff);
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
   resize: vertical;
   font-family: inherit;
-  transition: border-color 0.15s;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.form-textarea::placeholder {
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #3b82f6);
-  box-shadow: var(--shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.15));
+  border-color: var(--color-accent, #26a86d);
+  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
 }
 
 .form-input {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-sm, 6px);
   font-size: 0.875rem;
   background: var(--color-surface, #fff);
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
   font-family: inherit;
-  transition: border-color 0.15s;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.form-input::placeholder {
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--color-accent, #3b82f6);
-  box-shadow: var(--shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.15));
+  border-color: var(--color-accent, #26a86d);
+  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
 }
 
-/* Split layout */
+/* ── Split Layout ── */
+
 .split-layout {
   display: flex;
-  gap: 24px;
-  min-height: 400px;
+  gap: 20px;
+  min-height: 480px;
 }
+
+/* ── Step Panel (Left) ── */
 
 .step-panel {
   width: 280px;
   flex-shrink: 0;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
 }
 
 .panel-header {
@@ -478,23 +573,39 @@ onMounted(loadDetail)
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border-light, #eeeff3);
   background: var(--color-surface-tint, #f9fafb);
 }
 
 .panel-title {
   font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
+}
+
+.panel-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #8b90a0);
   font-weight: 500;
-  color: var(--color-text, #111827);
+}
+
+.panel-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border-light, #eeeff3);
+  background: var(--color-surface-tint, #f9fafb);
 }
 
 .add-step-btn {
   background: none;
-  border: none;
+  border: 1px dashed var(--color-border, #e2e4ea);
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-link, #3b82f6);
-  padding: 2px 4px;
+  font-weight: 500;
+  color: var(--color-accent-link, #26a86d);
+  padding: 8px 0;
+  width: 100%;
+  border-radius: var(--radius-sm, 6px);
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .add-step-btn:disabled {
@@ -503,124 +614,206 @@ onMounted(loadDetail)
 }
 
 .add-step-btn:hover:not(:disabled) {
-  color: var(--color-accent-hover, #2563eb);
+  color: var(--color-accent-hover, #1e8b5a);
+  border-color: var(--color-accent-link, #26a86d);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+}
+
+/* ── Step List ── */
+
+.step-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .step-empty {
-  padding: 24px 16px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  gap: 8px;
+}
+
+.empty-icon {
+  font-size: 1.5rem;
+  opacity: 0.3;
+}
+
+.empty-text {
   font-size: 0.8125rem;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .step-list {
-  flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .step-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 10px;
+  padding: 10px 16px;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  transition: background 0.15s;
+  border-bottom: 1px solid var(--color-border-light, #eeeff3);
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.step-item:last-child {
+  border-bottom: none;
 }
 
 .step-item:hover {
-  background: var(--color-surface-hover, #f9fafb);
+  background: var(--color-surface-hover, #f3f4f8);
 }
 
 .step-item.active {
-  background: var(--color-accent-ultra-soft, #eff6ff);
-  border-left: 3px solid var(--color-primary, #3b82f6);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  box-shadow: inset 3px 0 0 var(--color-primary, #26a86d);
 }
 
 .step-number {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: var(--color-surface-tint, #f3f4f6);
+  background: var(--color-surface-tint, #f3f4f8);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text-muted, #6b7280);
+  font-weight: 600;
+  color: var(--color-text-muted, #8b90a0);
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .step-item.active .step-number {
-  background: var(--color-primary, #3b82f6);
+  background: var(--color-primary, #26a86d);
   color: #fff;
 }
 
 .step-preview {
   flex: 1;
   font-size: 0.8125rem;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.step-item.active .step-preview {
+  font-weight: 500;
 }
 
 .step-actions {
   display: flex;
   gap: 2px;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast, 150ms ease);
 }
 
-.step-arrow,
-.step-delete {
+.step-item:hover .step-actions {
+  opacity: 1;
+}
+
+.step-action-btn {
   background: none;
   border: none;
   cursor: pointer;
   font-size: 0.75rem;
-  color: var(--color-text-muted, #6b7280);
-  padding: 2px 4px;
-  border-radius: 4px;
+  color: var(--color-text-muted, #8b90a0);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm, 6px);
   line-height: 1;
+  transition: all var(--transition-fast, 150ms ease);
 }
 
-.step-arrow:hover:not(:disabled),
-.step-delete:hover {
-  background: var(--color-surface-tint, #f3f4f6);
+.step-action-btn:hover:not(:disabled) {
+  background: var(--color-surface-tint, #f3f4f8);
+  color: var(--color-text, #1a1d26);
 }
 
-.step-arrow:disabled {
-  opacity: 0.3;
+.step-action-btn:disabled {
+  opacity: 0.25;
   cursor: not-allowed;
 }
 
-.step-delete {
-  color: #ef4444;
+.step-action-btn--danger {
   font-size: 1rem;
 }
 
-.step-delete:hover {
-  background: #fee2e2;
+.step-action-btn--danger:hover {
+  color: #ef4444;
+  background: #fef2f2;
 }
 
-/* Prompt panel */
-.prompt-panel {
+/* ── Detail Panel (Right) ── */
+
+.detail-panel {
   flex: 1;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  overflow: hidden;
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
 }
 
-.prompt-empty {
+.detail-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  font-size: 0.875rem;
-  color: var(--color-text-muted, #6b7280);
+  gap: 8px;
+  padding: 48px;
+}
+
+.empty-icon-lg {
+  font-size: 2rem;
+  opacity: 0.2;
+}
+
+.empty-title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #5f6577);
+}
+
+.empty-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #8b90a0);
+}
+
+.detail-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-border-light, #eeeff3);
+  background: var(--color-surface-tint, #f9fafb);
+}
+
+.detail-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary, #26a86d);
+  background: var(--color-accent-soft, hsl(160, 60%, 93%));
+  padding: 3px 10px;
+  border-radius: var(--radius-pill, 999px);
+}
+
+.detail-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  flex: 1;
 }
 
 .prompt-textarea {
   flex: 1;
-  min-height: 300px;
+  min-height: 240px;
 }
 </style>

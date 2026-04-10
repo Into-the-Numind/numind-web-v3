@@ -14,20 +14,38 @@
     <template v-else>
       <!-- 头部 -->
       <div class="page-header">
-        <h2 class="page-title">知识库管理</h2>
+        <div class="header-left">
+          <h2 class="page-title">知识库管理</h2>
+          <p class="page-desc">管理知识库文档，为智能体提供专业知识</p>
+        </div>
         <AppButton size="sm" @click="showCreateModal = true">+ 新建知识库</AppButton>
       </div>
 
       <!-- 空状态 -->
       <div v-if="store.knowledgeBases.length === 0" class="empty-state">
-        <div class="empty-icon">📚</div>
+        <div class="empty-illustration">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+            <path d="M8 7h6" />
+            <path d="M8 11h8" />
+          </svg>
+        </div>
         <div class="empty-title">暂无知识库</div>
         <div class="empty-desc">创建知识库并上传文档，为智能体提供专业知识</div>
         <AppButton size="sm" @click="showCreateModal = true">新建知识库</AppButton>
       </div>
 
       <!-- 数据表格 -->
-      <div v-else class="table-container">
+      <div v-else class="table-card">
         <table class="data-table">
           <thead>
             <tr>
@@ -40,7 +58,7 @@
           <tbody>
             <tr v-for="kb in store.knowledgeBases" :key="kb.id">
               <td class="cell-name">{{ kb.name }}</td>
-              <td>{{ kb.doc_count ?? '-' }}</td>
+              <td class="cell-secondary">{{ kb.doc_count ?? '-' }}</td>
               <td class="cell-secondary">{{ formatDate(kb.created_at) }}</td>
               <td class="col-action">
                 <div class="action-group">
@@ -184,6 +202,8 @@ onMounted(loadData)
   width: 100%;
 }
 
+/* ── Loading & Error ── */
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -193,8 +213,8 @@ onMounted(loadData)
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f3f4f6);
-  border-radius: 8px;
+  background: var(--color-surface-tint, #f9fafb);
+  border-radius: var(--radius-md, 12px);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -204,13 +224,13 @@ onMounted(loadData)
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.4;
   }
 }
 
 .error-state {
   text-align: center;
-  padding: 48px 0;
+  padding: 64px 0;
 }
 
 .error-text {
@@ -219,44 +239,73 @@ onMounted(loadData)
   font-size: 0.875rem;
 }
 
+/* ── Page Header ── */
+
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text, #111827);
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
+
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
+  letter-spacing: -0.01em;
+}
+
+.page-desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #8b90a0);
+}
+
+/* ── Empty State ── */
 
 .empty-state {
   text-align: center;
-  padding: 64px 0;
+  padding: 80px 0;
 }
 
-.empty-icon {
-  font-size: 2.5rem;
-  margin-bottom: 16px;
+.empty-illustration {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-surface-tint, #f9fafb);
+  color: var(--color-text-muted, #8b90a0);
+  margin-bottom: 20px;
 }
 
 .empty-title {
   font-size: 1rem;
-  font-weight: 500;
-  color: var(--color-text, #111827);
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
   margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, #8b90a0);
   margin-bottom: 24px;
 }
 
-.table-container {
-  overflow-x: auto;
+/* ── Table Card ── */
+
+.table-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
 }
 
 .data-table {
@@ -267,17 +316,33 @@ onMounted(loadData)
 
 .data-table th {
   text-align: left;
-  padding: 12px 16px;
-  font-weight: 500;
-  color: var(--color-text-muted, #6b7280);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  padding: 12px 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #8b90a0);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-border, #e2e4ea);
+  background: var(--color-surface-tint, #f9fafb);
   white-space: nowrap;
 }
 
 .data-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  color: var(--color-text, #111827);
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border-light, #eeeff3);
+  color: var(--color-text, #1a1d26);
+}
+
+.data-table tbody tr {
+  transition: background var(--transition-fast, 150ms ease);
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-surface-hover, #f3f4f8);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .cell-name {
@@ -285,16 +350,18 @@ onMounted(loadData)
 }
 
 .cell-secondary {
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-secondary, #5f6577);
 }
 
 .col-action {
   text-align: right;
 }
 
+/* ── Action Links ── */
+
 .action-group {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   justify-content: flex-end;
 }
 
@@ -303,13 +370,15 @@ onMounted(loadData)
   border: none;
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-link, #3b82f6);
-  padding: 4px 0;
-  transition: color 0.15s;
+  color: var(--color-accent-link, #26a86d);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 6px);
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .action-link:hover {
-  color: var(--color-accent-hover, #2563eb);
+  color: var(--color-accent-hover, #1e8b5a);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
 }
 
 .action--danger {
@@ -318,39 +387,40 @@ onMounted(loadData)
 
 .action--danger:hover {
   color: #dc2626;
+  background: #fef2f2;
 }
 
-/* Modal styles */
+/* ── Modal ── */
+
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal, 500);
 }
 
 .modal-dialog {
   background: var(--color-surface, #fff);
-  border-radius: 12px;
-  width: 420px;
+  border-radius: var(--radius-lg, 16px);
+  width: 440px;
   max-width: 90vw;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.06));
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  padding: 20px 24px 16px;
 }
 
 .modal-title {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 600;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
 }
 
 .modal-close {
@@ -358,17 +428,20 @@ onMounted(loadData)
   border: none;
   cursor: pointer;
   font-size: 1.25rem;
-  color: var(--color-text-muted, #6b7280);
-  padding: 4px;
+  color: var(--color-text-muted, #8b90a0);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm, 6px);
   line-height: 1;
+  transition: all var(--transition-fast, 150ms ease);
 }
 
 .modal-close:hover {
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
+  background: var(--color-surface-hover, #f3f4f8);
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 0 24px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -377,49 +450,68 @@ onMounted(loadData)
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid var(--color-border, #e5e7eb);
+  border-top: 1px solid var(--color-border-light, #eeeff3);
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
 }
 
 .form-textarea {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-sm, 6px);
   font-size: 0.875rem;
+  line-height: 1.5;
   background: var(--color-surface, #fff);
-  color: var(--color-text, #111827);
+  color: var(--color-text, #1a1d26);
   resize: vertical;
   font-family: inherit;
-  transition: border-color 0.15s;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.form-textarea::placeholder {
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #3b82f6);
-  box-shadow: var(--shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.15));
+  border-color: var(--color-accent, #26a86d);
+  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
 }
 
-/* Transitions */
+/* ── Transitions ── */
+
 .overlay-fade-enter-active,
 .overlay-fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease;
+}
+
+.overlay-fade-enter-active .modal-dialog,
+.overlay-fade-leave-active .modal-dialog {
+  transition: transform 0.2s ease;
 }
 
 .overlay-fade-enter-from,
 .overlay-fade-leave-to {
   opacity: 0;
+}
+
+.overlay-fade-enter-from .modal-dialog {
+  transform: translateY(8px) scale(0.98);
+}
+
+.overlay-fade-leave-to .modal-dialog {
+  transform: translateY(4px) scale(0.99);
 }
 </style>
