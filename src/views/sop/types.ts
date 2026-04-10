@@ -105,6 +105,10 @@ export interface SopRun {
   counted: boolean
   started_at: string | null
   finished_at: string | null
+  /** 节点执行错误信息（空字符串表示无错误，对应后端 model.SopRun.ErrorMessage） */
+  error_message: string
+  /** 最终生成的 Note ID（对应后端 *uint，可空） */
+  final_note_id: number | null
   created_at: string
   updated_at: string
 }
@@ -114,19 +118,26 @@ export interface SopRun {
  *
  * 对应后端 model.SopNodeRun。
  *
- * 注意 input/output/thinking 是 string | null（GORM longtext 可空），
- * 前端 render 时必须做 null 防御：`thinking ?? ''`。
+ * 注意 input/output/thinking 在后端是 Go string（序列化为 "" 而非 null），
+ * 但前端代码仍应防御性写 `thinking || ''` 处理可能的不一致。
  */
 export interface SopNodeRun {
   id: number
   run_id: number
   node_id: number
   status: 'pending' | 'running' | 'succeeded' | 'failed'
-  input: string | null
-  output: string | null
-  thinking: string | null
+  input: string
+  output: string
+  thinking: string
   latency_ms: number
-  is_accessible: boolean
+  /**
+   * 节点是否可访问。
+   *
+   * 注意：这不是 model.SopNodeRun 的字段，是 biz 层 CompletedNodeInfo 的扩展字段，
+   * 仅在某些 SSE execute 事件响应或独立 status 端点中返回。
+   * GetRunDetail API 不会返回此字段，所以标为 optional。
+   */
+  is_accessible?: boolean
   started_at: string | null
   finished_at: string | null
 }
