@@ -1,25 +1,17 @@
 /**
- * markdown.ts 单元测试
+ * markdown.ts 单元测试（16 用例，分 3 组）
  *
- * 覆盖：
+ * 基础渲染 (6)：
+ *   - null / undefined / '' 返回空字符串
+ *   - 普通段落 / GFM 表格 / 代码块 hljs class / 未知 lang 降级 / breaks
  *
- * renderMarkdown (7)：
- *   1. null / undefined / '' 返回空字符串
- *   2. 普通段落渲染为 <p>
- *   3. GFM 表格
- *   4. 代码块带 language 应用 hljs class
- *   5. 代码块无 language 用 plaintext
- *   6. XSS 防护：<script> 标签被 DOMPurify 剥离
- *   7. XSS 防护：onclick 内联事件被剥离
- *   8. XSS 防护：javascript: 协议链接被剥离
- *   9. `breaks: true` 让单换行变 <br>
+ * XSS 防护 (4)：
+ *   - <script> / onclick / javascript: 协议 / img onerror
  *
- * stripCodeFence (5)：
- *  10. ```markdown 围栏被剥离
- *  11. ``` (无 lang) 围栏被剥离
- *  12. 无围栏时保持不变
- *  13. 只有末尾 ``` 无开头围栏时保持不变（避免误伤）
- *  14. null / undefined / '' 返回空字符串
+ * stripCodeFence (6)：
+ *   - ```markdown 围栏剥离 / ``` 围栏剥离 / 无围栏保持 /
+ *     只有末尾无开头保持不变 / null/undefined/'' 返回空 /
+ *     只有开头无末尾也剥离
  */
 import { describe, it, expect } from 'vitest'
 import { renderMarkdown, stripCodeFence } from '../markdown'
