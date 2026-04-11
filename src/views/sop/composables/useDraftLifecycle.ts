@@ -183,7 +183,8 @@ export function useDraftLifecycle(): UseDraftLifecycleReturn {
     if (!token) return false
 
     const url = `${getApiBaseURL()}/v1/sop/runs/${runId}/draft?token=${encodeURIComponent(token)}`
-    // sendBeacon 默认 POST，body 为 null 也可以
+    // sendBeacon 默认 POST，body 为 null。后端 DeleteDraftRun 通过 path :id 和
+    // query ?token= 获取所有所需信息，不需要请求体。
     return navigator.sendBeacon(url)
   }
 

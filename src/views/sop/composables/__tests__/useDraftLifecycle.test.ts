@@ -28,6 +28,9 @@ beforeEach(() => {
   createRunMock.mockReset()
   // 默认 token 存在
   localStorage.setItem('token', 'fake-test-token')
+  // 测试隔离：显式清空 sendBeacon，避免 jsdom 升级后内置 stub 影响测试 7
+  // @ts-expect-error - 故意 delete 防御性测试隔离
+  delete navigator.sendBeacon
 })
 
 afterEach(() => {
