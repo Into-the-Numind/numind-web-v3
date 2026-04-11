@@ -70,8 +70,11 @@ export interface UseScrollFollowReturn {
   uninstall: () => void
   /** 流式内容更新时调用：如果在 Following 状态则自动滚到底部 */
   checkAndScroll: (el: HTMLElement) => void
-  /** 恢复 Following 状态（用户点跳回按钮 / 新节点执行触发） */
-  resume: () => void
+  /**
+   * 恢复 Following 状态（用户点跳回按钮 / 新节点执行触发）。
+   * 传入 el 时立即滚到底部；不传只更新状态。
+   */
+  resume: (el?: HTMLElement) => void
 }
 
 export function useScrollFollow(): UseScrollFollowReturn {

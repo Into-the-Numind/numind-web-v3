@@ -54,7 +54,14 @@ import { ref } from 'vue'
 
 export interface SSEDoneMeta {
   status: string
+  /** ExecuteNodeStream 的第二次 done 会带此字段（uploaded 文件 ID 列表） */
   uploaded_file_ids?: number[]
+  /**
+   * ChatAfterRunStream 的 done payload 带此字段（assistant 消息入库后的 ID）。
+   * 实测自 biz/sop/sop.go:1336-1337：`{"status":"completed","message_id":<id>}`。
+   * 前端用于关联新消息到 store 列表。
+   */
+  message_id?: number
 }
 
 export interface SSEStreamHandlers {

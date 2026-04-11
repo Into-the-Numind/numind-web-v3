@@ -217,3 +217,41 @@ export const applyBookmark = async (
   const res = await request.post(`/v1/sop/runs/${runId}/nodes/${nodeId}/apply-bookmark`, body)
   return (res as unknown as { data: ApplyBookmarkResponse }).data
 }
+
+/**
+ * GET /v1/sop/runs/:id/chat-messages 获取某 run 的聊天历史
+ *
+ * 后端返回 RunChatMessagesResponse（v1/sop.go:332-337）：
+ *   { run_id, conversation_id, messages: RunChatMessageItem[] }
+ *
+ * 字段来源于 biz 层 ListChatMessages，包含 token 用量等元数据。
+ */
+export interface RunChatMessageItem {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  thinking: string
+  created_at: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens: number
+  estimated_prompt_tokens: number
+}
+
+export interface RunChatMessagesResponse {
+  run_id: number
+  conversation_id: string
+  messages: RunChatMessageItem[]
+}
+
+export const listRunChatMessages = async (runId: number): Promise<RunChatMessagesResponse> => {
+  const res = await request.get(`/v1/sop/runs/${runId}/chat-messages`)
+  const data = (res as unknown as { data: RunChatMessagesResponse }).data
+  // 防御：后端可能返回 null messages
+  return {
+    run_id: data?.run_id ?? runId,
+    conversation_id: data?.conversation_id ?? '',
+    messages: data?.messages ?? []
+  }
+}
