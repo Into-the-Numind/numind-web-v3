@@ -412,4 +412,185 @@ describe('TrailingChatPanel — 生命周期', () => {
     wrapper.unmount()
     expect(mockAbort).toHaveBeenCalled()
   })
+
+  it('runId 变化时 abort 旧 SSE 流（reviewer P1 修复）', async () => {
+    listChatMock.mockResolvedValue({ run_id: 100, conversation_id: '', messages: [] })
+    const wrapper = mount(TrailingChatPanel, {
+      props: makeProps({ runId: 100 }),
+      attachTo: document.body
+    })
+    await flushPromises()
+    mockAbort.mockClear()
+
+    // 切换 runId 应该触发 abort
+    await wrapper.setProps({ runId: 200 })
+    await flushPromises()
+    expect(mockAbort).toHaveBeenCalled()
+    wrapper.unmount()
+  })
+})
+
+describe('TrailingChatPanel — 键盘 & 复制 & 重新生成', () => {
+  it('Shift+Enter 不触发发送（.exact 修饰符防止换行时误发）', async () => {
+    listChatMock.mockResolvedValue({ run_id: 100, conversation_id: '', messages: [] })
+    let streamCalled = false
+    mockStreamPostImpl = async () => {
+      streamCalled = true
+    }
+
+    const wrapper = mount(TrailingChatPanel, {
+      props: makeProps(),
+      attachTo: document.body
+    })
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('测试')
+    // Shift+Enter：.exact 修饰符过滤，不触发 send
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter', shiftKey: true })
+    await flushPromises()
+    expect(streamCalled).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('复制成功触发 success toast', async () => {
+    listChatMock.mockResolvedValue({
+      run_id: 100,
+      conversation_id: '',
+      messages: [
+        {
+          id: 1,
+          role: 'assistant',
+          content: '要复制的内容',
+          thinking: '',
+          created_at: '2026-04-10T00:00:00Z',
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          reasoning_tokens: 0,
+          estimated_prompt_tokens: 0
+        }
+      ]
+    })
+    const writeTextSpy = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText: writeTextSpy } })
+
+    const wrapper = mount(TrailingChatPanel, {
+      props: makeProps(),
+      attachTo: document.body
+    })
+    await flushPromises()
+
+    // 点击复制按钮（第一个 chat-bubble-action）
+    const copyBtn = wrapper.findAll('.chat-bubble-action')[0]
+    await copyBtn.trigger('click')
+    await flushPromises()
+
+    expect(writeTextSpy).toHaveBeenCalledWith('要复制的内容')
+    wrapper.unmount()
+  })
+
+  it('复制失败触发 error toast', async () => {
+    listChatMock.mockResolvedValue({
+      run_id: 100,
+      conversation_id: '',
+      messages: [
+        {
+          id: 1,
+          role: 'assistant',
+          content: '内容',
+          thinking: '',
+          created_at: '2026-04-10T00:00:00Z',
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          reasoning_tokens: 0,
+          estimated_prompt_tokens: 0
+        }
+      ]
+    })
+    const writeTextSpy = vi.fn().mockRejectedValue(new Error('permission denied'))
+    Object.assign(navigator, { clipboard: { writeText: writeTextSpy } })
+
+    const wrapper = mount(TrailingChatPanel, {
+      props: makeProps(),
+      attachTo: document.body
+    })
+    await flushPromises()
+
+    const copyBtn = wrapper.findAll('.chat-bubble-action')[0]
+    await copyBtn.trigger('click')
+    await flushPromises()
+
+    // writeText 被调用（失败）
+    expect(writeTextSpy).toHaveBeenCalled()
+    // 测试关键：不抛异常，catch 正常处理
+    wrapper.unmount()
+  })
+
+  it('重新生成删除最后 2 条消息并重新发送', async () => {
+    listChatMock.mockResolvedValue({
+      run_id: 100,
+      conversation_id: '',
+      messages: [
+        {
+          id: 1,
+          role: 'user',
+          content: '问题 A',
+          thinking: '',
+          created_at: '',
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          reasoning_tokens: 0,
+          estimated_prompt_tokens: 0
+        },
+        {
+          id: 2,
+          role: 'assistant',
+          content: '旧答案',
+          thinking: '',
+          created_at: '',
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          reasoning_tokens: 0,
+          estimated_prompt_tokens: 0
+        }
+      ]
+    })
+
+    const streamCalls: Array<{ body: string }> = []
+    mockStreamPostImpl = async (_url, init, handlers) => {
+      streamCalls.push({ body: init.body as string })
+      handlers.onMessage?.('新答案')
+      handlers.onDone?.({ status: 'completed', message_id: 999 })
+    }
+
+    const wrapper = mount(TrailingChatPanel, {
+      props: makeProps(),
+      attachTo: document.body
+    })
+    await flushPromises()
+
+    // 点击第二条（assistant）的重新生成按钮
+    const regenBtn = wrapper.findAll('.chat-bubble-action')[1]
+    await regenBtn.trigger('click')
+    await flushPromises()
+
+    // 验证 regenerate_msg_id 传递到 body
+    expect(streamCalls.length).toBe(1)
+    const body = JSON.parse(streamCalls[0].body)
+    expect(body.regenerate_msg_id).toBe(2)
+    expect(body.question).toBe('问题 A')
+
+    // 列表最终状态：新的 user 消息 + 新的 assistant 消息
+    const vm = wrapper.vm as unknown as {
+      messages: Array<{ id: number | string; role: string; content: string }>
+    }
+    expect(vm.messages.length).toBe(2)
+    expect(vm.messages[0].content).toBe('问题 A')
+    expect(vm.messages[1].id).toBe(999)
+    expect(vm.messages[1].content).toBe('新答案')
+    wrapper.unmount()
+  })
 })

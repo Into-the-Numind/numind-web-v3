@@ -387,11 +387,16 @@ watch(
 
 /**
  * runId 变化时重新加载（切换 run 场景）
+ *
+ * 关键：必须先 abort 旧的 SSE 流再清 state。否则旧流的 onMessage/onDone
+ * 回调仍会运行，写入新 run 的 messages，并错误地解锁 sending flag。
  */
 watch(
   () => props.runId,
   (newId, oldId) => {
     if (newId && newId !== oldId) {
+      sseStream.abort()
+      sending.value = false
       messages.value = []
       streamingMessage.value = null
       loadHistory()
