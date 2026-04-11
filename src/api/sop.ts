@@ -114,3 +114,106 @@ export const createRun = async (body: CreateRunRequest): Promise<CreateRunRespon
   const data = (res as unknown as { data: CreateRunResponse }).data
   return data
 }
+
+/**
+ * POST /v1/ali/vision/analyze 图片 OCR（阿里 qwen3-vl）
+ *
+ * 后端要求 multipart/form-data：
+ * - file: 图片文件（<= 7MB，阿里百炼限制）
+ * - run_id: 必需（uint）
+ * - node_id: 必需（uint）
+ *
+ * Response: { content: string, file_id?: number }
+ */
+export interface VisionAnalyzeResponse {
+  content: string
+  file_id?: number
+}
+
+export const uploadImageForOCR = async (
+  file: File,
+  runId: number,
+  nodeId: number
+): Promise<VisionAnalyzeResponse> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('run_id', String(runId))
+  form.append('node_id', String(nodeId))
+  const res = await request.post('/v1/ali/vision/analyze', form, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return (res as unknown as { data: VisionAnalyzeResponse }).data
+}
+
+/**
+ * POST /v1/pdf/convert-to-text 文档转文字
+ *
+ * 支持扩展名：.pdf, .txt, .md, .docx, .doc, .rtf
+ * 大小限制：10MB（后端 MaxFileSize 常量）
+ *
+ * 后端 form-data 字段：file, run_id, node_id
+ * Response: string（直接的纯文本，不在 data 对象内）
+ */
+export const uploadFileForText = async (
+  file: File,
+  runId: number,
+  nodeId: number
+): Promise<string> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('run_id', String(runId))
+  form.append('node_id', String(nodeId))
+  const res = await request.post('/v1/pdf/convert-to-text', form, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  // 后端 core.WriteResponse(c, nil, text) 把 text 放在 data 字段
+  const data = (res as unknown as { data: string }).data
+  return typeof data === 'string' ? data : ''
+}
+
+/**
+ * GET /v1/sop/templates/:id/bookmarks 列出某模板的所有书签
+ *
+ * Response: { bookmarks: BookmarkListItem[] }
+ */
+export interface BookmarkListItem {
+  id: number
+  node_id: number
+  node_sort: number
+  node_name?: string
+  bookmark_name: string
+  output_preview: string
+  has_thinking: boolean
+  total_tokens: number
+  created_at: string
+}
+
+export const listBookmarksByTemplate = async (templateId: number): Promise<BookmarkListItem[]> => {
+  const res = await request.get(`/v1/sop/templates/${templateId}/bookmarks`)
+  const data = (res as unknown as { data: { bookmarks?: BookmarkListItem[] } }).data
+  return data?.bookmarks ?? []
+}
+
+/**
+ * POST /v1/sop/runs/:id/nodes/:node_id/apply-bookmark 应用书签到当前 run 的某节点
+ *
+ * body: { bookmark_id?: number } — 不传则后端自动查找该节点的书签
+ * Response: { node_run_id, from_bookmark, bookmark_id, output, thinking }
+ */
+export interface ApplyBookmarkResponse {
+  node_run_id: number
+  from_bookmark: boolean
+  bookmark_id: number
+  output: string
+  thinking: string
+}
+
+export const applyBookmark = async (
+  runId: number,
+  nodeId: number,
+  bookmarkId?: number
+): Promise<ApplyBookmarkResponse> => {
+  const body = bookmarkId !== undefined ? { bookmark_id: bookmarkId } : {}
+  const res = await request.post(`/v1/sop/runs/${runId}/nodes/${nodeId}/apply-bookmark`, body)
+  return (res as unknown as { data: ApplyBookmarkResponse }).data
+}
