@@ -42,7 +42,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/sop/run',
     name: 'sop-run',
-    component: () => import('@/views/SOPView.vue'),
+    // Vue 3 完整重写（NDF sop-runtime-vue-rewrite）
+    component: () => import('@/views/sop/SOPRunView.vue'),
     meta: {
       title: 'SOP 执行',
       requiresAuth: true

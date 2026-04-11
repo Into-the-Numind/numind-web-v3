@@ -1,0 +1,325 @@
+/**
+ * SOP 运行页 Pinia store
+ *
+ * 持有当前 SOP run 的全局状态：template / nodes / currentRun / 节点执行进度 / UI 状态。
+ *
+ * **设计原则**：
+ *   - 数据库 = 唯一真相源。所有字段从后端 API 读取，前端不硬编码任何 SOP 业务数据。
+ *   - actions 在本 task 5 阶段只声明签名 + 空实现，后续 task 6-21 逐步填充。
+ *   - 单一 store 持有整个 SOP run 状态（不拆多个 store，避免跨 store 同步噪音）。
+ *
+ * 关键决策：
+ *   - isDraftRun = currentRun.status === 'draft'（后端独立常量 SopStatusDraft，
+ *     不是 pending+counted=false 组合）
+ *   - totalSteps = nodes.length + (trailing_chat_enabled ? 1 : 0)
+ *   - currentStep 是 1-based（第一步 = 1）
+ *
+ * 详见 spec §3.2 + task 1 research §5.1
+ */
+import { ref, computed } from 'vue'
+import { defineStore } from 'pinia'
+import type { SopTemplatePublic, SopNodePublic, SopRun, SopNodeRun } from '@/views/sop/types'
+
+export const useSopRunStore = defineStore('sopRun', () => {
+  // ===== 核心 state（template + nodes + run） =====
+  const template = ref<SopTemplatePublic | null>(null)
+  const nodes = ref<SopNodePublic[]>([])
+  const currentRun = ref<SopRun | null>(null)
+
+  // ===== 节点执行状态 =====
+  /** nodeId → 最新一次执行记录 */
+  const nodeRuns = ref<Record<number, SopNodeRun>>({})
+  /** 已完成的节点 ID 集合 */
+  const completedNodeIds = ref<Set<number>>(new Set())
+  /** 下一个待执行的节点 ID */
+  const nextNodeId = ref<number | null>(null)
+  /**
+   * nodeId → is_accessible 标志
+   *
+   * 默认 true。后端在某些情况（如配额耗尽）会标记为 false，
+   * 前端 canAccessStep() 必须检查此字段。
+   */
+  const nodeAccessibility = ref<Record<number, boolean>>({})
+
+  // ===== 流式输出实时状态 =====
+  /** 当前节点正在流式生成的 thinking + content */
+  const streamingNodeId = ref<number | null>(null)
+  const streamingThinking = ref<string>('')
+  const streamingContent = ref<string>('')
+
+  // ===== UI state =====
+  /** 当前显示的步骤索引（1-based） */
+  const currentStep = ref<number>(1)
+
+  // ===== 加载与错误状态 =====
+  const loading = ref(false)
+  const lastError = ref<string>('')
+
+  // ===== Computed =====
+  /**
+   * 是否为 Draft run 状态。
+   *
+   * 直接读 currentRun.status === 'draft'（后端 SopStatusDraft 常量）。
+   * 不要写成 `status === 'pending' && !counted` —— 那是错误的语义，
+   * task 1 reviewer 已抓出该失误。
+   */
+  const isDraftRun = computed(() => currentRun.value?.status === 'draft')
+
+  /** 是否启用末尾 AI 聊天步骤（来自模板配置） */
+  const trailingChatEnabled = computed(() => template.value?.trailing_chat_enabled ?? false)
+
+  /**
+   * 步骤总数 = 节点数 + (trailing chat ? 1 : 0)
+   *
+   * 不再硬编码为 5。spec §10.2 row 5 要求 nodes.length > 10 时
+   * StepperPanel 横向滚动 / collapsed 视图。
+   */
+  const totalSteps = computed(() => nodes.value.length + (trailingChatEnabled.value ? 1 : 0))
+
+  /** 当前是否在 trailing chat 步骤上 */
+  const isOnTrailingChatStep = computed(
+    () => trailingChatEnabled.value && currentStep.value === nodes.value.length + 1
+  )
+
+  /** 当前步骤对应的 node（trailing chat 步骤时为 null） */
+  const currentNode = computed<SopNodePublic | null>(() => {
+    if (isOnTrailingChatStep.value) return null
+    const idx = currentStep.value - 1 // 1-based → 0-based
+    return nodes.value[idx] ?? null
+  })
+
+  // ===== Actions =====
+  //
+  // **设计决策**：store 只管纯状态 mutation。复杂流程（SSE 流、localStorage
+  // 持久化、ConfirmModal 弹窗、路由跳转）放在 SOPRunView 或 composables。
+  // 这样 store 可以被单独单测，不依赖 fetch/DOM。
+
+  /**
+   * 加载 template + nodes（task 21 SOPRunView 从 api 调用后注入到 store）
+   */
+  async function loadTemplate(templateId: number): Promise<void> {
+    loading.value = true
+    lastError.value = ''
+    try {
+      const { fetchTemplateNodes } = await import('@/api/sop')
+      const data = await fetchTemplateNodes(templateId)
+      template.value = data.template as SopTemplatePublic
+      nodes.value = (data.nodes as SopNodePublic[]).slice().sort((a, b) => a.sort - b.sort)
+    } catch (err) {
+      lastError.value = (err as Error)?.message || '加载模板失败'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 加载现有 run（GET /v1/sop/runs/:id + /status）
+   *
+   * 先调 GetRun 拿到 run 基本信息，再调 GetRunStatus 拉取已完成节点 + 下一节点。
+   */
+  async function loadRun(runId: number): Promise<void> {
+    loading.value = true
+    lastError.value = ''
+    try {
+      const { fetchRun, fetchRunStatusDetail } = await import('@/api/sop')
+      const [run, status] = await Promise.all([fetchRun(runId), fetchRunStatusDetail(runId)])
+      // 后端 SopRun 直接序列化，gorm.Model.ID 序列化为 "ID"（大写）
+      currentRun.value = {
+        id: run.ID,
+        template_id: run.template_id,
+        user_id: run.user_id,
+        status: run.status as SopRun['status'],
+        conversation_id: run.conversation_id,
+        counted: run.counted,
+        started_at: run.started_at,
+        finished_at: run.finished_at,
+        created_at: run.created_at,
+        updated_at: run.updated_at,
+        error_message: run.error_message ?? '',
+        final_note_id: null
+      }
+      // 已完成节点集合
+      const newCompleted = new Set<number>()
+      const newAccessibility: Record<number, boolean> = {}
+      for (const cn of status.completed_nodes) {
+        newCompleted.add(cn.node_id)
+        newAccessibility[cn.node_id] = cn.is_accessible
+      }
+      completedNodeIds.value = newCompleted
+      nodeAccessibility.value = newAccessibility
+      nextNodeId.value = status.next_node?.node_id ?? null
+    } catch (err) {
+      lastError.value = (err as Error)?.message || '加载运行记录失败'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 进入纯前端 draft 模式（不创建后端记录）。
+   *
+   * 实际 lazyCreateRun 由 useDraftLifecycle composable 在 SOPRunView 中处理。
+   * 这里只清空 currentRun 表示"尚未有后端 run"。
+   */
+  function enterDraftMode(_templateId: number): void {
+    void _templateId
+    currentRun.value = null
+    completedNodeIds.value = new Set()
+    nextNodeId.value = null
+    nodeAccessibility.value = {}
+  }
+
+  /**
+   * lazyCreateRun 的 store 侧逻辑：把新创建的 run 赋值到 store。
+   *
+   * 实际 POST /v1/sop/runs 调用由 useDraftLifecycle.lazyCreateRun 完成，
+   * 成功后调用本方法注入 store。
+   */
+  async function lazyCreateRun(_text: string): Promise<void> {
+    // Store 侧不调用 API。SOPRunView 通过 useDraftLifecycle 调用 API 后，
+    // 用 setCurrentRun 注入。这个方法保留签名但不使用，防止破坏 return type。
+    void _text
+  }
+
+  /**
+   * 由 composables 调用，注入新创建或切换后的 run。
+   */
+  function setCurrentRun(run: SopRun | null): void {
+    currentRun.value = run
+  }
+
+  /**
+   * 标记节点完成（由 executeNode 的 onDone 回调调用）
+   */
+  function markNodeComplete(nodeId: number): void {
+    completedNodeIds.value = new Set([...completedNodeIds.value, nodeId])
+  }
+
+  /**
+   * 标记节点为未完成（regenerate 流程：从 completedNodeIds 移除并设为 nextNodeId）
+   */
+  function markNodeIncomplete(nodeId: number): void {
+    const next = new Set(completedNodeIds.value)
+    next.delete(nodeId)
+    completedNodeIds.value = next
+    nextNodeId.value = nodeId
+  }
+
+  /**
+   * 设置下一个待执行节点 ID（由 executeNode onDone 推进时调用）
+   */
+  function setNextNodeId(id: number | null): void {
+    nextNodeId.value = id
+  }
+
+  /**
+   * 把 node 执行结果持久化到 nodeRuns（由 executeNode onDone 回调调用）
+   */
+  function setNodeRun(nodeId: number, nodeRun: SopNodeRun): void {
+    nodeRuns.value = { ...nodeRuns.value, [nodeId]: nodeRun }
+  }
+
+  /**
+   * 更新 streaming 状态（由 executeNode 的 onThinking/onMessage 调用）
+   */
+  function setStreamingState(nodeId: number | null, thinking: string, content: string): void {
+    streamingNodeId.value = nodeId
+    streamingThinking.value = thinking
+    streamingContent.value = content
+  }
+
+  function appendStreamingThinking(chunk: string): void {
+    streamingThinking.value += chunk
+  }
+
+  function appendStreamingContent(chunk: string): void {
+    streamingContent.value += chunk
+  }
+
+  function clearStreamingState(): void {
+    streamingNodeId.value = null
+    streamingThinking.value = ''
+    streamingContent.value = ''
+  }
+
+  /**
+   * 执行节点 —— stub，实际 SSE 流由 SOPRunView 中通过 useSSEStream 直接调用。
+   * 保留签名避免破坏 Pinia return 类型。
+   */
+  async function executeNode(_nodeId: number, _input: string, _files: File[]): Promise<void> {
+    void _nodeId
+    void _input
+    void _files
+  }
+
+  /**
+   * 切换当前活跃步骤（不做权限检查，权限检查由 useStepNavigation 处理）
+   */
+  function setActiveStep(step: number): void {
+    if (step < 1 || step > totalSteps.value) return
+    currentStep.value = step
+  }
+
+  /**
+   * 重置 store（切换 run / 离开页面时调用）。
+   *
+   * 已经实现：清空所有 state。
+   */
+  function reset(): void {
+    template.value = null
+    nodes.value = []
+    currentRun.value = null
+    nodeRuns.value = {}
+    completedNodeIds.value = new Set()
+    nextNodeId.value = null
+    nodeAccessibility.value = {}
+    streamingNodeId.value = null
+    streamingThinking.value = ''
+    streamingContent.value = ''
+    currentStep.value = 1
+    loading.value = false
+    lastError.value = ''
+  }
+
+  return {
+    // state
+    template,
+    nodes,
+    currentRun,
+    nodeRuns,
+    completedNodeIds,
+    nextNodeId,
+    nodeAccessibility,
+    streamingNodeId,
+    streamingThinking,
+    streamingContent,
+    currentStep,
+    loading,
+    lastError,
+    // computed
+    isDraftRun,
+    trailingChatEnabled,
+    totalSteps,
+    isOnTrailingChatStep,
+    currentNode,
+    // actions
+    loadTemplate,
+    loadRun,
+    enterDraftMode,
+    lazyCreateRun,
+    setCurrentRun,
+    markNodeComplete,
+    markNodeIncomplete,
+    setNextNodeId,
+    setNodeRun,
+    setStreamingState,
+    appendStreamingThinking,
+    appendStreamingContent,
+    clearStreamingState,
+    executeNode,
+    setActiveStep,
+    reset
+  }
+})
