@@ -635,11 +635,10 @@ test.describe('Path 9 — Draft run sendBeacon 清理', () => {
 // ═══════════════════════════════════════════════════════════════════
 test.describe('Path 10 — API 安全：敏感字段不泄露', () => {
   // 后端 task 2/3 已经把 GetTemplateNodes 改成使用 SopNodePublicDTO
-  // （numind-server commit b31e0a4 + db96698），但 dev 环境尚未重新部署。
-  // Task 25 部署到 dev 后，把 test.fixme() 改回 test() 即可启用。
-  test.fixme('GET /v1/sop/templates/:id/nodes 返回不包含 api_key/prompt 等字段', async ({
-    page
-  }) => {
+  // （numind-server commit b31e0a4 + db96698），dev 环境已于 2026-04-11 S5
+  // 验证时重新部署，手动 curl 复验已确认返回结构含 {template, nodes, total}
+  // 且敏感字段零泄露。此 test 在本地/CI 对真实后端（通过 vite 代理）执行。
+  test('GET /v1/sop/templates/:id/nodes 返回不包含 api_key/prompt 等字段', async ({ page }) => {
     // 这个测试必须打真实后端，不用 mock
     await page.unroute(/\/v1\/sop\/templates\/(\d+)\/nodes(?:\?.*)?$/)
 
