@@ -30,6 +30,9 @@ watch(
   () => uiDialogs.showCreditsDialog,
   (show) => {
     if (show) {
+      // 传 undefined 而非空字符串：InsufficientCreditsDialog.show() 内部
+      // 用 `if (msg) { message = msg }` 判断，空字符串会被跳过，保留上次
+      // 或默认文案。传 undefined 语义上更清楚"没有提供新消息"。
       insufficientCreditsDialog.value?.show(uiDialogs.creditsMessage || undefined)
       uiDialogs.closeCreditsDialog()
     }
