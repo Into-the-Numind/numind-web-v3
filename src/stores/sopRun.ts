@@ -18,7 +18,13 @@
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { SopTemplatePublic, SopNodePublic, SopRun, SopNodeRun } from '@/views/sop/types'
+import type {
+  SopTemplatePublic,
+  SopNodePublic,
+  SopRun,
+  SopNodeRun,
+  ViewingStepStatus
+} from '@/views/sop/types'
 
 export const useSopRunStore = defineStore('sopRun', () => {
   // ===== 核心 state（template + nodes + run） =====
@@ -48,8 +54,25 @@ export const useSopRunStore = defineStore('sopRun', () => {
   const streamingContent = ref<string>('')
 
   // ===== UI state =====
-  /** 当前显示的步骤索引（1-based） */
+  /**
+   * 当前任务指针（1-based）。
+   *
+   * 语义（F1 重定义）：用户当前"应该在做"的步骤。
+   * 由后端执行进度推进（onDone → advanceCurrentStep）。
+   * 不变量：`viewingStep <= currentStep`（不能看未来）。
+   */
   const currentStep = ref<number>(1)
+
+  /**
+   * 正在查看的步骤指针（1-based）。F1 新增。
+   *
+   * 语义：用户点 StepNav 时切换此值；`currentStep` 不动。
+   * 默认等于 `currentStep`（刚进来聚焦当前任务）。
+   * 约束：`viewingStep <= currentStep`，违反守卫 no-op + warn。
+   *
+   * 详见 spec §3.3（双指针模型）。
+   */
+  const viewingStep = ref<number>(1)
 
   // ===== 加载与错误状态 =====
   const loading = ref(false)
@@ -72,7 +95,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
    * 步骤总数 = 节点数 + (trailing chat ? 1 : 0)
    *
    * 不再硬编码为 5。spec §10.2 row 5 要求 nodes.length > 10 时
-   * StepperPanel 横向滚动 / collapsed 视图。
+   * StepNav 横向滚动 / collapsed 视图。
    */
   const totalSteps = computed(() => nodes.value.length + (trailingChatEnabled.value ? 1 : 0))
 
@@ -86,6 +109,76 @@ export const useSopRunStore = defineStore('sopRun', () => {
     if (isOnTrailingChatStep.value) return null
     const idx = currentStep.value - 1 // 1-based → 0-based
     return nodes.value[idx] ?? null
+  })
+
+  // ===== F1：viewingStep 双指针 getters =====
+
+  /**
+   * 当前正在查看的步骤是否为 trailing chat。
+   *
+   * trailing chat 固定为最后一个步骤（index = nodes.length + 1，当启用时）。
+   */
+  const isViewingTrailingChat = computed(
+    () => trailingChatEnabled.value && viewingStep.value === nodes.value.length + 1
+  )
+
+  /**
+   * 当前正在查看的步骤对应的 node（trailing chat 时为 null）。
+   */
+  const viewingNode = computed<SopNodePublic | null>(() => {
+    if (isViewingTrailingChat.value) return null
+    const idx = viewingStep.value - 1
+    return nodes.value[idx] ?? null
+  })
+
+  /**
+   * 是否正在查看历史步骤。等同于 viewingStepStatus === 'done-history'。
+   *
+   * 实现委托给 viewingStepStatus 以避免逻辑分叉（F1 review P2 fix）。
+   * 当为 true 时，SopStepView 顶部应渲染 HistoryViewStrip
+   * + 禁止编辑输入（spec D5 硬约束）。
+   */
+  const isViewingHistory = computed(() => viewingStepStatus.value === 'done-history')
+
+  /**
+   * 视图状态机：6 个状态之一。严格对应 spec §3.3。
+   *
+   * 状态定义：
+   * - `'trailing'`     ：正在看 trailing chat（状态 F）
+   * - `'done-history'` ：看的是历史步骤（viewingStep < currentStep），已完成
+   * - `'done-current'` ：看的是当前步骤，且当前节点已完成（状态 E）
+   * - `'executing'`    ：当前步骤正在流式执行（streamingNodeId 匹配）（状态 D）
+   * - `'draft-first'`  ：draft run + viewingStep=1 + 尚未执行任何节点（状态 C）
+   * - `'active'`       ：当前步骤待执行（状态 A，默认兜底）
+   *
+   * 判定顺序（互斥优先级）：
+   *   1. trailing chat → 'trailing'
+   *   2. viewingStep < currentStep → 'done-history'
+   *   3. 当前 viewingNode 已 complete → 'done-current'
+   *   4. 当前 viewingNode 正在 streaming → 'executing'
+   *   5. draft 且 viewingStep === 1 且无已完成节点 → 'draft-first'
+   *   6. 否则 → 'active'
+   */
+  const viewingStepStatus = computed<ViewingStepStatus>(() => {
+    if (isViewingTrailingChat.value) return 'trailing'
+    if (viewingStep.value < currentStep.value) return 'done-history'
+
+    const node = viewingNode.value
+    if (node) {
+      if (completedNodeIds.value.has(node.id)) return 'done-current'
+      if (streamingNodeId.value === node.id) return 'executing'
+    }
+
+    if (
+      isDraftRun.value &&
+      viewingStep.value === 1 &&
+      completedNodeIds.value.size === 0 &&
+      streamingNodeId.value === null
+    ) {
+      return 'draft-first'
+    }
+
+    return 'active'
   })
 
   // ===== Actions =====
@@ -266,6 +359,79 @@ export const useSopRunStore = defineStore('sopRun', () => {
     currentStep.value = step
   }
 
+  // ===== F1：viewingStep 相关 actions =====
+
+  /**
+   * 切换正在查看的步骤（用户点 StepNav 时调用）。
+   *
+   * 守不变量 `viewingStep <= currentStep`，越界 no-op + warn。
+   * 下界同样守 `step >= 1`。
+   */
+  function setViewingStep(step: number): void {
+    if (step < 1 || step > totalSteps.value) {
+      console.warn(`[sopRun] setViewingStep: out of range step=${step}`)
+      return
+    }
+    if (step > currentStep.value) {
+      console.warn(
+        `[sopRun] setViewingStep: cannot view future step=${step} currentStep=${currentStep.value}`
+      )
+      return
+    }
+    viewingStep.value = step
+  }
+
+  /**
+   * 从历史视图返回到当前任务（HistoryViewStrip 的"返回当前步骤"按钮）。
+   */
+  function returnToCurrentTask(): void {
+    viewingStep.value = currentStep.value
+  }
+
+  /**
+   * 推进 currentStep 到下一步，并同步 viewingStep（节点执行完成后 onDone 调用）。
+   *
+   * 行为：如果已到最后一步则不动；否则 currentStep += 1 且 viewingStep 同步。
+   * 这保证"执行完自动 focus 下一步"的流程。
+   */
+  function advanceCurrentStep(): void {
+    if (currentStep.value >= totalSteps.value) return
+    currentStep.value += 1
+    viewingStep.value = currentStep.value
+  }
+
+  /**
+   * **P0-2 修复**：SSE done 事件不含 model_name / latency_ms / total_tokens，
+   * 必须在节点完成后调 /runs/:id/status 补齐这些字段。
+   *
+   * 从响应 `completed_nodes[]` 里找到对应 nodeId，把 meta 字段合并进
+   * `nodeRuns[nodeId]`。供 F11 的 onDone 回调使用。
+   *
+   * 失败或未找到节点时静默 no-op，不抛错（保证主流程不被 meta 拉取失败打断）。
+   */
+  async function refreshNodeRun(nodeId: number): Promise<void> {
+    if (!currentRun.value) return
+    try {
+      const { fetchRunStatusDetail } = await import('@/api/sop')
+      const detail = await fetchRunStatusDetail(currentRun.value.id)
+      const info = detail.completed_nodes?.find((n) => n.node_id === nodeId)
+      if (!info) return
+      const prev = nodeRuns.value[nodeId]
+      if (!prev) return
+      nodeRuns.value = {
+        ...nodeRuns.value,
+        [nodeId]: {
+          ...prev,
+          model_name: info.model_name ?? '',
+          latency_ms: info.latency_ms ?? 0,
+          total_tokens: info.total_tokens ?? 0
+        }
+      }
+    } catch (err) {
+      console.warn('[sopRun] refreshNodeRun failed:', (err as Error)?.message)
+    }
+  }
+
   /**
    * 重置 store（切换 run / 离开页面时调用）。
    *
@@ -283,6 +449,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
     streamingThinking.value = ''
     streamingContent.value = ''
     currentStep.value = 1
+    viewingStep.value = 1
     loading.value = false
     lastError.value = ''
   }
@@ -300,6 +467,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
     streamingThinking,
     streamingContent,
     currentStep,
+    viewingStep,
     loading,
     lastError,
     // computed
@@ -308,6 +476,10 @@ export const useSopRunStore = defineStore('sopRun', () => {
     totalSteps,
     isOnTrailingChatStep,
     currentNode,
+    viewingNode,
+    isViewingTrailingChat,
+    isViewingHistory,
+    viewingStepStatus,
     // actions
     loadTemplate,
     loadRun,
@@ -324,6 +496,10 @@ export const useSopRunStore = defineStore('sopRun', () => {
     clearStreamingState,
     executeNode,
     setActiveStep,
+    setViewingStep,
+    returnToCurrentTask,
+    advanceCurrentStep,
+    refreshNodeRun,
     reset
   }
 })

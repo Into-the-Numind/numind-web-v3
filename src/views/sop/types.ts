@@ -29,6 +29,22 @@
 export type SopRunStatus = 'draft' | 'pending' | 'running' | 'succeeded' | 'failed'
 
 /**
+ * SOP 运行页 viewing 状态机的 6 态。
+ *
+ * 由 sopRun store 的 viewingStepStatus computed 派生。
+ * 主区组件根据此状态决定渲染 InputCard / OutputCard / 历史 strip / TrailingChat。
+ *
+ * 详见 spec §3.3 + sopRun.ts viewingStepStatus computed
+ */
+export type ViewingStepStatus =
+  | 'draft-first'
+  | 'active'
+  | 'executing'
+  | 'done-current'
+  | 'done-history'
+  | 'trailing'
+
+/**
  * SOP 模板状态（active / inactive）
  */
 export type SopTemplateStatus = 'active' | 'inactive'
@@ -131,6 +147,17 @@ export interface SopNodeRun {
   thinking: string
   latency_ms: number
   /**
+   * 执行使用的模型名（F1 新增，对应后端 SopNodeRun.ModelName）。
+   *
+   * 空字符串表示字段缺失或老数据，前端 MetaFooter 应整段不渲染。
+   */
+  model_name?: string
+  /**
+   * 总 token 数（F1 新增，对应后端 SopNodeRun.TotalTokens，
+   * 在 /runs/:id/status 响应的 completed_nodes[] 里透出）。
+   */
+  total_tokens?: number
+  /**
    * 节点是否可访问。
    *
    * 注意：这不是 model.SopNodeRun 的字段，是 biz 层 CompletedNodeInfo 的扩展字段，
@@ -165,6 +192,24 @@ export interface BookmarkItem {
   template_id: number
   node_id: number
   content: string
+  created_at: string
+}
+
+/**
+ * Chat 消息元信息（F2 新增，对应 spec §3.5）
+ *
+ * 用于 MetaFooter 组件（F6）在 trailing chat assistant 气泡下展示
+ * 模型名 + 耗时 + token 用量。
+ *
+ * 字段来源：后端 `sop_chat_message` 表 B5 task 补齐的 model_name / duration_ms，
+ * 再加上已有的 prompt/completion/total tokens + created_at。
+ */
+export interface SopChatMessageMeta {
+  model_name: string
+  duration_ms: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
   created_at: string
 }
 

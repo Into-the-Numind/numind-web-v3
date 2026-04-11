@@ -234,15 +234,14 @@ defineExpose({
 
 /* ==================== 主内容滚动容器 ==================== */
 
+/*
+ * F6: card wrapper 外壳（背景 / 边框 / 圆角 / 外层 padding）由 OutputCard 提供。
+ * StepOutput 仅负责内部 markdown + thinking 逻辑 + 滚动跟随，不再自带 card chrome。
+ */
 .step-output-scroll {
   flex: 1;
   min-height: 0;
-  max-height: 60vh;
   overflow-y: auto;
-  padding: var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 }
