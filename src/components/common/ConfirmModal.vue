@@ -40,12 +40,12 @@
 <template>
   <Teleport to="body">
     <Transition name="overlay-fade">
-      <div
-        v-if="modelValue"
-        class="confirm-overlay"
-        @click.self="handleCancel"
-        @keydown.esc="handleCancel"
-      >
+      <!--
+        Esc 键通过下方 script 中的 document-level listener 处理，
+        不在 overlay 上绑 @keydown.esc（div 无 tabindex，不会获得 focus，
+        模板绑定永远不会触发）。
+      -->
+      <div v-if="modelValue" class="confirm-overlay" @click.self="handleCancel">
         <div class="confirm-dialog" role="dialog" aria-modal="true">
           <div v-if="title" class="confirm-title">{{ title }}</div>
           <div class="confirm-message">{{ message }}</div>

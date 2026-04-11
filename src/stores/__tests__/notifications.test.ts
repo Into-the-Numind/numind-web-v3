@@ -82,6 +82,17 @@ describe('notifications store', () => {
     expect(store.messages.length).toBe(1) // 未受影响
   })
 
+  it('timeout 触发时消息已被手动 dismiss，setTimeout 回调 no-op 不抛错', () => {
+    const store = useNotificationsStore()
+    const id = store.show('a', 'info', 3000)
+    store.dismiss(id) // 提前手动关闭
+    expect(store.messages.length).toBe(0)
+
+    // setTimeout 仍会触发，但内部 findIndex 返回 -1，应为 no-op
+    expect(() => vi.advanceTimersByTime(3000)).not.toThrow()
+    expect(store.messages.length).toBe(0)
+  })
+
   it('clear() 清空所有', () => {
     const store = useNotificationsStore()
     store.show('a')
