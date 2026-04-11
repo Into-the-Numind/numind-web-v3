@@ -83,7 +83,8 @@ const displayIcon = computed(() => {
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   text-align: center;
-  max-width: 480px;
+  /* min() 确保小屏幕不超出容器，保持 padding 合理 */
+  max-width: min(480px, 100%);
   margin: var(--space-xl) auto;
 }
 

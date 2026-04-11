@@ -15,6 +15,20 @@
   这样 ScrollFollowButton 保持纯展示，可在任何场景复用（如 TrailingChatPanel
   task 20 同样需要此按钮）。
 
+  ## 定位约束（重要）
+
+  本组件使用 `position: absolute`，**父容器必须设置 `position: relative`**
+  （或其他非 static 定位），否则按钮会相对最近有定位的祖先元素定位，导致
+  视觉上浮到错误位置（常见于 layout root 的 body）。
+
+  正确用法：
+  ```vue
+  <div class="output-wrapper" style="position: relative">
+    <StepOutput ... />
+    <ScrollFollowButton :visible="..." @click="..." />
+  </div>
+  ```
+
   ## Props
 
   - visible: boolean — 是否显示按钮
