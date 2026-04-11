@@ -700,10 +700,12 @@ onBeforeUnmount(() => {
     0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03); /* 对齐 DESIGN --shadow-lg */
   --shadow-focus: 0 0 0 4px hsl(158 50% 92% / 0.5); /* 对齐 DESIGN --shadow-focus */
 
-  /* --- font (sans only — mockup γ v2 去掉 serif) --- */
+  /* --- font (sans only — mockup γ v2 去掉 serif；mono 用于 MetaFooter 元信息) --- */
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', 'Helvetica Neue', sans-serif; /* 对齐 DESIGN --font-sans */
+  --font-mono:
+    'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace; /* 对齐 DESIGN --font-mono — MetaFooter 元信息（耗时 / token / 时间戳）使用 */
 
   /* --- transitions --- */
   --transition-fast: 150ms ease; /* 对齐 DESIGN --transition-fast */
