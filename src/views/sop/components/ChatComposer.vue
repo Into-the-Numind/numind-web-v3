@@ -11,7 +11,7 @@
 
   ## Props
 
-  - isStreaming?: boolean — 是否正在流式生成（控制按钮形态 + 禁用 textarea）
+  - streaming?: boolean — 是否正在流式生成（控制按钮形态 + 禁用 textarea）
   - placeholder?: string — textarea 占位符（默认 mockup 文案）
 
   ## Emits
@@ -28,12 +28,12 @@
       v-model="text"
       class="chat__composer-input"
       :placeholder="placeholder"
-      :disabled="isStreaming"
+      :disabled="isInputDisabled"
       rows="2"
       @keydown.enter.exact.prevent="handleSend"
     />
     <button
-      v-if="!isStreaming"
+      v-if="!streaming"
       type="button"
       class="btn btn--primary chat__composer-btn"
       :disabled="!canSend"
@@ -54,14 +54,20 @@ import { computed, ref } from 'vue'
 import { Send, Square } from 'lucide-vue-next'
 
 interface Props {
-  isStreaming?: boolean
+  /** 是否禁用 textarea (independent of streaming, e.g. while loading) */
+  disabled?: boolean
+  /** 是否正在流式生成（控制按钮形态：发送 → 停止生成） */
+  streaming?: boolean
   placeholder?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isStreaming: false,
+  disabled: false,
+  streaming: false,
   placeholder: '输入你的问题，Enter 发送，Shift+Enter 换行'
 })
+
+const isInputDisabled = computed(() => props.disabled || props.streaming)
 
 const emit = defineEmits<{
   send: [text: string]
@@ -71,7 +77,9 @@ const emit = defineEmits<{
 const text = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
-const canSend = computed(() => text.value.trim().length > 0 && !props.isStreaming)
+const canSend = computed(
+  () => text.value.trim().length > 0 && !props.streaming && !props.disabled
+)
 
 function handleSend() {
   if (!canSend.value) return

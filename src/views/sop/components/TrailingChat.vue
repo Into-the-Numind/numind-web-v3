@@ -18,7 +18,8 @@
   ## Props
 
   - runId: number | null — 当前 run ID（null 时只渲染空态，不拉历史）
-  - isStreaming?: boolean — 父组件告知当前是否正在流式生成（传给 composer）
+  - conversationId?: string — F11 SSE chat stream wiring 使用
+  - streaming?: boolean — 父组件告知当前是否正在流式生成（传给 composer）
   - streamingMessage?: ChatBubbleMessage | null — 正在流式接收的 assistant 占位消息（父传）
 
   ## Emits
@@ -66,7 +67,7 @@
     </div>
 
     <ChatComposer
-      :is-streaming="isStreaming"
+      :streaming="streaming"
       @send="(t: string) => emit('send', t)"
       @stop="emit('stop')"
     />
@@ -83,12 +84,17 @@ import { useNotificationsStore } from '@/stores/notifications'
 
 interface Props {
   runId: number | null
-  isStreaming?: boolean
+  /** Conversation ID for SSE chat stream wiring (F11) */
+  conversationId?: string
+  /** True while SSE chat stream is in flight */
+  streaming?: boolean
+  /** Optional incoming streaming message bubble (passed by F11 main container) */
   streamingMessage?: ChatBubbleMessage | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isStreaming: false,
+  conversationId: '',
+  streaming: false,
   streamingMessage: null
 })
 
