@@ -81,3 +81,36 @@ export const deleteRun = async (runId: string): Promise<void> => {
 export const batchDeleteRuns = async (ids: string[]): Promise<void> => {
   await request.post('/v1/sop/runs/batch/delete', { ids })
 }
+
+// ============================================================
+// SOP 运行页 Vue 重写（task 5+）新增的 API 函数
+// ============================================================
+
+/**
+ * POST /v1/sop/runs 创建一个 SOP run（初始 status = 'draft'）
+ *
+ * 前端在首次执行节点前 lazy 调用此接口（useDraftLifecycle.lazyCreateRun）。
+ * 后端会创建 status='draft' 的记录，counted=false，不立即扣减配额。
+ *
+ * 返回的 run.id 用于后续 execute / chat / beacon cleanup 调用。
+ */
+export interface CreateRunRequest {
+  template_id: number
+  text?: string
+  auto_apply_bookmarks?: boolean
+}
+
+export interface CreateRunResponse {
+  id: number
+  template_id: number
+  status: string
+  conversation_id: string
+  counted: boolean
+  auto_applied_count?: number
+}
+
+export const createRun = async (body: CreateRunRequest): Promise<CreateRunResponse> => {
+  const res = await request.post('/v1/sop/runs', body)
+  const data = (res as unknown as { data: CreateRunResponse }).data
+  return data
+}
