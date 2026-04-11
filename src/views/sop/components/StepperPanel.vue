@@ -77,9 +77,13 @@ interface Props {
   completedIds: Set<number>
   accessibility: Record<number, boolean>
   nextNodeId: number | null
+  /** trailing chat 步骤的显示文案（可定制） */
+  trailingChatLabel?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  trailingChatLabel: '继续问 AI'
+})
 
 const emit = defineEmits<{
   navigate: [step: number]
@@ -141,7 +145,7 @@ const items = computed<StepperItem[]>(() => {
       key: 'trailing-chat',
       stepIndex: nodeCount + 1,
       kind: 'chat',
-      title: '继续问 AI',
+      title: props.trailingChatLabel,
       completed: false,
       accessible: allCompleted
     })
@@ -280,7 +284,7 @@ function handleNavigate(step: number, accessible: boolean): void {
 }
 
 .stepper-item.is-completed .stepper-check {
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
 }
 
