@@ -13,16 +13,17 @@
     - 01-active-and-history.html `.output` / `.output__head` / `.output__body` / `.output__foot`
     - 02-additional-states.html `.output--streaming` + `.live-dot` / `.live-label`
 
-  ## Props
+  ## Props（spec §5.2）
     - nodeRun: 完成后的节点执行记录（null 时仅 streaming 可用；否则 fallback OutputEmpty）
     - state: 'streaming' | 'read-only'
     - streamingContent / streamingThinking: streaming 状态下的流式内容
-    - isBookmarked: ⭐ 是否填充态
-    - canBookmark: ⭐ 按钮是否显示（read-only 有 output 时为 true）
+    - hasOutput: 是否有输出内容（控制 ⭐ 按钮是否显示）
+    - hasBookmark: ⭐ 是否已收藏（控制 filled vs outline）
 
-  ## Emits
+  ## Emits（spec §5.2）
     - stop: 点击"停止生成"
     - copy: 点击"复制"
+    - regenerate: 重新生成（由外层 ActionRow/F11 主容器触发，本组件预留接口）
     - toggle-bookmark: 点击 ⭐
 -->
 <template>
@@ -52,17 +53,17 @@
         </template>
         <template v-else>
           <button
-            v-if="canBookmark"
+            v-if="hasOutput"
             type="button"
             class="tiny-btn tiny-btn--star"
-            :class="{ 'is-active': isBookmarked }"
-            :title="isBookmarked ? '已收藏 · 点击移除书签' : '保存为书签'"
+            :class="{ 'is-active': hasBookmark }"
+            :title="hasBookmark ? '已收藏 · 点击移除书签' : '保存为书签'"
             data-testid="bookmark-toggle"
             @click="handleToggleBookmark"
           >
-            <Star v-if="!isBookmarked" :size="13" aria-hidden="true" />
+            <Star v-if="!hasBookmark" :size="13" aria-hidden="true" />
             <Star v-else :size="13" fill="currentColor" aria-hidden="true" />
-            <span>{{ isBookmarked ? '已收藏' : '收藏' }}</span>
+            <span>{{ hasBookmark ? '已收藏' : '收藏' }}</span>
           </button>
           <button type="button" class="tiny-btn" data-testid="output-copy" @click="handleCopy">
             <Copy :size="12" aria-hidden="true" />
@@ -81,13 +82,14 @@
       />
     </div>
 
-    <MetaFooter
-      v-if="!isStreaming && nodeRun"
-      :latency-ms="nodeRun.latency_ms"
-      :model-name="nodeRun.model_name"
-      :total-tokens="nodeRun.total_tokens"
-      :completed-at="formattedCompletedAt"
-    />
+    <div v-if="!isStreaming && nodeRun" class="output__foot">
+      <MetaFooter
+        :latency-ms="nodeRun.latency_ms"
+        :model-name="nodeRun.model_name"
+        :total-tokens="nodeRun.total_tokens"
+        :completed-at="formattedCompletedAt"
+      />
+    </div>
   </div>
 </template>
 
@@ -103,22 +105,25 @@ interface Props {
   state: 'streaming' | 'read-only'
   streamingContent?: string
   streamingThinking?: string
-  isBookmarked?: boolean
-  canBookmark?: boolean
+  /** 是否已收藏（filled vs outline ⭐） */
+  hasBookmark?: boolean
+  /** 是否有输出内容（控制 ⭐ 按钮是否显示） */
+  hasOutput?: boolean
   emptyHint?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   streamingContent: '',
   streamingThinking: '',
-  isBookmarked: false,
-  canBookmark: false,
+  hasBookmark: false,
+  hasOutput: false,
   emptyHint: '等待执行…'
 })
 
 const emit = defineEmits<{
   stop: []
   copy: []
+  regenerate: []
   'toggle-bookmark': []
 }>()
 
@@ -309,5 +314,13 @@ function handleToggleBookmark() {
   padding: var(--space-xl) var(--space-2xl);
   max-height: 620px;
   overflow-y: auto;
+}
+
+/* ---------- foot ---------- */
+
+/* 纯结构 wrapper，视觉样式（padding/border-top/背景）由内部 MetaFooter 承担，
+   保持与 mockup `.output__foot` DOM 对齐（F6 review fix E2）。 */
+.output__foot {
+  /* intentionally empty */
 }
 </style>

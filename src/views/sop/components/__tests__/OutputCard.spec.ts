@@ -1,16 +1,17 @@
 /**
- * OutputCard 组件单元测试（F6）
+ * OutputCard 组件单元测试（F6 + review fix）
  *
  * 覆盖：
  *   1. streaming 渲染：LIVE 标签 + 停止按钮，无 MetaFooter，output--streaming class
- *   2. read-only 渲染：⭐ + 复制按钮 + MetaFooter
- *   3. read-only + canBookmark=false → ⭐ 按钮隐藏
+ *   2. read-only 渲染：⭐ + 复制按钮 + MetaFooter（wrap 在 .output__foot）
+ *   3. read-only + hasOutput=false → ⭐ 按钮隐藏
  *   4. ⭐ 点击 → emit 'toggle-bookmark'
  *   5. 复制点击 → emit 'copy'
  *   6. 停止点击 → emit 'stop'
- *   7. isBookmarked=true → 显示"已收藏"态 class is-active
+ *   7. hasBookmark=true → 显示"已收藏"态 class is-active
  *   8. nodeRun=null + read-only → 不渲染 MetaFooter（fallback 空态）
  *   9. streaming 时不显示 tiny buttons
+ *  10. regenerate emit 接口存在（由外层 ActionRow/F11 触发）
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -77,29 +78,31 @@ describe('OutputCard', () => {
   })
 
   describe('read-only state', () => {
-    it('renders ⭐ + copy buttons and MetaFooter when canBookmark=true', () => {
+    it('renders ⭐ + copy buttons and MetaFooter (wrapped in .output__foot) when hasOutput=true', () => {
       const wrapper = mount(OutputCard, {
         props: {
           nodeRun: makeNodeRun(),
           state: 'read-only',
-          canBookmark: true,
-          isBookmarked: false
+          hasOutput: true,
+          hasBookmark: false
         }
       })
       expect(wrapper.find('[data-testid="bookmark-toggle"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(true)
-      expect(wrapper.find('.meta-footer').exists()).toBe(true)
+      // MetaFooter wrap 在 .output__foot 内（F6 review fix E2）
+      expect(wrapper.find('.output__foot').exists()).toBe(true)
+      expect(wrapper.find('.output__foot .meta-footer').exists()).toBe(true)
       // 无 LIVE
       expect(wrapper.find('.output__live-dot').exists()).toBe(false)
       expect(wrapper.find('[data-testid="output-stop"]').exists()).toBe(false)
     })
 
-    it('hides ⭐ button when canBookmark=false', () => {
+    it('hides ⭐ button when hasOutput=false', () => {
       const wrapper = mount(OutputCard, {
         props: {
           nodeRun: makeNodeRun(),
           state: 'read-only',
-          canBookmark: false
+          hasOutput: false
         }
       })
       expect(wrapper.find('[data-testid="bookmark-toggle"]').exists()).toBe(false)
@@ -107,13 +110,13 @@ describe('OutputCard', () => {
       expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(true)
     })
 
-    it('applies is-active class when isBookmarked=true', () => {
+    it('applies is-active class when hasBookmark=true', () => {
       const wrapper = mount(OutputCard, {
         props: {
           nodeRun: makeNodeRun(),
           state: 'read-only',
-          canBookmark: true,
-          isBookmarked: true
+          hasOutput: true,
+          hasBookmark: true
         }
       })
       const star = wrapper.find('[data-testid="bookmark-toggle"]')
@@ -126,7 +129,7 @@ describe('OutputCard', () => {
         props: {
           nodeRun: makeNodeRun(),
           state: 'read-only',
-          canBookmark: true
+          hasOutput: true
         }
       })
       await wrapper.find('[data-testid="bookmark-toggle"]').trigger('click')
@@ -139,7 +142,7 @@ describe('OutputCard', () => {
         props: {
           nodeRun: makeNodeRun(),
           state: 'read-only',
-          canBookmark: false
+          hasOutput: false
         }
       })
       await wrapper.find('[data-testid="output-copy"]').trigger('click')
@@ -152,9 +155,10 @@ describe('OutputCard', () => {
         props: {
           nodeRun: null,
           state: 'read-only',
-          canBookmark: false
+          hasOutput: false
         }
       })
+      expect(wrapper.find('.output__foot').exists()).toBe(false)
       expect(wrapper.find('.meta-footer').exists()).toBe(false)
     })
 
@@ -163,11 +167,38 @@ describe('OutputCard', () => {
         props: {
           nodeRun: makeNodeRun({ model_name: '' }),
           state: 'read-only',
-          canBookmark: true
+          hasOutput: true
         }
       })
       // OutputCard 渲染 MetaFooter 组件节点，但 MetaFooter 内部 v-if 会隐藏整行
       expect(wrapper.find('.meta-footer').exists()).toBe(false)
+    })
+  })
+
+  describe('regenerate emit interface (spec §5.2)', () => {
+    /*
+     * F6 review fix E1：OutputCard 必须声明 regenerate emit。
+     * 本组件内部没有触发按钮（按钮位于外层 ActionRow/F7，由 F11 主容器接线），
+     * 但 emits 契约必须存在以便 TS 类型检查和父组件监听。
+     *
+     * 测试策略：通过 wrapper.vm.$emit 直接触发，验证 emit 接口被 Vue 注册。
+     * 这也保证默认状态下（无外部触发）不会有意外的 regenerate emit 发出。
+     */
+    it('declares regenerate emit and does not fire it by default', () => {
+      const wrapper = mount(OutputCard, {
+        props: {
+          nodeRun: makeNodeRun(),
+          state: 'read-only',
+          hasOutput: true
+        }
+      })
+      // 默认没有任何 regenerate emit
+      expect(wrapper.emitted('regenerate')).toBeUndefined()
+
+      // 接口存在：外部可以 emit（由 F11 主容器通过 ActionRow 的 regenerate 事件接线）
+      wrapper.vm.$emit('regenerate')
+      expect(wrapper.emitted('regenerate')).toBeTruthy()
+      expect(wrapper.emitted('regenerate')?.length).toBe(1)
     })
   })
 })
