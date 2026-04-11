@@ -126,12 +126,13 @@ export const useSopRunStore = defineStore('sopRun', () => {
   })
 
   /**
-   * 是否正在查看历史步骤（viewingStep < currentStep）。
+   * 是否正在查看历史步骤。等同于 viewingStepStatus === 'done-history'。
    *
+   * 实现委托给 viewingStepStatus 以避免逻辑分叉（F1 review P2 fix）。
    * 当为 true 时，SopStepView 顶部应渲染 HistoryViewStrip
    * + 禁止编辑输入（spec D5 硬约束）。
    */
-  const isViewingHistory = computed(() => viewingStep.value < currentStep.value)
+  const isViewingHistory = computed(() => viewingStepStatus.value === 'done-history')
 
   /**
    * 视图状态机：6 个状态之一。严格对应 spec §3.3。
