@@ -231,12 +231,12 @@ defineExpose({
 }
 
 .input-card__btn--primary {
-  background: var(--accent);
-  color: var(--surface);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 .input-card__btn--primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--primary-hover);
 }
 
 .input-card__btn--ghost {
