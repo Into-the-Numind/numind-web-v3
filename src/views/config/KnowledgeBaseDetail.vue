@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
@@ -150,6 +150,46 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const docLimitReached = computed(() => {
   return (detail.value?.documents?.length ?? 0) >= MAX_DOCS_PER_KB
 })
+
+// 文档状态轮询：上传后后端 pipeline 异步处理，需持续刷新直到所有文档进入终态
+const POLL_INTERVAL_MS = 1000
+const POLL_MAX_TICKS = 90
+const TERMINAL_STATUSES = ['completed', 'failed']
+const pollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const pollTicks = ref(0)
+
+function hasPendingDocs(): boolean {
+  const docs = detail.value?.documents ?? []
+  return docs.some((d) => !TERMINAL_STATUSES.includes(d.status.toLowerCase()))
+}
+
+function stopPolling() {
+  if (pollTimer.value) {
+    clearTimeout(pollTimer.value)
+    pollTimer.value = null
+  }
+  pollTicks.value = 0
+}
+
+function schedulePoll() {
+  stopPolling()
+  if (!hasPendingDocs()) return
+  const tick = async () => {
+    pollTicks.value += 1
+    try {
+      const res = await store.fetchKBDetail(kbId)
+      if (res) detail.value = res
+    } catch {
+      // 静默失败，保留上一次 detail
+    }
+    if (hasPendingDocs() && pollTicks.value < POLL_MAX_TICKS) {
+      pollTimer.value = setTimeout(tick, POLL_INTERVAL_MS)
+    } else {
+      stopPolling()
+    }
+  }
+  pollTimer.value = setTimeout(tick, POLL_INTERVAL_MS)
+}
 
 // Meta editing
 const editingMeta = ref(false)
@@ -270,6 +310,8 @@ async function handleFileSelect(e: Event) {
     }
     // 无论部分成功还是全部成功都刷新列表
     await loadDetail()
+    // 后端 pipeline 异步处理（pending → parsing → embedding → completed），启动轮询至终态
+    schedulePoll()
   } finally {
     uploading.value = false
     uploadingCount.value = 0
@@ -287,7 +329,13 @@ async function handleRemoveDoc(docId: number) {
   }
 }
 
-onMounted(loadDetail)
+onMounted(async () => {
+  await loadDetail()
+  // 若进入页面时已有进行中的文档（例如从列表返回），也启动轮询
+  schedulePoll()
+})
+
+onUnmounted(stopPolling)
 </script>
 
 <style scoped>
