@@ -338,6 +338,20 @@ export interface StatusCompletedNodeInfo {
   from_bookmark: boolean
   bookmark_id?: number
   is_accessible: boolean
+  /**
+   * 节点执行使用的模型名（F1 新增，对应后端 DTO 新增字段）。
+   * 后端 B5 task 负责透出；在 gate 通过前前端可能收到 undefined。
+   */
+  model_name?: string
+  /**
+   * 节点执行耗时 ms（F1 新增，对应后端 DTO 新增字段）。
+   */
+  latency_ms?: number
+  /**
+   * 节点执行总 token 数（F1 新增，对应后端 DTO 新增字段）。
+   * 后端 SopNodeRun.TotalTokens 带 json:"-"，必须经 controller DTO mapping 透出。
+   */
+  total_tokens?: number
 }
 
 export interface StatusNextNodeInfo {

@@ -131,6 +131,17 @@ export interface SopNodeRun {
   thinking: string
   latency_ms: number
   /**
+   * 执行使用的模型名（F1 新增，对应后端 SopNodeRun.ModelName）。
+   *
+   * 空字符串表示字段缺失或老数据，前端 MetaFooter 应整段不渲染。
+   */
+  model_name?: string
+  /**
+   * 总 token 数（F1 新增，对应后端 SopNodeRun.TotalTokens，
+   * 在 /runs/:id/status 响应的 completed_nodes[] 里透出）。
+   */
+  total_tokens?: number
+  /**
    * 节点是否可访问。
    *
    * 注意：这不是 model.SopNodeRun 的字段，是 biz 层 CompletedNodeInfo 的扩展字段，
