@@ -1,19 +1,16 @@
 /**
- * useFileUpload 单元测试
+ * useFileUpload 单元测试（16 用例，分 3 组）
  *
- * 覆盖：
- *   1. 图片文件走 OCR API
- *   2. 文档文件走 PDF API
- *   3. 不支持的扩展名被拒绝
- *   4. 图片超过 7MB 被拒绝
- *   5. 文档超过 10MB 被拒绝
- *   6. 空文件被拒绝
- *   7. 缺少 runId/nodeId 时拒绝上传
- *   8. API 失败时 item.status = 'error'，不影响其他文件
- *   9. compose 正确拼接 baseText + 成功结果
- *  10. removeItem / clearItems
- *  11. isUploading 正确反映状态
- *  12. 并发上传不互相阻塞
+ * 基础行为 (8)：
+ *   - 图片走 OCR API / 文档走 PDF API
+ *   - 不支持扩展名 / 超限 / 空文件 / 缺 runId / 缺 nodeId 拒绝
+ *
+ * 并发和失败处理 (3)：
+ *   - API 失败不影响其他文件 / 两个成功 / 混合类型
+ *
+ * UI state 和 compose (5)：
+ *   - compose 拼接 baseText + 成功结果 / 跳过失败 / 空 baseText /
+ *     removeItem / clearItems / 多实例独立
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 

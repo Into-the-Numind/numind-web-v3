@@ -1,16 +1,11 @@
 /**
- * useBookmarks 单元测试
+ * useBookmarks 单元测试（12 用例，分 4 组）
  *
- * 覆盖：
- *   1. loadBookmarks 成功
- *   2. loadBookmarks 失败保留空数组
- *   3. applyBookmarkToNode 成功返回 response
- *   4. applyBookmarkToNode 失败抛出 + 设置 lastError
- *   5. getBookmarksForNode 过滤
- *   6. hasBookmarkForNode 判断
- *   7. bookmarksByNodeId computed 正确分组
- *   8. clear 清空状态
- *   9. 多实例状态独立
+ * loadBookmarks (3)：成功 / 失败保留空数组 / 重试清除 error
+ * applyBookmarkToNode (3)：成功 / 省略 bookmarkId / 失败抛出 + lastError
+ * 本地查询方法 (4)：getBookmarksForNode / hasBookmarkForNode /
+ *                   bookmarksByNodeId 分组 / 空状态返回空对象
+ * 其他 (2)：clear / 多实例独立
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { BookmarkListItem } from '@/api/sop'

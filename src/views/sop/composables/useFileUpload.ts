@@ -76,7 +76,12 @@ export interface UploadItem {
   /** 本地生成的临时 id，用于 UI 显示 */
   localId: string
   file: File
-  kind: 'image' | 'document'
+  /**
+   * 文件分类。
+   * - 'image' / 'document' 是可上传的有效类型
+   * - 'unsupported' 表示扩展名不在白名单，item.status 必然为 'error'
+   */
+  kind: 'image' | 'document' | 'unsupported'
   status: 'pending' | 'uploading' | 'success' | 'error'
   /** 成功时的识别结果文本 */
   result?: string
@@ -191,7 +196,7 @@ export function useFileUpload(): UseFileUploadReturn {
         newItems.push({
           localId: makeLocalId(),
           file,
-          kind: classifyFile(file) === 'image' ? 'image' : 'document',
+          kind: classifyFile(file), // 保留真实类型：image / document / unsupported
           status: 'error',
           error: result.error
         })
