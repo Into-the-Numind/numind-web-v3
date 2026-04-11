@@ -38,7 +38,7 @@
   详见 spec §9.2
 -->
 <template>
-  <div class="sop-run-view">
+  <div class="sop-run-view sop-run-view-v2">
     <!-- 顶部栏 -->
     <header class="sop-top-bar">
       <button type="button" class="sop-back-btn" aria-label="返回首页" @click="handleBackHome">
@@ -639,6 +639,84 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ==================== sop-run-view-v2 scoped tokens (F0) ====================
+ *
+ * 本 block 为 SOP 运行页视觉重设计（feature: sop-runtime-visual-redesign）的 token 基建。
+ * Token 值从 mockup 01-active-and-history.html :root 段严格提取，不污染全局 :root。
+ * 后续 F1–F11 task 的组件 CSS 从这里读变量。
+ *
+ * 每个 token 标注与根目录 DESIGN.md 的对齐关系（P2-3 review 修复）。
+ * ============================================================================ */
+.sop-run-view-v2 {
+  /* --- background & surface (ALL WHITE，mockup γ v2 决策) --- */
+  --bg: #ffffff; /* scope-only: DESIGN --bg=#F7F8FB，mockup 改为纯白 */
+  --surface: #ffffff; /* 对齐 DESIGN --surface */
+  --surface-hover: #f4f5f8; /* scope-only: DESIGN --surface-hover=#F3F4F8，差 1 位 */
+
+  /* --- text --- */
+  --text: #1a1d26; /* 对齐 DESIGN --text */
+  --text-secondary: #5f6577; /* 对齐 DESIGN --text-secondary */
+  --text-muted: #8b90a0; /* 对齐 DESIGN --text-muted */
+
+  /* --- brand / accent --- */
+  --accent: hsl(160, 75%, 44%); /* 对齐 DESIGN --accent */
+  --accent-hover: hsl(160, 75%, 38%); /* 对齐 DESIGN --accent-hover */
+  --accent-soft: hsl(160, 60%, 93%); /* 对齐 DESIGN --accent-soft */
+  --accent-light: hsl(160, 70%, 68%); /* 对齐 DESIGN --accent-light */
+  --accent-link: hsl(160, 75%, 38%); /* 对齐 DESIGN --accent-link */
+  --accent-ultra-soft: hsl(160, 60%, 95%); /* 对齐 DESIGN --accent-ultra-soft */
+  --primary: hsl(160, 72%, 40%); /* 对齐 DESIGN --primary */
+  --primary-hover: hsl(160, 72%, 34%); /* 对齐 DESIGN --primary-hover */
+  --primary-foreground: #ffffff; /* 对齐 DESIGN --primary-foreground */
+
+  /* --- borders --- */
+  --border: #e2e4ea; /* 对齐 DESIGN --border */
+  --border-light: #eeeff3; /* 对齐 DESIGN --border-light */
+  --divider: #f0f1f5; /* 对齐 DESIGN --divider */
+
+  /* --- spacing (T-shirt size) --- */
+  --space-xs: 4px; /* 对齐 DESIGN --space-xs */
+  --space-sm: 8px; /* 对齐 DESIGN --space-sm */
+  --space-md: 12px; /* 对齐 DESIGN --space-md */
+  --space-lg: 16px; /* 对齐 DESIGN --space-lg */
+  --space-xl: 24px; /* 对齐 DESIGN --space-xl */
+  --space-2xl: 32px; /* 对齐 DESIGN --space-2xl */
+  --space-3xl: 40px; /* 对齐 DESIGN --space-3xl */
+  --space-4xl: 48px; /* 对齐 DESIGN --space-4xl */
+
+  /* --- radius --- */
+  --radius-sm: 6px; /* 对齐 DESIGN --radius-sm */
+  --radius-md: 12px; /* 对齐 DESIGN --radius-md */
+  --radius-lg: 16px; /* 对齐 DESIGN --radius-lg */
+  --radius-xl: 20px; /* 对齐 DESIGN --radius-xl */
+  --radius-pill: 999px; /* 对齐 DESIGN --radius-pill */
+
+  /* --- shadow --- */
+  --shadow-sm:
+    0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03); /* 对齐 DESIGN --shadow-sm */
+  --shadow-md:
+    0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04); /* 对齐 DESIGN --shadow-md */
+  --shadow-lg:
+    0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03); /* 对齐 DESIGN --shadow-lg */
+  --shadow-focus: 0 0 0 4px hsl(158 50% 92% / 0.5); /* 对齐 DESIGN --shadow-focus */
+
+  /* --- font (sans only — mockup γ v2 去掉 serif) --- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', sans-serif; /* 对齐 DESIGN --font-sans */
+
+  /* --- transitions --- */
+  --transition-fast: 150ms ease; /* 对齐 DESIGN --transition-fast */
+  --transition-base: 250ms ease; /* 对齐 DESIGN --transition-base */
+}
+
+/* scope-local reset，仅作用于 sop-run-view-v2 子树，避免污染全局 */
+.sop-run-view-v2 *,
+.sop-run-view-v2 *::before,
+.sop-run-view-v2 *::after {
+  box-sizing: border-box;
+}
+
 .sop-run-view {
   display: flex;
   flex-direction: column;
