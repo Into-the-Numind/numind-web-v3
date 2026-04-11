@@ -79,7 +79,10 @@ export const deleteRun = async (runId: string): Promise<void> => {
 }
 
 export const batchDeleteRuns = async (ids: string[]): Promise<void> => {
-  await request.post('/v1/sop/runs/batch/delete', { ids })
+  // 后端 BatchDeleteRuns 要求 ids 为 []uint，前端列表里的 runId 统一存成 string，
+  // 这里转成 number 避免 `json: cannot unmarshal string into Go struct field .ids of type uint`
+  const numericIds = ids.map((id) => Number(id)).filter((n) => Number.isFinite(n) && n > 0)
+  await request.post('/v1/sop/runs/batch/delete', { ids: numericIds })
 }
 
 // ============================================================

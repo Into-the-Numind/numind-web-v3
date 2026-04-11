@@ -161,14 +161,18 @@ export const useSopRunStore = defineStore('sopRun', () => {
    * 进入纯前端 draft 模式（不创建后端记录）。
    *
    * 实际 lazyCreateRun 由 useDraftLifecycle composable 在 SOPRunView 中处理。
-   * 这里只清空 currentRun 表示"尚未有后端 run"。
+   * 这里清空 run 相关状态，并把 nextNodeId 指向第一个节点，让 canExecute
+   * 在首次进入时就能判定第一步为"可执行"，从而渲染出"执行"按钮。
+   *
+   * 调用顺序：loadTemplate → enterDraftMode，所以此时 nodes 已经有值。
    */
   function enterDraftMode(_templateId: number): void {
     void _templateId
     currentRun.value = null
     completedNodeIds.value = new Set()
-    nextNodeId.value = null
     nodeAccessibility.value = {}
+    // draft 模式首步永远可执行：把 nextNodeId 设为第一个节点 id
+    nextNodeId.value = nodes.value[0]?.id ?? null
   }
 
   /**

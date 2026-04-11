@@ -557,14 +557,11 @@ async function executeCurrentNode() {
         store.markNodeComplete(node.id)
         store.clearStreamingState()
 
-        // 自动前进到下一步
-        const nextStep = store.currentStep + 1
-        if (nextStep <= store.totalSteps) {
-          // 更新 nextNodeId 为下一个未完成的节点
-          const nextNode = store.nodes[nextStep - 1]
-          store.setNextNodeId(nextNode ? nextNode.id : null)
-          navigation.setActiveStep(nextStep, persistenceScope.value)
-        }
+        // 推进 nextNodeId 到下一个未完成节点（供 StepperPanel 判定可访问性），
+        // 但**不自动前进步骤** —— 让用户先看到刚生成的结果，自行点击"下一步"。
+        const nextStepIdx = store.currentStep // 1-based 当前步 → 0-based 下一步 = currentStep
+        const nextNode = store.nodes[nextStepIdx]
+        store.setNextNodeId(nextNode ? nextNode.id : null)
       },
       onError: (msg) => {
         store.clearStreamingState()
@@ -599,12 +596,29 @@ watch(
   () => [templateId.value, routeRunId.value],
   ([newTid, newRid], oldVal) => {
     const [oldTid, oldRid] = oldVal as [number, number | null]
-    if (newTid !== oldTid || newRid !== oldRid) {
-      // 切换 SOP 或 run，重置并重新加载
-      sseStream.abort()
-      store.reset()
-      initialize()
+    if (newTid === oldTid && newRid === oldRid) return
+
+    // 特例：ensureRun / lazyCreateRun 会在 draft 模式首次创建后端 run 后
+    // 调用 router.replace 把 runId 写入 URL。此时 store 已经是最新状态，
+    // 不应该重新 reset + initialize（那会清掉正在进行的上传 / 流式执行，
+    // 并让 StepInput 短暂卸载丢失本地 upload items）。
+    //
+    // 判据：template 没变 + runId 从 null 变为新值 + 该 runId 已经是
+    // store 当前持有的 run。
+    if (
+      newTid === oldTid &&
+      oldRid === null &&
+      newRid !== null &&
+      store.currentRun?.id === newRid
+    ) {
+      return
     }
+
+    // 真·路由切换（用户从 HistoryModal 切换到别的 run / 改模板），
+    // 重置并重新加载。
+    sseStream.abort()
+    store.reset()
+    initialize()
   }
 )
 
