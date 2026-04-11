@@ -27,7 +27,7 @@
     - toggle-bookmark: 点击 ⭐
 -->
 <template>
-  <div class="output" :class="{ 'output--streaming': isStreaming }">
+  <div class="output" :class="{ 'output--streaming': isStreaming }" data-testid="output-card">
     <div class="output__head">
       <div class="output__head-left">
         <span class="output__sparkle" aria-hidden="true">

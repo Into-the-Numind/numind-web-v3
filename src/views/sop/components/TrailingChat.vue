@@ -34,7 +34,7 @@
   详见 spec §5.2 + §3.2 state F + plan Task F10
 -->
 <template>
-  <div class="chat">
+  <div class="chat" data-testid="trailing-chat">
     <div ref="historyRef" class="chat__history">
       <!-- Loading -->
       <div v-if="loading" class="chat__loading">

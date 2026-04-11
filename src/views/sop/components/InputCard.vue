@@ -36,7 +36,7 @@
   - stop — 点击停止生成按钮（isExecuting=true 时）
 -->
 <template>
-  <div class="input-card">
+  <div class="input-card" data-testid="input-card">
     <div class="input-card__label">
       <span>{{ label }}</span>
       <span v-if="hint" class="input-card__hint">{{ hint }}</span>
@@ -65,6 +65,7 @@
           type="button"
           class="input-card__btn input-card__btn--primary"
           :disabled="isLoading || !canExecute"
+          data-testid="input-execute"
           @click="handleExecute"
         >
           <ArrowRight :size="14" aria-hidden="true" />
@@ -74,6 +75,7 @@
           v-else
           type="button"
           class="input-card__btn input-card__btn--ghost"
+          data-testid="input-stop"
           @click="handleStop"
         >
           <Square :size="14" aria-hidden="true" />

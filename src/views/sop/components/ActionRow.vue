@@ -24,7 +24,7 @@
   - secondary — 点击次按钮
 -->
 <template>
-  <div class="action-row">
+  <div class="action-row" data-testid="action-row">
     <button
       v-if="secondary"
       type="button"

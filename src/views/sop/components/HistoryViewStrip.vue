@@ -23,7 +23,7 @@
   - return — 点击返回按钮；父组件应调用 store.returnToCurrentTask
 -->
 <template>
-  <div class="history-view-strip">
+  <div class="history-view-strip" data-testid="history-view-strip">
     <div class="history-view-strip__info">
       <Eye :size="14" aria-hidden="true" />
       <span>正在查看历史步骤 · 输入不可修改</span>
@@ -31,6 +31,7 @@
     <button
       type="button"
       class="history-view-strip__return"
+      data-testid="history-view-strip-return"
       :aria-label="`返回当前任务：${targetName}`"
       @click="emit('return')"
     >

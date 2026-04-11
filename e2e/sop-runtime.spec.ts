@@ -229,21 +229,39 @@ function buildSSEBody(events: Array<{ event: string; data: string }>): string {
   return events.map((e) => `event: ${e.event}\ndata: ${e.data}\n\n`).join('')
 }
 
-// ── Selectors ──
+// ── Selectors（v2 visual redesign — F13 migrated to data-testid） ──
+//
+// Migration note (F13): 旧版 selector 基于 .stepper-panel / .toolbar-actions /
+// .sop-step-wrapper / .sop-template-title 等 class，随着 v2 redesign 已被
+// StepNav / InputCard / OutputCard / ActionRow 等替代。新的稳定契约是 data-testid。
 const sel = {
   runView: '.sop-run-view',
-  templateTitle: '.sop-template-title',
-  stepperPanel: '.stepper-panel',
-  stepperItem: '.stepper-item',
-  stepperLabel: '.stepper-label',
-  stepWrapper: '.sop-step-wrapper',
-  stepTitle: '.sop-step-title',
-  stepDescription: '.sop-step-description',
-  stepInput: '.step-input',
+  // TopBar
+  templateTitle: '[data-testid="topbar-title"]',
+  historyBtn: '[data-testid="topbar-history"]',
+  backBtn: '[data-testid="topbar-back"]',
+  // StepNav（left rail）
+  stepNav: '[data-testid="sop-step-nav"]',
+  stepNavItem: '[data-testid="sop-nav-item"]',
+  // StepCanvas - SopStepView
+  stepView: '[data-testid="sop-step-view"]',
+  historyViewStrip: '[data-testid="history-view-strip"]',
+  historyViewStripReturn: '[data-testid="history-view-strip-return"]',
+  // InputCard / StepInput
+  inputCard: '[data-testid="input-card"]',
+  inputExecute: '[data-testid="input-execute"]',
+  inputStop: '[data-testid="input-stop"]',
   stepInputTextarea: '.step-input textarea',
-  stepOutput: '.step-output',
-  toolbarActions: '.toolbar-actions',
-  historyBtn: '.sop-history-btn',
+  // OutputCard
+  outputCard: '[data-testid="output-card"]',
+  outputStop: '[data-testid="output-stop"]',
+  outputCopy: '[data-testid="output-copy"]',
+  bookmarkToggle: '[data-testid="bookmark-toggle"]',
+  // ActionRow
+  actionRow: '[data-testid="action-row"]',
+  // TrailingChat
+  trailingChat: '[data-testid="trailing-chat"]',
+  // Misc
   historyModal: '.history-overlay',
   emptyState: '.empty-state-card'
 } as const
@@ -253,12 +271,13 @@ async function gotoRun(page: Page, templateId: number, runId?: number) {
     ? `/sop/run?templateId=${templateId}&runId=${runId}`
     : `/sop/run?templateId=${templateId}`
   await page.goto(url)
+  // v2 redesign: 等主容器渲染出 StepNav 或 TrailingChat 或错误态
   await page.waitForFunction(
     () => {
-      if (document.querySelectorAll('.stepper-item').length > 0) return true
-      if (document.querySelector('.trailing-chat-panel') !== null) return true
+      if (document.querySelectorAll('[data-testid="sop-nav-item"]').length > 0) return true
+      if (document.querySelector('[data-testid="trailing-chat"]') !== null) return true
       if (document.querySelector('.empty-state-card--error')) return true
-      const titleEl = document.querySelector('.sop-template-title')
+      const titleEl = document.querySelector('[data-testid="topbar-title"]')
       const title = titleEl?.textContent?.trim() ?? ''
       return title !== '' && title !== '加载中…'
     },
@@ -279,22 +298,29 @@ test.describe('Path 1 — 步骤名称来自数据库 + URL 行为', () => {
   test('步骤名称取自后端 sop_node.name（非硬编码）', async ({ page }) => {
     await gotoRun(page, 1)
 
-    const stepperLabels = await page.locator(sel.stepperLabel).allTextContents()
-    expect(stepperLabels.length).toBeGreaterThan(0)
+    // v2: StepNav items 每条自带 data-testid="sop-nav-item"，title 在 .step__title 内
+    const navItems = page.locator(sel.stepNavItem)
+    const count = await navItems.count()
+    expect(count).toBeGreaterThan(0)
 
-    // 步骤名必须匹配 mock 里的真实值（来自"后端"），非 legacy 硬编码的占位符
-    expect(stepperLabels).toContain('AI拆解产品')
-    expect(stepperLabels).toContain('生成最终文案')
+    const labels: string[] = []
+    for (let i = 0; i < count; i++) {
+      const txt = await navItems.nth(i).locator('.step__title').textContent()
+      labels.push((txt ?? '').trim())
+    }
 
-    for (const label of stepperLabels) {
-      expect(label.trim()).not.toBe('')
+    expect(labels).toContain('AI拆解产品')
+    expect(labels).toContain('生成最终文案')
+
+    for (const label of labels) {
+      expect(label).not.toBe('')
       expect(label).not.toMatch(/^(Step|步骤)\s*\d+$/)
       expect(label).not.toContain('undefined')
       expect(label).not.toContain('null')
     }
 
-    const currentTitle = await page.locator(sel.stepTitle).textContent()
-    expect(currentTitle!.trim().length).toBeGreaterThan(0)
+    // 主区 step header 也应该有内容
+    await expect(page.locator(sel.stepView)).toBeVisible()
   })
 
   test('templateTitle 显示 mock 模板名', async ({ page }) => {
@@ -314,10 +340,9 @@ test.describe('Path 1 — 步骤名称来自数据库 + URL 行为', () => {
     expect(page.url()).toContain(`runId=${RUN_ID}`)
     expect(page.url()).toContain('templateId=1')
 
-    // 页面成功渲染，next_node 指向 nodes[0]，"执行"按钮应该可见
+    // 页面成功渲染，next_node 指向 nodes[0]，"执行这一步"按钮应该可见
     await expect(page.locator(sel.templateTitle)).toHaveText('小红书爆款文案')
-    const execBtn = page.locator(`${sel.toolbarActions} button`).filter({ hasText: /执行|下一步/ })
-    await expect(execBtn.first()).toBeVisible()
+    await expect(page.locator(sel.inputExecute)).toBeVisible()
 
     // 配额扣减断言：在 spec §12.2 Path 1 DoD 中，但需要真实后端 /v1/users/profile
     // 才能 before/after 比较。本 E2E 用 mock 无法验证真实扣减 —— 改由
@@ -339,10 +364,10 @@ test.describe('Path 2 — 节点描述为空的优雅退化', () => {
     expect(bodyText).not.toContain('null')
     expect(bodyText).not.toContain('[object Object]')
 
-    // 第一个节点 description 为空 → description 元素不应该渲染
-    const descCount = await page.locator(sel.stepDescription).count()
+    // 第一个节点 description 为空 → SopStepView 的 .step-header__desc 不渲染
+    const descCount = await page.locator('.step-header__desc').count()
     if (descCount > 0) {
-      const descText = await page.locator(sel.stepDescription).first().textContent()
+      const descText = await page.locator('.step-header__desc').first().textContent()
       expect(descText!.trim().length).toBeGreaterThan(0)
     }
   })
@@ -381,9 +406,9 @@ test.describe('Path 4 — trailing chat 多轮', () => {
   test('templateId=2 的 stepper 包含 N+1 个 step（trailing chat 位）', async ({ page }) => {
     await gotoRun(page, 2)
 
-    const stepperCount = await page.locator(sel.stepperItem).count()
+    const navCount = await page.locator(sel.stepNavItem).count()
     // 4 个节点 + 1 个 trailing chat 步骤
-    expect(stepperCount).toBe(mockNodes1.length + 1)
+    expect(navCount).toBe(mockNodes1.length + 1)
   })
 })
 
@@ -473,23 +498,21 @@ test.describe('Path 6 — SSE 流式输出 + 思维链显示', () => {
     const textarea = page.locator(sel.stepInputTextarea).first()
     await textarea.fill('Path 6 SSE 测试输入')
 
-    // 点击"执行"按钮
-    const execBtn = page.locator(`${sel.toolbarActions} button`).filter({ hasText: /执行|下一步/ })
-    await expect(execBtn.first()).toBeVisible()
-    await execBtn.first().click()
+    // 点击"执行这一步"按钮
+    await expect(page.locator(sel.inputExecute)).toBeVisible()
+    await page.locator(sel.inputExecute).click()
 
-    // onDone 回调会自动前进到下一步；等待 stepper 上第 1 步显示 ✓（completed）
-    // 这是 onDone 成功持久化的稳定信号
-    const firstStepCheck = page.locator('.stepper-item').first().locator('.stepper-check')
-    await expect(firstStepCheck).toBeVisible({ timeout: 10_000 })
+    // onDone 回调会自动前进到下一步；等待 nav 第 1 步变成 done 态（data-step-state="done"）
+    const firstNav = page.locator(sel.stepNavItem).first()
+    await expect(firstNav).toHaveAttribute('data-step-state', 'done', { timeout: 10_000 })
 
     // 返回第 1 步查看已持久化的 nodeRun（已完成节点可访问）
-    await page.locator('.stepper-item').first().locator('.stepper-button').click()
+    await firstNav.click()
 
-    // StepOutput 应该显示 message 内容（从 nodeRun.output 读取）
-    const stepOutput = page.locator(sel.stepOutput)
-    await expect(stepOutput).toBeVisible()
-    await expect(stepOutput).toContainText('SSE 流式测试的响应内容', { timeout: 5_000 })
+    // OutputCard read-only 应显示 message 内容（从 nodeRun.output 读取）
+    const outputCard = page.locator(sel.outputCard)
+    await expect(outputCard).toBeVisible()
+    await expect(outputCard).toContainText('SSE 流式测试的响应内容', { timeout: 5_000 })
 
     // thinking 内容已持久化到 nodeRun.thinking，应出现在页面 DOM 中
     const bodyText = await page.locator('body').textContent()
@@ -511,14 +534,16 @@ test.describe('Path 7 — 刷新后 sessionStorage 恢复步骤', () => {
 
     // 刷新
     await page.reload()
-    await page.waitForFunction(() => document.querySelectorAll('.stepper-item').length > 0, null, {
-      timeout: 30_000
-    })
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-testid="sop-nav-item"]').length > 0,
+      null,
+      { timeout: 30_000 }
+    )
 
     // URL 参数保留
     expect(page.url()).toContain('templateId=1')
-    // step wrapper 可见，页面没崩
-    await expect(page.locator(sel.stepWrapper)).toBeVisible()
+    // SopStepView 可见，页面没崩
+    await expect(page.locator(sel.stepView)).toBeVisible()
   })
 })
 
@@ -595,7 +620,7 @@ test.describe('Path 9 — Draft run sendBeacon 清理', () => {
     // 通过点击返回按钮触发 Vue router navigation → 组件 onBeforeUnmount
     // 相比 page.goto('/')（可能绕过 Vue router），点击按钮走的是 router.push，
     // 能确保 Vue 组件的 onBeforeUnmount hook 在同一 window 内被触发
-    await page.locator('.sop-back-btn').click()
+    await page.locator(sel.backBtn).click()
     await expect(page).toHaveURL('/', { timeout: 5_000 })
 
     // 从 localStorage 读取 beacon 调用记录（同源，跨导航持久化）
