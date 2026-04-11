@@ -383,7 +383,8 @@ async function handleExecute(text: string) {
  * 1. ensureRun（lazy create draft run）
  * 2. setStreamingState + POST /v1/sop/runs/:id/nodes/:node_id/execute
  * 3. onThinking / onMessage → appendStreaming
- * 4. onDone → setNodeRun + markNodeComplete + **refreshNodeRun (P0-2)** + advanceCurrentStep
+ * 4. onDone → setNodeRun + markNodeComplete + **refreshNodeRun (P0-2)**
+ *    （不自动 advance：完成后保持在当前步骤，由用户手动点"下一步"按钮前进）
  */
 async function executeNode(nodeId: number, text: string) {
   const runId = await ensureRun()
@@ -426,8 +427,8 @@ async function executeNode(nodeId: number, text: string) {
         // P0-2 修复：拉 /status 补齐 model_name / latency_ms / total_tokens
         await store.refreshNodeRun(nodeId)
 
-        // 推进 currentStep（由 store.advanceCurrentStep 处理 viewingStep 同步）
-        store.advanceCurrentStep()
+        // 执行完成后保留在当前步骤（viewingStepStatus → 'done-current'），
+        // 由用户手动点"下一步"按钮 (handlePrimary → advanceCurrentStep) 前进
       },
       onError: (msg) => {
         store.clearStreamingState()
