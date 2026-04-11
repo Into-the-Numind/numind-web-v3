@@ -379,9 +379,10 @@ defineExpose({
 }
 
 .step-input-chip--error {
-  background: hsl(0, 60%, 97%);
-  border-color: hsl(0, 60%, 85%);
-  color: hsl(0, 60%, 45%);
+  /* 使用项目统一的 danger token，与 ConfirmModal/AppNotification 对齐 */
+  background: var(--color-danger-soft, #fef2f2);
+  border-color: var(--color-danger-border, #fecaca);
+  color: var(--color-danger, #dc2626);
 }
 
 .step-input-chip-icon {
