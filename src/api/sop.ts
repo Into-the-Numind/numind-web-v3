@@ -113,7 +113,9 @@ export interface CreateRunResponse {
 }
 
 export const createRun = async (body: CreateRunRequest): Promise<CreateRunResponse> => {
-  const res = await request.post('/v1/sop/runs', body)
+  // F2：默认 auto_apply_bookmarks=true；body 后置允许 caller 显式覆盖
+  const payload = { auto_apply_bookmarks: true, ...body }
+  const res = await request.post('/v1/sop/runs', payload)
   const data = (res as unknown as { data: CreateRunResponse }).data
   return data
 }
@@ -222,6 +224,57 @@ export const applyBookmark = async (
 }
 
 /**
+ * POST /v1/sop/bookmarks 保存节点为书签（F2 新增，spec §3.4）
+ *
+ * 后端 controller: `numind-server/internal/numind/controller/v1/sop/bookmark.go`
+ *   - request  : SaveBookmarkRequest   (run_id + node_id 必填)
+ *   - response : SaveBookmarkResponse  (完整 bookmark DTO)
+ *
+ * 业务：后端根据 (run_id, node_id) 查 node_run → copy input/output/thinking
+ * → 创建一条 sop_node_bookmark 记录。
+ */
+export interface SaveBookmarkRequest {
+  run_id: number
+  node_id: number
+  bookmark_name?: string
+  description?: string
+}
+
+export interface SaveBookmarkResponse {
+  id: number
+  user_id: number
+  template_id: number
+  node_id: number
+  node_sort: number
+  node_name?: string
+  input: string
+  output: string
+  thinking: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  bookmark_name: string
+  description: string
+  created_at: string
+  updated_at: string
+}
+
+export const saveBookmark = async (body: SaveBookmarkRequest): Promise<SaveBookmarkResponse> => {
+  const res = await request.post('/v1/sop/bookmarks', body)
+  return (res as unknown as { data: SaveBookmarkResponse }).data
+}
+
+/**
+ * DELETE /v1/sop/bookmarks/:id 删除书签（F2 新增，spec §3.4）
+ *
+ * 后端 controller: DeleteBookmark
+ * 返回 `{ message: "删除成功" }`，前端不关心 body，统一 void。
+ */
+export const removeBookmark = async (bookmarkId: number): Promise<void> => {
+  await request.delete(`/v1/sop/bookmarks/${bookmarkId}`)
+}
+
+/**
  * GET /v1/sop/runs/:id/chat-messages 获取某 run 的聊天历史
  *
  * 后端返回 RunChatMessagesResponse（v1/sop.go:332-337）：
@@ -240,6 +293,16 @@ export interface RunChatMessageItem {
   total_tokens: number
   reasoning_tokens: number
   estimated_prompt_tokens: number
+  /**
+   * 执行使用的模型名（F2 新增，对应后端 SopChatMessage.ModelName）。
+   * 后端 B5 字段补齐 + dev 部署前此字段可能为 undefined，消费方需做 nullish 处理。
+   */
+  model_name?: string
+  /**
+   * 本条 assistant 消息生成耗时 ms（F2 新增，对应后端 SopChatMessage.DurationMs）。
+   * 同上，gate 前可能为 undefined。
+   */
+  duration_ms?: number
 }
 
 export interface RunChatMessagesResponse {

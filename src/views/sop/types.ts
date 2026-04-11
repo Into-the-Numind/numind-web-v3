@@ -180,6 +180,24 @@ export interface BookmarkItem {
 }
 
 /**
+ * Chat 消息元信息（F2 新增，对应 spec §3.5）
+ *
+ * 用于 MetaFooter 组件（F6）在 trailing chat assistant 气泡下展示
+ * 模型名 + 耗时 + token 用量。
+ *
+ * 字段来源：后端 `sop_chat_message` 表 B5 task 补齐的 model_name / duration_ms，
+ * 再加上已有的 prompt/completion/total tokens + created_at。
+ */
+export interface SopChatMessageMeta {
+  model_name: string
+  duration_ms: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  created_at: string
+}
+
+/**
  * SSE 流中的聊天消息（trailing chat）
  */
 export interface ChatMessage {
