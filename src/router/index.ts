@@ -42,8 +42,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/sop/run',
     name: 'sop-run',
-    // Vue 3 完整重写（NDF sop-runtime-vue-rewrite task 21），
-    // 替代 legacy SOPView.vue（含 7518 行 sop-legacy.js 胶水代码）
+    // Vue 3 完整重写（NDF sop-runtime-vue-rewrite）
     component: () => import('@/views/sop/SOPRunView.vue'),
     meta: {
       title: 'SOP 执行',
