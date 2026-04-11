@@ -28,7 +28,7 @@
 
 | 分类 | 组件 |
 |------|------|
-| Common | `AppButton`, `AppInput`, `InsufficientCreditsDialog` |
+| Common | `AppButton`, `AppInput`, `InsufficientCreditsDialog`, `ConfirmModal`, `AppNotification` |
 | Layout | `MainLayout`, `AppSidebar` |
 | Sales | `ChatArea`, `ChatMessage`, `CitationModal`, `DeleteSessionModal`, `GlobalLoadingStatus`, `ImagePreviewModal`, `ImagePreviewStrip`, `InputArea`, `KbTagStrip`, `MainHeader`, `NewChatModal`, `RenameSessionModal`, `SalesStageDropdown`, `ScrollToBottomBtn`, `SessionSidebar`, `ThinkingBlock`, `WelcomeScreen` |
 | Modals | `ChatStyleModal`, `KbModal`, `ProfileModal` |
