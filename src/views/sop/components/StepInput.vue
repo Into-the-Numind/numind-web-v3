@@ -137,6 +137,14 @@ interface Props {
   nodeId: number | null
   placeholder?: string
   disabled?: boolean
+  /**
+   * Draft 模式下的 lazy run 创建回调。
+   *
+   * 父组件在 draft 模式（currentRun 为 null）时传入此函数，
+   * StepInput 在用户首次上传文件时会调用它创建后端 run，拿到 runId 后再上传。
+   * 返回 null 表示创建失败，StepInput 会 emit('error')。
+   */
+  ensureRun?: () => Promise<number | null>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -223,11 +231,25 @@ async function handleDrop(event: DragEvent) {
  * 通用上传入口 —— 前置检查 runId/nodeId，之后委托给 composable
  */
 async function doUpload(files: File[]) {
-  if (!props.runId || !props.nodeId) {
+  if (!props.nodeId) {
     emit('error', '请先进入节点后再上传文件')
     return
   }
-  await fileUpload.handleFiles(files, props.runId, props.nodeId)
+  // Draft 模式：runId 还未创建，先通过 ensureRun 回调 lazy 创建
+  let runId = props.runId
+  if (!runId && props.ensureRun) {
+    try {
+      runId = await props.ensureRun()
+    } catch (err) {
+      emit('error', (err as Error)?.message || '创建运行记录失败')
+      return
+    }
+  }
+  if (!runId) {
+    emit('error', '请先进入节点后再上传文件')
+    return
+  }
+  await fileUpload.handleFiles(files, runId, props.nodeId)
   // 如果 composable 记录了错误，emit 给父组件 toast
   if (fileUpload.lastError.value) {
     emit('error', fileUpload.lastError.value)

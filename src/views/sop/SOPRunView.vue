@@ -120,6 +120,7 @@
             v-model="currentInputText"
             :run-id="store.currentRun?.id ?? null"
             :node-id="store.currentNode.id"
+            :ensure-run="ensureRun"
             @error="handleStreamError"
           />
 
@@ -458,8 +459,48 @@ function handleResume() {
 // ===== 节点执行（核心流程）=====
 
 /**
+ * 确保存在后端 run —— draft 模式下 lazy 创建。
+ *
+ * 同时服务于：
+ *   - 执行节点前（executeCurrentNode）
+ *   - 用户首次上传文件时（StepInput :ensure-run 回调）
+ *
+ * 返回 runId；失败时 toast 提示并返回 null。
+ */
+async function ensureRun(): Promise<number | null> {
+  if (store.currentRun) return store.currentRun.id
+  try {
+    const composedText = stepInputRef.value?.compose?.() ?? currentInputText.value
+    const created = await draft.lazyCreateRun(templateId.value, composedText)
+    store.setCurrentRun({
+      id: created.id,
+      template_id: created.template_id,
+      user_id: 0,
+      status: created.status as 'draft' | 'pending' | 'running' | 'succeeded' | 'failed',
+      conversation_id: created.conversation_id,
+      counted: created.counted,
+      started_at: null,
+      finished_at: null,
+      error_message: '',
+      final_note_id: null,
+      created_at: '',
+      updated_at: ''
+    })
+    // 更新 URL 加上 runId，避免刷新后丢失
+    await router.replace({
+      path: '/sop/run',
+      query: { templateId: String(templateId.value), runId: String(created.id) }
+    })
+    return created.id
+  } catch (err) {
+    notifications.error(`创建 run 失败：${(err as Error).message}`)
+    return null
+  }
+}
+
+/**
  * 执行当前节点：
- * 1. 如果无 runId，先 lazyCreateRun 创建 draft run
+ * 1. 如果无 runId，先 ensureRun 创建 draft run
  * 2. 通过 useSSEStream 调用 POST /v1/sop/runs/:id/nodes/:node_id/execute
  * 3. 累积 streaming state，onDone 时提交到 nodeRuns + completedNodeIds
  */
@@ -470,35 +511,9 @@ async function executeCurrentNode() {
   // 获取 StepInput 的最终 compose 文本
   const composedText = stepInputRef.value?.compose?.() ?? currentInputText.value
 
-  // Step 1: lazyCreateRun 如果无 runId
-  try {
-    if (!store.currentRun) {
-      const created = await draft.lazyCreateRun(templateId.value, composedText)
-      // 注入 store
-      store.setCurrentRun({
-        id: created.id,
-        template_id: created.template_id,
-        user_id: 0,
-        status: created.status as 'draft' | 'pending' | 'running' | 'succeeded' | 'failed',
-        conversation_id: created.conversation_id,
-        counted: created.counted,
-        started_at: null,
-        finished_at: null,
-        error_message: '',
-        final_note_id: null,
-        created_at: '',
-        updated_at: ''
-      })
-      // 更新 URL 加上 runId
-      await router.replace({
-        path: '/sop/run',
-        query: { templateId: String(templateId.value), runId: String(created.id) }
-      })
-    }
-  } catch (err) {
-    notifications.error(`创建 run 失败：${(err as Error).message}`)
-    return
-  }
+  // Step 1: ensureRun
+  const runId = await ensureRun()
+  if (runId === null) return
 
   if (!store.currentRun) return
 
