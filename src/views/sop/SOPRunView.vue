@@ -429,21 +429,18 @@ async function doRegenerate() {
   const nodeId = pendingRegenerateNodeId.value
   if (!nodeId) return
   pendingRegenerateNodeId.value = null
-  // 从 completedNodeIds 移除，重新执行
-  const newSet = new Set(store.completedNodeIds)
-  newSet.delete(nodeId)
-  store.completedNodeIds = newSet as unknown as Set<number>
-  store.nextNodeId = nodeId as unknown as number
+  // 从 completedNodeIds 移除并重新执行（通过 store action，保持封装）
+  store.markNodeIncomplete(nodeId)
   await executeCurrentNode()
 }
 
 async function handleSwitchRun(runId: string, templateIdStr: string) {
+  // route watcher 会在 params 变化时 abort/reset/initialize，这里不再显式调用 initialize()
+  // 避免两次并发 loadTemplate/loadRun
   await router.push({
     path: '/sop/run',
     query: { templateId: templateIdStr, runId }
   })
-  // 重新初始化（route change 会触发 watch，但我们显式调用以确保一致性）
-  await initialize()
 }
 
 function handleStreamError(msg: string) {
@@ -451,9 +448,8 @@ function handleStreamError(msg: string) {
 }
 
 function handleResume() {
-  // defineExpose 暴露的顶层 ref 被 Vue 代理自动 unwrap，所以
-  // stepOutputRef.value.scrollContainerRef 已经是 HTMLDivElement | null
-  const scrollEl = stepOutputRef.value?.scrollContainerRef as HTMLDivElement | null
+  // defineExpose 暴露的顶层 ref 被 Vue 代理自动 unwrap
+  const scrollEl = stepOutputRef.value?.scrollContainerRef
   if (scrollEl) {
     stepOutputRef.value?.scrollFollow?.resume?.(scrollEl)
   }
@@ -528,10 +524,10 @@ async function executeCurrentNode() {
         store.appendStreamingContent(chunk)
       },
       onDone: () => {
-        // 把 streaming 结果作为 nodeRun 持久化到 store
+        // 把 streaming 结果作为 nodeRun 持久化到 store（通过 action）
         const thinking = store.streamingThinking
         const content = store.streamingContent
-        store.nodeRuns[node.id] = {
+        store.setNodeRun(node.id, {
           id: 0,
           run_id: store.currentRun!.id,
           node_id: node.id,
@@ -542,7 +538,7 @@ async function executeCurrentNode() {
           latency_ms: 0,
           started_at: null,
           finished_at: null
-        }
+        })
         store.markNodeComplete(node.id)
         store.clearStreamingState()
 
@@ -551,16 +547,20 @@ async function executeCurrentNode() {
         if (nextStep <= store.totalSteps) {
           // 更新 nextNodeId 为下一个未完成的节点
           const nextNode = store.nodes[nextStep - 1]
-          if (nextNode) {
-            store.nextNodeId = nextNode.id as unknown as number
-          }
+          store.setNextNodeId(nextNode ? nextNode.id : null)
           navigation.setActiveStep(nextStep, persistenceScope.value)
         }
       },
       onError: (msg) => {
         store.clearStreamingState()
-        // 额度不足走 store 汇聚
-        if (msg.includes('额度') || msg.includes('积分') || msg.includes('次数')) {
+        // 积分/余额/配额/次数 不足走 InsufficientCreditsDialog（spec §10.1 模糊匹配）
+        if (
+          msg.includes('积分') ||
+          msg.includes('余额') ||
+          msg.includes('配额') ||
+          msg.includes('次数') ||
+          msg.includes('额度')
+        ) {
           uiDialogs.openCreditsDialog(msg)
         } else {
           notifications.error(msg)

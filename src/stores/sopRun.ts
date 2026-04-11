@@ -124,9 +124,9 @@ export const useSopRunStore = defineStore('sopRun', () => {
     try {
       const { fetchRun, fetchRunStatusDetail } = await import('@/api/sop')
       const [run, status] = await Promise.all([fetchRun(runId), fetchRunStatusDetail(runId)])
-      // 后端 SopRun 直接序列化，字段名匹配（gorm.Model.ID 是 ID 大写但 JSON tag 默认小写）
+      // 后端 SopRun 直接序列化，gorm.Model.ID 序列化为 "ID"（大写）
       currentRun.value = {
-        id: (run as unknown as { id: number }).id ?? (run as unknown as { ID: number }).ID,
+        id: run.ID,
         template_id: run.template_id,
         user_id: run.user_id,
         status: run.status as SopRun['status'],
@@ -136,7 +136,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
         finished_at: run.finished_at,
         created_at: run.created_at,
         updated_at: run.updated_at,
-        error_message: (run as unknown as { error_message?: string }).error_message ?? '',
+        error_message: run.error_message ?? '',
         final_note_id: null
       }
       // 已完成节点集合
@@ -195,6 +195,30 @@ export const useSopRunStore = defineStore('sopRun', () => {
    */
   function markNodeComplete(nodeId: number): void {
     completedNodeIds.value = new Set([...completedNodeIds.value, nodeId])
+  }
+
+  /**
+   * 标记节点为未完成（regenerate 流程：从 completedNodeIds 移除并设为 nextNodeId）
+   */
+  function markNodeIncomplete(nodeId: number): void {
+    const next = new Set(completedNodeIds.value)
+    next.delete(nodeId)
+    completedNodeIds.value = next
+    nextNodeId.value = nodeId
+  }
+
+  /**
+   * 设置下一个待执行节点 ID（由 executeNode onDone 推进时调用）
+   */
+  function setNextNodeId(id: number | null): void {
+    nextNodeId.value = id
+  }
+
+  /**
+   * 把 node 执行结果持久化到 nodeRuns（由 executeNode onDone 回调调用）
+   */
+  function setNodeRun(nodeId: number, nodeRun: SopNodeRun): void {
+    nodeRuns.value = { ...nodeRuns.value, [nodeId]: nodeRun }
   }
 
   /**
@@ -287,6 +311,9 @@ export const useSopRunStore = defineStore('sopRun', () => {
     lazyCreateRun,
     setCurrentRun,
     markNodeComplete,
+    markNodeIncomplete,
+    setNextNodeId,
+    setNodeRun,
     setStreamingState,
     appendStreamingThinking,
     appendStreamingContent,

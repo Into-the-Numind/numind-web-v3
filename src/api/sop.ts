@@ -311,6 +311,7 @@ export interface SopRunResponse {
   finished_at: string | null
   created_at: string
   updated_at: string
+  error_message?: string
 }
 
 export const fetchRun = async (runId: number): Promise<SopRunResponse> => {
