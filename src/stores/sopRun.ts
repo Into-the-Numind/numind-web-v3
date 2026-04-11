@@ -95,7 +95,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
    * 步骤总数 = 节点数 + (trailing chat ? 1 : 0)
    *
    * 不再硬编码为 5。spec §10.2 row 5 要求 nodes.length > 10 时
-   * StepperPanel 横向滚动 / collapsed 视图。
+   * StepNav 横向滚动 / collapsed 视图。
    */
   const totalSteps = computed(() => nodes.value.length + (trailingChatEnabled.value ? 1 : 0))
 
