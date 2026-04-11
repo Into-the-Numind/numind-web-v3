@@ -29,6 +29,22 @@
 export type SopRunStatus = 'draft' | 'pending' | 'running' | 'succeeded' | 'failed'
 
 /**
+ * SOP 运行页 viewing 状态机的 6 态。
+ *
+ * 由 sopRun store 的 viewingStepStatus computed 派生。
+ * 主区组件根据此状态决定渲染 InputCard / OutputCard / 历史 strip / TrailingChat。
+ *
+ * 详见 spec §3.3 + sopRun.ts viewingStepStatus computed
+ */
+export type ViewingStepStatus =
+  | 'draft-first'
+  | 'active'
+  | 'executing'
+  | 'done-current'
+  | 'done-history'
+  | 'trailing'
+
+/**
  * SOP 模板状态（active / inactive）
  */
 export type SopTemplateStatus = 'active' | 'inactive'

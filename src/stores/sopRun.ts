@@ -18,7 +18,13 @@
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { SopTemplatePublic, SopNodePublic, SopRun, SopNodeRun } from '@/views/sop/types'
+import type {
+  SopTemplatePublic,
+  SopNodePublic,
+  SopRun,
+  SopNodeRun,
+  ViewingStepStatus
+} from '@/views/sop/types'
 
 export const useSopRunStore = defineStore('sopRun', () => {
   // ===== 核心 state（template + nodes + run） =====
@@ -153,9 +159,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
    *   5. draft 且 viewingStep === 1 且无已完成节点 → 'draft-first'
    *   6. 否则 → 'active'
    */
-  const viewingStepStatus = computed<
-    'draft-first' | 'active' | 'executing' | 'done-current' | 'done-history' | 'trailing'
-  >(() => {
+  const viewingStepStatus = computed<ViewingStepStatus>(() => {
     if (isViewingTrailingChat.value) return 'trailing'
     if (viewingStep.value < currentStep.value) return 'done-history'
 

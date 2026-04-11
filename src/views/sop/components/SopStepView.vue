@@ -14,15 +14,7 @@
  *
  * 详见 spec §5.2 + plan F4。
  */
-import type { SopNodePublic } from '@/views/sop/types'
-
-type ViewingStepStatus =
-  | 'draft-first'
-  | 'active'
-  | 'executing'
-  | 'done-current'
-  | 'done-history'
-  | 'trailing'
+import type { SopNodePublic, ViewingStepStatus } from '@/views/sop/types'
 
 defineProps<{
   node: SopNodePublic | null
@@ -59,7 +51,7 @@ defineProps<{
 
 .step-header {
   max-width: 980px;
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-xl); /* 对齐 mockup 24px */
 }
 
 .step-header__title {
