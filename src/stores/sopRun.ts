@@ -88,71 +88,154 @@ export const useSopRunStore = defineStore('sopRun', () => {
     return nodes.value[idx] ?? null
   })
 
-  // ===== Actions（task 5 仅声明签名，后续 task 填充实现）=====
+  // ===== Actions =====
   //
-  // 下方所有 stub action 的参数命名以 _ 前缀标记"暂未使用"，但 eslint
-  // 默认仍会警告。整段 disable no-unused-vars 直到 actions 实现完成。
-  // 这些 stub 会在 task 6/8/11/17/21 期间逐个填充实现。
-
-  /* eslint-disable @typescript-eslint/no-unused-vars */
+  // **设计决策**：store 只管纯状态 mutation。复杂流程（SSE 流、localStorage
+  // 持久化、ConfirmModal 弹窗、路由跳转）放在 SOPRunView 或 composables。
+  // 这样 store 可以被单独单测，不依赖 fetch/DOM。
 
   /**
-   * 加载 template + nodes（GET /v1/sop/templates/:id/nodes）
-   *
-   * task 21 (SOPRunView 主集成) 阶段填充实现。
+   * 加载 template + nodes（task 21 SOPRunView 从 api 调用后注入到 store）
    */
-  async function loadTemplate(_templateId: number): Promise<void> {
-    // TODO: task 21 — 调用 GET /v1/sop/templates/:id/nodes，
-    //   解析 SopTemplateNodesResponse，赋值 template + nodes
+  async function loadTemplate(templateId: number): Promise<void> {
+    loading.value = true
+    lastError.value = ''
+    try {
+      const { fetchTemplateNodes } = await import('@/api/sop')
+      const data = await fetchTemplateNodes(templateId)
+      template.value = data.template as SopTemplatePublic
+      nodes.value = (data.nodes as SopNodePublic[]).slice().sort((a, b) => a.sort - b.sort)
+    } catch (err) {
+      lastError.value = (err as Error)?.message || '加载模板失败'
+      throw err
+    } finally {
+      loading.value = false
+    }
   }
 
   /**
-   * 加载现有 run（GET /v1/sop/runs/:id），同时拉取 status 和 chat-messages。
+   * 加载现有 run（GET /v1/sop/runs/:id + /status）
    *
-   * task 21 阶段填充。
+   * 先调 GetRun 拿到 run 基本信息，再调 GetRunStatus 拉取已完成节点 + 下一节点。
    */
-  async function loadRun(_runId: number): Promise<void> {
-    // TODO: task 21 — 调用 GET /v1/sop/runs/:id 并赋值 currentRun
+  async function loadRun(runId: number): Promise<void> {
+    loading.value = true
+    lastError.value = ''
+    try {
+      const { fetchRun, fetchRunStatusDetail } = await import('@/api/sop')
+      const [run, status] = await Promise.all([fetchRun(runId), fetchRunStatusDetail(runId)])
+      // 后端 SopRun 直接序列化，字段名匹配（gorm.Model.ID 是 ID 大写但 JSON tag 默认小写）
+      currentRun.value = {
+        id: (run as unknown as { id: number }).id ?? (run as unknown as { ID: number }).ID,
+        template_id: run.template_id,
+        user_id: run.user_id,
+        status: run.status as SopRun['status'],
+        conversation_id: run.conversation_id,
+        counted: run.counted,
+        started_at: run.started_at,
+        finished_at: run.finished_at,
+        created_at: run.created_at,
+        updated_at: run.updated_at,
+        error_message: (run as unknown as { error_message?: string }).error_message ?? '',
+        final_note_id: null
+      }
+      // 已完成节点集合
+      const newCompleted = new Set<number>()
+      const newAccessibility: Record<number, boolean> = {}
+      for (const cn of status.completed_nodes) {
+        newCompleted.add(cn.node_id)
+        newAccessibility[cn.node_id] = cn.is_accessible
+      }
+      completedNodeIds.value = newCompleted
+      nodeAccessibility.value = newAccessibility
+      nextNodeId.value = status.next_node?.node_id ?? null
+    } catch (err) {
+      lastError.value = (err as Error)?.message || '加载运行记录失败'
+      throw err
+    } finally {
+      loading.value = false
+    }
   }
 
   /**
    * 进入纯前端 draft 模式（不创建后端记录）。
    *
-   * task 8 (useDraftLifecycle) 阶段填充。
+   * 实际 lazyCreateRun 由 useDraftLifecycle composable 在 SOPRunView 中处理。
+   * 这里只清空 currentRun 表示"尚未有后端 run"。
    */
   function enterDraftMode(_templateId: number): void {
-    // TODO: task 8 — 设置 currentRun=null，激活 localStorage draft key
+    void _templateId
+    currentRun.value = null
+    completedNodeIds.value = new Set()
+    nextNodeId.value = null
+    nodeAccessibility.value = {}
   }
 
   /**
-   * Lazy 创建 run（首次执行节点时调用）。
+   * lazyCreateRun 的 store 侧逻辑：把新创建的 run 赋值到 store。
    *
-   * task 8 阶段填充。
+   * 实际 POST /v1/sop/runs 调用由 useDraftLifecycle.lazyCreateRun 完成，
+   * 成功后调用本方法注入 store。
    */
   async function lazyCreateRun(_text: string): Promise<void> {
-    // TODO: task 8 — 调用 POST /v1/sop/runs，迁移 localStorage key
+    // Store 侧不调用 API。SOPRunView 通过 useDraftLifecycle 调用 API 后，
+    // 用 setCurrentRun 注入。这个方法保留签名但不使用，防止破坏 return type。
+    void _text
   }
 
   /**
-   * 执行节点（流式）。
-   *
-   * task 17 (StepOutput + 主流程) 阶段填充。
+   * 由 composables 调用，注入新创建或切换后的 run。
+   */
+  function setCurrentRun(run: SopRun | null): void {
+    currentRun.value = run
+  }
+
+  /**
+   * 标记节点完成（由 executeNode 的 onDone 回调调用）
+   */
+  function markNodeComplete(nodeId: number): void {
+    completedNodeIds.value = new Set([...completedNodeIds.value, nodeId])
+  }
+
+  /**
+   * 更新 streaming 状态（由 executeNode 的 onThinking/onMessage 调用）
+   */
+  function setStreamingState(nodeId: number | null, thinking: string, content: string): void {
+    streamingNodeId.value = nodeId
+    streamingThinking.value = thinking
+    streamingContent.value = content
+  }
+
+  function appendStreamingThinking(chunk: string): void {
+    streamingThinking.value += chunk
+  }
+
+  function appendStreamingContent(chunk: string): void {
+    streamingContent.value += chunk
+  }
+
+  function clearStreamingState(): void {
+    streamingNodeId.value = null
+    streamingThinking.value = ''
+    streamingContent.value = ''
+  }
+
+  /**
+   * 执行节点 —— stub，实际 SSE 流由 SOPRunView 中通过 useSSEStream 直接调用。
+   * 保留签名避免破坏 Pinia return 类型。
    */
   async function executeNode(_nodeId: number, _input: string, _files: File[]): Promise<void> {
-    // TODO: task 6+17 — 通过 useSSEStream 调用 POST /v1/sop/runs/:id/nodes/:node_id/execute
+    void _nodeId
+    void _input
+    void _files
   }
 
-  /* eslint-enable @typescript-eslint/no-unused-vars */
-
   /**
-   * 切换当前活跃步骤（含权限检查）。
-   *
-   * task 11 (useStepNavigation) 阶段填充。
+   * 切换当前活跃步骤（不做权限检查，权限检查由 useStepNavigation 处理）
    */
   function setActiveStep(step: number): void {
     if (step < 1 || step > totalSteps.value) return
     currentStep.value = step
-    // TODO: task 11 — 持久化到 sessionStorage
   }
 
   /**
@@ -202,6 +285,12 @@ export const useSopRunStore = defineStore('sopRun', () => {
     loadRun,
     enterDraftMode,
     lazyCreateRun,
+    setCurrentRun,
+    markNodeComplete,
+    setStreamingState,
+    appendStreamingThinking,
+    appendStreamingContent,
+    clearStreamingState,
     executeNode,
     setActiveStep,
     reset

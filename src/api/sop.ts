@@ -255,3 +255,106 @@ export const listRunChatMessages = async (runId: number): Promise<RunChatMessage
     messages: data?.messages ?? []
   }
 }
+
+// ============================================================
+// SOP 运行页 Vue 重写（task 21）新增：template / run / status
+// ============================================================
+
+/**
+ * GET /v1/sop/templates/:id/nodes 获取 template + nodes 列表
+ *
+ * 后端返回结构（task 3 改造后）：
+ *   { template: SopTemplatePublicDTO, nodes: SopNodePublicDTO[], total: number }
+ * 敏感字段已在后端 DTO 层隐藏。
+ */
+export interface TemplateNodesResponse {
+  template: {
+    id: number
+    name: string
+    description: string
+    status: string
+    publish_status: string
+    trailing_chat_enabled: boolean
+    created_at: string
+    updated_at: string
+  }
+  nodes: Array<{
+    id: number
+    template_id: number
+    name: string
+    description: string
+    sort: number
+    status: string
+    created_at: string
+    updated_at: string
+  }>
+  total: number
+}
+
+export const fetchTemplateNodes = async (templateId: number): Promise<TemplateNodesResponse> => {
+  const res = await request.get(`/v1/sop/templates/${templateId}/nodes`)
+  return (res as unknown as { data: TemplateNodesResponse }).data
+}
+
+/**
+ * GET /v1/sop/runs/:id 获取单个 run 的基本信息
+ * 后端直接序列化 model.SopRun（controller/v1/sop/sop.go:228）
+ */
+export interface SopRunResponse {
+  ID: number
+  template_id: number
+  user_id: number
+  status: string
+  conversation_id: string
+  counted: boolean
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const fetchRun = async (runId: number): Promise<SopRunResponse> => {
+  const res = await request.get(`/v1/sop/runs/${runId}`)
+  return (res as unknown as { data: SopRunResponse }).data
+}
+
+/**
+ * GET /v1/sop/runs/:id/status 获取 run 完整状态 + 已完成节点 + 下一节点
+ *
+ * 后端返回 RunStatusResponse（pkg/api/numind/v1/sop.go:179-189）
+ */
+export interface StatusCompletedNodeInfo {
+  node_run_id: number
+  node_id: number
+  node_name: string
+  sort: number
+  input: string
+  output: string
+  thinking?: string
+  from_bookmark: boolean
+  bookmark_id?: number
+  is_accessible: boolean
+}
+
+export interface StatusNextNodeInfo {
+  node_id: number
+  node_name: string
+  sort: number
+  is_first: boolean
+  has_next: boolean
+}
+
+export interface RunStatusResponse {
+  status: string
+  current_node_sort: number
+  completed_nodes: StatusCompletedNodeInfo[]
+  next_node: StatusNextNodeInfo | null
+  total_nodes: number
+  completed_count: number
+  auto_applied_count: number
+}
+
+export const fetchRunStatusDetail = async (runId: number): Promise<RunStatusResponse> => {
+  const res = await request.get(`/v1/sop/runs/${runId}/status`)
+  return (res as unknown as { data: RunStatusResponse }).data
+}
