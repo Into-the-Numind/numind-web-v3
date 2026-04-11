@@ -16,6 +16,7 @@
   ## Props
 
   - targetStep: number — 返回目标步骤序号（通常为 store.currentStep）
+  - targetName: string — 返回目标步骤名称（用于 aria-label / 未来 tooltip 拓展）
 
   ## Emits
 
@@ -25,9 +26,14 @@
   <div class="history-view-strip">
     <div class="history-view-strip__info">
       <Eye :size="14" aria-hidden="true" />
-      <span>正在查看历史步骤 · 此步骤不可修改</span>
+      <span>正在查看历史步骤 · 输入不可修改</span>
     </div>
-    <button type="button" class="history-view-strip__return" @click="emit('return')">
+    <button
+      type="button"
+      class="history-view-strip__return"
+      :aria-label="`返回当前任务：${targetName}`"
+      @click="emit('return')"
+    >
       <span>返回步骤 {{ targetStep }}</span>
       <ArrowRight :size="13" aria-hidden="true" />
     </button>
@@ -39,6 +45,7 @@ import { ArrowRight, Eye } from 'lucide-vue-next'
 
 interface Props {
   targetStep: number
+  targetName: string
 }
 
 defineProps<Props>()
