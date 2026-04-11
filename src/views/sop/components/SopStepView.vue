@@ -33,6 +33,10 @@ import HistoryViewStrip from './HistoryViewStrip.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useSopRunStore } from '@/stores/sopRun'
 import { useBookmarks } from '@/views/sop/composables/useBookmarks'
+import {
+  useInputPersistence,
+  type PersistenceScope
+} from '@/views/sop/composables/useInputPersistence'
 import { saveBookmark, removeBookmark } from '@/api/sop'
 
 const props = defineProps<{
@@ -62,22 +66,52 @@ const emit = defineEmits<{
 
 const store = useSopRunStore()
 const bookmarks = useBookmarks()
+const inputPersistence = useInputPersistence()
 
 // ===== 输入文本（每个节点独立 v-model） =====
 const inputText = ref<string>('')
 
-// 当 node 切换时重置 inputText（父层的 InputPersistence 会 fill 值回来，
-// 这里保持最小实现：只在节点 ID 变化时清空，父组件负责填充）。
-// F11 主容器通过 watch currentStep 来驱动 persistence load/snapshot，
-// 本组件不直接处理 persistence —— 避免把 scope 对象穿层下来。
-// 因此 inputText 暂由子组件自己管理，父可通过 watch store.currentStep 配合
-// 一个 `reset` 信号来清空。
+/**
+ * 当前 persistence scope：run 模式优先（currentRun.id），否则 draft 模式（templateId）。
+ * 无 templateId / run 时返回 null —— 不持久化。
+ */
+function currentScope(): PersistenceScope | null {
+  const run = store.currentRun
+  if (run) return { kind: 'run', runId: run.id }
+  const tid = store.template?.id
+  if (tid) return { kind: 'draft', templateId: tid }
+  return null
+}
+
+/** 当前节点在 persistence 中使用的 inputId（字符串化 node.id） */
+function currentInputId(): string | null {
+  return props.node ? String(props.node.id) : null
+}
+
+// 节点切换时：从 persistence 载入该节点上次的草稿（没有则空字符串）。
+// 这确保刷新页面后，未执行节点的 textarea 草稿不丢。
 watch(
   () => props.node?.id,
   () => {
-    inputText.value = ''
-  }
+    const scope = currentScope()
+    const inputId = currentInputId()
+    if (scope && inputId) {
+      inputText.value = inputPersistence.loadInput(scope, inputId)
+    } else {
+      inputText.value = ''
+    }
+  },
+  { immediate: true }
 )
+
+// 输入变化时：写入 persistence（仅在 input 态有效，executing / done 态也无害）
+watch(inputText, (value) => {
+  const scope = currentScope()
+  const inputId = currentInputId()
+  if (scope && inputId) {
+    inputPersistence.saveInput(scope, inputId, value)
+  }
+})
 
 // ===== 节点派生 =====
 
@@ -153,6 +187,12 @@ function cancelRemoveBookmark() {
 // ===== 子组件事件转发 =====
 
 function handleExecute(text: string) {
+  // 提交后清除该节点的 persistence 草稿（已进入后端，无需恢复）
+  const scope = currentScope()
+  const inputId = currentInputId()
+  if (scope && inputId) {
+    inputPersistence.removeInput(scope, inputId)
+  }
   emit('execute', text)
 }
 

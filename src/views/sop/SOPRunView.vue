@@ -194,8 +194,39 @@ async function initialize() {
       store.setActiveStep(1)
       store.setViewingStep(1)
     }
+
+    // F11 P1-2 恢复：从 sessionStorage 还原上次停留的步骤。
+    // key 约定与 useStepNavigation 一致：
+    //   run 模式   → sop_step_<runId>
+    //   draft 模式 → sop_step_draft_<templateId>
+    // 仅在恢复值 <= currentStep（已解锁）且在范围内时生效，守不变量。
+    restoreViewingStepFromSession()
   } catch (err) {
     loadError.value = (err as Error)?.message || '加载失败'
+  }
+}
+
+/**
+ * 从 sessionStorage 恢复用户上次停留的步骤（viewingStep）。
+ *
+ * F11 主容器重写时漏接了这条路径，本修复补齐（F11 P1-2 deferred）。
+ * currentStep 由后端 run 状态驱动（已完成节点 / next_node），不可随便覆盖；
+ * 这里只动 viewingStep，利用已有 setViewingStep 的守卫保证 viewingStep <= currentStep。
+ */
+function restoreViewingStepFromSession() {
+  try {
+    const key = store.currentRun
+      ? `sop_step_${store.currentRun.id}`
+      : `sop_step_draft_${templateId.value}`
+    const raw = sessionStorage.getItem(key)
+    if (raw === null) return
+    const step = parseInt(raw, 10)
+    if (Number.isNaN(step) || step < 1) return
+    if (step > store.currentStep) return // 尚未解锁，保持默认
+    if (step > store.totalSteps) return
+    store.setViewingStep(step)
+  } catch {
+    // sessionStorage 可能被禁用（隐私模式），静默忽略
   }
 }
 
@@ -209,6 +240,19 @@ function handleNavigate(step: number) {
   // StepNav 点击 → 切换 viewingStep（不改 currentStep —— 双指针模型）
   // 守 viewingStep <= currentStep（store.setViewingStep 内部已检查）
   store.setViewingStep(step)
+  // 持久化到 sessionStorage 以支持刷新恢复（F11 P1-2 deferred）
+  persistViewingStepToSession()
+}
+
+function persistViewingStepToSession() {
+  try {
+    const key = store.currentRun
+      ? `sop_step_${store.currentRun.id}`
+      : `sop_step_draft_${templateId.value}`
+    sessionStorage.setItem(key, String(store.viewingStep))
+  } catch {
+    // 隐私模式静默忽略
+  }
 }
 
 function handleReturnCurrent() {

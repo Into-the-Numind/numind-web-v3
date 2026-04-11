@@ -12,8 +12,8 @@
     - visible = scrollFollow.isInterrupted.value
     - @click 时调用 scrollFollow.resume(scrollContainerRef.value)
 
-  这样 ScrollFollowButton 保持纯展示，可在任何场景复用（如 TrailingChatPanel
-  task 20 同样需要此按钮）。
+  这样 ScrollFollowButton 保持纯展示，可在任何场景复用（OutputCard / TrailingChat
+  等需要自动跟随滚动的场景）。
 
   ## 定位约束（重要）
 
