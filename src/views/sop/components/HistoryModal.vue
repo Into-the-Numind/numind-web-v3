@@ -144,6 +144,9 @@ import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import EmptyStateCard from './EmptyStateCard.vue'
 import { fetchExecutedRuns, deleteRun, type SopRunRecord } from '@/api/sop'
+import { useNotificationsStore } from '@/stores/notifications'
+
+const notifications = useNotificationsStore()
 
 interface Props {
   modelValue: boolean
@@ -218,8 +221,12 @@ async function confirmDelete() {
     await deleteRun(runId)
     // 从本地列表移除
     runs.value = runs.value.filter((r) => r.runId !== runId)
+    notifications.success('删除成功')
   } catch (err) {
-    error.value = (err as Error)?.message || '删除失败'
+    // 注意：这里不写入 error.value，因为那会清空列表 UI（列表被 error state 遮蔽）。
+    // 改用 toast 通知用户删除失败，列表保持不变。
+    const msg = (err as Error)?.message || '删除失败'
+    notifications.error(`删除失败：${msg}`)
   } finally {
     pendingDeleteRunId.value = null
   }

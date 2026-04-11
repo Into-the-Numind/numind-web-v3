@@ -37,6 +37,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('@/api/sop', () => ({
   fetchExecutedRuns: vi.fn(),
@@ -66,6 +67,8 @@ beforeEach(() => {
   fetchMock.mockReset()
   deleteMock.mockReset()
   document.body.innerHTML = ''
+  // HistoryModal 现在使用 notifications store，需要 Pinia
+  setActivePinia(createPinia())
 })
 
 afterEach(() => {
@@ -324,6 +327,25 @@ describe('HistoryModal — 关闭', () => {
     await nextTick()
 
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
+    wrapper.unmount()
+  })
+
+  it('点击 dialog 内部元素冒泡不触发 .self 修饰符关闭', async () => {
+    fetchMock.mockResolvedValue([makeRecord()])
+    const wrapper = mount(HistoryModal, {
+      props: { modelValue: true },
+      attachTo: document.body
+    })
+    await flushPromises()
+
+    // 从 dialog 内部元素（title）点击，事件会冒泡到 overlay
+    // 但 @click.self 检查 event.target !== currentTarget，不应触发 handleClose
+    const title = document.querySelector('.history-title') as HTMLElement
+    title.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+
+    // update:modelValue 不应被 emit（overlay click.self 保护生效）
+    expect(wrapper.emitted('update:modelValue')).toBeFalsy()
     wrapper.unmount()
   })
 })
