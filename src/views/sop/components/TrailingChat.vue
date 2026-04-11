@@ -90,12 +90,15 @@ interface Props {
   streaming?: boolean
   /** Optional incoming streaming message bubble (passed by F11 main container) */
   streamingMessage?: ChatBubbleMessage | null
+  /** F11 P1-3 fix: parent increments after onDone to trigger history reload */
+  reloadTrigger?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   conversationId: '',
   streaming: false,
-  streamingMessage: null
+  streamingMessage: null,
+  reloadTrigger: 0
 })
 
 const emit = defineEmits<{
@@ -203,6 +206,16 @@ watch(
   () => props.streamingMessage?.content,
   () => {
     nextTick(() => scrollToBottom())
+  }
+)
+
+/** F11 P1-3 fix: parent increments reloadTrigger after chat onDone, refetch history */
+watch(
+  () => props.reloadTrigger,
+  (newVal, oldVal) => {
+    if (newVal !== oldVal && props.runId) {
+      loadHistory()
+    }
   }
 )
 

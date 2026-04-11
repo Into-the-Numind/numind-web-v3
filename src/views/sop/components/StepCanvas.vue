@@ -28,6 +28,8 @@ interface Props {
   chatStreaming?: boolean
   /** trailing chat 的流式占位消息 */
   chatStreamingMessage?: ChatBubbleMessage | null
+  /** 父容器 onDone 后递增以触发 TrailingChat 重新拉取历史（F11 P1-3 fix） */
+  chatReloadTrigger?: number
 }
 
 withDefaults(defineProps<Props>(), {
@@ -37,7 +39,8 @@ withDefaults(defineProps<Props>(), {
   inputLabel: '你的输入',
   inputHint: '必填 · 直接粘贴草稿即可',
   chatStreaming: false,
-  chatStreamingMessage: null
+  chatStreamingMessage: null,
+  chatReloadTrigger: 0
 })
 
 const store = useSopRunStore()
@@ -90,6 +93,7 @@ defineEmits<{
         :conversation-id="store.currentRun?.conversation_id ?? ''"
         :streaming="chatStreaming"
         :streaming-message="chatStreamingMessage"
+        :reload-trigger="chatReloadTrigger"
         @send="(text: string) => $emit('chat-send', text)"
         @stop="$emit('chat-stop')"
         @error="(msg: string) => $emit('chat-error', msg)"

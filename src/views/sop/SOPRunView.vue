@@ -74,6 +74,7 @@
           :current-step-name="store.currentNode?.name ?? ''"
           :chat-streaming="chatStreaming"
           :chat-streaming-message="chatStreamingMessage"
+          :chat-reload-trigger="chatReloadTrigger"
           @execute="handleExecute"
           @stop="handleStop"
           @copy="handleCopy"
@@ -159,6 +160,8 @@ const pendingRegenerateText = ref<string>('')
 // ===== Trailing chat 流式状态 =====
 const chatStreaming = ref(false)
 const chatStreamingMessage = ref<ChatBubbleMessage | null>(null)
+/** F11 fix P1-3: trigger TrailingChat reload after chat onDone (so finished message stays visible) */
+const chatReloadTrigger = ref(0)
 let tempMsgCounter = 0
 function makeTempId(): string {
   tempMsgCounter += 1
@@ -452,7 +455,8 @@ async function handleChatSend(question: string) {
       onDone: () => {
         chatStreaming.value = false
         chatStreamingMessage.value = null
-        // 后续补齐：由 TrailingChat 的 loadHistory 重新拉取（下一个 runId 变化 watch 触发）
+        // P1-3 fix: trigger TrailingChat reload so just-finished message stays visible
+        chatReloadTrigger.value++
       },
       onError: (msg) => {
         chatStreaming.value = false
