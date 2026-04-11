@@ -125,6 +125,18 @@ describe('computeStepState (pure fn, spec 附录 B)', () => {
     expect(computeStepState(3, false, 3, 1, completed, THREE_NODES, null)).toBe('pending-return')
   })
 
+  it('case 11b — accessibility[node.id] === false → disabled (spec 附录 B)', () => {
+    // step 2 本来会是 active（currentStep=3, completed=[1]），
+    // 但服务端显式标记 node id=2 不可达 → 必须返回 disabled
+    const completed = new Set<number>([1])
+    const accessibility = { 2: false }
+    expect(computeStepState(2, false, 3, 2, completed, THREE_NODES, null, accessibility)).toBe(
+      'disabled'
+    )
+    // 对照组：没有 accessibility 参数时应为 active
+    expect(computeStepState(2, false, 3, 2, completed, THREE_NODES, null)).toBe('active')
+  })
+
   it('case 12 — 5 态全部覆盖校验（来自上述用例的聚合检查）', () => {
     const seen = new Set<string>()
     const completed1 = new Set<number>([1])

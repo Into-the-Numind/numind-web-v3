@@ -58,11 +58,13 @@ interface Props {
   completedNodeIds: number[] | Set<number>
   trailingChatEnabled?: boolean
   streamingNodeId?: number | null
+  accessibility?: Record<number, boolean>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   trailingChatEnabled: false,
-  streamingNodeId: null
+  streamingNodeId: null,
+  accessibility: () => ({})
 })
 
 const emit = defineEmits<{
@@ -91,7 +93,8 @@ const mainItems = computed<ItemVm[]>(() =>
       props.viewingStep,
       completedNodeIdsSet.value,
       props.nodes,
-      props.streamingNodeId ?? null
+      props.streamingNodeId ?? null,
+      props.accessibility ?? {}
     )
     return {
       step,
@@ -113,7 +116,8 @@ const trailingItem = computed<ItemVm | null>(() => {
     props.viewingStep,
     completedNodeIdsSet.value,
     props.nodes,
-    props.streamingNodeId ?? null
+    props.streamingNodeId ?? null,
+    props.accessibility ?? {}
   )
   return {
     step,

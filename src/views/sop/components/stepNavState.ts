@@ -33,6 +33,7 @@ export type StepNavItemState = 'active' | 'done' | 'viewing' | 'pending-return' 
  * @param completedIds 已完成节点 id 集合
  * @param nodes 所有 sop 节点（用于通过 index 取到 node.id）
  * @param streamingNodeId 当前正在流式执行的节点 id（无则 null）
+ * @param accessibility 服务端下发的 node-level 可达性映射；`false` 表示显式不可达
  */
 export function computeStepState(
   index: number,
@@ -41,11 +42,14 @@ export function computeStepState(
   viewingStep: number,
   completedIds: Set<number>,
   nodes: SopNodePublic[],
-  streamingNodeId: number | null
+  streamingNodeId: number | null,
+  accessibility: Record<number, boolean> = {}
 ): StepNavItemState {
   const node = isTrailingChat ? null : (nodes[index - 1] ?? null)
 
   // ---------- 1) disabled ----------
+  // spec 附录 B: explicitly inaccessible node from server
+  if (node && accessibility[node.id] === false) return 'disabled'
   if (!isTrailingChat && index > currentStep) return 'disabled'
   if (isTrailingChat && currentStep < nodes.length + 1) return 'disabled'
 
