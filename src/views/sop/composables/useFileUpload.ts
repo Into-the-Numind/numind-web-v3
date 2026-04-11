@@ -216,8 +216,24 @@ export function useFileUpload(): UseFileUploadReturn {
     // 一次性推入（避免 UI 中途闪烁）
     items.value = [...items.value, ...newItems]
 
-    // 并发上传所有有效文件，互不阻塞
-    await Promise.all(validItems.map((item) => uploadSingleFile(item, runId, nodeId)))
+    // 并发上传所有有效文件，互不阻塞。
+    //
+    // **关键**：uploadSingleFile 必须通过 items.value.find() 查找而非用 validItems 的
+    // 原始引用。原因：items.value 是 ref<Array>，Vue 3 的深度响应式只代理通过 items.value
+    // 读取的对象。validItems 中的是**原始 JS 对象**，直接 mutate 这些对象的 status
+    // 属性 **不会触发** Vue 的 reactive effects，导致组件 DOM 不更新。
+    //
+    // 修复前：组件测试中 chip 永远停留在 'uploading' 状态，因为 status='success'/'error'
+    // 的 mutation 发生在 raw object 上，proxy 看不到。
+    const validLocalIds = validItems.map((i) => i.localId)
+    await Promise.all(
+      validLocalIds.map(async (localId) => {
+        const proxyItem = items.value.find((i) => i.localId === localId)
+        if (proxyItem) {
+          await uploadSingleFile(proxyItem, runId, nodeId)
+        }
+      })
+    )
   }
 
   function removeItem(localId: string): void {
