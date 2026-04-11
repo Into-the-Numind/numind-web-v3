@@ -33,6 +33,24 @@ const props = defineProps<{
   status: ViewingStepStatus
 }>()
 
+/**
+ * Emits（F9 新增 stop）：
+ *   - stop: 用户在 streaming 状态下点击"停止生成" —— 父层（F11 SOPRunView
+ *     主容器）负责调用 `useSSEStream.abort()` 让前端停止接收 SSE 流。
+ *
+ * 为什么 SopStepView 自己不直接调 abort：`useSSEStream` 实例由主容器持有
+ * （每页一份），SopStepView 只做 UI 分发，不拥有流状态。通过 emit 上抛
+ * 让主容器统一处理 abort + streamingContent 保留语义（spec §5.6 + D11）：
+ *   - 前端 `EventSource`/fetch 请求通过 `AbortController.abort()` 立即停止
+ *   - 后端流继续跑完（不动后端）
+ *   - 已接收的 partial content 保留在 `store.streamingContent`，**不**落
+ *     `nodeRuns`、**不**调 `markNodeComplete`
+ *   - 下次执行时 `setStreamingState` 清空覆盖（现有行为，无需本 task 额外处理）
+ */
+const emit = defineEmits<{
+  stop: []
+}>()
+
 const store = useSopRunStore()
 const bookmarks = useBookmarks()
 
@@ -101,6 +119,17 @@ function cancelRemoveBookmark() {
   pendingRemoveBookmarkId.value = null
 }
 
+/**
+ * 转发 OutputCard 的"停止生成"事件到父层（F11 主容器）。
+ *
+ * 本组件不清空 `store.streamingContent`、不调 `markNodeComplete`，
+ * 仅把意图上抛 —— 由主容器调用 `useSSEStream.abort()` 实现真正中止，
+ * partial content 留在 store 展示直到下次执行覆盖（spec §5.6 + Q6）。
+ */
+function handleStop() {
+  emit('stop')
+}
+
 // handleCopy / handleRegenerate 留 placeholder，由 F11 主容器接线真实行为
 function handleCopy() {
   // TODO(F11): 复制节点输出到剪贴板
@@ -129,6 +158,7 @@ function handleRegenerate() {
       @toggle-bookmark="handleToggleBookmark"
       @copy="handleCopy"
       @regenerate="handleRegenerate"
+      @stop="handleStop"
     />
     <div v-else class="sop-step-view__placeholder">
       <p>内容加载中...</p>

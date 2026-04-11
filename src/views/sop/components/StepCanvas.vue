@@ -19,12 +19,29 @@ const store = useSopRunStore()
 const isViewingTrailingChat = computed(() => store.isViewingTrailingChat)
 const viewingNode = computed(() => store.viewingNode)
 const viewingStepStatus = computed(() => store.viewingStepStatus)
+
+/**
+ * Emits（F9 新增 stop）：
+ *   - stop: 来自 SopStepView → OutputCard 的"停止生成"事件透传。
+ *     F11 主容器会绑定到 `useSSEStream.abort()`，实现前端立即停止接收
+ *     SSE 流；后端 stream 继续跑完（不动后端）；已接收的 partial content
+ *     保留在 `store.streamingContent`，不落 `nodeRuns`，不调 `markNodeComplete`。
+ *     详见 spec §5.6 + D11 + plan F9。
+ */
+defineEmits<{
+  stop: []
+}>()
 </script>
 
 <template>
   <section class="main">
     <div class="canvas">
-      <SopStepView v-if="!isViewingTrailingChat" :node="viewingNode" :status="viewingStepStatus" />
+      <SopStepView
+        v-if="!isViewingTrailingChat"
+        :node="viewingNode"
+        :status="viewingStepStatus"
+        @stop="$emit('stop')"
+      />
       <div v-else class="canvas__placeholder">
         <p>追问区域加载中...</p>
       </div>
