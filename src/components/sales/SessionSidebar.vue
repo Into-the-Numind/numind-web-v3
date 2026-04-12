@@ -117,12 +117,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .nav__back {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   padding: 11px 16px;
-  margin: 0 12px 12px;
-  border-radius: 12px;
+  margin: 0 12px 8px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: hsl(160, 18%, 52%);
@@ -155,7 +155,7 @@ onBeforeUnmount(() => {
 }
 
 .new-chat-btn {
-  margin: 0 16px 16px;
+  margin: 0 12px 12px;
   padding: 12px;
   background: var(--surface);
   border: 1px solid var(--border-light);
@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
 .sessions-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .session-item {
