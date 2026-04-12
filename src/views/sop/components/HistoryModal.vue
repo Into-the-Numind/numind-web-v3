@@ -56,7 +56,7 @@
               aria-label="关闭历史记录"
               @click="handleClose"
             >
-              ×
+              <X :size="16" />
             </button>
           </header>
 
@@ -118,7 +118,7 @@
                   :aria-label="`删除运行记录 ${record.runId}`"
                   @click.stop="handleDeleteClick(record.runId)"
                 >
-                  ×
+                  <X :size="16" />
                 </button>
               </li>
             </ul>
@@ -141,6 +141,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { X } from 'lucide-vue-next'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import EmptyStateCard from './EmptyStateCard.vue'
 import { fetchExecutedRuns, deleteRun, type SopRunRecord } from '@/api/sop'

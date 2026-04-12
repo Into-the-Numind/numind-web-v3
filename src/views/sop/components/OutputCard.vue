@@ -48,7 +48,7 @@
             @click="handleStop"
           >
             <Square :size="12" aria-hidden="true" />
-            <span>停止生成</span>
+            <span>停止</span>
           </button>
         </template>
         <template v-else>

@@ -55,7 +55,7 @@
           @click="thinkingCollapsed = !thinkingCollapsed"
         >
           <span class="chat-bubble-thinking-icon" aria-hidden="true">
-            {{ thinkingCollapsed ? '▶' : '▼' }}
+            <component :is="thinkingCollapsed ? ChevronRight : ChevronDown" :size="14" />
           </span>
           <span>{{ streaming ? '思考中…' : '思考过程' }}</span>
         </button>
@@ -98,7 +98,7 @@
           aria-label="复制"
           @click="emit('copy', message.content)"
         >
-          <span aria-hidden="true">⎘</span>
+          <Copy :size="14" aria-hidden="true" />
           <span>复制</span>
         </button>
         <button
@@ -107,7 +107,7 @@
           aria-label="重新生成"
           @click="emit('regenerate', message.id as number)"
         >
-          <span aria-hidden="true">↻</span>
+          <RotateCw :size="14" aria-hidden="true" />
           <span>重新生成</span>
         </button>
       </div>
@@ -126,6 +126,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { ChevronRight, ChevronDown, Copy, RotateCw } from 'lucide-vue-next'
 import { renderMarkdown } from '@/utils/markdown'
 import MetaFooter from './MetaFooter.vue'
 import type { SopChatMessageMeta } from '@/views/sop/types'

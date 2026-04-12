@@ -45,7 +45,7 @@
         @click="thinkingCollapsed = !thinkingCollapsed"
       >
         <span class="step-output-thinking-icon" aria-hidden="true">
-          {{ thinkingCollapsed ? '▶' : '▼' }}
+          <component :is="thinkingCollapsed ? ChevronRight : ChevronDown" :size="14" />
         </span>
         <span class="step-output-thinking-title">
           {{ streaming ? '思考中…' : '思考过程' }}
@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ChevronRight, ChevronDown } from 'lucide-vue-next'
 import { renderMarkdown } from '@/utils/markdown'
 import { useScrollFollow } from '@/views/sop/composables/useScrollFollow'
 

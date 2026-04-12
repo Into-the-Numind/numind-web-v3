@@ -5,9 +5,9 @@
  *   1. 必填 title 渲染
  *   2. 可选 message 渲染
  *   3. 无 message 不渲染 <p>
- *   4. 默认 variant='empty' icon '○'
- *   5. variant='error' icon '⚠' + 错误样式类
- *   6. 自定义 icon 覆盖 variant 默认
+ *   4. 默认 variant='empty' 渲染 Lucide Inbox 图标
+ *   5. variant='error' 渲染 Lucide AlertTriangle + 错误样式类
+ *   6. 自定义 icon (string) 覆盖默认 Lucide 图标
  *   7. actionLabel 渲染 CTA 按钮
  *   8. 无 actionLabel 不渲染按钮
  *   9. 点击 CTA 触发 action emit
@@ -15,6 +15,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { Inbox, AlertTriangle } from 'lucide-vue-next'
 import EmptyStateCard from '../EmptyStateCard.vue'
 
 describe('EmptyStateCard — 基础渲染', () => {
@@ -41,27 +42,30 @@ describe('EmptyStateCard — 基础渲染', () => {
 })
 
 describe('EmptyStateCard — variant', () => {
-  it('默认 variant="empty"，icon 为 "○"', () => {
+  it('默认 variant="empty" 渲染 Lucide Inbox 图标', () => {
     const wrapper = mount(EmptyStateCard, {
       props: { title: '暂无' }
     })
     expect(wrapper.classes()).toContain('empty-state-card--empty')
-    expect(wrapper.find('.empty-state-icon').text()).toBe('○')
+    expect(wrapper.findComponent(Inbox).exists()).toBe(true)
+    expect(wrapper.findComponent(AlertTriangle).exists()).toBe(false)
   })
 
-  it('variant="error"，icon 为 "⚠" + error 样式类', () => {
+  it('variant="error" 渲染 Lucide AlertTriangle + error 样式类', () => {
     const wrapper = mount(EmptyStateCard, {
       props: { title: '加载失败', variant: 'error' }
     })
     expect(wrapper.classes()).toContain('empty-state-card--error')
-    expect(wrapper.find('.empty-state-icon').text()).toBe('⚠')
+    expect(wrapper.findComponent(AlertTriangle).exists()).toBe(true)
+    expect(wrapper.findComponent(Inbox).exists()).toBe(false)
   })
 
-  it('自定义 icon 覆盖 variant 默认', () => {
+  it('自定义 icon (string) 覆盖默认 Lucide 图标', () => {
     const wrapper = mount(EmptyStateCard, {
       props: { title: '自定义', icon: '🎉' }
     })
     expect(wrapper.find('.empty-state-icon').text()).toBe('🎉')
+    expect(wrapper.find('.empty-state-icon svg').exists()).toBe(false)
   })
 })
 

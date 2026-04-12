@@ -78,7 +78,7 @@
         :class="[`step-input-chip--${item.status}`, `step-input-chip--${item.kind}`]"
       >
         <span class="step-input-chip-icon" aria-hidden="true">
-          {{ chipIconFor(item.kind, item.status) }}
+          <component :is="chipIconFor(item.kind, item.status)" :size="14" />
         </span>
         <span class="step-input-chip-name" :title="item.file.name">
           {{ item.file.name }}
@@ -98,7 +98,7 @@
           :aria-label="`移除 ${item.file.name}`"
           @click="fileUpload.removeItem(item.localId)"
         >
-          ×
+          <X :size="14" />
         </button>
       </div>
     </div>
@@ -119,7 +119,7 @@
         :disabled="disabled"
         @click="triggerFilePicker"
       >
-        <span aria-hidden="true">📎</span>
+        <Paperclip :size="14" aria-hidden="true" />
         <span>上传文件</span>
       </button>
       <span v-if="fileUpload.isUploading.value" class="step-input-uploading-hint"> 上传中… </span>
@@ -128,7 +128,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
+import {
+  Paperclip,
+  X,
+  Image as ImageIcon,
+  FileText,
+  Loader2,
+  AlertTriangle,
+  HelpCircle
+} from 'lucide-vue-next'
 import { useFileUpload } from '@/views/sop/composables/useFileUpload'
 
 interface Props {
@@ -257,17 +266,17 @@ async function doUpload(files: File[]) {
 }
 
 /**
- * Chip 图标映射
+ * Chip 图标映射 —— 返回 Lucide 组件。
  */
 function chipIconFor(
   kind: 'image' | 'document' | 'unsupported',
   status: 'pending' | 'uploading' | 'success' | 'error'
-): string {
-  if (status === 'error') return '⚠'
-  if (status === 'uploading') return '⏳'
-  if (kind === 'image') return '🖼'
-  if (kind === 'document') return '📄'
-  return '?'
+): Component {
+  if (status === 'error') return AlertTriangle
+  if (status === 'uploading') return Loader2
+  if (kind === 'image') return ImageIcon
+  if (kind === 'document') return FileText
+  return HelpCircle
 }
 
 /**
@@ -409,8 +418,20 @@ defineExpose({
 
 .step-input-chip-icon {
   flex-shrink: 0;
-  font-size: var(--text-sm);
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
+  color: var(--color-text-muted);
+}
+
+.step-input-chip--uploading .step-input-chip-icon svg {
+  animation: step-input-spin 1s linear infinite;
+}
+
+@keyframes step-input-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .step-input-chip-name {

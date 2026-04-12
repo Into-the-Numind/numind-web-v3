@@ -26,7 +26,10 @@
 -->
 <template>
   <div class="empty-state-card" :class="`empty-state-card--${variant}`">
-    <div class="empty-state-icon" aria-hidden="true">{{ displayIcon }}</div>
+    <div class="empty-state-icon" aria-hidden="true">
+      <span v-if="icon">{{ icon }}</span>
+      <component v-else :is="defaultIconComponent" :size="32" :stroke-width="1.5" />
+    </div>
     <h3 class="empty-state-title">{{ title }}</h3>
     <p v-if="message" class="empty-state-message">{{ message }}</p>
     <button
@@ -43,6 +46,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Inbox, AlertTriangle } from 'lucide-vue-next'
 
 interface Props {
   variant?: 'empty' | 'error'
@@ -65,10 +69,7 @@ const emit = defineEmits<{
   action: []
 }>()
 
-const displayIcon = computed(() => {
-  if (props.icon) return props.icon
-  return props.variant === 'error' ? '⚠' : '○'
-})
+const defaultIconComponent = computed(() => (props.variant === 'error' ? AlertTriangle : Inbox))
 </script>
 
 <style scoped>

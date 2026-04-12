@@ -68,8 +68,8 @@
           data-testid="input-execute"
           @click="handleExecute"
         >
-          <ArrowRight :size="14" aria-hidden="true" />
-          <span>执行这一步</span>
+          <Sparkles :size="14" aria-hidden="true" />
+          <span>生成</span>
         </button>
         <button
           v-else
@@ -79,7 +79,7 @@
           @click="handleStop"
         >
           <Square :size="14" aria-hidden="true" />
-          <span>停止生成</span>
+          <span>停止</span>
         </button>
       </div>
     </div>
@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ArrowRight, Square } from 'lucide-vue-next'
+import { Sparkles, Square } from 'lucide-vue-next'
 import StepInput from './StepInput.vue'
 
 interface Props {

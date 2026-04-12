@@ -44,7 +44,7 @@
     </button>
     <button v-else type="button" class="btn btn--ghost chat__composer-btn" @click="handleStop">
       <Square :size="13" aria-hidden="true" />
-      <span>停止生成</span>
+      <span>停止</span>
     </button>
   </div>
 </template>
@@ -77,9 +77,7 @@ const emit = defineEmits<{
 const text = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
-const canSend = computed(
-  () => text.value.trim().length > 0 && !props.streaming && !props.disabled
-)
+const canSend = computed(() => text.value.trim().length > 0 && !props.streaming && !props.disabled)
 
 function handleSend() {
   if (!canSend.value) return
