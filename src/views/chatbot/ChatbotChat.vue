@@ -180,6 +180,21 @@ function handleStopStream() {
   store.cancelStream()
 }
 
+// ==================== Attachment display helpers ====================
+const ATTACHMENT_SEPARATOR = '\n\n---附件内容---'
+
+function getDisplayText(content: string): string {
+  const idx = content.indexOf(ATTACHMENT_SEPARATOR)
+  return idx === -1 ? content : content.slice(0, idx).trim()
+}
+
+function getAttachmentNames(content: string): string[] {
+  const sepIdx = content.indexOf('---附件内容---')
+  if (sepIdx === -1) return []
+  const section = content.slice(sepIdx)
+  return Array.from(section.matchAll(/【(.+?)】/g), (m) => m[1])
+}
+
 // ==================== Lifecycle ====================
 onMounted(async () => {
   document.body.classList.add('chatbot-chat-route')
@@ -322,7 +337,22 @@ onBeforeUnmount(() => {
                       :finished="true"
                     />
                     <div v-if="msg.role === 'assistant'" v-html="render(msg.content)"></div>
-                    <template v-else>{{ msg.content }}</template>
+                    <template v-else>
+                      <span>{{ getDisplayText(msg.content) }}</span>
+                      <div
+                        v-if="getAttachmentNames(msg.content).length > 0"
+                        class="msg-attachments"
+                      >
+                        <span
+                          v-for="name in getAttachmentNames(msg.content)"
+                          :key="name"
+                          class="msg-attachment-chip"
+                        >
+                          <Paperclip :size="11" />
+                          <span>{{ name }}</span>
+                        </span>
+                      </div>
+                    </template>
                   </div>
                 </div>
 
@@ -862,6 +892,28 @@ body.chatbot-chat-route #app {
   border-bottom-right-radius: 4px;
 }
 
+/* ===== User Bubble Attachment Chips ===== */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.msg-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
 .message-bubble.assistant {
   background: var(--surface);
   color: var(--text);
@@ -1308,8 +1360,6 @@ body.chatbot-chat-route #app {
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  margin-bottom: 4px;
 }
 
 .attachment-item {
