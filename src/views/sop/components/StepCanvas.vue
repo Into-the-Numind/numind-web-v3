@@ -126,9 +126,10 @@ defineEmits<{
   align-items: center;
 }
 
-/* trailing chat 模式：去掉 canvas padding，让 TrailingChat 自己管布局和滚动 */
+/* trailing chat 模式：撑满宽度 + 去掉 canvas padding，让 TrailingChat 自己管布局和滚动 */
 .canvas:has(> [data-testid='trailing-chat']) {
   padding: 0;
   overflow: hidden;
+  align-items: stretch;
 }
 </style>
