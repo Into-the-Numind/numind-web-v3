@@ -265,8 +265,6 @@ function handleToggleBookmark() {
 
 .output__body {
   padding: var(--space-xl) var(--space-2xl);
-  max-height: 620px;
-  overflow-y: auto;
 }
 
 /* ---------- foot ---------- */

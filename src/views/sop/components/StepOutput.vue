@@ -57,7 +57,12 @@
     <!-- 主内容滚动容器 -->
     <div ref="scrollContainerRef" class="step-output-scroll">
       <div v-if="hasContent" class="step-output-content prose" v-html="contentHtml" />
-      <!-- streaming 且无内容时不显示任何占位，等内容到来后直接渲染 -->
+      <!-- streaming 且无内容时显示加载动效 -->
+      <div v-else-if="streaming && !hasThinking" class="streaming-placeholder">
+        <span class="streaming-dot" />
+        <span class="streaming-dot" />
+        <span class="streaming-dot" />
+      </div>
     </div>
   </div>
 </template>
@@ -154,7 +159,7 @@ defineExpose({
   flex-direction: column;
   gap: var(--space-sm);
   width: 100%;
-  min-height: 80px;
+  height: 520px;
 }
 
 /* ==================== 空状态 ==================== */
@@ -165,6 +170,44 @@ defineExpose({
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   font-style: italic;
+}
+
+/* ==================== 流式加载占位 ==================== */
+
+.streaming-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-lg) var(--space-xl);
+}
+
+.streaming-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(158, 50%, 65%);
+  animation: dot-pulse 1.4s ease-in-out infinite;
+}
+
+.streaming-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.streaming-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dot-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* ==================== 思维链折叠面板（移植自 production） ==================== */
