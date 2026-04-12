@@ -175,15 +175,26 @@
         </div>
       </div>
     </template>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 interface LocalNode {
   localId: number
@@ -197,6 +208,7 @@ interface LocalNode {
 const route = useRoute()
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 
 const paramId = route.params.id as string
 const isCreate = ref(paramId === 'new')
@@ -206,6 +218,7 @@ const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
 const selectedIndex = ref(0)
+const initialFormState = ref('')
 let localIdCounter = 0
 
 const form = reactive({
@@ -226,6 +239,19 @@ function validateName() {
 
 const isFormValid = computed(() => form.name.trim().length > 0)
 
+const isDirty = computed(() => {
+  const current = JSON.stringify({
+    ...form,
+    nodes: nodes.value.map((n) => ({
+      name: n.name,
+      description: n.description,
+      prompt: n.prompt,
+      sort: n.sort
+    }))
+  })
+  return current !== initialFormState.value
+})
+
 function addStep() {
   if (nodes.value.length >= 20) return
   localIdCounter++
@@ -240,12 +266,36 @@ function addStep() {
   selectedIndex.value = nodes.value.length - 1
 }
 
-function removeStep(idx: number) {
-  if (!confirm('确认删除该步骤？')) return
-  nodes.value.splice(idx, 1)
-  if (selectedIndex.value >= nodes.value.length) {
-    selectedIndex.value = Math.max(0, nodes.value.length - 1)
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  action: () => Promise<unknown>
+} | null>(null)
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value.action()
   }
+}
+
+function removeStep(idx: number) {
+  confirmAction.value = {
+    title: '确认删除',
+    message: '确认删除该步骤？',
+    variant: 'danger',
+    confirmText: '删除',
+    action: async () => {
+      nodes.value.splice(idx, 1)
+      if (selectedIndex.value >= nodes.value.length) {
+        selectedIndex.value = Math.max(0, nodes.value.length - 1)
+      }
+      notifications.success('步骤已删除')
+    }
+  }
+  confirmVisible.value = true
 }
 
 function moveStep(idx: number, direction: number) {
@@ -286,6 +336,15 @@ async function loadDetail() {
         })
     }
     selectedIndex.value = nodes.value.length > 0 ? 0 : -1
+    initialFormState.value = JSON.stringify({
+      ...form,
+      nodes: nodes.value.map((n) => ({
+        name: n.name,
+        description: n.description,
+        prompt: n.prompt,
+        sort: n.sort
+      }))
+    })
   } catch {
     loadError.value = '加载失败，请重试'
   } finally {
@@ -348,7 +407,7 @@ async function handleSave() {
           sort: i
         })
         if (!ok) {
-          alert(`步骤 ${i + 1} 保存失败，请重试`)
+          notifications.error(`步骤 ${i + 1} 保存失败，请重试`)
           return
         }
       } else {
@@ -359,7 +418,7 @@ async function handleSave() {
           sort: i
         })
         if (!created) {
-          alert(`步骤 ${i + 1} 保存失败，请重试`)
+          notifications.error(`步骤 ${i + 1} 保存失败，请重试`)
           return
         }
         // 回填 serverId，避免保存失败重试时重复创建
@@ -374,13 +433,45 @@ async function handleSave() {
       await store.sortNodes(templateId, sortItems)
     }
 
+    initialFormState.value = JSON.stringify({
+      ...form,
+      nodes: nodes.value.map((n) => ({
+        name: n.name,
+        description: n.description,
+        prompt: n.prompt,
+        sort: n.sort
+      }))
+    })
+    notifications.success(isCreate.value ? 'SOP模板已创建' : '已保存')
     router.push('/config/sop-templates')
+  } catch {
+    notifications.error('保存失败，请重试')
   } finally {
     saving.value = false
   }
 }
 
-onMounted(loadDetail)
+onMounted(() => {
+  loadDetail()
+  if (isCreate.value) {
+    initialFormState.value = JSON.stringify({
+      ...form,
+      nodes: nodes.value.map((n) => ({
+        name: n.name,
+        description: n.description,
+        prompt: n.prompt,
+        sort: n.sort
+      }))
+    })
+  }
+})
+
+onBeforeRouteLeave(() => {
+  if (isDirty.value) {
+    return window.confirm('有未保存的改动，确定离开？')
+  }
+  return true
+})
 </script>
 
 <style scoped>
@@ -399,8 +490,8 @@ onMounted(loadDetail)
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f9fafb);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface-tint);
+  border-radius: var(--radius-md);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -420,7 +511,7 @@ onMounted(loadDetail)
 }
 
 .error-text {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   margin-bottom: 16px;
   font-size: 0.875rem;
 }
@@ -447,42 +538,44 @@ onMounted(loadDetail)
 .back-link {
   background: none;
   border: none;
-  color: var(--color-accent-link, #3b82f6);
+  color: var(--accent-link);
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0;
   margin-bottom: 8px;
   display: inline-block;
   text-align: left;
-  transition: color var(--transition-fast, 150ms ease);
+  transition: color var(--transition-fast);
 }
 
 .back-link:hover {
-  color: var(--color-accent-hover, #2563eb);
+  color: var(--accent-hover);
 }
 
 .page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  font-family: var(--font-heading);
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
 /* ── Meta Card ── */
 
 .meta-card {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 20px 24px;
   margin-bottom: 24px;
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  box-shadow: var(--shadow-card);
 }
 
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  font-family: var(--font-heading);
+  color: var(--text);
   margin-bottom: 16px;
 }
 
@@ -508,66 +601,66 @@ onMounted(loadDetail)
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 .label-required {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   font-weight: 400;
 }
 
 .form-hint {
   font-size: 0.75rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
 .form-textarea {
   padding: 10px 12px;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
   line-height: 1.5;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface);
+  color: var(--text);
   resize: vertical;
   font-family: inherit;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .form-textarea::placeholder {
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #26a86d);
-  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
 .form-input {
   height: 40px;
   padding: 0 12px;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface);
+  color: var(--text);
   font-family: inherit;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .form-input::placeholder {
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--color-accent, #26a86d);
-  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
 /* ── Split Layout ── */
@@ -583,13 +676,13 @@ onMounted(loadDetail)
 .step-panel {
   width: 280px;
   flex-shrink: 0;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-surface, #fff);
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 .panel-header {
@@ -597,39 +690,39 @@ onMounted(loadDetail)
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border-light, #eeeff3);
-  background: var(--color-surface-tint, #f9fafb);
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface-tint);
 }
 
 .panel-title {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
 }
 
 .panel-count {
   font-size: 0.75rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .panel-footer {
   padding: 12px 16px;
-  border-top: 1px solid var(--color-border-light, #eeeff3);
-  background: var(--color-surface-tint, #f9fafb);
+  border-top: 1px solid var(--border-light);
+  background: var(--surface-tint);
 }
 
 .add-step-btn {
   background: none;
-  border: 1px dashed var(--color-border, #e2e4ea);
+  border: 1px dashed var(--border);
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--color-accent-link, #26a86d);
+  color: var(--accent-link);
   padding: 8px 0;
   width: 100%;
-  border-radius: var(--radius-sm, 6px);
-  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
 .add-step-btn:disabled {
@@ -638,9 +731,9 @@ onMounted(loadDetail)
 }
 
 .add-step-btn:hover:not(:disabled) {
-  color: var(--color-accent-hover, #1e8b5a);
-  border-color: var(--color-accent-link, #26a86d);
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--accent-hover);
+  border-color: var(--accent-link);
+  background: var(--accent-ultra-soft);
 }
 
 .trailing-chat-toggle {
@@ -649,21 +742,21 @@ onMounted(loadDetail)
   gap: 8px;
   margin-top: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--color-border-light, #eeeff3);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   cursor: pointer;
-  transition: border-color var(--transition-fast, 150ms ease);
+  transition: border-color var(--transition-fast);
 }
 
 .trailing-chat-toggle:hover {
-  border-color: var(--color-accent-link, #26a86d);
+  border-color: var(--accent-link);
 }
 
 .trailing-chat-checkbox {
   margin-top: 2px;
   flex-shrink: 0;
-  accent-color: var(--color-accent-link, #26a86d);
+  accent-color: var(--accent-link);
   cursor: pointer;
 }
 
@@ -676,12 +769,12 @@ onMounted(loadDetail)
 }
 
 .trailing-chat-title {
-  color: var(--color-text, #1f2937);
+  color: var(--text);
   font-weight: 500;
 }
 
 .trailing-chat-hint {
-  color: var(--color-text-muted, #6b7280);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -708,7 +801,7 @@ onMounted(loadDetail)
 
 .empty-text {
   font-size: 0.8125rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .step-list {
@@ -722,8 +815,8 @@ onMounted(loadDetail)
   gap: 10px;
   padding: 10px 16px;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light, #eeeff3);
-  transition: all var(--transition-fast, 150ms ease);
+  border-bottom: 1px solid var(--border-light);
+  transition: all var(--transition-fast);
 }
 
 .step-item:last-child {
@@ -731,12 +824,12 @@ onMounted(loadDetail)
 }
 
 .step-item:hover {
-  background: var(--color-surface-hover, #f3f4f8);
+  background: var(--surface-hover);
 }
 
 .step-item.active {
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
-  box-shadow: inset 3px 0 0 var(--color-primary, #26a86d);
+  background: var(--accent-ultra-soft);
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .step-number {
@@ -744,25 +837,25 @@ onMounted(loadDetail)
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--color-surface-tint, #f3f4f8);
+  background: var(--surface-tint);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-text-muted, #8b90a0);
-  transition: all var(--transition-fast, 150ms ease);
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
 }
 
 .step-item.active .step-number {
-  background: var(--color-primary, #26a86d);
+  background: var(--primary);
   color: #fff;
 }
 
 .step-preview {
   flex: 1;
   font-size: 0.8125rem;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -777,7 +870,7 @@ onMounted(loadDetail)
   gap: 2px;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity var(--transition-fast, 150ms ease);
+  transition: opacity var(--transition-fast);
 }
 
 .step-item:hover .step-actions {
@@ -789,16 +882,16 @@ onMounted(loadDetail)
   border: none;
   cursor: pointer;
   font-size: 0.75rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   padding: 4px 6px;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   line-height: 1;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .step-action-btn:hover:not(:disabled) {
-  background: var(--color-surface-tint, #f3f4f8);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface-tint);
+  color: var(--text);
 }
 
 .step-action-btn:disabled {
@@ -811,21 +904,21 @@ onMounted(loadDetail)
 }
 
 .step-action-btn--danger:hover {
-  color: #ef4444;
-  background: #fef2f2;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 /* ── Detail Panel (Right) ── */
 
 .detail-panel {
   flex: 1;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-surface, #fff);
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 .detail-empty {
@@ -846,28 +939,28 @@ onMounted(loadDetail)
 .empty-title {
   font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--color-text-secondary, #5f6577);
+  color: var(--text-secondary);
 }
 
 .empty-hint {
   font-size: 0.8125rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .detail-header {
   padding: 12px 20px;
-  border-bottom: 1px solid var(--color-border-light, #eeeff3);
-  background: var(--color-surface-tint, #f9fafb);
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface-tint);
 }
 
 .detail-badge {
   display: inline-block;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-primary, #26a86d);
-  background: var(--color-accent-soft, hsl(160, 60%, 93%));
+  color: var(--primary);
+  background: var(--accent-soft);
   padding: 3px 10px;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
 }
 
 .detail-form {

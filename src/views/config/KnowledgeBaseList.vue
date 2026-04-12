@@ -79,6 +79,15 @@
       </div>
     </template>
 
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
+
     <!-- 新建知识库弹窗 -->
     <Teleport to="body">
       <Transition name="overlay-fade">
@@ -127,14 +136,27 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 const error = ref('')
 const showCreateModal = ref(false)
 const creating = ref(false)
+
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  successMsg?: string
+  action: () => Promise<unknown>
+} | null>(null)
 
 const createForm = reactive({
   name: '',
@@ -183,15 +205,34 @@ async function handleCreate() {
     })
     if (ok) {
       closeModal()
+      notifications.success('知识库已创建')
     }
   } finally {
     creating.value = false
   }
 }
 
-async function handleDelete(id: number) {
-  if (!confirm('确认删除该知识库？关联的智能体将自动解除绑定。此操作不可恢复。')) return
-  await store.removeKnowledgeBase(id)
+function handleDelete(id: number) {
+  confirmAction.value = {
+    title: '确认删除',
+    message: '确认删除该知识库？关联的智能体将自动解除绑定。此操作不可恢复。',
+    variant: 'danger',
+    confirmText: '删除',
+    successMsg: '已删除',
+    action: () => store.removeKnowledgeBase(id)
+  }
+  confirmVisible.value = true
+}
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    try {
+      await confirmAction.value.action()
+      notifications.success(confirmAction.value.successMsg ?? '操作成功')
+    } catch {
+      notifications.error('操作失败，请重试')
+    }
+  }
 }
 
 onMounted(loadData)
@@ -213,8 +254,8 @@ onMounted(loadData)
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f9fafb);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface-tint);
+  border-radius: var(--radius-md);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -234,7 +275,7 @@ onMounted(loadData)
 }
 
 .error-text {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   margin-bottom: 16px;
   font-size: 0.875rem;
 }
@@ -255,15 +296,16 @@ onMounted(loadData)
 }
 
 .page-title {
+  font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .page-desc {
   font-size: 0.8125rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 /* ── Empty State ── */
@@ -280,32 +322,32 @@ onMounted(loadData)
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: var(--color-surface-tint, #f9fafb);
-  color: var(--color-text-muted, #8b90a0);
+  background: var(--surface-tint);
+  color: var(--text-muted);
   margin-bottom: 20px;
 }
 
 .empty-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
   margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   margin-bottom: 24px;
 }
 
 /* ── Table Card ── */
 
 .table-card {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  box-shadow: var(--shadow-card);
 }
 
 .data-table {
@@ -319,26 +361,26 @@ onMounted(loadData)
   padding: 12px 20px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--color-border, #e2e4ea);
-  background: var(--color-surface-tint, #f9fafb);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-tint);
   white-space: nowrap;
 }
 
 .data-table td {
   padding: 14px 20px;
-  border-bottom: 1px solid var(--color-border-light, #eeeff3);
-  color: var(--color-text, #1a1d26);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text);
 }
 
 .data-table tbody tr {
-  transition: background var(--transition-fast, 150ms ease);
+  transition: background var(--transition-fast);
 }
 
 .data-table tbody tr:hover {
-  background: var(--color-surface-hover, #f3f4f8);
+  background: var(--surface-hover);
 }
 
 .data-table tbody tr:last-child td {
@@ -350,7 +392,7 @@ onMounted(loadData)
 }
 
 .cell-secondary {
-  color: var(--color-text-secondary, #5f6577);
+  color: var(--text-secondary);
 }
 
 .col-action {
@@ -370,24 +412,24 @@ onMounted(loadData)
   border: none;
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-link, #26a86d);
+  color: var(--accent-link);
   padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
 .action-link:hover {
-  color: var(--color-accent-hover, #1e8b5a);
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--accent-hover);
+  background: var(--accent-ultra-soft);
 }
 
 .action--danger {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 .action--danger:hover {
-  color: #dc2626;
-  background: #fef2f2;
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 /* ── Modal ── */
@@ -399,15 +441,15 @@ onMounted(loadData)
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-modal, 500);
+  z-index: var(--z-modal);
 }
 
 .modal-dialog {
-  background: var(--color-surface, #fff);
-  border-radius: var(--radius-lg, 16px);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
   width: 440px;
   max-width: 90vw;
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.06));
+  box-shadow: var(--shadow-lg);
 }
 
 .modal-header {
@@ -420,7 +462,8 @@ onMounted(loadData)
 .modal-title {
   font-size: 1.0625rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  font-family: var(--font-heading);
+  color: var(--text);
 }
 
 .modal-close {
@@ -428,16 +471,16 @@ onMounted(loadData)
   border: none;
   cursor: pointer;
   font-size: 1.25rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   padding: 4px 6px;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   line-height: 1;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .modal-close:hover {
-  color: var(--color-text, #1a1d26);
-  background: var(--color-surface-hover, #f3f4f8);
+  color: var(--text);
+  background: var(--surface-hover);
 }
 
 .modal-body {
@@ -452,7 +495,7 @@ onMounted(loadData)
   justify-content: flex-end;
   gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid var(--color-border-light, #eeeff3);
+  border-top: 1px solid var(--border-light);
 }
 
 .form-group {
@@ -464,30 +507,30 @@ onMounted(loadData)
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
 }
 
 .form-textarea {
   padding: 10px 12px;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
   line-height: 1.5;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface);
+  color: var(--text);
   resize: vertical;
   font-family: inherit;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .form-textarea::placeholder {
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #26a86d);
-  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
 /* ── Transitions ── */
