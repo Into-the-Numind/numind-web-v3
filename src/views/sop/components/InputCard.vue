@@ -5,7 +5,7 @@
     - 提供 mockup 02 的 .card 视觉外壳（label + 输入区 + toolbar）
     - 嵌入 StepInput 复用其 textarea + 文件上传 + compose 逻辑
     - toolbar：字数统计（"N / max"）+ 主按钮（执行 / 停止）
-    - isExecuting 时切换按钮为"停止生成"（ghost 变体）并禁用 textarea
+    - isExecuting 时切换按钮为"停止"（ghost 变体）并禁用 textarea
 
   ## 封装策略
 
@@ -33,7 +33,7 @@
   ## Emits
 
   - execute — 点击主按钮。参数为 compose 后的完整文本（含上传结果）
-  - stop — 点击停止生成按钮（isExecuting=true 时）
+  - stop — 点击停止按钮（isExecuting=true 时）
 -->
 <template>
   <div class="input-card" data-testid="input-card">

@@ -243,6 +243,32 @@ describe('sopRun store — viewingStep 双指针', () => {
     expect(s.viewingStep).toBe(3)
   })
 
+  // ---- 回归测试：onDone contract ----
+  //
+  // 背景：sop-runtime-vue-rewrite F4 发现"执行完自动前进到下一步"会覆盖 AI 输出，
+  // 已修复为停留在 done-current。但 sop-runtime-visual-redesign 重构时回归，
+  // 又在 SOPRunView executeNode onDone 里加回了 advanceCurrentStep 调用。
+  // 本测试锁定 store 级契约：仅靠 markNodeComplete 即应进入 done-current 态，
+  // SOPRunView 的 onDone 不应调 advanceCurrentStep。如果 store 语义被改动
+  // 使得必须靠 advanceCurrentStep 才能进入 done-current，此测试会失败。
+
+  it('onDone 契约：markNodeComplete 即可进入 done-current，无需 advanceCurrentStep', () => {
+    const s = useSopRunStore()
+    s.template = makeTemplate()
+    s.nodes = makeNodes(3)
+    s.currentStep = 1
+    s.viewingStep = 1
+    // 模拟 SOPRunView executeNode onDone 的最小状态变更序列（不调 advanceCurrentStep）
+    const firstNode = s.nodes[0]
+    s.markNodeComplete(firstNode.id)
+    // 契约：
+    //   - 完成后停留在 step 1（currentStep / viewingStep 均未前进）
+    //   - viewingStepStatus === 'done-current'（completedNodeIds 包含 viewingNode.id）
+    expect(s.currentStep).toBe(1)
+    expect(s.viewingStep).toBe(1)
+    expect(s.viewingStepStatus).toBe('done-current')
+  })
+
   // ---- refreshNodeRun ----
 
   it('refreshNodeRun：合并 model_name / latency_ms / total_tokens 到 nodeRuns', async () => {

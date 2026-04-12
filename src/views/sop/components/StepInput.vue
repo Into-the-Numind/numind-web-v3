@@ -77,7 +77,11 @@
         class="step-input-chip"
         :class="[`step-input-chip--${item.status}`, `step-input-chip--${item.kind}`]"
       >
-        <span class="step-input-chip-icon" aria-hidden="true">
+        <span
+          class="step-input-chip-icon"
+          :class="{ 'u-spin': item.status === 'uploading' }"
+          aria-hidden="true"
+        >
           <component :is="chipIconFor(item.kind, item.status)" :size="14" />
         </span>
         <span class="step-input-chip-name" :title="item.file.name">
@@ -423,16 +427,7 @@ defineExpose({
   line-height: 1;
   color: var(--color-text-muted);
 }
-
-.step-input-chip--uploading .step-input-chip-icon svg {
-  animation: step-input-spin 1s linear infinite;
-}
-
-@keyframes step-input-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* 旋转动画用全局 .u-spin 工具类（main.css），此处不再定义局部 keyframes */
 
 .step-input-chip-name {
   flex: 1;

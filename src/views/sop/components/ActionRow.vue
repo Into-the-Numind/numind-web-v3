@@ -49,7 +49,7 @@
 
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { ArrowLeft, ArrowRight, RotateCw } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Check, RotateCw } from 'lucide-vue-next'
 
 interface ActionConfig {
   label: string
@@ -75,7 +75,8 @@ const emit = defineEmits<{
 const ICON_MAP: Record<string, Component> = {
   'arrow-right': ArrowRight,
   'arrow-left': ArrowLeft,
-  'rotate-cw': RotateCw
+  'rotate-cw': RotateCw,
+  check: Check
 }
 
 function resolveIcon(key?: string): Component | null {

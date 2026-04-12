@@ -4,7 +4,7 @@
   职责：
     - 固定在 TrailingChat 底部的 textarea + 发送按钮
     - Enter 发送 / Shift+Enter 换行
-    - streaming 时按钮切换为"停止生成" ghost 样式
+    - streaming 时按钮切换为"停止" ghost 样式
     - 不支持附件上传（后端未支持）
 
   DOM class 对齐 mockup state F：`.chat__composer`（见 02-additional-states.html）。
@@ -17,7 +17,7 @@
   ## Emits
 
   - send(text) — 用户按 Enter 或点击发送按钮（text 已 trim 且非空）
-  - stop() — streaming 时点击"停止生成"按钮
+  - stop() — streaming 时点击"停止"按钮
 
   详见 spec §5.2 + §3.2 state F + plan Task F10
 -->
@@ -56,7 +56,7 @@ import { Send, Square } from 'lucide-vue-next'
 interface Props {
   /** 是否禁用 textarea (independent of streaming, e.g. while loading) */
   disabled?: boolean
-  /** 是否正在流式生成（控制按钮形态：发送 → 停止生成） */
+  /** 是否正在流式生成（控制按钮形态：发送 → 停止） */
   streaming?: boolean
   placeholder?: string
 }

@@ -58,7 +58,8 @@ export const useSopRunStore = defineStore('sopRun', () => {
    * 当前任务指针（1-based）。
    *
    * 语义（F1 重定义）：用户当前"应该在做"的步骤。
-   * 由后端执行进度推进（onDone → advanceCurrentStep）。
+   * 由用户点击"下一步"按钮推进（handlePrimary → advanceCurrentStep）。
+   * 完成节点时不自动推进，保持在完成态（done-current）供用户手动前进。
    * 不变量：`viewingStep <= currentStep`（不能看未来）。
    */
   const currentStep = ref<number>(1)
@@ -389,10 +390,14 @@ export const useSopRunStore = defineStore('sopRun', () => {
   }
 
   /**
-   * 推进 currentStep 到下一步，并同步 viewingStep（节点执行完成后 onDone 调用）。
+   * 推进 currentStep 到下一步，并同步 viewingStep。
    *
-   * 行为：如果已到最后一步则不动；否则 currentStep += 1 且 viewingStep 同步。
-   * 这保证"执行完自动 focus 下一步"的流程。
+   * 调用时机：由 SOPRunView 的 handlePrimary（done-current 态"下一步"按钮）触发，
+   * **不**在 executeNode onDone 中自动调用 —— 完成节点后停留在 done-current 态，
+   * 等用户手动点击"下一步"。
+   *
+   * 行为：如果已到最后一步则 no-op（SOPRunView 的 handlePrimary 会检测并走完成态）；
+   * 否则 currentStep += 1 且 viewingStep 同步。
    */
   function advanceCurrentStep(): void {
     if (currentStep.value >= totalSteps.value) return

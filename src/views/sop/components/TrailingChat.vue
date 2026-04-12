@@ -25,7 +25,7 @@
   ## Emits
 
   - send(text) — 用户发送问题
-  - stop() — 用户点击停止生成
+  - stop() — 用户点击停止
   - error(msg) — 加载历史失败
 
   DOM class 对齐 mockup state F：`.chat` / `.chat__history` / `.chat__empty`

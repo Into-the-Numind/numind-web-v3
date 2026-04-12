@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
                 <button
                   v-if="store.streaming"
                   class="stop-btn"
-                  title="停止生成"
+                  title="停止"
                   @click="handleStopStream"
                 >
                   <Square :size="16" />

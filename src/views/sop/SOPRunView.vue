@@ -294,7 +294,13 @@ async function doRegenerate() {
 }
 
 function handlePrimary() {
-  // done-current 态的"下一步" → advanceCurrentStep
+  // done-current 态的 primary 按钮：
+  //   - 非最后一步 → 推进 currentStep（"下一步"）
+  //   - 最后一步 → SOP 完成，返回首页（按钮文案由 SopStepView 的 isFinalStep 切换为"完成"）
+  if (store.currentStep >= store.totalSteps) {
+    handleBackHome()
+    return
+  }
   store.advanceCurrentStep()
 }
 

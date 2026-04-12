@@ -77,6 +77,22 @@ select {
   background: var(--color-text-muted);
 }
 
+/* ===== Animation Utilities ===== */
+
+/**
+ * 全局 spin 动画工具类 —— 用于 loading 图标等旋转效果。
+ * 用法：在需要旋转的元素或内部 svg 上加 class="u-spin"。
+ */
+@keyframes u-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.u-spin {
+  animation: u-spin 1s linear infinite;
+}
+
 /* ===== Mobile Global ===== */
 @media (max-width: 768px) {
   :root {

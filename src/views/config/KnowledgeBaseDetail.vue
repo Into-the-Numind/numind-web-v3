@@ -82,6 +82,14 @@
       <div class="doc-section">
         <h3 class="section-title">文档列表（{{ detail.documents?.length ?? 0 }}）</h3>
 
+        <!-- 轮询超时提示：后端仍在处理，引导用户手动刷新 -->
+        <div v-if="pollTimedOut" class="poll-timeout-banner">
+          <span>后端仍在处理部分文档，刷新可获取最新状态</span>
+          <AppButton variant="secondary" size="sm" @click="handleManualRefresh">
+            手动刷新
+          </AppButton>
+        </div>
+
         <div v-if="!detail.documents || detail.documents.length === 0" class="doc-empty">
           暂无文档，请上传文件
         </div>
@@ -152,43 +160,78 @@ const docLimitReached = computed(() => {
 })
 
 // 文档状态轮询：上传后后端 pipeline 异步处理，需持续刷新直到所有文档进入终态
+//
+// 所有可能状态枚举（与 docStatusLabel 保持同步）：
+//   pending / parsing / embedding — 非终态
+//   completed / failed            — 终态
+const DOC_STATUSES = {
+  pending: '待处理',
+  parsing: '解析中',
+  embedding: '向量化中',
+  completed: '已完成',
+  failed: '失败'
+} as const
+type DocStatus = keyof typeof DOC_STATUSES
+const TERMINAL_STATUSES: readonly DocStatus[] = ['completed', 'failed']
+
 const POLL_INTERVAL_MS = 1000
 const POLL_MAX_TICKS = 90
-const TERMINAL_STATUSES = ['completed', 'failed']
-const pollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-const pollTicks = ref(0)
+
+// 非响应式（模板不消费）
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+let pollTicks = 0
+// 组件卸载标志 —— 防止 handleFileSelect 的 in-flight promise resolve
+// 后再 schedulePoll，导致 timer 在已卸载组件上运行（P1 race fix）
+let cancelled = false
+
+// 轮询超时后展示的"仍在处理，手动刷新"banner 状态（响应式，模板消费）
+const pollTimedOut = ref(false)
 
 function hasPendingDocs(): boolean {
   const docs = detail.value?.documents ?? []
-  return docs.some((d) => !TERMINAL_STATUSES.includes(d.status.toLowerCase()))
+  return docs.some((d) => !TERMINAL_STATUSES.includes(d.status.toLowerCase() as DocStatus))
 }
 
 function stopPolling() {
-  if (pollTimer.value) {
-    clearTimeout(pollTimer.value)
-    pollTimer.value = null
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
   }
-  pollTicks.value = 0
+  pollTicks = 0
 }
 
 function schedulePoll() {
   stopPolling()
+  if (cancelled) return
   if (!hasPendingDocs()) return
+  pollTimedOut.value = false
   const tick = async () => {
-    pollTicks.value += 1
-    try {
-      const res = await store.fetchKBDetail(kbId)
-      if (res) detail.value = res
-    } catch {
-      // 静默失败，保留上一次 detail
+    if (cancelled) return
+    pollTicks += 1
+    // store.fetchKBDetail 内部吞错返回 null，无需 try/catch
+    const res = await store.fetchKBDetail(kbId)
+    if (cancelled) return
+    if (res) detail.value = res
+    if (!hasPendingDocs()) {
+      stopPolling()
+      return
     }
-    if (hasPendingDocs() && pollTicks.value < POLL_MAX_TICKS) {
-      pollTimer.value = setTimeout(tick, POLL_INTERVAL_MS)
+    if (pollTicks < POLL_MAX_TICKS) {
+      pollTimer = setTimeout(tick, POLL_INTERVAL_MS)
     } else {
+      // 超时但后端仍可能在处理；展示手动刷新 banner，停止轮询
+      pollTimedOut.value = true
       stopPolling()
     }
   }
-  pollTimer.value = setTimeout(tick, POLL_INTERVAL_MS)
+  pollTimer = setTimeout(tick, POLL_INTERVAL_MS)
+}
+
+/** banner 手动刷新 —— 重新加载并若仍有非终态文档继续轮询 */
+async function handleManualRefresh() {
+  pollTimedOut.value = false
+  await loadDetail()
+  schedulePoll()
 }
 
 // Meta editing
@@ -211,14 +254,7 @@ function formatSize(bytes: number): string {
 }
 
 function docStatusLabel(status: string): string {
-  const map: Record<string, string> = {
-    pending: '待处理',
-    parsing: '解析中',
-    embedding: '向量化中',
-    completed: '已完成',
-    failed: '失败'
-  }
-  return map[status.toLowerCase()] ?? status
+  return DOC_STATUSES[status.toLowerCase() as DocStatus] ?? status
 }
 
 function validateMetaName() {
@@ -335,7 +371,10 @@ onMounted(async () => {
   schedulePoll()
 })
 
-onUnmounted(stopPolling)
+onUnmounted(() => {
+  cancelled = true
+  stopPolling()
+})
 </script>
 
 <style scoped>
@@ -550,6 +589,20 @@ onUnmounted(stopPolling)
   padding: 40px 0;
   font-size: 0.875rem;
   color: var(--color-text-muted, #8b90a0);
+}
+
+.poll-timeout-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.8125rem;
+  color: #92400e;
 }
 
 /* ── Table Card ── */

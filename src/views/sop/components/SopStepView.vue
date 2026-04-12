@@ -130,6 +130,12 @@ const hasBookmark = computed(() =>
 const isExecuting = computed(() => props.status === 'executing')
 const isDoneCurrent = computed(() => props.status === 'done-current')
 const isDoneHistory = computed(() => props.status === 'done-history')
+
+/**
+ * 是否是 SOP 的最后一步：done-current 态下 currentStep 已到达 totalSteps 时为 true。
+ * 此时 advanceCurrentStep 无法再推进，primary 按钮改为"完成"触发完成态处理。
+ */
+const isFinalStep = computed(() => isDoneCurrent.value && store.currentStep >= store.totalSteps)
 const isInputState = computed(
   () => props.status === 'active' || props.status === 'draft-first' || props.status === 'executing'
 )
@@ -293,10 +299,13 @@ defineExpose({
       @stop="handleStop"
     />
 
-    <!-- Action row：done-current 态才渲染"下一步"+"重新生成" -->
+    <!-- Action row：done-current 态才渲染
+         最后一步时 primary 变为"完成"（触发 SOP 完成态处理），其它步骤为"下一步" -->
     <ActionRow
       v-if="isDoneCurrent"
-      :primary="{ label: '下一步', icon: 'arrow-right' }"
+      :primary="
+        isFinalStep ? { label: '完成', icon: 'check' } : { label: '下一步', icon: 'arrow-right' }
+      "
       :secondary="{ label: '重新生成', icon: 'rotate-cw' }"
       @primary="handlePrimary"
       @secondary="handleSecondary"

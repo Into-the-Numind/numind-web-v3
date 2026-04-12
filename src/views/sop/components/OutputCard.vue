@@ -21,7 +21,7 @@
     - hasBookmark: ⭐ 是否已收藏（控制 filled vs outline）
 
   ## Emits（spec §5.2）
-    - stop: 点击"停止生成"
+    - stop: 点击"停止"
     - copy: 点击"复制"
     - regenerate: 重新生成（由外层 ActionRow/F11 主容器触发，本组件预留接口）
     - toggle-bookmark: 点击 ⭐

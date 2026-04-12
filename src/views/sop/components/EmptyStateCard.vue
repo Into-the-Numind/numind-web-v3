@@ -27,7 +27,13 @@
 <template>
   <div class="empty-state-card" :class="`empty-state-card--${variant}`">
     <div class="empty-state-icon" aria-hidden="true">
-      <span v-if="icon">{{ icon }}</span>
+      <span v-if="typeof icon === 'string' && icon">{{ icon }}</span>
+      <component
+        v-else-if="icon && typeof icon !== 'string'"
+        :is="icon"
+        :size="32"
+        :stroke-width="1.5"
+      />
       <component v-else :is="defaultIconComponent" :size="32" :stroke-width="1.5" />
     </div>
     <h3 class="empty-state-title">{{ title }}</h3>
@@ -45,12 +51,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { Inbox, AlertTriangle } from 'lucide-vue-next'
 
 interface Props {
   variant?: 'empty' | 'error'
-  icon?: string
+  /** 自定义图标：string (emoji/unicode) 或 Lucide Component 覆盖默认变体图标 */
+  icon?: string | Component
   title: string
   message?: string
   actionLabel?: string
@@ -59,7 +66,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   variant: 'empty',
-  icon: '',
+  icon: undefined,
   message: '',
   actionLabel: '',
   actionDisabled: false
