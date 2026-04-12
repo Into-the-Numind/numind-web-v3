@@ -31,7 +31,10 @@
       </div>
 
       <!-- Empty -->
-      <div v-else-if="messages.length === 0 && !streamingMessage" class="chat__empty">
+      <div
+        v-else-if="messages.length === 0 && !pendingUserMessage && !streamingMessage"
+        class="chat__empty"
+      >
         <div class="chat__empty-title">从这里开始追问</div>
         <div class="chat__empty-hint">基于上方 SOP 执行结果，继续和 AI 对话</div>
       </div>
@@ -46,6 +49,13 @@
             :meta="extractMeta(msg)"
             @copy="handleCopy"
           />
+          <!-- 用户刚发送的消息（API 尚未持久化，由父组件传入即时显示） -->
+          <ChatBubble
+            v-if="pendingUserMessage"
+            :key="pendingUserMessage.id"
+            :message="pendingUserMessage"
+          />
+          <!-- AI 流式回复 -->
           <ChatBubble
             v-if="streamingMessage"
             :key="streamingMessage.id"
@@ -77,6 +87,8 @@ interface Props {
   conversationId?: string
   streaming?: boolean
   streamingMessage?: ChatBubbleMessage | null
+  /** 用户刚发送的消息（尚未持久化），立即显示在消息列表末尾 */
+  pendingUserMessage?: ChatBubbleMessage | null
   reloadTrigger?: number
 }
 
@@ -84,6 +96,7 @@ const props = withDefaults(defineProps<Props>(), {
   conversationId: '',
   streaming: false,
   streamingMessage: null,
+  pendingUserMessage: null,
   reloadTrigger: 0
 })
 

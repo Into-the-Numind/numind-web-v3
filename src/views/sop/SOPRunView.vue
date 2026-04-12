@@ -74,6 +74,7 @@
           :current-step-name="store.currentNode?.name ?? ''"
           :chat-streaming="chatStreaming"
           :chat-streaming-message="chatStreamingMessage"
+          :chat-pending-user-message="chatPendingUserMessage"
           :chat-reload-trigger="chatReloadTrigger"
           @execute="handleExecute"
           @stop="handleStop"
@@ -160,6 +161,8 @@ const pendingRegenerateText = ref<string>('')
 // ===== Trailing chat 流式状态 =====
 const chatStreaming = ref(false)
 const chatStreamingMessage = ref<ChatBubbleMessage | null>(null)
+/** 用户刚发送的消息（立即显示，API 持久化前） */
+const chatPendingUserMessage = ref<ChatBubbleMessage | null>(null)
 /** F11 fix P1-3: trigger TrailingChat reload after chat onDone (so finished message stays visible) */
 const chatReloadTrigger = ref(0)
 let tempMsgCounter = 0
@@ -186,6 +189,14 @@ async function initialize() {
       const idx = store.nodes.findIndex((n) => n.id === store.nextNodeId)
       if (idx >= 0) {
         store.setActiveStep(idx + 1)
+      } else if (store.completedNodeIds.size > 0) {
+        // nextNodeId 为 null → 运行已结束；将 currentStep 设为最后一个已完成步骤，
+        // 使所有已完成步骤的导航按钮可点击
+        const maxCompletedStep = store.nodes.reduce(
+          (max, n, i) => (store.completedNodeIds.has(n.id) ? i + 1 : max),
+          1
+        )
+        store.setActiveStep(maxCompletedStep)
       }
       store.setViewingStep(store.currentStep)
     } else {
@@ -462,6 +473,13 @@ async function handleChatSend(question: string) {
     return
   }
 
+  // 立即显示用户消息气泡
+  chatPendingUserMessage.value = {
+    id: makeTempId(),
+    role: 'user',
+    content: question
+  }
+
   chatStreaming.value = true
   chatStreamingMessage.value = {
     id: makeTempId(),
@@ -506,12 +524,14 @@ async function handleChatSend(question: string) {
       onDone: () => {
         chatStreaming.value = false
         chatStreamingMessage.value = null
+        chatPendingUserMessage.value = null
         // P1-3 fix: trigger TrailingChat reload so just-finished message stays visible
         chatReloadTrigger.value++
       },
       onError: (msg) => {
         chatStreaming.value = false
         chatStreamingMessage.value = null
+        chatPendingUserMessage.value = null
         notifications.error(msg)
       }
     }
@@ -522,6 +542,7 @@ function handleChatStop() {
   sseStream.abort()
   chatStreaming.value = false
   chatStreamingMessage.value = null
+  chatPendingUserMessage.value = null
 }
 
 // ===== API base URL 辅助 =====
