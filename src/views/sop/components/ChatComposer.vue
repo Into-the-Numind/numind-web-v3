@@ -120,11 +120,14 @@ defineExpose({ text, textareaRef })
 
 <style scoped>
 .composer {
-  padding: var(--space-md) var(--space-2xl) var(--space-2xl);
+  flex-shrink: 0;
+  padding: var(--space-lg) var(--space-2xl) var(--space-2xl);
   display: flex;
   justify-content: center;
   position: relative;
   z-index: 20;
+  background: linear-gradient(to bottom, transparent 0%, var(--bg, #f8f9fb) 20%);
+  padding-top: var(--space-3xl);
 }
 
 .composer__container {

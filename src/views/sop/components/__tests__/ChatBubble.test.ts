@@ -48,7 +48,8 @@ describe('ChatBubble — 用户消息', () => {
       props: { message: makeMessage({ id: 1, role: 'user', content: '我有个问题' }) }
     })
     expect(wrapper.classes()).toContain('chat-bubble--user')
-    expect(wrapper.find('.chat-bubble-avatar--user').exists()).toBe(true)
+    // 用户消息不显示 avatar（Gemini 风格）
+    expect(wrapper.find('.chat-bubble-avatar--user').exists()).toBe(false)
     expect(wrapper.html()).toContain('我有个问题')
   })
 

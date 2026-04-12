@@ -121,6 +121,9 @@ defineEmits<{
   font-family: var(--font-sans);
   color: var(--text);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* trailing chat 模式：去掉 canvas padding，让 TrailingChat 自己管布局和滚动 */

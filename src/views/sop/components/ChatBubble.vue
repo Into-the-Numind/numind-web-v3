@@ -113,14 +113,7 @@
       </div>
     </div>
 
-    <!-- 用户头像（右侧） -->
-    <div
-      v-if="message.role === 'user'"
-      class="chat-bubble-avatar chat-bubble-avatar--user"
-      aria-hidden="true"
-    >
-      我
-    </div>
+    <!-- 用户头像已移除 — 用户消息无 avatar，靠右气泡即可 -->
   </div>
 </template>
 
@@ -242,9 +235,7 @@ watch(
   background: var(--primary);
 }
 
-.chat-bubble-avatar--user {
-  background: var(--color-text-secondary);
-}
+/* 用户 avatar 已移除 */
 
 /* ==================== Body ==================== */
 
@@ -254,7 +245,7 @@ watch(
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  max-width: calc(100% - 40px);
+  max-width: 85%;
 }
 
 .chat-bubble--user .chat-bubble-body {
