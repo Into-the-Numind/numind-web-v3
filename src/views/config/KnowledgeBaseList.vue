@@ -79,6 +79,15 @@
       </div>
     </template>
 
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
+
     <!-- 新建知识库弹窗 -->
     <Teleport to="body">
       <Transition name="overlay-fade">
@@ -129,12 +138,22 @@ import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useConfigStore()
 const error = ref('')
 const showCreateModal = ref(false)
 const creating = ref(false)
+
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  action: () => Promise<unknown>
+} | null>(null)
 
 const createForm = reactive({
   name: '',
@@ -189,9 +208,21 @@ async function handleCreate() {
   }
 }
 
-async function handleDelete(id: number) {
-  if (!confirm('确认删除该知识库？关联的智能体将自动解除绑定。此操作不可恢复。')) return
-  await store.removeKnowledgeBase(id)
+function handleDelete(id: number) {
+  confirmAction.value = {
+    title: '确认删除',
+    message: '确认删除该知识库？关联的智能体将自动解除绑定。此操作不可恢复。',
+    variant: 'danger',
+    confirmText: '删除',
+    action: () => store.removeKnowledgeBase(id)
+  }
+  confirmVisible.value = true
+}
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value.action()
+  }
 }
 
 onMounted(loadData)

@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
@@ -125,6 +125,7 @@ const editId = isCreate ? 0 : Number(paramId)
 const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
+const initialFormState = ref('')
 const kbLoading = ref(false)
 const allKbs = ref<KnowledgeBase[]>([])
 const selectedKbIds = ref<Set<number>>(new Set())
@@ -152,6 +153,11 @@ function validatePrompt() {
 
 const isFormValid = computed(() => {
   return form.name.trim().length > 0 && form.system_prompt.trim().length > 0
+})
+
+const isDirty = computed(() => {
+  const current = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
+  return current !== initialFormState.value
 })
 
 function toggleKb(id: number) {
@@ -182,6 +188,7 @@ async function loadDetail() {
     if (detail.knowledge_bases) {
       selectedKbIds.value = new Set(detail.knowledge_bases.map((kb) => kb.id))
     }
+    initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
   } catch {
     loadError.value = '加载失败，请重试'
   } finally {
@@ -223,6 +230,7 @@ async function handleSubmit() {
     }
 
     if (ok) {
+      initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
       router.push('/config/chatbots')
     }
   } finally {
@@ -233,6 +241,16 @@ async function handleSubmit() {
 onMounted(() => {
   loadDetail()
   loadKbs()
+  if (isCreate) {
+    initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
+  }
+})
+
+onBeforeRouteLeave(() => {
+  if (isDirty.value) {
+    return window.confirm('有未保存的改动，确定离开？')
+  }
+  return true
 })
 </script>
 

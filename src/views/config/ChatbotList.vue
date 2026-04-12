@@ -108,6 +108,15 @@
         </table>
       </div>
     </template>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
   </div>
 </template>
 
@@ -116,11 +125,21 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatbotStatus } from '@/types/config'
 
 const router = useRouter()
 const store = useConfigStore()
 const error = ref('')
+
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  action: () => Promise<unknown>
+} | null>(null)
 
 function statusLabel(status: ChatbotStatus): string {
   const map: Record<ChatbotStatus, string> = {
@@ -145,19 +164,43 @@ async function loadData() {
   }
 }
 
-async function handlePublish(id: number) {
-  if (!confirm('确认发布该智能体？')) return
-  await store.setChatbotStatus(id, 'published')
+function handlePublish(id: number) {
+  confirmAction.value = {
+    title: '确认发布',
+    message: '确认发布该智能体？',
+    variant: 'default',
+    confirmText: '发布',
+    action: () => store.setChatbotStatus(id, 'published')
+  }
+  confirmVisible.value = true
 }
 
-async function handleOffline(id: number) {
-  if (!confirm('确认下线该智能体？下线后用户将无法使用。')) return
-  await store.setChatbotStatus(id, 'draft')
+function handleOffline(id: number) {
+  confirmAction.value = {
+    title: '确认下线',
+    message: '确认下线该智能体？下线后用户将无法使用。',
+    variant: 'danger',
+    confirmText: '下线',
+    action: () => store.setChatbotStatus(id, 'draft')
+  }
+  confirmVisible.value = true
 }
 
-async function handleDelete(id: number) {
-  if (!confirm('确认删除该智能体？此操作不可恢复。')) return
-  await store.removeChatbot(id)
+function handleDelete(id: number) {
+  confirmAction.value = {
+    title: '确认删除',
+    message: '确认删除该智能体？此操作不可恢复。',
+    variant: 'danger',
+    confirmText: '删除',
+    action: () => store.removeChatbot(id)
+  }
+  confirmVisible.value = true
+}
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value.action()
+  }
 }
 
 onMounted(loadData)

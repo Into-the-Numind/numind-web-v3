@@ -104,6 +104,15 @@
         </table>
       </div>
     </template>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
   </div>
 </template>
 
@@ -112,10 +121,20 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useConfigStore()
 const error = ref('')
+
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  action: () => Promise<unknown>
+} | null>(null)
 
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
@@ -140,19 +159,43 @@ async function loadData() {
   }
 }
 
-async function handlePublish(id: number) {
-  if (!confirm('确认发布该SOP模板？')) return
-  await store.setSopTemplateStatus(id, 'published')
+function handlePublish(id: number) {
+  confirmAction.value = {
+    title: '确认发布',
+    message: '确认发布该SOP模板？',
+    variant: 'default',
+    confirmText: '发布',
+    action: () => store.setSopTemplateStatus(id, 'published')
+  }
+  confirmVisible.value = true
 }
 
-async function handleOffline(id: number) {
-  if (!confirm('确认下线该SOP模板？')) return
-  await store.setSopTemplateStatus(id, 'draft')
+function handleOffline(id: number) {
+  confirmAction.value = {
+    title: '确认下线',
+    message: '确认下线该SOP模板？',
+    variant: 'danger',
+    confirmText: '下线',
+    action: () => store.setSopTemplateStatus(id, 'draft')
+  }
+  confirmVisible.value = true
 }
 
-async function handleDelete(id: number) {
-  if (!confirm('确认删除该SOP模板？此操作不可恢复。')) return
-  await store.removeSopTemplate(id)
+function handleDelete(id: number) {
+  confirmAction.value = {
+    title: '确认删除',
+    message: '确认删除该SOP模板？此操作不可恢复。',
+    variant: 'danger',
+    confirmText: '删除',
+    action: () => store.removeSopTemplate(id)
+  }
+  confirmVisible.value = true
+}
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value.action()
+  }
 }
 
 onMounted(loadData)

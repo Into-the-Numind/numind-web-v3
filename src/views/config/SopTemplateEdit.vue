@@ -175,15 +175,25 @@
         </div>
       </div>
     </template>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 interface LocalNode {
   localId: number
@@ -206,6 +216,7 @@ const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
 const selectedIndex = ref(0)
+const initialFormState = ref('')
 let localIdCounter = 0
 
 const form = reactive({
@@ -226,6 +237,19 @@ function validateName() {
 
 const isFormValid = computed(() => form.name.trim().length > 0)
 
+const isDirty = computed(() => {
+  const current = JSON.stringify({
+    ...form,
+    nodes: nodes.value.map((n) => ({
+      name: n.name,
+      description: n.description,
+      prompt: n.prompt,
+      sort: n.sort
+    }))
+  })
+  return current !== initialFormState.value
+})
+
 function addStep() {
   if (nodes.value.length >= 20) return
   localIdCounter++
@@ -240,12 +264,35 @@ function addStep() {
   selectedIndex.value = nodes.value.length - 1
 }
 
-function removeStep(idx: number) {
-  if (!confirm('确认删除该步骤？')) return
-  nodes.value.splice(idx, 1)
-  if (selectedIndex.value >= nodes.value.length) {
-    selectedIndex.value = Math.max(0, nodes.value.length - 1)
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  action: () => Promise<unknown>
+} | null>(null)
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value.action()
   }
+}
+
+function removeStep(idx: number) {
+  confirmAction.value = {
+    title: '确认删除',
+    message: '确认删除该步骤？',
+    variant: 'danger',
+    confirmText: '删除',
+    action: async () => {
+      nodes.value.splice(idx, 1)
+      if (selectedIndex.value >= nodes.value.length) {
+        selectedIndex.value = Math.max(0, nodes.value.length - 1)
+      }
+    }
+  }
+  confirmVisible.value = true
 }
 
 function moveStep(idx: number, direction: number) {
@@ -286,6 +333,15 @@ async function loadDetail() {
         })
     }
     selectedIndex.value = nodes.value.length > 0 ? 0 : -1
+    initialFormState.value = JSON.stringify({
+      ...form,
+      nodes: nodes.value.map((n) => ({
+        name: n.name,
+        description: n.description,
+        prompt: n.prompt,
+        sort: n.sort
+      }))
+    })
   } catch {
     loadError.value = '加载失败，请重试'
   } finally {
@@ -374,13 +430,42 @@ async function handleSave() {
       await store.sortNodes(templateId, sortItems)
     }
 
+    initialFormState.value = JSON.stringify({
+      ...form,
+      nodes: nodes.value.map((n) => ({
+        name: n.name,
+        description: n.description,
+        prompt: n.prompt,
+        sort: n.sort
+      }))
+    })
     router.push('/config/sop-templates')
   } finally {
     saving.value = false
   }
 }
 
-onMounted(loadDetail)
+onMounted(() => {
+  loadDetail()
+  if (isCreate.value) {
+    initialFormState.value = JSON.stringify({
+      ...form,
+      nodes: nodes.value.map((n) => ({
+        name: n.name,
+        description: n.description,
+        prompt: n.prompt,
+        sort: n.sort
+      }))
+    })
+  }
+})
+
+onBeforeRouteLeave(() => {
+  if (isDirty.value) {
+    return window.confirm('有未保存的改动，确定离开？')
+  }
+  return true
+})
 </script>
 
 <style scoped>

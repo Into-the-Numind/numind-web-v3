@@ -126,6 +126,15 @@
         </div>
       </div>
     </template>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      :title="confirmAction?.title ?? ''"
+      :message="confirmAction?.message ?? ''"
+      :variant="confirmAction?.variant ?? 'default'"
+      :confirm-text="confirmAction?.confirmText ?? '确认'"
+      @confirm="onConfirm"
+    />
   </div>
 </template>
 
@@ -135,6 +144,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { KBDetail } from '@/types/config'
 
 const route = useRoute()
@@ -357,12 +367,35 @@ async function handleFileSelect(e: Event) {
   }
 }
 
-async function handleRemoveDoc(docId: number) {
-  if (!confirm('确认移除该文档？此操作不可恢复。')) return
-  const ok = await store.removeDocument(kbId, docId)
-  if (ok) {
-    await loadDetail()
+const confirmVisible = ref(false)
+const confirmAction = ref<{
+  title: string
+  message: string
+  variant: 'default' | 'danger'
+  confirmText: string
+  action: () => Promise<unknown>
+} | null>(null)
+
+async function onConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value.action()
   }
+}
+
+function handleRemoveDoc(docId: number) {
+  confirmAction.value = {
+    title: '确认移除',
+    message: '确认移除该文档？此操作不可恢复。',
+    variant: 'danger',
+    confirmText: '移除',
+    action: async () => {
+      const ok = await store.removeDocument(kbId, docId)
+      if (ok) {
+        await loadDetail()
+      }
+    }
+  }
+  confirmVisible.value = true
 }
 
 onMounted(async () => {
