@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Home, Plus, Trash2, MessageSquare, ArrowUp, Send, Square } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Trash2, MessageSquare, ArrowUp, Send, Square } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import { useMarkdown } from '@/composables/useMarkdown'
@@ -155,11 +155,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="chatbot-view">
-    <!-- Home button -->
-    <a href="/" class="back-to-home-btn" title="返回首页" @click.prevent="goHome">
-      <Home :size="18" />
-    </a>
-
     <!-- Loading state -->
     <div v-if="pageLoading" class="page-loading">
       <div class="loading-spinner" />
@@ -169,6 +164,12 @@ onBeforeUnmount(() => {
     <div v-else class="app-container">
       <!-- Sidebar -->
       <aside class="sidebar" :class="{ 'mobile-open': sidebarOpen }">
+        <!-- 返回首页 -->
+        <button type="button" class="nav__back" @click="goHome">
+          <ArrowLeft :size="16" aria-hidden="true" />
+          <span>返回首页</span>
+        </button>
+
         <button class="new-chat-btn" @click="createNewSession">
           <Plus :size="18" />
           <span>新对话</span>
@@ -446,33 +447,29 @@ body.chatbot-chat-route #app {
   }
 }
 
-/* ===== Home Button ===== */
-.back-to-home-btn {
-  position: fixed;
-  top: 24px;
-  left: 24px;
-  z-index: 100;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+/* ===== Back Button (in sidebar) ===== */
+.nav__back {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.2s;
+  gap: 8px;
+  padding: 11px 16px;
+  margin: 0 12px 8px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: hsl(160, 18%, 52%);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
 }
 
-.back-to-home-btn:hover {
-  background: white;
-  color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+.nav__back:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.1);
 }
 
 /* ===== Sidebar ===== */
@@ -486,12 +483,12 @@ body.chatbot-chat-route #app {
   display: flex;
   flex-direction: column;
   z-index: 10;
-  padding-top: 80px;
+  padding-top: 16px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .new-chat-btn {
-  margin: 0 16px 16px;
+  margin: 0 12px 12px;
   padding: 12px;
   background: var(--surface);
   border: 1px solid var(--border-light);
@@ -516,7 +513,7 @@ body.chatbot-chat-route #app {
 .sessions-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .sessions-empty {
@@ -941,10 +938,10 @@ body.chatbot-chat-route #app {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: var(--radius-xl);
+  border-radius: 20px;
   padding: 16px;
-  box-shadow: var(--shadow-md);
-  border: 1.5px solid var(--border);
+  box-shadow: 0 4px 12px rgba(37, 167, 105, 0.05);
+  border: 1px solid rgba(37, 167, 105, 0.3);
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
@@ -952,9 +949,9 @@ body.chatbot-chat-route #app {
 
 .input-floating-container:focus-within {
   box-shadow:
-    0 8px 24px hsla(160, 75%, 44%, 0.1),
-    0 0 0 2px hsla(160, 75%, 44%, 0.12);
-  border-color: var(--accent);
+    0 8px 24px rgba(37, 167, 105, 0.12),
+    0 0 0 2px rgba(37, 167, 105, 0.15);
+  border-color: rgba(37, 167, 105, 0.6);
 }
 
 .chat-input {
@@ -985,7 +982,7 @@ body.chatbot-chat-route #app {
   justify-content: space-between;
   align-items: center;
   padding-top: 12px;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .toolbar-left,
@@ -1004,20 +1001,20 @@ body.chatbot-chat-route #app {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-foreground);
+  color: white;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px hsla(160, 75%, 44%, 0.3);
+  box-shadow: 0 2px 8px rgba(37, 167, 105, 0.3);
 }
 
 .send-btn:hover {
   background: linear-gradient(135deg, var(--accent), var(--primary));
   transform: scale(1.05);
-  box-shadow: 0 4px 12px hsla(160, 75%, 44%, 0.4);
+  box-shadow: 0 4px 12px rgba(37, 167, 105, 0.4);
 }
 
 .send-btn:disabled {
-  background: var(--border);
+  background: #ccc;
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.6;
@@ -1150,15 +1147,6 @@ body.chatbot-chat-route #app {
 
   .sidebar-toggle {
     display: flex;
-  }
-
-  .back-to-home-btn {
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    left: 10px;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    z-index: 15;
   }
 
   .chat-messages {
