@@ -71,8 +71,26 @@
           <span v-else-if="docLimitReached" class="upload-text upload-text--disabled">
             已达文档上限（10 份）
           </span>
-          <span v-else class="upload-text">
-            点击选择文件上传（支持 txt、pdf、md、doc、docx，单次最多 5 个，单文件不超过 50MB）
+          <span v-else class="upload-content">
+            <svg
+              class="upload-icon"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span class="upload-text">点击选择文件，或拖拽到此区域</span>
+            <span class="upload-hint"
+              >支持 txt、pdf、md、doc、docx，单次最多 5 个，单文件不超过 50MB</span
+            >
           </span>
         </label>
         <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
@@ -91,7 +109,28 @@
         </div>
 
         <div v-if="!detail.documents || detail.documents.length === 0" class="doc-empty">
-          暂无文档，请上传文件
+          <div class="doc-empty-icon">
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+              <path d="M14 2v6h6" />
+              <path d="M12 18v-6" />
+              <path d="m9 15 3-3 3 3" />
+            </svg>
+          </div>
+          <div class="doc-empty-title">还没有文档</div>
+          <div class="doc-empty-desc">
+            上传文档后，AI 将自动解析并建立知识索引。<br />
+            支持 txt、pdf、md、doc、docx 格式，单文件最大 50MB。
+          </div>
         </div>
 
         <div v-else class="table-container">
@@ -605,9 +644,30 @@ onUnmounted(() => {
   background: transparent;
 }
 
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-icon {
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.upload-area:hover .upload-icon {
+  color: var(--accent);
+}
+
 .upload-text {
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+
+.upload-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .upload-text--disabled {
@@ -636,9 +696,36 @@ onUnmounted(() => {
 
 .doc-empty {
   text-align: center;
-  padding: 40px 0;
-  font-size: 0.875rem;
+  padding: 48px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--surface-tint);
   color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.doc-empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  color: var(--text);
+}
+
+.doc-empty-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.6;
 }
 
 .poll-timeout-banner {

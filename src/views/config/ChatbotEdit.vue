@@ -42,10 +42,13 @@
         <!-- 系统提示词 -->
         <div class="form-group">
           <label class="form-label"> 系统提示词 <span class="required">*</span> </label>
+          <span class="form-hint">
+            定义智能体的身份、能力和行为规则。例如：「你是一名专业的产品顾问，擅长根据客户需求推荐合适的产品方案。请用简洁专业的语气回答。」
+          </span>
           <textarea
             v-model="form.system_prompt"
             class="form-textarea form-textarea--lg"
-            placeholder="请输入系统提示词，定义智能体的角色和行为"
+            placeholder="请输入系统提示词..."
             rows="8"
             @blur="validatePrompt"
           ></textarea>
@@ -411,6 +414,12 @@ onBeforeRouteLeave(() => {
 .greeting-hint {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .field-error {
