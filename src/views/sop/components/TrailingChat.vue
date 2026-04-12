@@ -1,37 +1,25 @@
 <!--
-  TrailingChat — v2 redesign state F 的 trailing chat 全铺主区（F10）
+  TrailingChat — Gemini 风格全屏聊天面板
 
   职责：
-    - 无 step-header 的全铺聊天面板（左 nav 已标识"继续问 AI"）
-    - 渲染历史消息 + ChatComposer
-    - 挂载时拉取 listRunChatMessages(runId) 填充历史
-    - 将 composer 的 send / stop 事件透传给父组件（F11 主容器接线 SSE 流）
-    - 空态展示"从这里开始追问"
-
-  ## 作用域边界（F10 vs F11）
-
-  F10 本 task 只落地 **UI 组件 + emit 链路**。真正的 SSE 流式发送 / stop abort / meta
-  注入由 F11 主容器接线 useSSEStream chat 路径 + store.chatMessages。当前组件：
-    - 只从后端拉历史，不触发 chat/stream
-    - send / stop 仅 emit 到父，父组件负责实际 HTTP
+    - 右侧全屏聊天区域，消息居中 max-width 800px
+    - 悬浮 ChatComposer 叠加在底部（position: absolute）
+    - 消息列表底部有 padding 避免被 composer 遮挡
+    - 空态居中展示"从这里开始追问"
 
   ## Props
 
-  - runId: number | null — 当前 run ID（null 时只渲染空态，不拉历史）
-  - conversationId?: string — F11 SSE chat stream wiring 使用
-  - streaming?: boolean — 父组件告知当前是否正在流式生成（传给 composer）
-  - streamingMessage?: ChatBubbleMessage | null — 正在流式接收的 assistant 占位消息（父传）
+  - runId: number | null
+  - conversationId?: string
+  - streaming?: boolean
+  - streamingMessage?: ChatBubbleMessage | null
+  - reloadTrigger?: number
 
   ## Emits
 
   - send(text) — 用户发送问题
   - stop() — 用户点击停止
   - error(msg) — 加载历史失败
-
-  DOM class 对齐 mockup state F：`.chat` / `.chat__history` / `.chat__empty`
-  （见 `02-additional-states.html`）。
-
-  详见 spec §5.2 + §3.2 state F + plan Task F10
 -->
 <template>
   <div class="chat" data-testid="trailing-chat">
@@ -50,19 +38,21 @@
 
       <!-- 消息列表 -->
       <template v-else>
-        <ChatBubble
-          v-for="msg in messages"
-          :key="msg.id"
-          :message="toBubbleMessage(msg)"
-          :meta="extractMeta(msg)"
-          @copy="handleCopy"
-        />
-        <ChatBubble
-          v-if="streamingMessage"
-          :key="streamingMessage.id"
-          :message="streamingMessage"
-          :streaming="true"
-        />
+        <div class="chat__messages-container">
+          <ChatBubble
+            v-for="msg in messages"
+            :key="msg.id"
+            :message="toBubbleMessage(msg)"
+            :meta="extractMeta(msg)"
+            @copy="handleCopy"
+          />
+          <ChatBubble
+            v-if="streamingMessage"
+            :key="streamingMessage.id"
+            :message="streamingMessage"
+            :streaming="true"
+          />
+        </div>
       </template>
     </div>
 
@@ -84,13 +74,9 @@ import { useNotificationsStore } from '@/stores/notifications'
 
 interface Props {
   runId: number | null
-  /** Conversation ID for SSE chat stream wiring (F11) */
   conversationId?: string
-  /** True while SSE chat stream is in flight */
   streaming?: boolean
-  /** Optional incoming streaming message bubble (passed by F11 main container) */
   streamingMessage?: ChatBubbleMessage | null
-  /** F11 P1-3 fix: parent increments after onDone to trigger history reload */
   reloadTrigger?: number
 }
 
@@ -138,10 +124,6 @@ async function loadHistory() {
 
 // ===== 消息适配 =====
 
-/**
- * 后端 RunChatMessageItem → ChatBubble 消费的 ChatBubbleMessage
- * 去掉 meta 字段（meta 单独通过 :meta prop 传入）。
- */
 function toBubbleMessage(item: RunChatMessageItem): ChatBubbleMessage {
   return {
     id: item.id,
@@ -152,13 +134,6 @@ function toBubbleMessage(item: RunChatMessageItem): ChatBubbleMessage {
   }
 }
 
-/**
- * 提取 assistant 消息的 meta 行字段。
- *
- * - user 消息：无 meta → 返回 undefined（MetaFooter 不渲染）
- * - assistant 消息缺 model_name / duration_ms（B5 部署前）：
- *   传入的 meta.model_name / duration_ms 为空，MetaFooter 内部判空不渲染
- */
 function extractMeta(item: RunChatMessageItem): SopChatMessageMeta | undefined {
   if (item.role !== 'assistant') return undefined
   return {
@@ -190,7 +165,6 @@ function scrollToBottom() {
 
 // ===== 生命周期 =====
 
-/** runId 变化时重新加载 */
 watch(
   () => props.runId,
   (newId, oldId) => {
@@ -201,7 +175,6 @@ watch(
   }
 )
 
-/** streamingMessage 变化时滚到底 */
 watch(
   () => props.streamingMessage?.content,
   () => {
@@ -209,7 +182,6 @@ watch(
   }
 )
 
-/** F11 P1-3 fix: parent increments reloadTrigger after chat onDone, refetch history */
 watch(
   () => props.reloadTrigger,
   (newVal, oldVal) => {
@@ -225,7 +197,6 @@ onMounted(() => {
   }
 })
 
-// 测试/F11 接线暴露
 defineExpose({
   messages,
   loadHistory,
@@ -234,39 +205,50 @@ defineExpose({
 </script>
 
 <style scoped>
-/* .chat — 全铺容器（mockup state F .chat） */
+/* .chat — 全屏容器，position relative 让 composer 可以 absolute 定位 */
 .chat {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  position: relative;
   min-height: 0;
+  overflow: hidden;
 }
 
-/* .chat__history — 可滚动消息区（mockup state F .chat__history） */
+/* .chat__history — 可滚动消息区，底部留出 composer 空间 */
 .chat__history {
   flex: 1;
   min-height: 0;
-  padding: var(--space-xl) var(--space-2xl) var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+  padding: var(--space-xl) var(--space-2xl) 120px;
   overflow-y: auto;
-  background: var(--color-surface);
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .chat__history::-webkit-scrollbar {
   width: 6px;
 }
 
+.chat__history::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .chat__history::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--border);
   border-radius: var(--radius-pill);
+}
+
+.chat__history::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* 消息容器 — 居中 + 限宽，对齐 ChatbotChat 的 .messages-container */
+.chat__messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 /* Loading */
@@ -275,8 +257,8 @@ defineExpose({
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  padding: var(--space-2xl);
-  color: var(--color-text-muted);
+  padding: var(--space-3xl);
+  color: var(--text-muted);
   font-size: var(--text-sm);
 }
 
@@ -284,7 +266,7 @@ defineExpose({
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid var(--color-border);
+  border: 2px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: chat-spin 0.8s linear infinite;
@@ -304,20 +286,21 @@ defineExpose({
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   text-align: center;
   padding: var(--space-3xl) var(--space-lg);
+  min-height: 300px;
 }
 
 .chat__empty-title {
   font-size: var(--text-lg);
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--text);
 }
 
 .chat__empty-hint {
   font-size: var(--text-sm);
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   max-width: 320px;
 }
 </style>

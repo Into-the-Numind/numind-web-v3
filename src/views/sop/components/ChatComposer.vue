@@ -1,62 +1,67 @@
 <!--
-  ChatComposer — trailing chat 底部输入条（F10）
+  ChatComposer — trailing chat 悬浮输入框（Gemini 风格）
 
   职责：
-    - 固定在 TrailingChat 底部的 textarea + 发送按钮
+    - 悬浮在 TrailingChat 底部的圆角输入容器
+    - 设计复用 ChatbotChat 的 input-floating-container 风格（glass-morphism + 圆角 + toolbar）
     - Enter 发送 / Shift+Enter 换行
-    - streaming 时按钮切换为"停止" ghost 样式
+    - streaming 时按钮切换为"停止"
     - 不支持附件上传（后端未支持）
-
-  DOM class 对齐 mockup state F：`.chat__composer`（见 02-additional-states.html）。
 
   ## Props
 
-  - streaming?: boolean — 是否正在流式生成（控制按钮形态 + 禁用 textarea）
-  - placeholder?: string — textarea 占位符（默认 mockup 文案）
+  - streaming?: boolean — 是否正在流式生成
+  - placeholder?: string — textarea 占位符
+  - disabled?: boolean — 是否禁用
 
   ## Emits
 
-  - send(text) — 用户按 Enter 或点击发送按钮（text 已 trim 且非空）
-  - stop() — streaming 时点击"停止"按钮
-
-  详见 spec §5.2 + §3.2 state F + plan Task F10
+  - send(text) — 用户按 Enter 或点击发送按钮
+  - stop() — streaming 时点击停止
 -->
 <template>
-  <div class="chat__composer">
-    <textarea
-      ref="textareaRef"
-      v-model="text"
-      class="chat__composer-input"
-      :placeholder="placeholder"
-      :disabled="isInputDisabled"
-      rows="2"
-      @keydown.enter.exact.prevent="handleSend"
-    />
-    <button
-      v-if="!streaming"
-      type="button"
-      class="btn btn--primary chat__composer-btn"
-      :disabled="!canSend"
-      @click="handleSend"
-    >
-      <span>发送</span>
-      <Send :size="13" aria-hidden="true" />
-    </button>
-    <button v-else type="button" class="btn btn--ghost chat__composer-btn" @click="handleStop">
-      <Square :size="13" aria-hidden="true" />
-      <span>停止</span>
-    </button>
+  <div class="composer">
+    <div class="composer__container" :class="{ 'composer__container--focus': isFocused }">
+      <textarea
+        ref="textareaRef"
+        v-model="text"
+        class="composer__input"
+        :placeholder="placeholder"
+        :disabled="isInputDisabled"
+        @keydown="handleKeydown"
+        @compositionstart="isComposing = true"
+        @compositionend="isComposing = false"
+        @input="autoResize"
+        @focus="isFocused = true"
+        @blur="isFocused = false"
+      />
+      <div class="composer__toolbar">
+        <div class="composer__toolbar-left" />
+        <div class="composer__toolbar-right">
+          <button v-if="streaming" class="composer__stop-btn" title="停止" @click="handleStop">
+            <Square :size="16" />
+          </button>
+          <button
+            v-else
+            class="composer__send-btn"
+            :disabled="!canSend"
+            title="发送"
+            @click="handleSend"
+          >
+            <ArrowUp :size="20" />
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Send, Square } from 'lucide-vue-next'
+import { computed, ref, nextTick, watch } from 'vue'
+import { ArrowUp, Square } from 'lucide-vue-next'
 
 interface Props {
-  /** 是否禁用 textarea (independent of streaming, e.g. while loading) */
   disabled?: boolean
-  /** 是否正在流式生成（控制按钮形态：发送 → 停止） */
   streaming?: boolean
   placeholder?: string
 }
@@ -76,13 +81,33 @@ const emit = defineEmits<{
 
 const text = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const isFocused = ref(false)
+const isComposing = ref(false)
 
 const canSend = computed(() => text.value.trim().length > 0 && !props.streaming && !props.disabled)
+
+function autoResize() {
+  const el = textareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+}
+
+watch(text, () => nextTick(autoResize))
+
+function handleKeydown(e: KeyboardEvent) {
+  if (isComposing.value) return
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    handleSend()
+  }
+}
 
 function handleSend() {
   if (!canSend.value) return
   const t = text.value.trim()
   text.value = ''
+  nextTick(autoResize)
   emit('send', t)
 }
 
@@ -90,94 +115,127 @@ function handleStop() {
   emit('stop')
 }
 
-// 测试暴露
 defineExpose({ text, textareaRef })
 </script>
 
 <style scoped>
-.chat__composer {
-  border-top: 1px solid var(--color-border-light);
-  background: var(--color-surface);
-  padding: var(--space-md) var(--space-lg);
+.composer {
+  padding: var(--space-md) var(--space-2xl) var(--space-2xl);
   display: flex;
-  gap: var(--space-md);
-  align-items: flex-end;
-  flex-shrink: 0;
+  justify-content: center;
+  position: relative;
+  z-index: 20;
 }
 
-.chat__composer-input {
-  flex: 1;
-  min-height: 52px;
-  max-height: 140px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  line-height: var(--line-height-relaxed);
-  resize: none;
+.composer__container {
+  width: 100%;
+  max-width: 800px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-md);
+  border: 1.5px solid var(--border);
   transition:
-    border-color var(--transition-base),
-    box-shadow var(--transition-base);
+    box-shadow var(--transition-base),
+    border-color var(--transition-base);
+  display: flex;
+  flex-direction: column;
 }
 
-.chat__composer-input::placeholder {
-  color: var(--color-text-muted);
+.composer__container--focus {
+  box-shadow:
+    0 8px 24px hsla(160, 75%, 44%, 0.1),
+    0 0 0 2px hsla(160, 75%, 44%, 0.12);
+  border-color: var(--accent);
 }
 
-.chat__composer-input:focus {
+.composer__input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: var(--space-sm) 0;
+  font-size: var(--text-base, 1rem);
+  resize: none;
+  min-height: 44px;
+  max-height: 160px;
+  color: var(--text);
+  line-height: 1.5;
+  overflow-y: auto;
+  font-family: inherit;
+}
+
+.composer__input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: var(--shadow-focus);
 }
 
-.chat__composer-input:disabled {
+.composer__input::placeholder {
+  color: var(--text-muted);
+}
+
+.composer__input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.chat__composer-btn {
-  flex-shrink: 0;
-  display: inline-flex;
+.composer__toolbar {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-lg);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-light);
 }
 
-.btn--primary {
-  background: var(--primary);
+.composer__toolbar-left,
+.composer__toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.composer__send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--primary-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px hsla(160, 75%, 44%, 0.3);
 }
 
-.btn--primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+.composer__send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px hsla(160, 75%, 44%, 0.4);
 }
 
-.btn--primary:disabled {
-  opacity: 0.5;
+.composer__send-btn:disabled {
+  background: var(--border);
+  box-shadow: none;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.btn--ghost {
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border-color: var(--color-border);
+.composer__stop-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.btn--ghost:hover {
-  color: var(--color-text);
-  background: var(--color-surface-hover);
+.composer__stop-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 </style>

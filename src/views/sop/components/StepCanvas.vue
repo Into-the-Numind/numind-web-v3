@@ -122,4 +122,10 @@ defineEmits<{
   color: var(--text);
   overflow-y: auto;
 }
+
+/* trailing chat 模式：去掉 canvas padding，让 TrailingChat 自己管布局和滚动 */
+.canvas:has(> [data-testid='trailing-chat']) {
+  padding: 0;
+  overflow: hidden;
+}
 </style>
