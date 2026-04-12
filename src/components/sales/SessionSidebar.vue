@@ -103,10 +103,10 @@ onBeforeUnmount(() => {
 .sidebar {
   width: var(--sidebar-width, 280px);
   height: 100%;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.5);
+  background: hsla(160, 30%, 96%, 0.65);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid hsla(160, 20%, 88%, 0.5);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -117,8 +117,8 @@ onBeforeUnmount(() => {
 .new-chat-btn {
   margin: 0 16px 16px;
   padding: 12px;
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md, 10px);
   color: var(--primary);
   font-weight: 600;
@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-sm);
 }
 
 .new-chat-btn :deep(svg) {
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
 
 .new-chat-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 167, 105, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .sessions-list {
@@ -169,14 +169,14 @@ onBeforeUnmount(() => {
 }
 
 .session-item:hover {
-  background: rgba(255, 255, 255, 0.6);
+  background: hsla(160, 45%, 50%, 0.1);
   color: var(--text);
 }
 
 .session-item.active {
-  background: white;
+  background: hsla(160, 50%, 50%, 0.14);
   color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
 }
 
 .pin-indicator {
@@ -293,9 +293,9 @@ onBeforeUnmount(() => {
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 25;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: hsla(160, 30%, 96%, 0.95);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
     padding-top: 60px;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
   }

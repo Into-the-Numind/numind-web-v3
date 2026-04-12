@@ -15,11 +15,7 @@
       />
 
       <!-- Sidebar Overlay (Mobile) -->
-      <div
-        class="sidebar-overlay"
-        :class="{ show: sidebarOpen }"
-        @click="sidebarOpen = false"
-      />
+      <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false" />
 
       <!-- Main Stage -->
       <main class="main-stage">
@@ -33,16 +29,10 @@
         />
 
         <!-- Chat Area -->
-        <ChatArea
-          @show-citations="openCitationModal"
-          @preview-image="openImagePreview"
-        />
+        <ChatArea @show-citations="openCitationModal" @preview-image="openImagePreview" />
 
         <!-- Input Area -->
-        <InputArea
-          v-if="store.hasCurrentSession"
-          @preview-image="openImagePreview"
-        />
+        <InputArea v-if="store.hasCurrentSession" @preview-image="openImagePreview" />
 
         <!-- Start chat prompt when no session -->
         <div v-if="!store.hasCurrentSession && !store.messagesLoading" class="start-chat-container">
@@ -76,20 +66,11 @@
       @confirm="handleDelete"
     />
 
-    <ProfileModal
-      :open="showProfileModal"
-      @close="showProfileModal = false"
-    />
+    <ProfileModal :open="showProfileModal" @close="showProfileModal = false" />
 
-    <KbModal
-      :open="showKbModal"
-      @close="showKbModal = false"
-    />
+    <KbModal :open="showKbModal" @close="showKbModal = false" />
 
-    <ChatStyleModal
-      :open="showChatStyleModal"
-      @close="showChatStyleModal = false"
-    />
+    <ChatStyleModal :open="showChatStyleModal" @close="showChatStyleModal = false" />
 
     <CitationModal
       :open="showCitationModal"
@@ -234,53 +215,25 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<!-- Unscoped: CSS variables that all child components need -->
+<!-- Unscoped: route-level overrides (use variables.css as base) -->
 <style>
 body.sales-agent-route {
-  /* --- Palette (on body so Teleport modals inherit) --- */
-  --c-primary: 158, 64%, 40%;
-  --c-primary-rich: 160, 85%, 35%;
-  --c-accent: 158, 80%, 45%;
+  --sidebar-width: 280px;
+  --text-light: var(--text-muted);
 
-  --c-bg-base: 150, 20%, 98%;
-  --c-bg-grad-start: 150, 30%, 96%;
-  --c-bg-grad-end: 160, 30%, 99%;
-
-  --c-text-main: 150, 20%, 15%;
-  --c-text-muted: 150, 10%, 45%;
-  --c-text-light: 150, 10%, 65%;
-
-  --c-surface: 0, 0%, 100%;
-
-  /* --- Tokens --- */
-  --primary: hsl(var(--c-primary));
-  --accent: hsl(var(--c-accent));
-  --text: hsl(var(--c-text-main));
-  --text-muted: hsl(var(--c-text-muted));
-  --text-light: hsl(var(--c-text-light));
-
+  /* glass tokens (used by child components) */
   --glass-border: rgba(255, 255, 255, 0.4);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
   --glass-bg: rgba(255, 255, 255, 0.75);
-
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
-
-  --sidebar-width: 280px;
 
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: radial-gradient(circle at top left, hsl(150, 30%, 96%), hsl(160, 30%, 99%));
-  color: hsl(150, 20%, 15%);
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
 }
 
 body.sales-agent-route #app {
@@ -299,9 +252,7 @@ body.sales-agent-route #app {
   width: 100%;
   height: 100%;
   position: relative;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(37, 167, 105, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(37, 167, 105, 0.04) 0px, transparent 50%);
+  background: var(--bg);
 }
 
 .app-container *,
@@ -387,12 +338,12 @@ body.sales-agent-route #app {
   border: none;
   background: var(--primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(37, 167, 105, 0.2);
+  box-shadow: 0 2px 8px hsla(160, 75%, 44%, 0.2);
 }
 
 .start-chat-btn:hover {
-  background: hsl(var(--c-primary-rich));
-  box-shadow: 0 4px 12px rgba(37, 167, 105, 0.3);
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px hsla(160, 75%, 44%, 0.3);
   transform: translateY(-1px);
 }
 
