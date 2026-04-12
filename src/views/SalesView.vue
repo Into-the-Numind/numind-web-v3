@@ -1,14 +1,10 @@
 <template>
   <div class="sales-view">
-    <!-- Home button -->
-    <a href="/" class="back-to-home-btn" title="返回首页" @click.prevent="goHome">
-      <Home :size="18" />
-    </a>
-
     <div class="app-container">
       <!-- Sidebar -->
       <SessionSidebar
         :mobile-open="sidebarOpen"
+        @back="goHome"
         @new-chat="showNewChatModal = true"
         @rename="openRenameModal"
         @delete="openDeleteModal"
@@ -89,7 +85,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { Home, Plus } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { checkSalesPermission } from '@/api/sales'
 import type { Citation } from '@/api/sales'
@@ -263,35 +259,6 @@ body.sales-agent-route #app {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Home button */
-.back-to-home-btn {
-  position: fixed;
-  top: 24px;
-  left: 24px;
-  z-index: 100;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.back-to-home-btn:hover {
-  background: white;
-  color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-}
-
 /* Main stage */
 .main-stage {
   flex: 1;
@@ -345,16 +312,5 @@ body.sales-agent-route #app {
   background: var(--primary-hover);
   box-shadow: 0 4px 12px hsla(160, 75%, 44%, 0.3);
   transform: translateY(-1px);
-}
-
-@media (max-width: 768px) {
-  .back-to-home-btn {
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    left: 10px;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    z-index: 15;
-  }
 }
 </style>

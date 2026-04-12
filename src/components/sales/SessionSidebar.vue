@@ -1,5 +1,11 @@
 <template>
   <aside class="sidebar" :class="{ 'mobile-open': mobileOpen }">
+    <!-- 返回首页 -->
+    <button type="button" class="nav__back" @click="emit('back')">
+      <ArrowLeft :size="16" aria-hidden="true" />
+      <span>返回首页</span>
+    </button>
+
     <button class="new-chat-btn" @click="emit('newChat')">
       <Plus :size="18" />
       <span>新对话</span>
@@ -42,7 +48,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { Plus, MessageSquare, Pin, PinOff, MoreVertical, Edit3, Trash2 } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  Plus,
+  MessageSquare,
+  Pin,
+  PinOff,
+  MoreVertical,
+  Edit3,
+  Trash2
+} from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import type { SalesSession } from '@/api/sales'
 
@@ -53,6 +68,7 @@ defineProps<{
 const store = useSalesStore()
 
 const emit = defineEmits<{
+  back: []
   newChat: []
   rename: [id: number, title: string]
   delete: [id: number]
@@ -100,6 +116,30 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.nav__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  margin: 0 12px 12px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: hsl(160, 18%, 52%);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+}
+
+.nav__back:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.1);
+}
+
 .sidebar {
   width: var(--sidebar-width, 280px);
   height: 100%;
@@ -110,7 +150,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   z-index: 10;
-  padding-top: 80px;
+  padding-top: 16px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
