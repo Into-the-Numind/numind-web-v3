@@ -1,11 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Trash2, MessageSquare, ArrowUp, Send, Square } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  MessageSquare,
+  ArrowUp,
+  Send,
+  Square,
+  Paperclip,
+  X,
+  FileText,
+  Loader2
+} from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import { useMarkdown } from '@/composables/useMarkdown'
+import { useDocUpload } from '@/composables/useDocUpload'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import ModelSelector from '@/components/common/ModelSelector.vue'
 
@@ -20,9 +33,12 @@ const draftText = ref('')
 const isComposing = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const chatContainerRef = ref<HTMLElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const sidebarOpen = ref(false)
 const pageLoading = ref(true)
 const deleteConfirmId = ref<number | null>(null)
+const isDragging = ref(false)
+const docUpload = useDocUpload()
 
 // ==================== Computed ====================
 const chatbotSessions = computed(() =>
@@ -30,7 +46,9 @@ const chatbotSessions = computed(() =>
 )
 
 const canSend = computed(() => {
-  return draftText.value.trim().length > 0 && !store.streaming
+  const hasText = draftText.value.trim().length > 0
+  const hasSuccessfulUploads = docUpload.items.value.some((i) => i.status === 'success')
+  return (hasText || hasSuccessfulUploads) && !store.streaming
 })
 
 // ==================== Auto Scroll ====================
@@ -98,10 +116,45 @@ function cancelDelete() {
   deleteConfirmId.value = null
 }
 
+function triggerFileInput() {
+  fileInputRef.value?.click()
+}
+
+const uploadWarning = ref('')
+
+async function handleFileInputChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files && input.files.length > 0) {
+    const result = await docUpload.handleFiles(input.files)
+    showUploadWarning(result)
+  }
+  // Reset so same file can be re-selected
+  input.value = ''
+}
+
+function showUploadWarning(result: { rejected: number; reason: 'limit' | null }) {
+  if (result.rejected > 0 && result.reason === 'limit') {
+    uploadWarning.value = `最多上传 5 个附件，已忽略 ${result.rejected} 个文件`
+    setTimeout(() => {
+      uploadWarning.value = ''
+    }, 3000)
+  }
+}
+
+async function handleDrop(e: DragEvent) {
+  isDragging.value = false
+  const droppedFiles = e.dataTransfer?.files
+  if (droppedFiles && droppedFiles.length > 0) {
+    const result = await docUpload.handleFiles(droppedFiles)
+    showUploadWarning(result)
+  }
+}
+
 function handleSend() {
   if (!canSend.value) return
-  const text = draftText.value.trim()
+  const text = docUpload.compose(draftText.value.trim())
   draftText.value = ''
+  docUpload.clearItems()
   nextTick(autoResize)
   store.sendMessage(text)
 }
@@ -111,6 +164,15 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     handleSend()
+  }
+}
+
+async function handlePaste(e: ClipboardEvent) {
+  const clipboardFiles = e.clipboardData?.files
+  if (clipboardFiles && clipboardFiles.length > 0) {
+    e.preventDefault()
+    const result = await docUpload.handleFiles(clipboardFiles)
+    showUploadWarning(result)
   }
 }
 
@@ -334,19 +396,72 @@ onBeforeUnmount(() => {
 
         <!-- Input Area -->
         <div v-if="store.currentSession" class="input-stage">
-          <div class="input-floating-container">
+          <div
+            class="input-floating-container"
+            :class="{ 'drag-over': isDragging }"
+            @dragover.prevent="isDragging = true"
+            @dragenter.prevent="isDragging = true"
+            @dragleave.prevent="isDragging = false"
+            @drop.prevent="handleDrop"
+          >
+            <!-- Hidden file input -->
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept=".txt,.md,.pdf,.doc,.docx"
+              multiple
+              style="display: none"
+              @change="handleFileInputChange"
+            />
+
             <textarea
               ref="textareaRef"
               v-model="draftText"
               class="chat-input"
               placeholder="输入消息..."
               @keydown="handleKeydown"
+              @paste="handlePaste"
               @compositionstart="isComposing = true"
               @compositionend="isComposing = false"
               @input="autoResize"
             />
+
+            <!-- Attachment preview strip -->
+            <div v-if="docUpload.items.value.length > 0" class="attachment-strip">
+              <div
+                v-for="item in docUpload.items.value"
+                :key="item.localId"
+                class="attachment-item"
+                :class="item.status"
+              >
+                <FileText :size="14" class="attachment-icon" />
+                <span class="attachment-name" :title="item.error || item.fileName">{{
+                  item.fileName
+                }}</span>
+                <Loader2 v-if="item.status === 'uploading'" :size="14" class="u-spin" />
+                <button
+                  v-else
+                  class="attachment-remove"
+                  @click="docUpload.removeItem(item.localId)"
+                >
+                  <X :size="12" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload warning -->
+            <div v-if="uploadWarning" class="upload-warning">{{ uploadWarning }}</div>
+
             <div class="input-toolbar">
               <div class="toolbar-left">
+                <button
+                  class="toolbar-icon-btn"
+                  title="上传附件"
+                  :disabled="docUpload.isUploading.value"
+                  @click="triggerFileInput"
+                >
+                  <Paperclip :size="18" />
+                </button>
                 <ModelSelector feature="chatbot" />
               </div>
               <div class="toolbar-right">
@@ -1185,6 +1300,109 @@ body.chatbot-chat-route #app {
 
 .modal-btn.danger:hover {
   background: #dc2626;
+}
+
+/* ===== Attachments ===== */
+.attachment-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 4px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: hsla(160, 30%, 96%, 0.8);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  max-width: 200px;
+}
+
+.attachment-item.error {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.attachment-item.success {
+  background: hsla(160, 40%, 96%, 0.9);
+  border-color: hsla(160, 40%, 80%, 0.5);
+}
+
+.attachment-icon {
+  flex-shrink: 0;
+}
+
+.attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.attachment-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.attachment-remove:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+}
+
+.toolbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolbar-icon-btn:hover {
+  background: hsla(160, 40%, 50%, 0.1);
+  color: var(--primary);
+}
+
+.toolbar-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.input-floating-container.drag-over {
+  border-color: var(--primary);
+  box-shadow:
+    0 0 0 2px rgba(37, 167, 105, 0.2),
+    0 8px 24px rgba(37, 167, 105, 0.12);
+}
+
+.upload-warning {
+  font-size: 12px;
+  color: #d97706;
+  padding: 4px 0;
 }
 
 /* ===== Mobile ===== */
