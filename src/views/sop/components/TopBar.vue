@@ -15,19 +15,6 @@
 -->
 <template>
   <header class="header">
-    <button
-      type="button"
-      class="header__back"
-      :aria-label="'返回首页'"
-      data-testid="topbar-back"
-      @click="emit('back')"
-    >
-      <ArrowLeft :size="16" aria-hidden="true" />
-      <span>返回首页</span>
-    </button>
-
-    <div class="header__divider" aria-hidden="true"></div>
-
     <h1 class="header__title" data-testid="topbar-title">{{ templateName }}</h1>
 
     <div class="header__right">
@@ -46,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, History } from 'lucide-vue-next'
+import { History } from 'lucide-vue-next'
 
 interface Props {
   templateName: string
@@ -69,31 +56,6 @@ const emit = defineEmits<{
   border-bottom: 1px solid var(--border-light);
   background: var(--surface);
   gap: var(--space-xl);
-}
-
-.header__back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  color: var(--text-secondary);
-  font-size: 13px;
-  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-xs);
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-.header__back:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
-.header__divider {
-  width: 1px;
-  height: 18px;
-  background: var(--divider);
 }
 
 .header__title {

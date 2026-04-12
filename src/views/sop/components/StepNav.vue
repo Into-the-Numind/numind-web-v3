@@ -17,6 +17,12 @@
 -->
 <template>
   <aside class="nav" data-testid="sop-step-nav">
+    <!-- 返回首页按钮 -->
+    <button type="button" class="nav__back" @click="emit('back')">
+      <ArrowLeft :size="16" aria-hidden="true" />
+      <span>返回首页</span>
+    </button>
+
     <div class="nav__group-label">主流程</div>
     <StepNavItem
       v-for="item in mainItems"
@@ -47,6 +53,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ArrowLeft } from 'lucide-vue-next'
 import StepNavItem from './StepNavItem.vue'
 import { computeStepState, computeStatusLine, type StepNavItemState } from './stepNavState'
 import type { SopNodePublic } from '@/views/sop/types'
@@ -69,6 +76,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'navigate', step: number): void
+  (e: 'back'): void
 }>()
 
 interface ItemVm {
@@ -137,19 +145,46 @@ function handleItemClick(step: number): void {
 <style scoped>
 .nav {
   width: 264px;
-  border-right: 1px solid var(--border-light);
-  background: var(--surface);
-  padding: var(--space-xl) 14px var(--space-lg);
+  border-right: 1px solid hsla(160, 20%, 88%, 0.5);
+  background: hsla(160, 30%, 96%, 0.65);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  padding: var(--space-lg) 14px var(--space-lg);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   min-height: 0;
+  flex-shrink: 0;
+}
+
+.nav__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 11px 16px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: hsl(160, 18%, 52%);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+  margin-bottom: var(--space-lg);
+}
+
+.nav__back:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.1);
 }
 
 .nav__group-label {
   font-size: 10px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: hsl(160, 18%, 52%);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   padding: 6px 10px 8px;

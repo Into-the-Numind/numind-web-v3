@@ -48,24 +48,25 @@
       message="请联系 SOP 创建者补充步骤"
     />
 
-    <!-- 4 态：success —— 正常运行页 -->
+    <!-- 4 态：success —— 正常运行页（侧边栏全高 + 右区 header+content） -->
     <template v-else-if="store.template">
-      <TopBar
-        :template-name="store.template?.name || ''"
+      <StepNav
+        :nodes="store.nodes"
+        :current-step="store.currentStep"
+        :viewing-step="store.viewingStep"
+        :completed-node-ids="store.completedNodeIds"
+        :accessibility="store.nodeAccessibility"
+        :trailing-chat-enabled="store.trailingChatEnabled"
+        :streaming-node-id="store.streamingNodeId"
+        @navigate="handleNavigate"
         @back="handleBackHome"
-        @open-history="showHistory = true"
       />
 
-      <div class="body">
-        <StepNav
-          :nodes="store.nodes"
-          :current-step="store.currentStep"
-          :viewing-step="store.viewingStep"
-          :completed-node-ids="store.completedNodeIds"
-          :accessibility="store.nodeAccessibility"
-          :trailing-chat-enabled="store.trailingChatEnabled"
-          :streaming-node-id="store.streamingNodeId"
-          @navigate="handleNavigate"
+      <div class="right-area">
+        <TopBar
+          :template-name="store.template?.name || ''"
+          @back="handleBackHome"
+          @open-history="showHistory = true"
         />
 
         <StepCanvas
@@ -666,9 +667,9 @@ onBeforeUnmount(() => {
   --transition-fast: 150ms ease; /* 对齐 DESIGN --transition-fast */
   --transition-base: 250ms ease; /* 对齐 DESIGN --transition-base */
 
-  /* ==================== v2 三栏布局 ==================== */
+  /* ==================== v2 布局：侧边栏全高 + 右区 ==================== */
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
@@ -683,9 +684,11 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 
-.body {
+.right-area {
   display: flex;
+  flex-direction: column;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
