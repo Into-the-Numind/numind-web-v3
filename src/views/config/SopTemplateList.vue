@@ -120,11 +120,13 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 const error = ref('')
 
 const confirmVisible = ref(false)
@@ -133,6 +135,7 @@ const confirmAction = ref<{
   message: string
   variant: 'default' | 'danger'
   confirmText: string
+  successMsg?: string
   action: () => Promise<unknown>
 } | null>(null)
 
@@ -165,6 +168,7 @@ function handlePublish(id: number) {
     message: '确认发布该SOP模板？',
     variant: 'default',
     confirmText: '发布',
+    successMsg: '已发布',
     action: () => store.setSopTemplateStatus(id, 'published')
   }
   confirmVisible.value = true
@@ -176,6 +180,7 @@ function handleOffline(id: number) {
     message: '确认下线该SOP模板？',
     variant: 'danger',
     confirmText: '下线',
+    successMsg: '已下线',
     action: () => store.setSopTemplateStatus(id, 'draft')
   }
   confirmVisible.value = true
@@ -187,6 +192,7 @@ function handleDelete(id: number) {
     message: '确认删除该SOP模板？此操作不可恢复。',
     variant: 'danger',
     confirmText: '删除',
+    successMsg: '已删除',
     action: () => store.removeSopTemplate(id)
   }
   confirmVisible.value = true
@@ -194,7 +200,12 @@ function handleDelete(id: number) {
 
 async function onConfirm() {
   if (confirmAction.value) {
-    await confirmAction.value.action()
+    try {
+      await confirmAction.value.action()
+      notifications.success(confirmAction.value.successMsg ?? '操作成功')
+    } catch {
+      notifications.error('操作失败，请重试')
+    }
   }
 }
 

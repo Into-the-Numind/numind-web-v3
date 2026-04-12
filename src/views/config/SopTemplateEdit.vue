@@ -191,6 +191,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
@@ -207,6 +208,7 @@ interface LocalNode {
 const route = useRoute()
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 
 const paramId = route.params.id as string
 const isCreate = ref(paramId === 'new')
@@ -290,6 +292,7 @@ function removeStep(idx: number) {
       if (selectedIndex.value >= nodes.value.length) {
         selectedIndex.value = Math.max(0, nodes.value.length - 1)
       }
+      notifications.success('步骤已删除')
     }
   }
   confirmVisible.value = true
@@ -404,7 +407,7 @@ async function handleSave() {
           sort: i
         })
         if (!ok) {
-          alert(`步骤 ${i + 1} 保存失败，请重试`)
+          notifications.error(`步骤 ${i + 1} 保存失败，请重试`)
           return
         }
       } else {
@@ -415,7 +418,7 @@ async function handleSave() {
           sort: i
         })
         if (!created) {
-          alert(`步骤 ${i + 1} 保存失败，请重试`)
+          notifications.error(`步骤 ${i + 1} 保存失败，请重试`)
           return
         }
         // 回填 serverId，避免保存失败重试时重复创建
@@ -439,7 +442,10 @@ async function handleSave() {
         sort: n.sort
       }))
     })
+    notifications.success(isCreate.value ? 'SOP模板已创建' : '已保存')
     router.push('/config/sop-templates')
+  } catch {
+    notifications.error('保存失败，请重试')
   } finally {
     saving.value = false
   }

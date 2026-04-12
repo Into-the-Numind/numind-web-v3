@@ -124,12 +124,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatbotStatus } from '@/types/config'
 
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 const error = ref('')
 
 const confirmVisible = ref(false)
@@ -138,6 +140,7 @@ const confirmAction = ref<{
   message: string
   variant: 'default' | 'danger'
   confirmText: string
+  successMsg?: string
   action: () => Promise<unknown>
 } | null>(null)
 
@@ -170,6 +173,7 @@ function handlePublish(id: number) {
     message: '确认发布该智能体？',
     variant: 'default',
     confirmText: '发布',
+    successMsg: '已发布',
     action: () => store.setChatbotStatus(id, 'published')
   }
   confirmVisible.value = true
@@ -181,6 +185,7 @@ function handleOffline(id: number) {
     message: '确认下线该智能体？下线后用户将无法使用。',
     variant: 'danger',
     confirmText: '下线',
+    successMsg: '已下线',
     action: () => store.setChatbotStatus(id, 'draft')
   }
   confirmVisible.value = true
@@ -192,6 +197,7 @@ function handleDelete(id: number) {
     message: '确认删除该智能体？此操作不可恢复。',
     variant: 'danger',
     confirmText: '删除',
+    successMsg: '已删除',
     action: () => store.removeChatbot(id)
   }
   confirmVisible.value = true
@@ -199,7 +205,12 @@ function handleDelete(id: number) {
 
 async function onConfirm() {
   if (confirmAction.value) {
-    await confirmAction.value.action()
+    try {
+      await confirmAction.value.action()
+      notifications.success(confirmAction.value.successMsg ?? '操作成功')
+    } catch {
+      notifications.error('操作失败，请重试')
+    }
   }
 }
 

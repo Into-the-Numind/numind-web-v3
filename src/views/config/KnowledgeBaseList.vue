@@ -136,12 +136,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 const error = ref('')
 const showCreateModal = ref(false)
 const creating = ref(false)
@@ -152,6 +154,7 @@ const confirmAction = ref<{
   message: string
   variant: 'default' | 'danger'
   confirmText: string
+  successMsg?: string
   action: () => Promise<unknown>
 } | null>(null)
 
@@ -202,6 +205,7 @@ async function handleCreate() {
     })
     if (ok) {
       closeModal()
+      notifications.success('知识库已创建')
     }
   } finally {
     creating.value = false
@@ -214,6 +218,7 @@ function handleDelete(id: number) {
     message: '确认删除该知识库？关联的智能体将自动解除绑定。此操作不可恢复。',
     variant: 'danger',
     confirmText: '删除',
+    successMsg: '已删除',
     action: () => store.removeKnowledgeBase(id)
   }
   confirmVisible.value = true
@@ -221,7 +226,12 @@ function handleDelete(id: number) {
 
 async function onConfirm() {
   if (confirmAction.value) {
-    await confirmAction.value.action()
+    try {
+      await confirmAction.value.action()
+      notifications.success(confirmAction.value.successMsg ?? '操作成功')
+    } catch {
+      notifications.error('操作失败，请重试')
+    }
   }
 }
 

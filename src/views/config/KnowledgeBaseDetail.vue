@@ -142,6 +142,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
@@ -150,6 +151,7 @@ import type { KBDetail } from '@/types/config'
 const route = useRoute()
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 
 const kbId = Number(route.params.id)
 
@@ -291,6 +293,7 @@ async function saveMetaEdit() {
     if (ok) {
       editingMeta.value = false
       await loadDetail()
+      notifications.success('已保存')
     }
   } finally {
     savingMeta.value = false
@@ -356,6 +359,11 @@ async function handleFileSelect(e: Event) {
     }
     // 无论部分成功还是全部成功都刷新列表
     await loadDetail()
+    if (uploadError.value) {
+      notifications.error(uploadError.value)
+    } else {
+      notifications.success('上传成功')
+    }
     // 后端 pipeline 异步处理（pending → parsing → embedding → completed），启动轮询至终态
     schedulePoll()
   } finally {
@@ -373,12 +381,18 @@ const confirmAction = ref<{
   message: string
   variant: 'default' | 'danger'
   confirmText: string
+  successMsg?: string
   action: () => Promise<unknown>
 } | null>(null)
 
 async function onConfirm() {
   if (confirmAction.value) {
-    await confirmAction.value.action()
+    try {
+      await confirmAction.value.action()
+      notifications.success(confirmAction.value.successMsg ?? '操作成功')
+    } catch {
+      notifications.error('操作失败，请重试')
+    }
   }
 }
 
@@ -388,6 +402,7 @@ function handleRemoveDoc(docId: number) {
     message: '确认移除该文档？此操作不可恢复。',
     variant: 'danger',
     confirmText: '移除',
+    successMsg: '文档已移除',
     action: async () => {
       const ok = await store.removeDocument(kbId, docId)
       if (ok) {

@@ -110,6 +110,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import type { KnowledgeBase } from '@/types/config'
@@ -117,6 +118,7 @@ import type { KnowledgeBase } from '@/types/config'
 const route = useRoute()
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 
 const paramId = route.params.id as string
 const isCreate = paramId === 'new'
@@ -231,8 +233,11 @@ async function handleSubmit() {
 
     if (ok) {
       initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
+      notifications.success(isCreate ? '智能体已创建' : '已保存')
       router.push('/config/chatbots')
     }
+  } catch {
+    notifications.error('保存失败，请重试')
   } finally {
     saving.value = false
   }
