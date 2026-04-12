@@ -12,99 +12,99 @@
     </div>
 
     <template v-else>
-      <!-- 头部 -->
-      <div class="page-header">
-        <button class="back-link" @click="router.push('/config/chatbots')">&larr; 返回列表</button>
+      <button class="back-link" @click="router.push('/config/chatbots')">&larr; 返回列表</button>
+
+      <div class="content-center">
         <h2 class="page-title">{{ isCreate ? '新建智能体' : '编辑智能体' }}</h2>
-      </div>
 
-      <form class="edit-form" @submit.prevent="handleSubmit">
-        <!-- 名称 -->
-        <AppInput
-          v-model="form.name"
-          label="名称"
-          placeholder="请输入智能体名称"
-          :error="errors.name"
-          @blur="validateName"
-        />
+        <form class="edit-form" @submit.prevent="handleSubmit">
+          <!-- 名称 -->
+          <AppInput
+            v-model="form.name"
+            label="名称"
+            placeholder="请输入智能体名称"
+            :error="errors.name"
+            @blur="validateName"
+          />
 
-        <!-- 描述 -->
-        <div class="form-group">
-          <label class="form-label">描述</label>
-          <textarea
-            v-model="form.description"
-            class="form-textarea"
-            placeholder="请输入描述（可选）"
-            rows="3"
-          ></textarea>
-        </div>
-
-        <!-- 系统提示词 -->
-        <div class="form-group">
-          <label class="form-label"> 系统提示词 <span class="required">*</span> </label>
-          <span class="form-hint">
-            定义智能体的身份、能力和行为规则。例如：「你是一名专业的产品顾问，擅长根据客户需求推荐合适的产品方案。请用简洁专业的语气回答。」
-          </span>
-          <textarea
-            v-model="form.system_prompt"
-            class="form-textarea form-textarea--lg"
-            placeholder="请输入系统提示词..."
-            rows="8"
-            @blur="validatePrompt"
-          ></textarea>
-          <span v-if="errors.system_prompt" class="field-error">{{ errors.system_prompt }}</span>
-        </div>
-
-        <!-- 打招呼 -->
-        <div class="form-group">
-          <label class="greeting-toggle">
-            <input v-model="form.greeting_enabled" type="checkbox" class="greeting-checkbox" />
-            <span class="greeting-label">打招呼</span>
-            <span class="greeting-hint">开启后，用户首次打开会话时智能体将主动发送这句话</span>
-          </label>
-          <textarea
-            v-model="form.greeting_message"
-            class="form-textarea"
-            :class="{ 'form-textarea--disabled': !form.greeting_enabled }"
-            placeholder="请输入打招呼的内容，例如：你好！我是你的智能助手，有什么可以帮你的？"
-            rows="3"
-            :disabled="!form.greeting_enabled"
-          ></textarea>
-        </div>
-
-        <!-- 知识库选择 -->
-        <div class="form-group">
-          <label class="form-label">关联知识库</label>
-          <div v-if="kbLoading" class="kb-loading">加载知识库列表中...</div>
-          <div v-else-if="allKbs.length === 0" class="kb-empty">暂无可用知识库</div>
-          <div v-else class="kb-select-list">
-            <label
-              v-for="kb in allKbs"
-              :key="kb.id"
-              class="kb-item"
-              :class="{ selected: selectedKbIds.has(kb.id) }"
-            >
-              <input
-                type="checkbox"
-                :checked="selectedKbIds.has(kb.id)"
-                class="kb-checkbox"
-                @change="toggleKb(kb.id)"
-              />
-              <span class="kb-name">{{ kb.name }}</span>
-            </label>
+          <!-- 描述 -->
+          <div class="form-group">
+            <label class="form-label">描述</label>
+            <textarea
+              v-model="form.description"
+              class="form-textarea"
+              placeholder="请输入描述（可选）"
+              rows="3"
+            ></textarea>
           </div>
-        </div>
 
-        <!-- 提交 -->
-        <div class="form-actions">
-          <AppButton variant="secondary" type="button" @click="router.push('/config/chatbots')">
-            取消
-          </AppButton>
-          <AppButton type="submit" :loading="saving" :disabled="!isFormValid || saving">
-            {{ saving ? '保存中...' : '保存' }}
-          </AppButton>
-        </div>
-      </form>
+          <!-- 系统提示词 -->
+          <div class="form-group">
+            <label class="form-label"> 系统提示词 <span class="required">*</span> </label>
+            <span class="form-hint">
+              定义智能体的身份、能力和行为规则。例如：「你是一名专业的产品顾问，擅长根据客户需求推荐合适的产品方案。请用简洁专业的语气回答。」
+            </span>
+            <textarea
+              v-model="form.system_prompt"
+              class="form-textarea form-textarea--lg"
+              placeholder="请输入系统提示词..."
+              rows="8"
+              @blur="validatePrompt"
+            ></textarea>
+            <span v-if="errors.system_prompt" class="field-error">{{ errors.system_prompt }}</span>
+          </div>
+
+          <!-- 打招呼 -->
+          <div class="form-group">
+            <label class="greeting-toggle">
+              <input v-model="form.greeting_enabled" type="checkbox" class="greeting-checkbox" />
+              <span class="greeting-label">打招呼</span>
+              <span class="greeting-hint">开启后，用户首次打开会话时智能体将主动发送这句话</span>
+            </label>
+            <textarea
+              v-model="form.greeting_message"
+              class="form-textarea"
+              :class="{ 'form-textarea--disabled': !form.greeting_enabled }"
+              placeholder="请输入打招呼的内容，例如：你好！我是你的智能助手，有什么可以帮你的？"
+              rows="3"
+              :disabled="!form.greeting_enabled"
+            ></textarea>
+          </div>
+
+          <!-- 知识库选择 -->
+          <div class="form-group">
+            <label class="form-label">关联知识库</label>
+            <div v-if="kbLoading" class="kb-loading">加载知识库列表中...</div>
+            <div v-else-if="allKbs.length === 0" class="kb-empty">暂无可用知识库</div>
+            <div v-else class="kb-select-list">
+              <label
+                v-for="kb in allKbs"
+                :key="kb.id"
+                class="kb-item"
+                :class="{ selected: selectedKbIds.has(kb.id) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="selectedKbIds.has(kb.id)"
+                  class="kb-checkbox"
+                  @change="toggleKb(kb.id)"
+                />
+                <span class="kb-name">{{ kb.name }}</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 提交 -->
+          <div class="form-actions">
+            <AppButton variant="secondary" type="button" @click="router.push('/config/chatbots')">
+              取消
+            </AppButton>
+            <AppButton type="submit" :loading="saving" :disabled="!isFormValid || saving">
+              {{ saving ? '保存中...' : '保存' }}
+            </AppButton>
+          </div>
+        </form>
+      </div>
     </template>
   </div>
 </template>
@@ -264,7 +264,12 @@ onBeforeRouteLeave(() => {
 
 <style scoped>
 .chatbot-edit {
+  width: 100%;
+}
+
+.content-center {
   max-width: 720px;
+  margin: 0 auto;
 }
 
 /* ── Loading & Error ── */
@@ -304,12 +309,6 @@ onBeforeRouteLeave(() => {
   font-size: 0.875rem;
 }
 
-/* ── Page Header ── */
-
-.page-header {
-  margin-bottom: 24px;
-}
-
 .back-link {
   background: none;
   border: none;
@@ -329,9 +328,9 @@ onBeforeRouteLeave(() => {
 .page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  font-family: var(--font-heading);
   color: var(--text);
   letter-spacing: -0.01em;
+  margin-bottom: 24px;
 }
 
 /* ── Form ── */

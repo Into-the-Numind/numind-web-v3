@@ -233,15 +233,33 @@ export const useSopRunStore = defineStore('sopRun', () => {
         error_message: run.error_message ?? '',
         final_note_id: null
       }
-      // 已完成节点集合
+      // 已完成节点集合 + nodeRuns 内容
       const newCompleted = new Set<number>()
       const newAccessibility: Record<number, boolean> = {}
+      const newNodeRuns: Record<number, SopNodeRun> = {}
       for (const cn of status.completed_nodes) {
         newCompleted.add(cn.node_id)
         newAccessibility[cn.node_id] = cn.is_accessible
+        // 从 completed_nodes 构建 nodeRuns，使历史步骤能显示 AI 输出内容
+        newNodeRuns[cn.node_id] = {
+          id: cn.node_run_id,
+          run_id: run.ID,
+          node_id: cn.node_id,
+          status: 'succeeded',
+          input: cn.input,
+          output: cn.output,
+          thinking: cn.thinking ?? '',
+          latency_ms: cn.latency_ms ?? 0,
+          model_name: cn.model_name ?? '',
+          total_tokens: cn.total_tokens ?? 0,
+          is_accessible: cn.is_accessible,
+          started_at: null,
+          finished_at: null
+        }
       }
       completedNodeIds.value = newCompleted
       nodeAccessibility.value = newAccessibility
+      nodeRuns.value = newNodeRuns
       nextNodeId.value = status.next_node?.node_id ?? null
     } catch (err) {
       lastError.value = (err as Error)?.message || '加载运行记录失败'

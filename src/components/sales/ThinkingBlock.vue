@@ -21,11 +21,18 @@ watch(
 
 <template>
   <div class="thinking-container" :class="{ collapsed, finished }">
-    <div class="thinking-header" @click="collapsed = !collapsed">
-      <div class="thinking-title">
-        <span>{{ finished ? '思考完成' : '思考中...' }}</span>
-      </div>
-      <ChevronDown :size="14" class="thinking-icon" />
+    <div
+      class="thinking-header"
+      role="button"
+      tabindex="0"
+      :aria-expanded="!collapsed"
+      @click="collapsed = !collapsed"
+      @keydown.enter.prevent="collapsed = !collapsed"
+    >
+      <span class="thinking-title">
+        <ChevronDown :size="14" class="thinking-icon" aria-hidden="true" />
+        <span>{{ finished ? '思考过程' : '思考中...' }}</span>
+      </span>
     </div>
     <div class="thinking-content" v-html="render(content)"></div>
   </div>
@@ -34,51 +41,56 @@ watch(
 <style scoped>
 .thinking-container {
   margin-bottom: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  background-color: rgba(0, 0, 0, 0.02);
+  border: 1px solid hsl(155, 20%, 92%);
+  background-color: hsl(150, 25%, 96%);
 }
 
 .thinking-header {
   padding: 8px 16px;
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: hsl(150, 25%, 94%);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 13px;
+  color: var(--text-secondary, var(--text-muted));
   user-select: none;
 }
 
 .thinking-header:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: hsl(150, 25%, 92%);
 }
 
 .thinking-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .thinking-icon {
+  width: 14px;
+  height: 14px;
   transition: transform 0.3s;
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 
-.thinking-container.collapsed .thinking-icon {
-  transform: rotate(0deg);
+.thinking-container:not(.collapsed) .thinking-icon {
+  transform: rotate(180deg);
 }
 
 .thinking-content {
   padding: 12px 16px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 13px;
+  color: var(--text-secondary, var(--text-muted));
   line-height: 1.6;
   white-space: pre-wrap;
-  border-top: 1px dashed rgba(0, 0, 0, 0.05);
-  transition: max-height 0.3s ease-out;
+  border-top: 1px solid hsl(155, 20%, 92%);
+  transition:
+    max-height 0.3s ease-out,
+    padding 0.3s ease-out,
+    border-top-color 0.3s ease-out;
   max-height: 4000px;
   overflow-y: auto;
 }
@@ -88,9 +100,5 @@ watch(
   padding-top: 0;
   padding-bottom: 0;
   border-top-color: transparent;
-}
-
-.thinking-container.finished .thinking-icon {
-  color: var(--primary);
 }
 </style>

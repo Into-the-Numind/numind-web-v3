@@ -62,7 +62,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
       if (session) {
         await fetchSessions()
         currentSession.value = session
-        messages.value = []
+        await fetchMessages(session.id)
         return session
       }
       return null

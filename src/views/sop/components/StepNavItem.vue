@@ -112,9 +112,9 @@ function handleClick(): void {
 
 .step__marker {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: 1px;
+  align-self: center;
 }
 
 .step__dot {
@@ -191,44 +191,35 @@ function handleClick(): void {
   box-shadow: var(--shadow-focus);
 }
 
-/* ---------- state: viewing (neutral, no amber) ---------- */
+/* ---------- state: viewing — 与 active 统一绿色底 ---------- */
 .step--viewing {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--accent-ultra-soft);
 }
 .step--viewing::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: var(--space-sm);
-  bottom: var(--space-sm);
-  width: 3px;
-  background: var(--text-muted);
-  border-radius: 0 3px 3px 0;
-}
-
-/* ---------- state: pending-return (dashed accent-light ring) ---------- */
-.step--pending-return {
-  background: transparent;
-  border: 1px dashed var(--accent-light);
-}
-.step--pending-return::before {
   content: '';
   position: absolute;
   left: 0;
   top: var(--space-sm);
   bottom: var(--space-sm);
   width: 3px;
-  background: var(--accent-light);
+  background: var(--primary);
   border-radius: 0 3px 3px 0;
-  opacity: 0.6;
 }
-.step--pending-return .step__title {
+.step--viewing .step__title {
   color: var(--primary-hover);
 }
+.step--viewing .step__dot {
+  border-color: var(--primary);
+  background: var(--accent-ultra-soft);
+  color: var(--primary-hover);
+  box-shadow: var(--shadow-focus);
+}
+
+/* ---------- state: pending-return — 非选中态，与 done 一致 ---------- */
 .step--pending-return .step__dot {
-  border-style: dashed;
-  border-color: var(--accent-light);
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 /* ---------- state: disabled ---------- */

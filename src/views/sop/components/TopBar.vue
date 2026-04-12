@@ -18,6 +18,7 @@
     <h1 class="header__title" data-testid="topbar-title">{{ templateName }}</h1>
 
     <div class="header__right">
+      <ModelSelector feature="sop" />
       <button
         type="button"
         class="icon-btn"
@@ -34,6 +35,7 @@
 
 <script setup lang="ts">
 import { History } from 'lucide-vue-next'
+import ModelSelector from '@/components/common/ModelSelector.vue'
 
 interface Props {
   templateName: string
@@ -53,7 +55,7 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   padding: 0 var(--space-xl);
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid transparent;
   background: var(--surface);
   gap: var(--space-xl);
 }
@@ -61,7 +63,7 @@ const emit = defineEmits<{
 .header__title {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0.01em;

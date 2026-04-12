@@ -49,15 +49,17 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>名称</th>
+              <th class="col-left">名称</th>
               <th>文档数</th>
               <th>创建时间</th>
-              <th class="col-action">操作</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="kb in store.knowledgeBases" :key="kb.id">
-              <td class="cell-name">{{ kb.name }}</td>
+              <td class="cell-name" @click="router.push(`/config/knowledge-bases/${kb.id}`)">
+                {{ kb.name }}
+              </td>
               <td class="cell-secondary">{{ kb.doc_count ?? '-' }}</td>
               <td class="cell-secondary">{{ formatDate(kb.created_at) }}</td>
               <td class="col-action">
@@ -296,7 +298,6 @@ onMounted(loadData)
 }
 
 .page-title {
-  font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text);
@@ -343,59 +344,77 @@ onMounted(loadData)
 /* ── Table Card ── */
 
 .table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 .data-table th {
-  text-align: left;
-  padding: 12px 20px;
-  font-size: 0.75rem;
+  text-align: center;
+  padding: 14px 16px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
+  color: hsl(155, 15%, 50%);
   letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-tint);
+  border-bottom: 1px solid hsl(155, 20%, 93%);
   white-space: nowrap;
+  background: hsla(150, 15%, 98%, 0.5);
 }
 
 .data-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border-light);
-  color: var(--text);
+  padding: 14px 16px;
+  border-bottom: 1px solid hsl(155, 20%, 95%);
+  color: hsl(155, 15%, 25%);
+  vertical-align: middle;
+  text-align: center;
 }
 
 .data-table tbody tr {
-  transition: background var(--transition-fast);
-}
-
-.data-table tbody tr:hover {
-  background: var(--surface-hover);
+  transition: background 0.15s;
 }
 
 .data-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.cell-name {
-  font-weight: 500;
+.data-table tbody tr:hover td {
+  background: hsl(155, 20%, 98%);
+}
+
+.data-table td.cell-name {
+  font-weight: 600;
+  color: hsl(155, 25%, 18%);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cell-name:hover {
+  color: var(--accent);
+}
+
+.data-table th.col-left {
+  text-align: left;
 }
 
 .cell-secondary {
-  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 15%, 35%);
 }
 
-.col-action {
+.data-table th.col-action,
+.data-table td.col-action {
   text-align: right;
 }
 

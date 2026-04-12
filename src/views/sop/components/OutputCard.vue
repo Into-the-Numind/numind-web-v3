@@ -30,28 +30,17 @@
   <div class="output" :class="{ 'output--streaming': isStreaming }" data-testid="output-card">
     <div class="output__head">
       <div class="output__head-left">
-        <span class="output__sparkle" aria-hidden="true">
-          <Sparkles :size="14" />
+        <span class="output__ai-icon" aria-hidden="true">
+          <img
+            src="https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/iconify-arcticons_ai.png"
+            alt="AI"
+            class="output__ai-icon-img"
+          />
         </span>
         <span>AI 输出</span>
-        <template v-if="isStreaming">
-          <span class="output__live-dot" aria-hidden="true" />
-          <span class="output__live-label">live</span>
-        </template>
       </div>
       <div class="output__head-right">
-        <template v-if="isStreaming">
-          <button
-            type="button"
-            class="output__btn output__btn--ghost"
-            data-testid="output-stop"
-            @click="handleStop"
-          >
-            <Square :size="12" aria-hidden="true" />
-            <span>停止</span>
-          </button>
-        </template>
-        <template v-else>
+        <template v-if="!isStreaming">
           <button
             v-if="hasOutput"
             type="button"
@@ -95,7 +84,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Sparkles, Square, Star, Copy } from 'lucide-vue-next'
+import { Star, Copy } from 'lucide-vue-next'
 import StepOutput from './StepOutput.vue'
 import MetaFooter from './MetaFooter.vue'
 import type { SopNodeRun } from '@/views/sop/types'
@@ -121,7 +110,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  stop: []
   copy: []
   regenerate: []
   'toggle-bookmark': []
@@ -158,10 +146,6 @@ const formattedCompletedAt = computed(() => {
   }
 })
 
-function handleStop() {
-  emit('stop')
-}
-
 function handleCopy() {
   emit('copy')
 }
@@ -174,12 +158,23 @@ function handleToggleBookmark() {
 <style scoped>
 .output {
   max-width: 980px;
-  background: var(--surface);
+  background-color: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
-  margin-bottom: var(--space-lg);
+  animation: slideUp 0.5s;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .output--streaming {
@@ -189,11 +184,11 @@ function handleToggleBookmark() {
 /* ---------- head ---------- */
 
 .output__head {
-  padding: var(--space-md) var(--space-lg);
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface);
+  background: transparent;
   border-bottom: 1px solid var(--border-light);
 }
 
@@ -201,44 +196,30 @@ function handleToggleBookmark() {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--text-xs);
+  font-size: 13px;
   color: var(--text-secondary);
   font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.output__sparkle {
-  color: var(--primary);
-  display: inline-flex;
-}
-
-.output__live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  animation: live-pulse 1.4s ease-in-out infinite;
-  margin-left: var(--space-xs);
-}
-
-.output__live-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--primary);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-@keyframes live-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(0.9);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
+.output__ai-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--accent-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  overflow: hidden;
+}
+
+.output__ai-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: hue-rotate(-82deg) saturate(1.2);
 }
 
 .output__head-right {
@@ -251,7 +232,7 @@ function handleToggleBookmark() {
 
 .tiny-btn {
   padding: var(--space-xs) var(--space-sm);
-  font-size: var(--text-xs);
+  font-size: 13px;
   color: var(--text-secondary);
   background: transparent;
   border: 1px solid transparent;
@@ -278,34 +259,6 @@ function handleToggleBookmark() {
   color: var(--primary-hover);
   background: var(--accent-ultra-soft);
   border-color: var(--accent-soft);
-}
-
-/* ---------- stop button (streaming head) ---------- */
-
-.output__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.output__btn--ghost {
-  background: var(--surface);
-  color: var(--text-secondary);
-}
-
-.output__btn--ghost:hover {
-  color: var(--text);
-  background: var(--surface-hover);
 }
 
 /* ---------- body ---------- */

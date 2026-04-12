@@ -28,32 +28,11 @@
       <Eye :size="14" aria-hidden="true" />
       <span>正在查看历史步骤 · 输入不可修改</span>
     </div>
-    <button
-      type="button"
-      class="history-view-strip__return"
-      data-testid="history-view-strip-return"
-      :aria-label="`返回当前任务：${targetName}`"
-      @click="emit('return')"
-    >
-      <span>返回步骤 {{ targetStep }}</span>
-      <ArrowRight :size="13" aria-hidden="true" />
-    </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, Eye } from 'lucide-vue-next'
-
-interface Props {
-  targetStep: number
-  targetName: string
-}
-
-defineProps<Props>()
-
-const emit = defineEmits<{
-  return: []
-}>()
+import { Eye } from 'lucide-vue-next'
 </script>
 
 <style scoped>
@@ -62,14 +41,13 @@ const emit = defineEmits<{
 .history-view-strip {
   max-width: 980px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-sm) var(--space-lg);
-  margin-bottom: var(--space-lg);
+  padding: 10px 16px;
+  margin-bottom: 0;
   background: var(--accent-ultra-soft);
   border: 1px solid var(--border-light);
-  border-left: 2px solid var(--accent);
+  border-left: 3px solid var(--accent);
   border-radius: var(--radius-md);
 }
 
@@ -77,34 +55,7 @@ const emit = defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--text-sm);
+  font-size: 13px;
   color: var(--text-secondary);
-}
-
-/* ==================== Return button ==================== */
-
-.history-view-strip__return {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background-color var(--transition-base),
-    border-color var(--transition-base),
-    color var(--transition-base);
-}
-
-.history-view-strip__return:hover {
-  color: var(--text);
-  background: var(--surface-hover);
-  border-color: var(--accent-soft);
 }
 </style>

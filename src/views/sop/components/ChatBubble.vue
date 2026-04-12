@@ -32,13 +32,17 @@
     class="chat-bubble"
     :class="[`chat-bubble--${message.role}`, { 'is-streaming': streaming }, { 'is-temp': isTemp }]"
   >
-    <!-- 助手头像（左侧） -->
+    <!-- 助手头像（左侧）— 生产环境 arcticons AI 图标 -->
     <div
       v-if="message.role === 'assistant'"
       class="chat-bubble-avatar chat-bubble-avatar--assistant"
       aria-hidden="true"
     >
-      AI
+      <img
+        src="https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/iconify-arcticons_ai.png"
+        alt="AI"
+        class="chat-bubble-avatar-img"
+      />
     </div>
 
     <div class="chat-bubble-body">
@@ -68,10 +72,16 @@
 
       <!-- 主气泡 -->
       <div class="chat-bubble-content">
-        <!-- 流式但无内容：光标占位 -->
+        <!-- 流式但无内容：弹跳点加载（生产环境风格） -->
         <div v-if="streaming && !hasContent && !hasThinking" class="chat-bubble-loading">
-          <span class="chat-bubble-cursor" aria-hidden="true" />
-          <span>AI 正在思考…</span>
+          <div>
+            <div class="chat-bubble-loading-name">AI 正在分析中</div>
+            <div class="chat-bubble-loading-dots">
+              <span class="chat-bubble-dot" style="animation-delay: -0.32s" />
+              <span class="chat-bubble-dot" style="animation-delay: -0.16s" />
+              <span class="chat-bubble-dot" />
+            </div>
+          </div>
         </div>
         <!-- 正常/流式内容 -->
         <div v-else-if="hasContent" class="chat-bubble-text prose" v-html="contentHtml" />
@@ -107,7 +117,6 @@
           aria-label="重新生成"
           @click="emit('regenerate', message.id as number)"
         >
-          <RotateCw :size="14" aria-hidden="true" />
           <span>重新生成</span>
         </button>
       </div>
@@ -119,7 +128,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronRight, ChevronDown, Copy, RotateCw } from 'lucide-vue-next'
+import { ChevronRight, ChevronDown, Copy } from 'lucide-vue-next'
 import { renderMarkdown } from '@/utils/markdown'
 import MetaFooter from './MetaFooter.vue'
 import type { SopChatMessageMeta } from '@/views/sop/types'
@@ -226,13 +235,20 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-surface);
+  overflow: hidden;
 }
 
 .chat-bubble-avatar--assistant {
-  background: var(--primary);
+  background-color: var(--accent-soft);
+  padding: 6px;
+}
+
+.chat-bubble-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* 生产环境：hue-rotate 将蓝色图标转为主题绿色 */
+  filter: hue-rotate(-82deg) saturate(1.2);
 }
 
 /* 用户 avatar 已移除 */
@@ -260,9 +276,9 @@ watch(
 
 .chat-bubble-thinking {
   width: 100%;
-  border: 1px dashed var(--color-border);
+  border: 1px solid hsl(155, 20%, 92%);
   border-radius: var(--radius-md);
-  background: var(--color-surface-tint);
+  background: hsl(150, 25%, 96%);
   overflow: hidden;
 }
 
@@ -272,7 +288,7 @@ watch(
   gap: var(--space-sm);
   width: 100%;
   padding: var(--space-sm) var(--space-md);
-  background: transparent;
+  background: hsl(150, 25%, 94%);
   border: none;
   cursor: pointer;
   font-family: inherit;
@@ -283,7 +299,7 @@ watch(
 }
 
 .chat-bubble-thinking-header:hover {
-  background: var(--color-surface-hover);
+  background: hsl(150, 25%, 92%);
 }
 
 .chat-bubble-thinking-icon {
@@ -312,15 +328,14 @@ watch(
 }
 
 .chat-bubble--user .chat-bubble-content {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--accent);
+  color: white;
   border-bottom-right-radius: var(--radius-sm);
 }
 
 .chat-bubble--assistant .chat-bubble-content {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border-light);
+  background: var(--accent-soft);
+  color: var(--text);
   border-bottom-left-radius: var(--radius-sm);
 }
 
@@ -328,32 +343,45 @@ watch(
   /* prose 样式由全局定义处理 Markdown 渲染结果 */
 }
 
-/* 流式占位 */
+/* 生产环境风格：白色气泡 + 弹跳点 */
 .chat-bubble-loading {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
-  color: var(--color-text-muted);
+  gap: var(--space-md);
+  padding: 16px 20px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.chat-bubble-loading-name {
+  font-weight: 600;
+  color: var(--text-secondary);
   font-size: var(--text-sm);
-  font-style: italic;
+  margin-bottom: 6px;
 }
 
-.chat-bubble-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  background: var(--primary);
-  animation: chat-cursor-blink 1s infinite;
+.chat-bubble-loading-dots {
+  display: flex;
+  gap: 6px;
 }
 
-@keyframes chat-cursor-blink {
+.chat-bubble-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  animation: chat-dot-bounce 1.4s infinite ease-in-out both;
+}
+
+@keyframes chat-dot-bounce {
   0%,
-  50% {
-    opacity: 1;
-  }
-  51%,
+  80%,
   100% {
-    opacity: 0;
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
   }
 }
 

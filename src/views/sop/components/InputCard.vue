@@ -39,7 +39,6 @@
   <div class="input-card" data-testid="input-card">
     <div class="input-card__label">
       <span>{{ label }}</span>
-      <span v-if="hint" class="input-card__hint">{{ hint }}</span>
     </div>
 
     <StepInput
@@ -50,36 +49,31 @@
       :placeholder="placeholder"
       :disabled="isExecuting"
       :ensure-run="ensureRun"
+      hide-actions
       @error="(msg) => emit('error', msg)"
     />
 
     <div class="input-card__toolbar">
       <div class="input-card__toolbar-left">
-        <span class="input-card__count" :class="{ 'is-over': charCount > maxChars }">
-          {{ charCount }} / {{ maxChars }}
-        </span>
+        <button
+          type="button"
+          class="input-card__btn input-card__btn--ghost"
+          :disabled="isExecuting"
+          @click="stepInputRef?.triggerFilePicker()"
+        >
+          <span>上传文件</span>
+        </button>
+        <span v-if="stepInputRef?.isUploading" class="input-card__uploading-hint"> 上传中… </span>
       </div>
       <div class="input-card__toolbar-right">
         <button
-          v-if="!isExecuting"
           type="button"
           class="input-card__btn input-card__btn--primary"
-          :disabled="isLoading || !canExecute"
+          :disabled="isLoading || isExecuting || !canExecute"
           data-testid="input-execute"
           @click="handleExecute"
         >
-          <Sparkles :size="14" aria-hidden="true" />
           <span>生成</span>
-        </button>
-        <button
-          v-else
-          type="button"
-          class="input-card__btn input-card__btn--ghost"
-          data-testid="input-stop"
-          @click="handleStop"
-        >
-          <Square :size="14" aria-hidden="true" />
-          <span>停止</span>
         </button>
       </div>
     </div>
@@ -88,7 +82,6 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Sparkles, Square } from 'lucide-vue-next'
 import StepInput from './StepInput.vue'
 
 interface Props {
@@ -96,9 +89,7 @@ interface Props {
   runId: number | null
   ensureRun?: () => Promise<number | null>
   placeholder?: string
-  maxChars?: number
   label?: string
-  hint?: string
   isExecuting?: boolean
   isLoading?: boolean
   modelValue?: string
@@ -107,9 +98,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   ensureRun: undefined,
   placeholder: '在此输入内容，或拖拽文件到此区域…',
-  maxChars: 2000,
   label: '你的输入',
-  hint: '必填 · 直接粘贴草稿即可',
   isExecuting: false,
   isLoading: false,
   modelValue: ''
@@ -117,7 +106,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   execute: [text: string]
-  stop: []
   error: [message: string]
   'update:modelValue': [value: string]
 }>()
@@ -130,8 +118,6 @@ const innerText = computed({
   set: (v: string) => emit('update:modelValue', v)
 })
 
-const charCount = computed(() => innerText.value.length)
-
 const canExecute = computed(() => innerText.value.trim().length > 0)
 
 function handleExecute() {
@@ -139,10 +125,6 @@ function handleExecute() {
   // compose() 返回合并了上传文件识别结果的完整文本
   const composed = stepInputRef.value?.compose() ?? innerText.value
   emit('execute', composed)
-}
-
-function handleStop() {
-  emit('stop')
 }
 
 defineExpose({
@@ -155,13 +137,24 @@ defineExpose({
 /* ==================== Card shell ==================== */
 
 .input-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  /* 生产环境毛玻璃效果 */
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-card);
   padding: var(--space-xl) var(--space-xl);
   max-width: 980px;
   margin-bottom: var(--space-lg);
+  transition: all 0.3s ease;
+}
+
+.input-card:focus-within {
+  box-shadow:
+    0 8px 24px rgba(37, 167, 105, 0.12),
+    0 0 0 2px rgba(37, 167, 105, 0.15);
+  border-color: rgba(37, 167, 105, 0.6);
 }
 
 .input-card__label {
@@ -172,12 +165,6 @@ defineExpose({
   font-weight: 600;
   color: var(--text);
   margin: 0 0 var(--space-md);
-}
-
-.input-card__hint {
-  font-weight: 400;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
 }
 
 /* ==================== Toolbar ==================== */
@@ -197,14 +184,9 @@ defineExpose({
   gap: var(--space-sm);
 }
 
-.input-card__count {
-  font-family: var(--font-mono);
+.input-card__uploading-hint {
   font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.input-card__count.is-over {
-  color: var(--accent);
 }
 
 /* ==================== Buttons ==================== */

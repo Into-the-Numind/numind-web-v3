@@ -46,7 +46,6 @@ const props = defineProps<{
   ensureRun?: () => Promise<number | null>
   /** 标签文案：active/draft-first 为"你的输入" */
   inputLabel?: string
-  inputHint?: string
   /** 当前 currentStep 用于 done-history 的"返回步骤 N"按钮 */
   currentStep?: number
   /** 当前任务节点名（用于 HistoryViewStrip 的 aria） */
@@ -55,7 +54,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   execute: [text: string]
-  stop: []
   copy: []
   regenerate: []
   primary: []
@@ -136,9 +134,7 @@ const isDoneHistory = computed(() => props.status === 'done-history')
  * 此时 advanceCurrentStep 无法再推进，primary 按钮改为"完成"触发完成态处理。
  */
 const isFinalStep = computed(() => isDoneCurrent.value && store.currentStep >= store.totalSteps)
-const isInputState = computed(
-  () => props.status === 'active' || props.status === 'draft-first' || props.status === 'executing'
-)
+const isInputState = computed(() => props.status === 'active' || props.status === 'draft-first')
 
 const showHistoryStrip = computed(() => isDoneHistory.value)
 
@@ -202,10 +198,6 @@ function handleExecute(text: string) {
   emit('execute', text)
 }
 
-function handleStop() {
-  emit('stop')
-}
-
 function handleCopy() {
   emit('copy')
 }
@@ -220,11 +212,6 @@ function handlePrimary() {
 
 function handleSecondary() {
   emit('secondary')
-}
-
-function handleReturnCurrent() {
-  store.returnToCurrentTask()
-  emit('return-current')
 }
 
 function handleInputError(msg: string) {
@@ -242,12 +229,7 @@ defineExpose({
 
 <template>
   <div class="sop-step-view" data-testid="sop-step-view">
-    <HistoryViewStrip
-      v-if="showHistoryStrip && currentStep"
-      :target-step="currentStep"
-      :target-name="currentStepName ?? ''"
-      @return="handleReturnCurrent"
-    />
+    <HistoryViewStrip v-if="showHistoryStrip" />
 
     <header v-if="node" class="step-header">
       <h2 class="step-header__title">{{ node.name }}</h2>
@@ -256,57 +238,57 @@ defineExpose({
       </p>
     </header>
 
-    <!-- Input 状态（active / draft-first / executing） -->
-    <InputCard
-      v-if="isInputState && node"
-      v-model="inputText"
-      :node-id="node.id"
-      :run-id="store.currentRun?.id ?? null"
-      :ensure-run="ensureRun"
-      :label="inputLabel ?? '你的输入'"
-      :hint="inputHint ?? '必填 · 直接粘贴草稿即可'"
-      :is-executing="isExecuting"
-      @execute="handleExecute"
-      @stop="handleStop"
-      @error="handleInputError"
-    />
+    <!-- Input / Output 互斥切换，带淡入淡出 -->
+    <Transition name="sop-fade" mode="out-in">
+      <!-- Input 状态（active / draft-first） -->
+      <InputCard
+        v-if="isInputState && node"
+        key="input"
+        v-model="inputText"
+        :node-id="node.id"
+        :run-id="store.currentRun?.id ?? null"
+        :ensure-run="ensureRun"
+        :label="inputLabel ?? '你的输入'"
+        :is-executing="isExecuting"
+        @execute="handleExecute"
+        @error="handleInputError"
+      />
 
-    <!-- Executing 状态下的 streaming OutputCard -->
-    <OutputCard
-      v-if="isExecuting"
-      :node-run="null"
-      state="streaming"
-      :streaming-content="streamingContent"
-      :streaming-thinking="streamingThinking"
-      :has-output="false"
-      :has-bookmark="false"
-      @stop="handleStop"
-      @copy="handleCopy"
-      @regenerate="handleRegenerate"
-      @toggle-bookmark="handleToggleBookmark"
-    />
+      <!-- Executing 状态下的 streaming OutputCard -->
+      <OutputCard
+        v-else-if="isExecuting"
+        key="streaming"
+        :node-run="null"
+        state="streaming"
+        :streaming-content="streamingContent"
+        :streaming-thinking="streamingThinking"
+        :has-output="false"
+        :has-bookmark="false"
+        @copy="handleCopy"
+        @regenerate="handleRegenerate"
+        @toggle-bookmark="handleToggleBookmark"
+      />
 
-    <!-- Read-only OutputCard（done-current / done-history） -->
-    <OutputCard
-      v-if="isDoneCurrent || isDoneHistory"
-      :node-run="currentNodeRun"
-      state="read-only"
-      :has-output="hasOutput"
-      :has-bookmark="hasBookmark"
-      @toggle-bookmark="handleToggleBookmark"
-      @copy="handleCopy"
-      @regenerate="handleRegenerate"
-      @stop="handleStop"
-    />
+      <!-- Read-only OutputCard（done-current / done-history） -->
+      <OutputCard
+        v-else-if="isDoneCurrent || isDoneHistory"
+        key="readonly"
+        :node-run="currentNodeRun"
+        state="read-only"
+        :has-output="hasOutput"
+        :has-bookmark="hasBookmark"
+        @toggle-bookmark="handleToggleBookmark"
+        @copy="handleCopy"
+        @regenerate="handleRegenerate"
+      />
+    </Transition>
 
     <!-- Action row：done-current 态才渲染
          最后一步时 primary 变为"完成"（触发 SOP 完成态处理），其它步骤为"下一步" -->
     <ActionRow
       v-if="isDoneCurrent"
-      :primary="
-        isFinalStep ? { label: '完成', icon: 'check' } : { label: '下一步', icon: 'arrow-right' }
-      "
-      :secondary="{ label: '重新生成', icon: 'rotate-cw' }"
+      :primary="isFinalStep ? { label: '完成' } : { label: '下一步' }"
+      :secondary="{ label: '重新生成' }"
       @primary="handlePrimary"
       @secondary="handleSecondary"
     />
@@ -332,32 +314,61 @@ defineExpose({
 .sop-step-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: 24px;
   font-family: var(--font-sans);
   color: var(--text);
+  width: 100%;
+  max-width: 980px;
+  animation: stepFadeIn 0.5s;
+}
+
+@keyframes stepFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .step-header {
-  max-width: 980px;
+  padding-bottom: 0;
 }
 
 .step-header__title {
   font-family: var(--font-sans);
-  font-size: 22px;
-  font-weight: 600;
-  margin: 0 0 var(--space-sm);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 12px;
   color: var(--text);
-  letter-spacing: -0.005em;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
 }
 
 .step-header__desc {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--text-secondary);
   margin: 0;
   max-width: 720px;
+}
+
+/* Input ↔ Output 切换过渡 */
+.sop-fade-enter-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+.sop-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.sop-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.sop-fade-leave-to {
+  opacity: 0;
 }
 </style>

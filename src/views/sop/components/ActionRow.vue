@@ -106,18 +106,14 @@ const secondaryIcon = computed(() => resolveIcon(props.secondary?.icon))
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-lg);
+  padding: 12px 32px;
   border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
-  transition:
-    background-color var(--transition-base),
-    border-color var(--transition-base),
-    color var(--transition-base),
-    opacity var(--transition-base);
+  transition: all 0.2s;
 }
 
 .action-row__btn:disabled {
@@ -132,16 +128,19 @@ const secondaryIcon = computed(() => resolveIcon(props.secondary?.icon))
 
 .action-row__btn--primary:hover:not(:disabled) {
   background: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .action-row__btn--ghost {
   background: var(--surface);
-  color: var(--text-secondary);
+  color: var(--text);
   border-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .action-row__btn--ghost:hover:not(:disabled) {
-  color: var(--text);
   background: var(--surface-hover);
+  border-color: var(--text-secondary);
 }
 </style>

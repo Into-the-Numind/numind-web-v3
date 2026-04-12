@@ -110,6 +110,8 @@ export function useSSEStream() {
       signal: abortController.value.signal,
       headers: {
         Authorization: `Bearer ${getToken()}`,
+        Accept: 'text/event-stream',
+        'Cache-Control': 'no-cache',
         ...(init.headers || {})
       }
     })

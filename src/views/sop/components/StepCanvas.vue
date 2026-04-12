@@ -55,7 +55,6 @@ const viewingStepStatus = computed(() => store.viewingStepStatus)
 defineEmits<{
   // Step view
   execute: [text: string]
-  stop: []
   copy: []
   regenerate: []
   primary: []
@@ -82,7 +81,6 @@ defineEmits<{
         :input-label="inputLabel"
         :input-hint="inputHint"
         @execute="(text: string) => $emit('execute', text)"
-        @stop="$emit('stop')"
         @copy="$emit('copy')"
         @regenerate="$emit('regenerate')"
         @primary="$emit('primary')"
@@ -113,6 +111,7 @@ defineEmits<{
 .main {
   display: flex;
   flex-direction: column;
+  /* 生产环境: 微绿灰底色，让毛玻璃卡片浮起来 */
   background: var(--bg);
   flex: 1;
   min-height: 0;

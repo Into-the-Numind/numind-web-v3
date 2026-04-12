@@ -107,23 +107,24 @@
       </div>
     </div>
 
-    <!-- 操作栏：上传按钮 -->
-    <div class="step-input-actions">
-      <input
-        ref="fileInputRef"
-        type="file"
-        class="step-input-file-input"
-        multiple
-        :accept="acceptString"
-        @change="handleFilePick"
-      />
+    <!-- 隐藏的 file input（始终渲染，父组件可通过 expose 触发） -->
+    <input
+      ref="fileInputRef"
+      type="file"
+      class="step-input-file-input"
+      multiple
+      :accept="acceptString"
+      @change="handleFilePick"
+    />
+
+    <!-- 操作栏：上传按钮（可通过 hideActions 隐藏，由父组件自行渲染） -->
+    <div v-if="!hideActions" class="step-input-actions">
       <button
         type="button"
         class="step-input-upload-btn"
         :disabled="disabled"
         @click="triggerFilePicker"
       >
-        <Paperclip :size="14" aria-hidden="true" />
         <span>上传文件</span>
       </button>
       <span v-if="fileUpload.isUploading.value" class="step-input-uploading-hint"> 上传中… </span>
@@ -134,7 +135,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue'
 import {
-  Paperclip,
   X,
   Image as ImageIcon,
   FileText,
@@ -150,6 +150,8 @@ interface Props {
   nodeId: number | null
   placeholder?: string
   disabled?: boolean
+  /** 隐藏内置操作栏（上传按钮），由父组件自行渲染 */
+  hideActions?: boolean
   /**
    * Draft 模式下的 lazy run 创建回调。
    *
@@ -162,7 +164,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   placeholder: '在此输入内容，或拖拽文件到此区域…',
-  disabled: false
+  disabled: false,
+  hideActions: false
 })
 
 const emit = defineEmits<{
@@ -305,7 +308,9 @@ watch(
 defineExpose({
   compose: () => fileUpload.compose(),
   clearUploads: () => fileUpload.clearItems(),
-  focus: () => textareaRef.value?.focus()
+  focus: () => textareaRef.value?.focus(),
+  triggerFilePicker,
+  isUploading: fileUpload.isUploading
 })
 </script>
 

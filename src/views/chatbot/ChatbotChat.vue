@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, MessageSquare, ArrowUp, Send, Square } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
+import { useLLMModelStore } from '@/stores/llmModel'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import { useMarkdown } from '@/composables/useMarkdown'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
@@ -120,6 +121,15 @@ function handleStopStream() {
 // ==================== Lifecycle ====================
 onMounted(async () => {
   document.body.classList.add('chatbot-chat-route')
+
+  // 每次进入智能体页面，强制开启深度思考
+  const llmStore = useLLMModelStore()
+  await llmStore.fetchModels()
+  await llmStore.fetchPreferences()
+  const modelKey = llmStore.getSelectedModelKey('chatbot')
+  if (!llmStore.isThinkingEnabled('chatbot')) {
+    await llmStore.savePreference('chatbot', modelKey, true)
+  }
 
   // Fetch all sessions, then filter for this chatbot
   await store.fetchSessions()
@@ -242,13 +252,13 @@ onBeforeUnmount(() => {
             <template v-else>
               <div class="messages-container">
                 <div v-for="msg in store.messages" :key="msg.id" class="message" :class="msg.role">
-                  <!-- Thinking block for assistant messages -->
-                  <ThinkingBlock
-                    v-if="msg.role === 'assistant' && msg.thinking"
-                    :content="msg.thinking"
-                    :finished="true"
-                  />
                   <div class="message-bubble" :class="msg.role">
+                    <!-- Thinking block for assistant messages -->
+                    <ThinkingBlock
+                      v-if="msg.role === 'assistant' && msg.thinking"
+                      :content="msg.thinking"
+                      :finished="true"
+                    />
                     <div v-if="msg.role === 'assistant'" v-html="render(msg.content)"></div>
                     <template v-else>{{ msg.content }}</template>
                   </div>
@@ -256,13 +266,6 @@ onBeforeUnmount(() => {
 
                 <!-- Streaming message -->
                 <div v-if="store.streaming" class="message assistant">
-                  <!-- Streaming thinking block -->
-                  <ThinkingBlock
-                    v-if="store.streamThinkingContent"
-                    :content="store.streamThinkingContent"
-                    :finished="false"
-                  />
-
                   <!-- Status indicator -->
                   <div
                     v-if="
@@ -274,12 +277,18 @@ onBeforeUnmount(() => {
                     <span>{{ store.streamStatus }}</span>
                   </div>
 
-                  <!-- Streaming content -->
+                  <!-- Streaming bubble (thinking + content) -->
                   <div
-                    v-if="store.streamContent"
+                    v-if="store.streamThinkingContent || store.streamContent"
                     class="message-bubble assistant"
-                    v-html="render(store.streamContent)"
-                  />
+                  >
+                    <ThinkingBlock
+                      v-if="store.streamThinkingContent"
+                      :content="store.streamThinkingContent"
+                      :finished="false"
+                    />
+                    <div v-if="store.streamContent" v-html="render(store.streamContent)" />
+                  </div>
 
                   <!-- Typing indicator (no content yet, no status) -->
                   <div
@@ -744,11 +753,43 @@ body.chatbot-chat-route #app {
   border: 1px solid var(--border-light);
   border-bottom-left-radius: 4px;
   box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  line-height: var(--line-height-relaxed, 1.75);
 }
 
-/* Markdown content styling inside assistant bubbles */
+/* Markdown content styling inside assistant bubbles — aligned with SOP prose */
+.message-bubble.assistant :deep(h1),
+.message-bubble.assistant :deep(h2),
+.message-bubble.assistant :deep(h3),
+.message-bubble.assistant :deep(h4),
+.message-bubble.assistant :deep(h5),
+.message-bubble.assistant :deep(h6) {
+  font-family: var(--font-sans);
+  margin-top: var(--space-xl, 24px);
+  margin-bottom: var(--space-md, 12px);
+  font-weight: 600;
+  color: var(--text);
+  line-height: var(--line-height-tight, 1.25);
+}
+
+.message-bubble.assistant :deep(h1) {
+  font-size: 28px;
+}
+
+.message-bubble.assistant :deep(h2) {
+  font-size: 22px;
+}
+
+.message-bubble.assistant :deep(h3) {
+  font-size: 18px;
+}
+
+.message-bubble.assistant :deep(h4) {
+  font-size: 16px;
+}
+
 .message-bubble.assistant :deep(p) {
-  margin: 0 0 8px;
+  margin: var(--space-md, 12px) 0;
 }
 
 .message-bubble.assistant :deep(p:last-child) {
@@ -757,57 +798,83 @@ body.chatbot-chat-route #app {
 
 .message-bubble.assistant :deep(ul),
 .message-bubble.assistant :deep(ol) {
-  margin: 4px 0;
-  padding-left: 20px;
+  margin: var(--space-md, 12px) 0;
+  padding-left: 28px;
 }
 
-.message-bubble.assistant :deep(pre) {
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 8px;
-  padding: 12px;
-  overflow-x: auto;
-  margin: 8px 0;
-  font-size: 0.85rem;
+.message-bubble.assistant :deep(li) {
+  margin: var(--space-xs, 4px) 0;
+}
+
+.message-bubble.assistant :deep(strong) {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.message-bubble.assistant :deep(em) {
+  font-style: italic;
 }
 
 .message-bubble.assistant :deep(code) {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
-  font-size: 0.85em;
+  background-color: hsl(150, 10%, 92%);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm, 4px);
+  font-family: var(--font-mono, 'SF Mono', Monaco, Consolas, monospace);
+  font-size: 13px;
+  color: hsl(158, 64%, 40%);
+  border: 1px solid hsl(150, 15%, 90%);
 }
 
-.message-bubble.assistant :deep(code:not(pre code)) {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 2px 6px;
-  border-radius: 4px;
+.message-bubble.assistant :deep(pre) {
+  background-color: hsl(150, 10%, 92%);
+  padding: var(--space-lg, 16px);
+  border-radius: var(--radius-md, 8px);
+  overflow-x: auto;
+  margin: var(--space-lg, 16px) 0;
+  border: 1px solid hsl(150, 15%, 90%);
+}
+
+.message-bubble.assistant :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  border: none;
 }
 
 .message-bubble.assistant :deep(blockquote) {
-  border-left: 3px solid var(--primary);
-  margin: 8px 0;
-  padding: 4px 12px;
-  color: var(--text-muted);
+  border-left: 4px solid hsl(158, 64%, 40%);
+  padding-left: var(--space-lg, 16px);
+  margin: var(--space-lg, 16px) 0;
+  color: hsl(150, 10%, 40%);
+  font-style: italic;
+}
+
+.message-bubble.assistant :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--divider, var(--border-light));
+  margin: var(--space-xl, 24px) 0;
 }
 
 .message-bubble.assistant :deep(a) {
   color: var(--primary);
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .message-bubble.assistant :deep(table) {
   border-collapse: collapse;
-  margin: 8px 0;
-  font-size: 0.9rem;
+  width: 100%;
+  margin: var(--space-lg, 16px) 0;
 }
 
 .message-bubble.assistant :deep(th),
 .message-bubble.assistant :deep(td) {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 6px 10px;
+  border: 1px solid var(--border);
+  padding: var(--space-sm, 8px) var(--space-md, 12px);
   text-align: left;
 }
 
 .message-bubble.assistant :deep(th) {
-  background: rgba(0, 0, 0, 0.03);
+  background-color: var(--surface-tint, var(--surface-hover));
   font-weight: 600;
 }
 

@@ -12,166 +12,166 @@
     </div>
 
     <template v-else>
-      <!-- 头部 -->
-      <div class="page-header">
-        <div class="header-left">
-          <button class="back-link" @click="router.push('/config/sop-templates')">
-            &larr; 返回列表
-          </button>
+      <button class="back-link" @click="router.push('/config/sop-templates')">
+        &larr; 返回列表
+      </button>
+
+      <div class="content-center">
+        <div class="page-header">
           <h2 class="page-title">{{ isCreate ? '新建SOP模板' : '编辑SOP模板' }}</h2>
-        </div>
-        <div class="header-actions">
-          <AppButton variant="secondary" size="sm" @click="router.push('/config/sop-templates')">
-            取消
-          </AppButton>
-          <AppButton
-            :loading="saving"
-            :disabled="!isFormValid || saving"
-            size="sm"
-            @click="handleSave"
-          >
-            {{ saving ? '保存中...' : '保存' }}
-          </AppButton>
-        </div>
-      </div>
-
-      <!-- 基本信息卡片 -->
-      <div class="meta-card">
-        <h3 class="section-title">基本信息</h3>
-        <div class="meta-fields">
-          <AppInput
-            v-model="form.name"
-            label="模板名称"
-            placeholder="请输入SOP模板名称"
-            :error="errors.name"
-            @blur="validateName"
-          />
-          <div class="form-group">
-            <label class="form-label">描述</label>
-            <textarea
-              v-model="form.description"
-              class="form-textarea"
-              placeholder="请输入模板描述（可选）"
-              rows="2"
-            ></textarea>
+          <div class="header-actions">
+            <AppButton variant="secondary" size="sm" @click="router.push('/config/sop-templates')">
+              取消
+            </AppButton>
+            <AppButton
+              :loading="saving"
+              :disabled="!isFormValid || saving"
+              size="sm"
+              @click="handleSave"
+            >
+              {{ saving ? '保存中...' : '保存' }}
+            </AppButton>
           </div>
         </div>
-      </div>
 
-      <!-- 步骤编辑区（分栏） -->
-      <div class="section-title">步骤配置</div>
-      <div class="split-layout">
-        <!-- 左侧：步骤列表 -->
-        <div class="step-panel">
-          <div class="panel-header">
-            <span class="panel-title">步骤列表</span>
-            <span class="panel-count">{{ nodes.length }}/20</span>
-          </div>
-          <div class="step-list-wrapper">
-            <div v-if="nodes.length === 0" class="step-empty">
-              <span class="empty-icon">&#9776;</span>
-              <span class="empty-text">暂无步骤</span>
+        <!-- 基本信息卡片 -->
+        <div class="meta-card">
+          <h3 class="section-title">基本信息</h3>
+          <div class="meta-fields">
+            <AppInput
+              v-model="form.name"
+              label="模板名称"
+              placeholder="请输入SOP模板名称"
+              :error="errors.name"
+              @blur="validateName"
+            />
+            <div class="form-group">
+              <label class="form-label">描述</label>
+              <textarea
+                v-model="form.description"
+                class="form-textarea"
+                placeholder="请输入模板描述（可选）"
+                rows="2"
+              ></textarea>
             </div>
-            <div v-else class="step-list">
-              <div
-                v-for="(node, idx) in nodes"
-                :key="node.localId"
-                class="step-item"
-                :class="{ active: selectedIndex === idx }"
-                @click="selectedIndex = idx"
-              >
-                <span class="step-number">{{ idx + 1 }}</span>
-                <span class="step-preview">{{ node.name || '未命名步骤' }}</span>
-                <div class="step-actions">
-                  <button
-                    class="step-action-btn"
-                    :disabled="idx === 0"
-                    title="上移"
-                    @click.stop="moveStep(idx, -1)"
-                  >
-                    &#9650;
-                  </button>
-                  <button
-                    class="step-action-btn"
-                    :disabled="idx === nodes.length - 1"
-                    title="下移"
-                    @click.stop="moveStep(idx, 1)"
-                  >
-                    &#9660;
-                  </button>
-                  <button
-                    class="step-action-btn step-action-btn--danger"
-                    title="删除"
-                    @click.stop="removeStep(idx)"
-                  >
-                    &times;
-                  </button>
+          </div>
+        </div>
+
+        <!-- 步骤编辑区（分栏） -->
+        <div class="section-title">步骤配置</div>
+        <div class="split-layout">
+          <!-- 左侧：步骤列表 -->
+          <div class="step-panel">
+            <div class="panel-header">
+              <span class="panel-title">步骤列表</span>
+              <span class="panel-count">{{ nodes.length }}/20</span>
+            </div>
+            <div class="step-list-wrapper">
+              <div v-if="nodes.length === 0" class="step-empty">
+                <span class="empty-icon">&#9776;</span>
+                <span class="empty-text">暂无步骤</span>
+              </div>
+              <div v-else class="step-list">
+                <div
+                  v-for="(node, idx) in nodes"
+                  :key="node.localId"
+                  class="step-item"
+                  :class="{ active: selectedIndex === idx }"
+                  @click="selectedIndex = idx"
+                >
+                  <span class="step-number">{{ idx + 1 }}</span>
+                  <span class="step-preview">{{ node.name || '未命名步骤' }}</span>
+                  <div class="step-actions">
+                    <button
+                      class="step-action-btn"
+                      :disabled="idx === 0"
+                      title="上移"
+                      @click.stop="moveStep(idx, -1)"
+                    >
+                      &#9650;
+                    </button>
+                    <button
+                      class="step-action-btn"
+                      :disabled="idx === nodes.length - 1"
+                      title="下移"
+                      @click.stop="moveStep(idx, 1)"
+                    >
+                      &#9660;
+                    </button>
+                    <button
+                      class="step-action-btn step-action-btn--danger"
+                      title="删除"
+                      @click.stop="removeStep(idx)"
+                    >
+                      &times;
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="panel-footer">
-            <button class="add-step-btn" :disabled="nodes.length >= 20" @click="addStep">
-              + 添加步骤
-            </button>
-            <label class="trailing-chat-toggle">
-              <input
-                v-model="form.trailingChatEnabled"
-                type="checkbox"
-                class="trailing-chat-checkbox"
-              />
-              <span class="trailing-chat-label">
-                <span class="trailing-chat-title">在流程末尾追加 AI 聊天</span>
-                <span class="trailing-chat-hint">开启后，用户完成所有步骤后可与 AI 继续对话</span>
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <!-- 右侧：步骤详情编辑 -->
-        <div class="detail-panel">
-          <div v-if="selectedIndex < 0 || selectedIndex >= nodes.length" class="detail-empty">
-            <span class="empty-icon-lg">&#9998;</span>
-            <span class="empty-title">选择步骤以编辑</span>
-            <span class="empty-hint">点击左侧步骤查看和编辑详情</span>
-          </div>
-          <template v-else>
-            <div class="detail-header">
-              <span class="detail-badge">步骤 {{ selectedIndex + 1 }}</span>
-            </div>
-            <div class="detail-form">
-              <div class="form-group">
-                <label class="form-label">步骤名称</label>
+            <div class="panel-footer">
+              <button class="add-step-btn" :disabled="nodes.length >= 20" @click="addStep">
+                + 添加步骤
+              </button>
+              <label class="trailing-chat-toggle">
                 <input
-                  v-model="nodes[selectedIndex].name"
-                  class="form-input"
-                  placeholder="请输入步骤名称，如：AI 拆解产品"
+                  v-model="form.trailingChatEnabled"
+                  type="checkbox"
+                  class="trailing-chat-checkbox"
                 />
-              </div>
-              <div class="form-group">
-                <label class="form-label">步骤说明</label>
-                <textarea
-                  v-model="nodes[selectedIndex].description"
-                  class="form-textarea"
-                  placeholder="用户在该步骤中会看到的说明文字（可选）"
-                  rows="2"
-                ></textarea>
-                <span class="form-hint">此说明将展示在用户端对应步骤的顶部</span>
-              </div>
-              <div class="form-group form-group--flex">
-                <label class="form-label">
-                  提示词（Prompt）
-                  <span class="label-required">*</span>
-                </label>
-                <textarea
-                  v-model="nodes[selectedIndex].prompt"
-                  class="form-textarea prompt-textarea"
-                  placeholder="请输入该步骤的 AI 提示词"
-                  rows="10"
-                ></textarea>
-              </div>
+                <span class="trailing-chat-label">
+                  <span class="trailing-chat-title">在流程末尾追加 AI 聊天</span>
+                  <span class="trailing-chat-hint">开启后，用户完成所有步骤后可与 AI 继续对话</span>
+                </span>
+              </label>
             </div>
-          </template>
+          </div>
+
+          <!-- 右侧：步骤详情编辑 -->
+          <div class="detail-panel">
+            <div v-if="selectedIndex < 0 || selectedIndex >= nodes.length" class="detail-empty">
+              <span class="empty-icon-lg">&#9998;</span>
+              <span class="empty-title">选择步骤以编辑</span>
+              <span class="empty-hint">点击左侧步骤查看和编辑详情</span>
+            </div>
+            <template v-else>
+              <div class="detail-header">
+                <span class="detail-badge">步骤 {{ selectedIndex + 1 }}</span>
+              </div>
+              <div class="detail-form">
+                <div class="form-group">
+                  <label class="form-label">步骤名称</label>
+                  <input
+                    v-model="nodes[selectedIndex].name"
+                    class="form-input"
+                    placeholder="请输入步骤名称，如：AI 拆解产品"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">步骤说明</label>
+                  <textarea
+                    v-model="nodes[selectedIndex].description"
+                    class="form-textarea"
+                    placeholder="用户在该步骤中会看到的说明文字（可选）"
+                    rows="2"
+                  ></textarea>
+                  <span class="form-hint">此说明将展示在用户端对应步骤的顶部</span>
+                </div>
+                <div class="form-group form-group--flex">
+                  <label class="form-label">
+                    提示词（Prompt）
+                    <span class="label-required">*</span>
+                  </label>
+                  <textarea
+                    v-model="nodes[selectedIndex].prompt"
+                    class="form-textarea prompt-textarea"
+                    placeholder="请输入该步骤的 AI 提示词"
+                    rows="10"
+                  ></textarea>
+                </div>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
     </template>
@@ -479,6 +479,11 @@ onBeforeRouteLeave(() => {
   width: 100%;
 }
 
+.content-center {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
 /* ── Loading & Error ── */
 
 .loading-state {
@@ -521,13 +526,8 @@ onBeforeRouteLeave(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   margin-bottom: 24px;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
 }
 
 .header-actions {
@@ -555,7 +555,6 @@ onBeforeRouteLeave(() => {
 .page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  font-family: var(--font-heading);
   color: var(--text);
   letter-spacing: -0.01em;
 }
@@ -574,7 +573,6 @@ onBeforeRouteLeave(() => {
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  font-family: var(--font-heading);
   color: var(--text);
   margin-bottom: 16px;
 }

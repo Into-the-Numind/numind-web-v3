@@ -38,8 +38,13 @@ export const useLLMModelStore = defineStore('llmModel', () => {
   }
 
   async function savePreference(feature: string, modelKey: string, thinking: boolean) {
-    await savePreferenceApi(feature, modelKey, thinking)
+    // 乐观更新：先改本地状态，再异步持久化，避免 UI 延迟
     preferences.value[feature] = { model_key: modelKey, thinking }
+    try {
+      await savePreferenceApi(feature, modelKey, thinking)
+    } catch {
+      // 持久化失败不回滚，下次刷新会从后端重新拉取
+    }
   }
 
   function getSelectedModelKey(feature: string): string {
@@ -47,7 +52,7 @@ export const useLLMModelStore = defineStore('llmModel', () => {
   }
 
   function isThinkingEnabled(feature: string): boolean {
-    return preferences.value[feature]?.thinking ?? false
+    return preferences.value[feature]?.thinking ?? true
   }
 
   function getSelectedModel(feature: string): LLMModel | undefined {

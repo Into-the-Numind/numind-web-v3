@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { ChevronDown, Sparkles } from 'lucide-vue-next'
+import { ChevronDown } from 'lucide-vue-next'
 import { useLLMModelStore } from '@/stores/llmModel'
 
 const props = defineProps<{
@@ -56,7 +56,7 @@ onBeforeUnmount(() => {
       <ChevronDown :size="14" class="chevron" />
 
       <!-- Dropdown -->
-      <div v-show="isOpen" class="model-dropdown">
+      <div v-show="isOpen" class="model-dropdown" :class="{ 'drop-up': feature === 'chatbot' }">
         <div
           v-for="model in store.models"
           :key="model.model_key"
@@ -88,7 +88,6 @@ onBeforeUnmount(() => {
       "
       @click.stop="toggleThinking"
     >
-      <Sparkles :size="14" />
       <span>深度思考</span>
     </button>
   </div>
@@ -148,9 +147,8 @@ onBeforeUnmount(() => {
 /* ---- Dropdown ---- */
 .model-dropdown {
   position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(100% + 8px);
+  left: 0;
   background: white;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
@@ -159,6 +157,11 @@ onBeforeUnmount(() => {
   min-width: 160px;
   width: max-content;
   z-index: 200;
+}
+
+.model-dropdown.drop-up {
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 .model-option {
@@ -192,8 +195,8 @@ onBeforeUnmount(() => {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.1);
-  color: #7c3aed;
+  background: rgba(37, 167, 105, 0.1);
+  color: var(--primary, #25a769);
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -227,15 +230,15 @@ onBeforeUnmount(() => {
 
 .thinking-btn:hover:not(.disabled) {
   background: white;
-  border-color: #8b5cf6;
-  color: #7c3aed;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
+  border-color: var(--primary, #25a769);
+  color: var(--primary, #25a769);
+  box-shadow: 0 2px 8px rgba(37, 167, 105, 0.1);
 }
 
 .thinking-btn.enabled {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: #8b5cf6;
-  color: #7c3aed;
+  background: rgba(37, 167, 105, 0.08);
+  border-color: var(--primary, #25a769);
+  color: var(--primary, #25a769);
 }
 
 .thinking-btn.disabled {

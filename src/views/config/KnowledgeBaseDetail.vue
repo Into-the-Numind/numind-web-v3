@@ -12,12 +12,13 @@
     </div>
 
     <template v-else-if="detail">
-      <!-- 头部 -->
-      <div class="page-header">
-        <button class="back-link" @click="router.push('/config/knowledge-bases')">
-          &larr; 返回列表
-        </button>
-        <div class="header-row">
+      <button class="back-link" @click="router.push('/config/knowledge-bases')">
+        &larr; 返回列表
+      </button>
+
+      <div class="content-center">
+        <!-- 头部 -->
+        <div class="page-header">
           <div class="header-info">
             <h2 v-if="!editingMeta" class="page-title">
               {{ detail.name }}
@@ -53,115 +54,115 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 上传区域 -->
-      <div class="upload-section">
-        <label class="upload-area" :class="{ disabled: docLimitReached }">
-          <input
-            ref="fileInput"
-            type="file"
-            class="file-input"
-            accept=".txt,.pdf,.md,.doc,.docx"
-            multiple
-            :disabled="uploading || docLimitReached"
-            @change="handleFileSelect"
-          />
-          <span v-if="uploading" class="upload-text">上传中（{{ uploadingCount }} 个文件）...</span>
-          <span v-else-if="docLimitReached" class="upload-text upload-text--disabled">
-            已达文档上限（10 份）
-          </span>
-          <span v-else class="upload-content">
-            <svg
-              class="upload-icon"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        <!-- 上传区域 -->
+        <div class="upload-section">
+          <label class="upload-area" :class="{ disabled: docLimitReached }">
+            <input
+              ref="fileInput"
+              type="file"
+              class="file-input"
+              accept=".txt,.pdf,.md,.doc,.docx"
+              multiple
+              :disabled="uploading || docLimitReached"
+              @change="handleFileSelect"
+            />
+            <span v-if="uploading" class="upload-text"
+              >上传中（{{ uploadingCount }} 个文件）...</span
             >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            <span class="upload-text">点击选择文件，或拖拽到此区域</span>
-            <span class="upload-hint"
-              >支持 txt、pdf、md、doc、docx，单次最多 5 个，单文件不超过 50MB</span
-            >
-          </span>
-        </label>
-        <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
-      </div>
-
-      <!-- 文档列表 -->
-      <div class="doc-section">
-        <h3 class="section-title">文档列表（{{ detail.documents?.length ?? 0 }}）</h3>
-
-        <!-- 轮询超时提示：后端仍在处理，引导用户手动刷新 -->
-        <div v-if="pollTimedOut" class="poll-timeout-banner">
-          <span>后端仍在处理部分文档，刷新可获取最新状态</span>
-          <AppButton variant="secondary" size="sm" @click="handleManualRefresh">
-            手动刷新
-          </AppButton>
+            <span v-else-if="docLimitReached" class="upload-text upload-text--disabled">
+              已达文档上限（10 份）
+            </span>
+            <span v-else class="upload-content">
+              <svg
+                class="upload-icon"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span class="upload-text">点击选择文件，或拖拽到此区域</span>
+              <span class="upload-hint"
+                >支持 txt、pdf、md、doc、docx，单次最多 5 个，单文件不超过 50MB</span
+              >
+            </span>
+          </label>
+          <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
         </div>
 
-        <div v-if="!detail.documents || detail.documents.length === 0" class="doc-empty">
-          <div class="doc-empty-icon">
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-              <path d="M14 2v6h6" />
-              <path d="M12 18v-6" />
-              <path d="m9 15 3-3 3 3" />
-            </svg>
-          </div>
-          <div class="doc-empty-title">还没有文档</div>
-          <div class="doc-empty-desc">
-            上传文档后，AI 将自动解析并建立知识索引。<br />
-            支持 txt、pdf、md、doc、docx 格式，单文件最大 50MB。
-          </div>
-        </div>
+        <!-- 文档列表 -->
+        <div class="doc-section">
+          <h3 class="section-title">文档列表（{{ detail.documents?.length ?? 0 }}）</h3>
 
-        <div v-else class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>大小</th>
-                <th>状态</th>
-                <th>上传时间</th>
-                <th class="col-action">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="doc in detail.documents" :key="doc.id">
-                <td class="cell-name">{{ doc.name }}</td>
-                <td class="cell-secondary">{{ formatSize(doc.file_size) }}</td>
-                <td>
-                  <span class="status-badge" :class="'status--' + doc.status.toLowerCase()">
-                    {{ docStatusLabel(doc.status) }}
-                  </span>
-                </td>
-                <td class="cell-secondary">{{ formatDate(doc.created_at) }}</td>
-                <td class="col-action">
-                  <button class="action-link action--danger" @click="handleRemoveDoc(doc.id)">
-                    移除
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <!-- 轮询超时提示：后端仍在处理，引导用户手动刷新 -->
+          <div v-if="pollTimedOut" class="poll-timeout-banner">
+            <span>后端仍在处理部分文档，刷新可获取最新状态</span>
+            <AppButton variant="secondary" size="sm" @click="handleManualRefresh">
+              手动刷新
+            </AppButton>
+          </div>
+
+          <div v-if="!detail.documents || detail.documents.length === 0" class="doc-empty">
+            <div class="doc-empty-icon">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                <path d="M14 2v6h6" />
+                <path d="M12 18v-6" />
+                <path d="m9 15 3-3 3 3" />
+              </svg>
+            </div>
+            <div class="doc-empty-title">还没有文档</div>
+            <div class="doc-empty-desc">
+              上传文档后，AI 将自动解析并建立知识索引。<br />
+              支持 txt、pdf、md、doc、docx 格式，单文件最大 50MB。
+            </div>
+          </div>
+
+          <div v-else class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-left">名称</th>
+                  <th>大小</th>
+                  <th>状态</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="doc in detail.documents" :key="doc.id">
+                  <td class="cell-name">{{ doc.name }}</td>
+                  <td class="cell-secondary">{{ formatSize(doc.file_size) }}</td>
+                  <td>
+                    <span class="status-badge" :class="'status--' + doc.status.toLowerCase()">
+                      {{ docStatusLabel(doc.status) }}
+                    </span>
+                  </td>
+                  <td class="col-action">
+                    <button class="action-link action--danger" @click="handleRemoveDoc(doc.id)">
+                      移除
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </template>
@@ -469,6 +470,11 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.content-center {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
 /* ── Loading & Error ── */
 
 .loading-state {
@@ -508,10 +514,6 @@ onUnmounted(() => {
 
 /* ── Page Header ── */
 
-.page-header {
-  margin-bottom: 24px;
-}
-
 .back-link {
   background: none;
   border: none;
@@ -528,10 +530,8 @@ onUnmounted(() => {
   color: var(--accent-hover);
 }
 
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+.page-header {
+  margin-bottom: 24px;
 }
 
 .header-info {
@@ -541,7 +541,6 @@ onUnmounted(() => {
 .page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  font-family: var(--font-heading);
   color: var(--text);
   display: flex;
   align-items: center;
@@ -689,7 +688,6 @@ onUnmounted(() => {
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  font-family: var(--font-heading);
   color: var(--text);
   margin-bottom: 16px;
 }
@@ -718,7 +716,6 @@ onUnmounted(() => {
 .doc-empty-title {
   font-size: 1rem;
   font-weight: 600;
-  font-family: var(--font-heading);
   color: var(--text);
 }
 
@@ -745,59 +742,72 @@ onUnmounted(() => {
 /* ── Table Card ── */
 
 .table-container {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 .data-table th {
-  text-align: left;
-  padding: 12px 20px;
-  font-size: 0.75rem;
+  text-align: center;
+  padding: 14px 16px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
+  color: hsl(155, 15%, 50%);
   letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-tint);
+  border-bottom: 1px solid hsl(155, 20%, 93%);
   white-space: nowrap;
+  background: hsla(150, 15%, 98%, 0.5);
 }
 
 .data-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border-light);
-  color: var(--text);
+  padding: 14px 16px;
+  border-bottom: 1px solid hsl(155, 20%, 95%);
+  color: hsl(155, 15%, 25%);
+  vertical-align: middle;
+  text-align: center;
 }
 
 .data-table tbody tr {
-  transition: background var(--transition-fast);
-}
-
-.data-table tbody tr:hover {
-  background: var(--surface-hover);
+  transition: background 0.15s;
 }
 
 .data-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.cell-name {
-  font-weight: 500;
+.data-table tbody tr:hover td {
+  background: hsl(155, 20%, 98%);
+}
+
+.data-table td.cell-name {
+  font-weight: 600;
+  color: hsl(155, 25%, 18%);
+  text-align: left;
+}
+
+.data-table th.col-left {
+  text-align: left;
 }
 
 .cell-secondary {
-  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 15%, 35%);
 }
 
-.col-action {
+.data-table th.col-action,
+.data-table td.col-action {
   text-align: right;
 }
 

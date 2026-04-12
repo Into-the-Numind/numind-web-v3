@@ -35,48 +35,36 @@
     <!-- 思维链折叠面板（仅当 thinking 非空时显示） -->
     <div
       v-if="hasThinking"
-      class="step-output-thinking"
-      :class="{ 'is-collapsed': thinkingCollapsed }"
+      class="thinking-container"
+      :class="{ collapsed: thinkingCollapsed, finished: !streaming }"
     >
-      <button
-        type="button"
-        class="step-output-thinking-header"
+      <div
+        class="thinking-header"
+        role="button"
+        tabindex="0"
         :aria-expanded="!thinkingCollapsed"
         @click="thinkingCollapsed = !thinkingCollapsed"
+        @keydown.enter.prevent="thinkingCollapsed = !thinkingCollapsed"
       >
-        <span class="step-output-thinking-icon" aria-hidden="true">
-          <component :is="thinkingCollapsed ? ChevronRight : ChevronDown" :size="14" />
+        <span class="thinking-title">
+          <ChevronDown :size="14" class="thinking-icon" aria-hidden="true" />
+          <span>{{ streaming ? '思考中…' : '思考过程' }}</span>
         </span>
-        <span class="step-output-thinking-title">
-          {{ streaming ? '思考中…' : '思考过程' }}
-        </span>
-      </button>
-      <div
-        v-show="!thinkingCollapsed"
-        class="step-output-thinking-content prose"
-        v-html="thinkingHtml"
-      />
+      </div>
+      <div class="thinking-content prose" v-html="thinkingHtml" />
     </div>
 
     <!-- 主内容滚动容器 -->
     <div ref="scrollContainerRef" class="step-output-scroll">
       <div v-if="hasContent" class="step-output-content prose" v-html="contentHtml" />
-      <!-- 流式占位符：streaming 且无内容时显示光标闪烁 -->
-      <div
-        v-else-if="streaming"
-        class="step-output-streaming-placeholder"
-        aria-label="AI 正在生成中"
-      >
-        <span class="step-output-cursor" />
-        <span>AI 正在分析中…</span>
-      </div>
+      <!-- streaming 且无内容时不显示任何占位，等内容到来后直接渲染 -->
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { ChevronDown } from 'lucide-vue-next'
 import { renderMarkdown } from '@/utils/markdown'
 import { useScrollFollow } from '@/views/sop/composables/useScrollFollow'
 
@@ -179,66 +167,73 @@ defineExpose({
   font-style: italic;
 }
 
-/* ==================== 思维链折叠面板 ==================== */
+/* ==================== 思维链折叠面板（移植自 production） ==================== */
 
-.step-output-thinking {
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-tint);
+.thinking-container {
+  margin-bottom: 16px;
+  border-radius: 8px;
   overflow: hidden;
-  transition: border-color var(--transition-fast);
+  border: 1px solid hsl(155, 20%, 92%);
+  background-color: hsl(150, 25%, 96%);
 }
 
-.step-output-thinking:hover {
-  border-color: var(--primary);
-}
-
-.step-output-thinking-header {
+.thinking-header {
+  padding: 8px 16px;
+  background-color: hsl(150, 25%, 94%);
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  text-align: left;
-  transition: background var(--transition-fast);
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
 }
 
-.step-output-thinking-header:hover {
-  background: var(--color-surface-hover);
+.thinking-header:hover {
+  background-color: hsl(150, 25%, 92%);
 }
 
-.step-output-thinking-icon {
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  transition: transform var(--transition-fast);
+.thinking-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.step-output-thinking-title {
-  font-weight: 500;
+.thinking-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s;
+  transform: rotate(0deg);
 }
 
-.step-output-thinking-content {
-  padding: 0 var(--space-md) var(--space-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  line-height: var(--line-height-relaxed);
-  max-height: 240px;
+.thinking-container:not(.collapsed) .thinking-icon {
+  transform: rotate(180deg);
+}
+
+.thinking-content {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  border-top: 1px solid var(--divider, var(--border-light));
+  transition:
+    max-height 0.3s ease-out,
+    padding 0.3s ease-out,
+    border-top-color 0.3s ease-out;
+  max-height: 4000px;
   overflow-y: auto;
+}
+
+.thinking-container.collapsed .thinking-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-color: transparent;
 }
 
 /* ==================== 主内容滚动容器 ==================== */
 
-/*
- * F6: card wrapper 外壳（背景 / 边框 / 圆角 / 外层 padding）由 OutputCard 提供。
- * StepOutput 仅负责内部 markdown + thinking 逻辑 + 滚动跟随，不再自带 card chrome。
- */
 .step-output-scroll {
   flex: 1;
   min-height: 0;
@@ -268,33 +263,124 @@ defineExpose({
 }
 
 /* ==================== 流式占位 ==================== */
+</style>
 
-.step-output-streaming-placeholder {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
+<!-- Prose markdown 样式（移植自 production ui.css）— 不可 scoped，v-html 内容需要穿透 -->
+<style>
+.step-output .prose {
+  font-size: 14px;
+  color: var(--text);
+  line-height: var(--line-height-relaxed, 1.75);
+}
+
+.step-output .prose h1,
+.step-output .prose h2,
+.step-output .prose h3,
+.step-output .prose h4,
+.step-output .prose h5,
+.step-output .prose h6 {
+  font-family: var(--font-sans);
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-md);
+  font-weight: 600;
+  color: var(--text);
+  line-height: var(--line-height-tight, 1.25);
+}
+
+.step-output .prose h1 {
+  font-size: 28px;
+}
+
+.step-output .prose h2 {
+  font-size: 22px;
+}
+
+.step-output .prose h3 {
+  font-size: 18px;
+}
+
+.step-output .prose h4 {
+  font-size: 16px;
+}
+
+.step-output .prose p {
+  margin: var(--space-md) 0;
+}
+
+.step-output .prose ul,
+.step-output .prose ol {
+  margin: var(--space-md) 0;
+  padding-left: 28px;
+}
+
+.step-output .prose li {
+  margin: var(--space-xs) 0;
+}
+
+.step-output .prose strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.step-output .prose em {
   font-style: italic;
 }
 
-.step-output-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  background: var(--primary);
-  animation: cursor-blink 1s infinite;
+.step-output .prose code {
+  background-color: hsl(150, 10%, 92%);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: hsl(158, 64%, 40%);
+  border: 1px solid hsl(150, 15%, 90%);
 }
 
-@keyframes cursor-blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-  51%,
-  100% {
-    opacity: 0;
-  }
+.step-output .prose pre {
+  background-color: hsl(150, 10%, 92%);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: var(--space-lg) 0;
+  border: 1px solid hsl(150, 15%, 90%);
+}
+
+.step-output .prose pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  border: none;
+}
+
+.step-output .prose blockquote {
+  border-left: 4px solid hsl(158, 64%, 40%);
+  padding-left: var(--space-lg);
+  margin: var(--space-lg) 0;
+  color: hsl(150, 10%, 40%);
+  font-style: italic;
+}
+
+.step-output .prose hr {
+  border: none;
+  border-top: 1px solid var(--divider, var(--border-light));
+  margin: var(--space-xl) 0;
+}
+
+.step-output .prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--space-lg) 0;
+}
+
+.step-output .prose table th,
+.step-output .prose table td {
+  border: 1px solid var(--border);
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+}
+
+.step-output .prose table th {
+  background-color: var(--surface-tint, var(--surface-hover));
+  font-weight: 600;
 }
 </style>

@@ -24,29 +24,28 @@
 -->
 <template>
   <div class="sop-run-view-v2">
-    <!-- 4 态：loading -->
-    <EmptyStateCard
-      v-if="store.loading && !store.template"
-      title="加载中…"
-      message="正在加载 SOP 模板"
-    />
+    <!-- 4 态：loading — 生产环境全屏毛玻璃遮罩 + 弹跳点 -->
+    <div v-if="store.loading && !store.template" class="page-loading-overlay">
+      <div class="page-loading-spinner">
+        <span class="page-loading-dot" />
+        <span class="page-loading-dot" />
+        <span class="page-loading-dot" />
+      </div>
+      <div class="page-loading-text">正在加载 SOP 模板…</div>
+    </div>
 
     <!-- 4 态：error -->
-    <EmptyStateCard
-      v-else-if="loadError"
-      variant="error"
-      title="加载失败"
-      :message="loadError"
-      action-label="重试"
-      @action="initialize"
-    />
+    <div v-else-if="loadError" class="page-status-screen">
+      <div class="page-status-title">加载失败</div>
+      <div class="page-status-message">{{ loadError }}</div>
+      <button class="page-status-action" @click="initialize">重试</button>
+    </div>
 
     <!-- 4 态：empty -->
-    <EmptyStateCard
-      v-else-if="store.template && store.nodes.length === 0"
-      title="该 SOP 暂未配置步骤"
-      message="请联系 SOP 创建者补充步骤"
-    />
+    <div v-else-if="store.template && store.nodes.length === 0" class="page-status-screen">
+      <div class="page-status-title">该 SOP 暂未配置步骤</div>
+      <div class="page-status-message">请联系 SOP 创建者补充步骤</div>
+    </div>
 
     <!-- 4 态：success —— 正常运行页（侧边栏全高 + 右区 header+content） -->
     <template v-else-if="store.template">
@@ -78,7 +77,6 @@
           :chat-pending-user-message="chatPendingUserMessage"
           :chat-reload-trigger="chatReloadTrigger"
           @execute="handleExecute"
-          @stop="handleStop"
           @copy="handleCopy"
           @regenerate="handleRegenerateClick"
           @primary="handlePrimary"
@@ -118,12 +116,12 @@ import { useRoute, useRouter } from 'vue-router'
 import TopBar from './components/TopBar.vue'
 import StepNav from './components/StepNav.vue'
 import StepCanvas from './components/StepCanvas.vue'
-import EmptyStateCard from './components/EmptyStateCard.vue'
 import HistoryModal from './components/HistoryModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatBubbleMessage } from './components/ChatBubble.vue'
 
 import { useSopRunStore } from '@/stores/sopRun'
+import { useLLMModelStore } from '@/stores/llmModel'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useUiDialogsStore } from '@/stores/uiDialogs'
 import { useDraftLifecycle } from './composables/useDraftLifecycle'
@@ -134,6 +132,7 @@ const route = useRoute()
 const router = useRouter()
 
 const store = useSopRunStore()
+const llmStore = useLLMModelStore()
 const notifications = useNotificationsStore()
 const uiDialogs = useUiDialogsStore()
 
@@ -191,13 +190,9 @@ async function initialize() {
       if (idx >= 0) {
         store.setActiveStep(idx + 1)
       } else if (store.completedNodeIds.size > 0) {
-        // nextNodeId 为 null → 运行已结束；将 currentStep 设为最后一个已完成步骤，
-        // 使所有已完成步骤的导航按钮可点击
-        const maxCompletedStep = store.nodes.reduce(
-          (max, n, i) => (store.completedNodeIds.has(n.id) ? i + 1 : max),
-          1
-        )
-        store.setActiveStep(maxCompletedStep)
+        // nextNodeId 为 null → 运行已结束；将 currentStep 设为 totalSteps，
+        // 使所有已完成步骤和追问步骤的导航按钮均可点击
+        store.setActiveStep(store.totalSteps)
       }
       store.setViewingStep(store.currentStep)
     } else {
@@ -321,12 +316,6 @@ function handleSecondary() {
   handleRegenerateClick()
 }
 
-function handleStop() {
-  sseStream.abort()
-  // partial content 保留在 store.streamingContent，不入 nodeRuns
-  store.clearStreamingState()
-}
-
 async function handleSwitchRun(runId: string, templateIdStr: string) {
   await router.push({
     path: '/sop/run',
@@ -410,7 +399,13 @@ async function executeNode(nodeId: number, text: string) {
 
   store.setStreamingState(nodeId, '', '')
 
-  const url = `${resolveApiBaseURL()}/v1/sop/runs/${store.currentRun.id}/nodes/${nodeId}/execute`
+  const modelKey = llmStore.getSelectedModelKey('sop')
+  const thinking = llmStore.isThinkingEnabled('sop')
+  const params = new URLSearchParams()
+  if (modelKey) params.set('model_key', modelKey)
+  if (thinking) params.set('thinking', '1')
+  const qs = params.toString()
+  const url = `${resolveApiBaseURL()}/v1/sop/runs/${store.currentRun.id}/nodes/${nodeId}/execute${qs ? '?' + qs : ''}`
   const formData = new FormData()
   formData.append('text', text)
 
@@ -583,6 +578,12 @@ watch(
 
 onMounted(async () => {
   await initialize()
+
+  // 进入 SOP 页面时默认开启深度思考
+  const modelKey = llmStore.getSelectedModelKey('sop')
+  if (!llmStore.isThinkingEnabled('sop')) {
+    await llmStore.savePreference('sop', modelKey, true)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -604,31 +605,32 @@ onBeforeUnmount(() => {
  * 每个 token 标注与根目录 DESIGN.md 的对齐关系（P2-3 review 修复）。
  * ============================================================================ */
 .sop-run-view-v2 {
-  /* --- background & surface (ALL WHITE，mockup γ v2 决策) --- */
-  --bg: #ffffff; /* scope-only: DESIGN --bg=#F7F8FB，mockup 改为纯白 */
-  --surface: #ffffff; /* 对齐 DESIGN --surface */
-  --surface-hover: #f4f5f8; /* scope-only: DESIGN --surface-hover=#F3F4F8，差 1 位 */
+  /* --- background & surface --- */
+  --bg: #ffffff; /* 与顶栏一致的纯白底色 */
+  --surface: hsl(0, 0%, 100%); /* 生产: 纯白卡片 */
+  --surface-hover: hsl(150, 15%, 95%); /* 生产: 悬停态 */
+  --surface-tint: hsl(150, 20%, 98%); /* 生产: 淡底色 */
 
   /* --- text --- */
-  --text: #1a1d26; /* 对齐 DESIGN --text */
-  --text-secondary: #5f6577; /* 对齐 DESIGN --text-secondary */
-  --text-muted: #8b90a0; /* 对齐 DESIGN --text-muted */
+  --text: hsl(150, 10%, 15%); /* 生产: 深绿近黑 */
+  --text-secondary: hsl(150, 10%, 40%); /* 生产: 中灰绿 */
+  --text-muted: hsl(150, 10%, 55%); /* 生产: 浅灰绿 */
 
-  /* --- brand / accent --- */
-  --accent: hsl(160, 75%, 44%); /* 对齐 DESIGN --accent */
-  --accent-hover: hsl(160, 75%, 38%); /* 对齐 DESIGN --accent-hover */
-  --accent-soft: hsl(160, 60%, 93%); /* 对齐 DESIGN --accent-soft */
-  --accent-light: hsl(160, 70%, 68%); /* 对齐 DESIGN --accent-light */
-  --accent-link: hsl(160, 75%, 38%); /* 对齐 DESIGN --accent-link */
-  --accent-ultra-soft: hsl(160, 60%, 95%); /* 对齐 DESIGN --accent-ultra-soft */
-  --primary: hsl(160, 72%, 40%); /* 对齐 DESIGN --primary */
-  --primary-hover: hsl(160, 72%, 34%); /* 对齐 DESIGN --primary-hover */
-  --primary-foreground: #ffffff; /* 对齐 DESIGN --primary-foreground */
+  /* --- brand / accent (生产 hsl 158 色调) --- */
+  --accent: hsl(158, 64%, 50%); /* 生产: 翡翠绿 */
+  --accent-hover: hsl(158, 64%, 45%); /* 生产 */
+  --accent-soft: hsl(158, 50%, 92%); /* 生产: 浅绿底 */
+  --accent-light: hsl(158, 64%, 70%); /* 生产 */
+  --accent-link: hsl(158, 64%, 45%); /* 生产 */
+  --accent-ultra-soft: hsl(158, 50%, 95%); /* 生产 */
+  --primary: hsl(158, 64%, 40%); /* 生产: 主按钮绿 */
+  --primary-hover: hsl(158, 64%, 35%); /* 生产 */
+  --primary-foreground: hsl(0, 0%, 100%); /* 生产 */
 
-  /* --- borders --- */
-  --border: #e2e4ea; /* 对齐 DESIGN --border */
-  --border-light: #eeeff3; /* 对齐 DESIGN --border-light */
-  --divider: #f0f1f5; /* 对齐 DESIGN --divider */
+  /* --- borders (生产 hsl 150 灰绿) --- */
+  --border: hsl(150, 15%, 85%); /* 生产 */
+  --border-light: hsl(150, 15%, 90%); /* 生产 */
+  --divider: hsl(150, 10%, 92%); /* 生产 */
 
   /* --- spacing (T-shirt size) --- */
   --space-xs: 4px; /* 对齐 DESIGN --space-xs */
@@ -647,14 +649,12 @@ onBeforeUnmount(() => {
   --radius-xl: 20px; /* 对齐 DESIGN --radius-xl */
   --radius-pill: 999px; /* 对齐 DESIGN --radius-pill */
 
-  /* --- shadow --- */
-  --shadow-sm:
-    0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03); /* 对齐 DESIGN --shadow-sm */
-  --shadow-md:
-    0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04); /* 对齐 DESIGN --shadow-md */
-  --shadow-lg:
-    0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03); /* 对齐 DESIGN --shadow-lg */
-  --shadow-focus: 0 0 0 4px hsl(158 50% 92% / 0.5); /* 对齐 DESIGN --shadow-focus */
+  /* --- shadow (生产) --- */
+  --shadow-sm: 0 1px 3px 0px hsl(150 10% 0% / 0.08), 0 1px 2px -1px hsl(150 10% 0% / 0.08);
+  --shadow-md: 0 4px 6px -1px hsl(150 10% 0% / 0.1), 0 2px 4px -1px hsl(150 10% 0% / 0.06);
+  --shadow-lg: 0 10px 15px -3px hsl(150 10% 0% / 0.1), 0 4px 6px -2px hsl(150 10% 0% / 0.05);
+  --shadow-focus: 0 0 0 4px hsl(158 50% 92% / 0.5);
+  --shadow-card: 0 1px 3px 0px hsl(150 10% 0% / 0.08), 0 1px 2px -1px hsl(150 10% 0% / 0.08);
 
   /* --- font (sans only — mockup γ v2 去掉 serif；mono 用于 MetaFooter 元信息) --- */
   --font-sans:
@@ -691,5 +691,104 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* ==================== 全屏状态提示（error / empty） ==================== */
+
+.page-status-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.page-status-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.page-status-message {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.page-status-action {
+  margin-top: 12px;
+  padding: 8px 24px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.page-status-action:hover {
+  background: var(--primary-hover);
+}
+
+/* ==================== 生产环境全屏加载遮罩 ==================== */
+
+.page-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.page-loading-spinner {
+  display: flex;
+  gap: 8px;
+}
+
+.page-loading-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  animation: page-loading-bounce 1.4s infinite ease-in-out both;
+}
+
+.page-loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.page-loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.page-loading-text {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-sans);
+}
+
+@keyframes page-loading-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
 }
 </style>
