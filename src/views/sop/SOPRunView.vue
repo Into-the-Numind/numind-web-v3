@@ -648,7 +648,8 @@ onBeforeUnmount(() => {
   /* ==================== v2 三栏布局 ==================== */
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
