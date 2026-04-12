@@ -613,7 +613,7 @@ body.chatbot-chat-route #app {
   align-items: center;
   gap: 12px;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid transparent;
   background: transparent;
 }
 
