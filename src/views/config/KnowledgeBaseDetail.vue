@@ -393,8 +393,8 @@ onUnmounted(() => {
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f9fafb);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface-tint);
+  border-radius: var(--radius-md);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -414,7 +414,7 @@ onUnmounted(() => {
 }
 
 .error-text {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   margin-bottom: 16px;
   font-size: 0.875rem;
 }
@@ -428,17 +428,17 @@ onUnmounted(() => {
 .back-link {
   background: none;
   border: none;
-  color: var(--color-accent-link, #26a86d);
+  color: var(--accent-link);
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0;
   margin-bottom: 8px;
   display: inline-block;
-  transition: color var(--transition-fast, 150ms ease);
+  transition: color var(--transition-fast);
 }
 
 .back-link:hover {
-  color: var(--color-accent-hover, #1e8b5a);
+  color: var(--accent-hover);
 }
 
 .header-row {
@@ -454,7 +454,8 @@ onUnmounted(() => {
 .page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  font-family: var(--font-heading);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -466,20 +467,20 @@ onUnmounted(() => {
   border: none;
   cursor: pointer;
   font-size: 1rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
 .edit-meta-btn:hover {
-  background: var(--color-surface-hover, #f3f4f8);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .page-desc {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -497,26 +498,26 @@ onUnmounted(() => {
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
   line-height: 1.5;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface);
+  color: var(--text);
   resize: vertical;
   font-family: inherit;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
   box-sizing: border-box;
 }
 
 .form-textarea::placeholder {
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #26a86d);
-  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
 /* ── Upload Section ── */
@@ -530,15 +531,15 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 28px;
-  border: 2px dashed var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .upload-area:hover {
-  border-color: var(--color-accent, #26a86d);
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  border-color: var(--accent);
+  background: var(--accent-ultra-soft);
 }
 
 .file-input {
@@ -548,27 +549,27 @@ onUnmounted(() => {
 .upload-area.disabled {
   cursor: not-allowed;
   opacity: 0.5;
-  border-color: var(--color-border, #e2e4ea);
+  border-color: var(--border);
 }
 
 .upload-area.disabled:hover {
-  border-color: var(--color-border, #e2e4ea);
+  border-color: var(--border);
   background: transparent;
 }
 
 .upload-text {
   font-size: 0.875rem;
-  color: var(--color-text-secondary, #5f6577);
+  color: var(--text-secondary);
 }
 
 .upload-text--disabled {
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .upload-error {
   margin-top: 8px;
   font-size: 0.8125rem;
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 /* ── Document Section ── */
@@ -580,7 +581,8 @@ onUnmounted(() => {
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  font-family: var(--font-heading);
+  color: var(--text);
   margin-bottom: 16px;
 }
 
@@ -588,7 +590,7 @@ onUnmounted(() => {
   text-align: center;
   padding: 40px 0;
   font-size: 0.875rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .poll-timeout-banner {
@@ -598,21 +600,21 @@ onUnmounted(() => {
   gap: 12px;
   padding: 10px 14px;
   margin-bottom: 12px;
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
-  border-radius: var(--radius-sm, 6px);
+  background: #fef3c7; /* TODO(admin-rebrand): replace with --warning tokens */
+  border: 1px solid #fcd34d; /* TODO(admin-rebrand): replace with --warning tokens */
+  border-radius: var(--radius-sm);
   font-size: 0.8125rem;
-  color: #92400e;
+  color: #92400e; /* TODO(admin-rebrand): replace with --warning tokens */
 }
 
 /* ── Table Card ── */
 
 .table-container {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  box-shadow: var(--shadow-card);
 }
 
 .data-table {
@@ -626,26 +628,26 @@ onUnmounted(() => {
   padding: 12px 20px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--color-border, #e2e4ea);
-  background: var(--color-surface-tint, #f9fafb);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-tint);
   white-space: nowrap;
 }
 
 .data-table td {
   padding: 14px 20px;
-  border-bottom: 1px solid var(--color-border-light, #eeeff3);
-  color: var(--color-text, #1a1d26);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text);
 }
 
 .data-table tbody tr {
-  transition: background var(--transition-fast, 150ms ease);
+  transition: background var(--transition-fast);
 }
 
 .data-table tbody tr:hover {
-  background: var(--color-surface-hover, #f3f4f8);
+  background: var(--surface-hover);
 }
 
 .data-table tbody tr:last-child td {
@@ -657,7 +659,7 @@ onUnmounted(() => {
 }
 
 .cell-secondary {
-  color: var(--color-text-secondary, #5f6577);
+  color: var(--text-secondary);
 }
 
 .col-action {
@@ -670,7 +672,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.4;
@@ -682,23 +684,23 @@ onUnmounted(() => {
 }
 
 .status--parsing {
-  background: #fef3c7;
-  color: #d97706;
+  background: #fef3c7; /* TODO(admin-rebrand): replace with --warning token */
+  color: #d97706; /* TODO(admin-rebrand): replace with --warning token */
 }
 
 .status--embedding {
-  background: #dbeafe;
-  color: #2563eb;
+  background: #dbeafe; /* TODO(admin-rebrand): replace with --info token */
+  color: #2563eb; /* TODO(admin-rebrand): replace with --info token */
 }
 
 .status--completed {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .status--failed {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #fee2e2; /* TODO(admin-rebrand): replace with --danger token */
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 /* ── Action Links ── */
@@ -708,23 +710,23 @@ onUnmounted(() => {
   border: none;
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-link, #26a86d);
+  color: var(--accent-link);
   padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
 .action-link:hover {
-  color: var(--color-accent-hover, #1e8b5a);
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--accent-hover);
+  background: var(--accent-ultra-soft);
 }
 
 .action--danger {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 .action--danger:hover {
-  color: #dc2626;
-  background: #fef2f2;
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger token */
 }
 </style>

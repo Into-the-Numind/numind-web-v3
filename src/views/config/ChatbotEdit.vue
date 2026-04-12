@@ -252,8 +252,8 @@ onMounted(() => {
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f9fafb);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface-tint);
+  border-radius: var(--radius-md);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -273,7 +273,7 @@ onMounted(() => {
 }
 
 .error-text {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   margin-bottom: 16px;
   font-size: 0.875rem;
 }
@@ -287,23 +287,24 @@ onMounted(() => {
 .back-link {
   background: none;
   border: none;
-  color: var(--color-accent-link, #26a86d);
+  color: var(--accent-link);
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0;
   margin-bottom: 8px;
   display: inline-block;
-  transition: color var(--transition-fast, 150ms ease);
+  transition: color var(--transition-fast);
 }
 
 .back-link:hover {
-  color: var(--color-accent-hover, #1e8b5a);
+  color: var(--accent-hover);
 }
 
 .page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  font-family: var(--font-heading);
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
@@ -324,34 +325,34 @@ onMounted(() => {
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
 }
 
 .required {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 .form-textarea {
   padding: 10px 12px;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
   line-height: 1.5;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #1a1d26);
+  background: var(--surface);
+  color: var(--text);
   resize: vertical;
   font-family: inherit;
-  transition: all var(--transition-fast, 150ms ease);
+  transition: all var(--transition-fast);
 }
 
 .form-textarea::placeholder {
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--color-accent, #26a86d);
-  box-shadow: var(--shadow-focus, 0 0 0 4px hsl(158 50% 92% / 0.5));
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
 .form-textarea--lg {
@@ -359,8 +360,8 @@ onMounted(() => {
 }
 
 .form-textarea--disabled {
-  background: var(--color-surface-tint, #f9fafb);
-  color: var(--color-text-muted, #8b90a0);
+  background: var(--surface-tint);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -373,7 +374,7 @@ onMounted(() => {
 }
 
 .greeting-checkbox {
-  accent-color: var(--color-primary, #26a86d);
+  accent-color: var(--primary);
   width: 16px;
   height: 16px;
 }
@@ -381,17 +382,17 @@ onMounted(() => {
 .greeting-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
 }
 
 .greeting-hint {
   font-size: 0.75rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 .field-error {
   font-size: 0.75rem;
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 /* ── Knowledge Base Selection ── */
@@ -399,7 +400,7 @@ onMounted(() => {
 .kb-loading,
 .kb-empty {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   padding: 8px 0;
 }
 
@@ -409,8 +410,8 @@ onMounted(() => {
   gap: 4px;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 8px;
 }
 
@@ -419,26 +420,26 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--transition-fast, 150ms ease);
+  transition: background var(--transition-fast);
 }
 
 .kb-item:hover {
-  background: var(--color-surface-hover, #f3f4f8);
+  background: var(--surface-hover);
 }
 
 .kb-item.selected {
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  background: var(--accent-ultra-soft);
 }
 
 .kb-checkbox {
-  accent-color: var(--color-primary, #26a86d);
+  accent-color: var(--primary);
 }
 
 .kb-name {
   font-size: 0.875rem;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
 }
 
 /* ── Form Actions ── */

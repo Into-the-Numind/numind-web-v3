@@ -174,8 +174,8 @@ onMounted(loadData)
 
 .skeleton-row {
   height: 48px;
-  background: var(--color-surface-tint, #f9fafb);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface-tint);
+  border-radius: var(--radius-md);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -195,7 +195,7 @@ onMounted(loadData)
 }
 
 .error-text {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   margin-bottom: 16px;
   font-size: 0.875rem;
 }
@@ -216,15 +216,16 @@ onMounted(loadData)
 }
 
 .page-title {
+  font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .page-desc {
   font-size: 0.8125rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
 }
 
 /* ── Empty State ── */
@@ -241,32 +242,32 @@ onMounted(loadData)
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: var(--color-surface-tint, #f9fafb);
-  color: var(--color-text-muted, #8b90a0);
+  background: var(--surface-tint);
+  color: var(--text-muted);
   margin-bottom: 20px;
 }
 
 .empty-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--color-text, #1a1d26);
+  color: var(--text);
   margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   margin-bottom: 24px;
 }
 
 /* ── Table Card ── */
 
 .table-card {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  box-shadow: var(--shadow-card);
 }
 
 .data-table {
@@ -280,26 +281,26 @@ onMounted(loadData)
   padding: 12px 20px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-text-muted, #8b90a0);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--color-border, #e2e4ea);
-  background: var(--color-surface-tint, #f9fafb);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-tint);
   white-space: nowrap;
 }
 
 .data-table td {
   padding: 14px 20px;
-  border-bottom: 1px solid var(--color-border-light, #eeeff3);
-  color: var(--color-text, #1a1d26);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text);
 }
 
 .data-table tbody tr {
-  transition: background var(--transition-fast, 150ms ease);
+  transition: background var(--transition-fast);
 }
 
 .data-table tbody tr:hover {
-  background: var(--color-surface-hover, #f3f4f8);
+  background: var(--surface-hover);
 }
 
 .data-table tbody tr:last-child td {
@@ -311,7 +312,7 @@ onMounted(loadData)
 }
 
 .cell-secondary {
-  color: var(--color-text-secondary, #5f6577);
+  color: var(--text-secondary);
 }
 
 .col-action {
@@ -324,7 +325,7 @@ onMounted(loadData)
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.4;
@@ -336,13 +337,13 @@ onMounted(loadData)
 }
 
 .status--published {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .status--offline {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #fee2e2; /* TODO(admin-rebrand): replace with --danger-soft token */
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 /* ── Action Links ── */
@@ -358,41 +359,41 @@ onMounted(loadData)
   border: none;
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-link, #26a86d);
+  color: var(--accent-link);
   padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
 .action-link:hover {
-  color: var(--color-accent-hover, #1e8b5a);
-  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--accent-hover);
+  background: var(--accent-ultra-soft);
 }
 
 .action--publish {
-  color: #16a34a;
+  color: var(--accent);
 }
 
 .action--publish:hover {
-  color: #15803d;
-  background: #f0fdf4;
+  color: var(--accent-hover);
+  background: var(--accent-ultra-soft);
 }
 
 .action--offline {
-  color: #d97706;
+  color: #d97706; /* TODO(admin-rebrand): replace with --warning token */
 }
 
 .action--offline:hover {
-  color: #b45309;
-  background: #fffbeb;
+  color: #b45309; /* TODO(admin-rebrand): replace with --warning token */
+  background: #fffbeb; /* TODO(admin-rebrand): replace with --warning token */
 }
 
 .action--danger {
-  color: #ef4444;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
 }
 
 .action--danger:hover {
-  color: #dc2626;
-  background: #fef2f2;
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger token */
 }
 </style>
