@@ -118,7 +118,11 @@ const innerText = computed({
   set: (v: string) => emit('update:modelValue', v)
 })
 
-const canExecute = computed(() => innerText.value.trim().length > 0)
+const canExecute = computed(() => {
+  const hasText = innerText.value.trim().length > 0
+  const hasFiles = stepInputRef.value?.hasReadyFiles ?? false
+  return hasText || hasFiles
+})
 
 function handleExecute() {
   if (!canExecute.value) return

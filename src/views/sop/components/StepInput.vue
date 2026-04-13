@@ -305,12 +305,17 @@ watch(
  * - clearUploads() — 清空上传条目（切换步骤时调用）
  * - focus() — 让父组件能聚焦 textarea
  */
+const hasReadyFiles = computed(() =>
+  fileUpload.items.value.some((item) => item.status === 'success')
+)
+
 defineExpose({
   compose: () => fileUpload.compose(),
   clearUploads: () => fileUpload.clearItems(),
   focus: () => textareaRef.value?.focus(),
   triggerFilePicker,
-  isUploading: fileUpload.isUploading
+  isUploading: fileUpload.isUploading,
+  hasReadyFiles
 })
 </script>
 
