@@ -52,6 +52,9 @@ export const useLLMModelStore = defineStore('llmModel', () => {
   }
 
   function isThinkingEnabled(feature: string): boolean {
+    const model = getSelectedModel(feature)
+    // thinking_only 模型始终启用思考
+    if (model?.thinking_only) return true
     return preferences.value[feature]?.thinking ?? true
   }
 

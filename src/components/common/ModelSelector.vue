@@ -13,6 +13,7 @@ const isOpen = ref(false)
 const selectedModel = computed(() => store.getSelectedModel(props.feature))
 const selectedModelKey = computed(() => store.getSelectedModelKey(props.feature))
 const thinkingEnabled = computed(() => store.isThinkingEnabled(props.feature))
+const isThinkingOnly = computed(() => selectedModel.value?.thinking_only ?? false)
 const supportsThinking = computed(() => selectedModel.value?.supports_thinking ?? false)
 
 function toggleDropdown() {
@@ -65,7 +66,10 @@ onBeforeUnmount(() => {
           @click.stop="selectModel(model.model_key)"
         >
           <span class="model-option-name">{{ model.display_name }}</span>
-          <span v-if="model.supports_thinking" class="model-thinking-badge">思考</span>
+          <span v-if="model.thinking_only" class="model-thinking-badge thinking-only-badge"
+            >仅思考</span
+          >
+          <span v-else-if="model.supports_thinking" class="model-thinking-badge">思考</span>
         </div>
         <div v-if="store.models.length === 0 && store.loading" class="model-loading">加载中...</div>
         <div v-if="store.models.length === 0 && !store.loading" class="model-empty">
@@ -77,16 +81,22 @@ onBeforeUnmount(() => {
     <!-- Thinking toggle -->
     <button
       class="thinking-btn"
-      :class="{ enabled: thinkingEnabled, disabled: !supportsThinking }"
-      :disabled="!supportsThinking"
+      :class="{
+        enabled: thinkingEnabled,
+        disabled: !supportsThinking && !isThinkingOnly,
+        'thinking-only': isThinkingOnly
+      }"
+      :disabled="!supportsThinking && !isThinkingOnly"
       :title="
-        supportsThinking
-          ? thinkingEnabled
-            ? '关闭深度思考'
-            : '开启深度思考'
-          : '当前模型不支持深度思考'
+        isThinkingOnly
+          ? '该模型始终使用深度思考'
+          : supportsThinking
+            ? thinkingEnabled
+              ? '关闭深度思考'
+              : '开启深度思考'
+            : '当前模型不支持深度思考'
       "
-      @click.stop="toggleThinking"
+      @click.stop="!isThinkingOnly && toggleThinking()"
     >
       <span>深度思考</span>
     </button>
@@ -239,6 +249,15 @@ onBeforeUnmount(() => {
   background: rgba(37, 167, 105, 0.08);
   border-color: var(--primary, #25a769);
   color: var(--primary, #25a769);
+}
+
+.thinking-btn.thinking-only {
+  cursor: default;
+}
+
+.thinking-only-badge {
+  background: rgba(194, 65, 12, 0.1) !important;
+  color: #c2410c !important;
 }
 
 .thinking-btn.disabled {

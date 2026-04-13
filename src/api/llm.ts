@@ -4,6 +4,7 @@ export interface LLMModel {
   model_key: string
   display_name: string
   supports_thinking: boolean
+  thinking_only: boolean
   icon: string
   sort_order: number
 }
