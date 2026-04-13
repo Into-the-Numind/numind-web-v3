@@ -444,6 +444,23 @@ async function executeNode(nodeId: number, text: string) {
         // 由用户手动点"下一步"按钮 (handlePrimary → advanceCurrentStep) 前进
       },
       onError: (msg) => {
+        // 保存已积累的部分内容，防止网络中断时丢失（后端也会保存已生成内容）
+        const partialThinking = store.streamingThinking
+        const partialContent = store.streamingContent
+        if (partialThinking || partialContent) {
+          store.setNodeRun(nodeId, {
+            id: 0,
+            run_id: store.currentRun!.id,
+            node_id: nodeId,
+            status: 'failed',
+            input: text,
+            output: partialContent,
+            thinking: partialThinking,
+            latency_ms: 0,
+            started_at: null,
+            finished_at: null
+          })
+        }
         store.clearStreamingState()
         if (
           msg.includes('积分') ||
@@ -488,7 +505,7 @@ async function handleChatSend(question: string) {
     run_id: store.currentRun.id,
     conversation_id: store.currentRun.conversation_id || '',
     question,
-    deep_thinking: false,
+    deep_thinking: llmStore.isThinkingEnabled('sop'),
     regenerate_msg_id: 0
   }
   const url = `${resolveApiBaseURL()}/v1/sop/chat/stream`
