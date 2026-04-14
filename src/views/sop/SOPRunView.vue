@@ -127,6 +127,7 @@ import { useUiDialogsStore } from '@/stores/uiDialogs'
 import { useDraftLifecycle } from './composables/useDraftLifecycle'
 import { useBookmarks } from './composables/useBookmarks'
 import { useSSEStream } from './composables/useSSEStream'
+import { useTypewriterReveal } from './composables/useTypewriterReveal'
 
 const route = useRoute()
 const router = useRouter()
@@ -161,6 +162,23 @@ const pendingRegenerateText = ref<string>('')
 // ===== Trailing chat 流式状态 =====
 const chatStreaming = ref(false)
 const chatStreamingMessage = ref<ChatBubbleMessage | null>(null)
+// 打字机平滑揭示：SSE 追加到 target，UI 读 displayed（通过 watch 同步回 chatStreamingMessage）
+// flush: 'sync' 保证 flush() 后的 displayed 能在 message 置 null 前被搬运过去，
+// 否则默认 pre-flush 的 watch 会晚于 onDone 里的 null 赋值，用户看不到完整文本的尾巴
+const chatThinkingReveal = useTypewriterReveal()
+const chatContentReveal = useTypewriterReveal()
+watch(
+  [chatThinkingReveal.displayed, chatContentReveal.displayed],
+  ([thinking, content]) => {
+    if (!chatStreamingMessage.value) return
+    chatStreamingMessage.value = {
+      ...chatStreamingMessage.value,
+      thinking,
+      content
+    }
+  },
+  { flush: 'sync' }
+)
 /** 用户刚发送的消息（立即显示，API 持久化前） */
 const chatPendingUserMessage = ref<ChatBubbleMessage | null>(null)
 /** F11 fix P1-3: trigger TrailingChat reload after chat onDone (so finished message stays visible) */
@@ -503,6 +521,8 @@ async function handleChatSend(question: string) {
     content: '',
     thinking: ''
   }
+  chatThinkingReveal.reset()
+  chatContentReveal.reset()
 
   const body = {
     run_id: store.currentRun.id,
@@ -522,32 +542,31 @@ async function handleChatSend(question: string) {
     },
     {
       onThinking: (chunk) => {
-        if (chatStreamingMessage.value) {
-          chatStreamingMessage.value = {
-            ...chatStreamingMessage.value,
-            thinking: (chatStreamingMessage.value.thinking || '') + chunk
-          }
-        }
+        chatThinkingReveal.append(chunk)
       },
       onMessage: (chunk) => {
-        if (chatStreamingMessage.value) {
-          chatStreamingMessage.value = {
-            ...chatStreamingMessage.value,
-            content: (chatStreamingMessage.value.content || '') + chunk
-          }
-        }
+        chatContentReveal.append(chunk)
       },
       onDone: () => {
+        // 先 flush 揭示队列尾部，用户短暂看到完整消息再交棒给持久化列表
+        chatThinkingReveal.flush()
+        chatContentReveal.flush()
         chatStreaming.value = false
         chatStreamingMessage.value = null
         chatPendingUserMessage.value = null
+        chatThinkingReveal.reset()
+        chatContentReveal.reset()
         // P1-3 fix: trigger TrailingChat reload so just-finished message stays visible
         chatReloadTrigger.value++
       },
       onError: (msg) => {
+        chatThinkingReveal.flush()
+        chatContentReveal.flush()
         chatStreaming.value = false
         chatStreamingMessage.value = null
         chatPendingUserMessage.value = null
+        chatThinkingReveal.reset()
+        chatContentReveal.reset()
         notifications.error(msg)
       }
     }
@@ -559,6 +578,8 @@ function handleChatStop() {
   chatStreaming.value = false
   chatStreamingMessage.value = null
   chatPendingUserMessage.value = null
+  chatThinkingReveal.reset()
+  chatContentReveal.reset()
 }
 
 // ===== API base URL 辅助 =====
