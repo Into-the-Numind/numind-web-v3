@@ -46,32 +46,32 @@
     </div>
 
     <div class="chat-bubble-body">
-      <!-- 思维链折叠面板（仅 assistant + 有 thinking） -->
-      <div
-        v-if="hasThinking"
-        class="chat-bubble-thinking"
-        :class="{ 'is-collapsed': thinkingCollapsed }"
-      >
-        <button
-          type="button"
-          class="chat-bubble-thinking-header"
-          :aria-expanded="!thinkingCollapsed"
-          @click="thinkingCollapsed = !thinkingCollapsed"
-        >
-          <span class="chat-bubble-thinking-icon" aria-hidden="true">
-            <component :is="thinkingCollapsed ? ChevronRight : ChevronDown" :size="14" />
-          </span>
-          <span>{{ streaming ? '思考中…' : '思考过程' }}</span>
-        </button>
-        <div
-          v-show="!thinkingCollapsed"
-          class="chat-bubble-thinking-content prose"
-          v-html="thinkingHtml"
-        />
-      </div>
-
-      <!-- 主气泡 -->
+      <!-- 主气泡 — 思维链折叠面板作为气泡内首块 -->
       <div class="chat-bubble-content">
+        <!-- 思维链折叠面板（仅 assistant + 有 thinking） -->
+        <div
+          v-if="hasThinking"
+          class="chat-bubble-thinking"
+          :class="{ 'is-collapsed': thinkingCollapsed, 'has-content-below': hasContent }"
+        >
+          <button
+            type="button"
+            class="chat-bubble-thinking-header"
+            :aria-expanded="!thinkingCollapsed"
+            @click="thinkingCollapsed = !thinkingCollapsed"
+          >
+            <span class="chat-bubble-thinking-icon" aria-hidden="true">
+              <component :is="thinkingCollapsed ? ChevronRight : ChevronDown" :size="14" />
+            </span>
+            <span>{{ streaming && !hasContent ? '思考中…' : '思考过程' }}</span>
+          </button>
+          <div
+            v-show="!thinkingCollapsed"
+            class="chat-bubble-thinking-content prose"
+            v-html="thinkingHtml"
+          />
+        </div>
+
         <!-- 流式但无内容：弹跳点加载（生产环境风格） -->
         <div v-if="streaming && !hasContent && !hasThinking" class="chat-bubble-loading">
           <div>
@@ -207,6 +207,19 @@ watch(
     thinkingCollapsed.value = !newVal
   }
 )
+
+/**
+ * 流式期间 content 首次出现 → 深度思考结束，自动折叠思考面板让出正文位置。
+ * （避免等到整轮 streaming 结束才折叠）
+ */
+watch(
+  () => props.message.content,
+  (newContent, oldContent) => {
+    if (props.streaming && !oldContent && newContent) {
+      thinkingCollapsed.value = true
+    }
+  }
+)
 </script>
 
 <style scoped>
@@ -272,48 +285,49 @@ watch(
   align-items: flex-start;
 }
 
-/* ==================== Thinking 面板 ==================== */
+/* ==================== Thinking 面板（嵌入在气泡内） ==================== */
 
 .chat-bubble-thinking {
   width: 100%;
-  border: 1px solid hsl(155, 20%, 92%);
-  border-radius: var(--radius-md);
-  background: hsl(150, 25%, 96%);
-  overflow: hidden;
+}
+
+/* 展开 + 底下有正文时：思考块与正文之间加分隔线 */
+.chat-bubble-thinking.has-content-below:not(.is-collapsed) {
+  border-bottom: 1px solid hsl(150, 15%, 88%);
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
 }
 
 .chat-bubble-thinking-header {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  background: hsl(150, 25%, 94%);
+  gap: var(--space-xs);
+  padding: 2px 0;
+  background: transparent;
   border: none;
   cursor: pointer;
   font-family: inherit;
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   text-align: left;
-  transition: background var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
 .chat-bubble-thinking-header:hover {
-  background: hsl(150, 25%, 92%);
+  color: var(--color-text-secondary);
 }
 
 .chat-bubble-thinking-icon {
   font-size: 10px;
   color: var(--color-text-muted);
+  display: inline-flex;
 }
 
 .chat-bubble-thinking-content {
-  padding: 0 var(--space-md) var(--space-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
+  margin-top: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
   line-height: var(--line-height-relaxed);
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 /* ==================== 主气泡 ==================== */
