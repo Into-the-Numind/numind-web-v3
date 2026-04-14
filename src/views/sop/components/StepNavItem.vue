@@ -167,22 +167,14 @@ function handleClick(): void {
   color: var(--primary-foreground);
 }
 
-/* ---------- state: active ---------- */
+/* ---------- state: active ---------- *
+   区分靠背景色 + 字重 + dot ring，避免 border-left 装饰条（impeccable 禁令）*/
 .step--active {
   background: var(--accent-ultra-soft);
 }
-.step--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: var(--space-sm);
-  bottom: var(--space-sm);
-  width: 3px;
-  background: var(--primary);
-  border-radius: 0 3px 3px 0;
-}
 .step--active .step__title {
   color: var(--primary-hover);
+  font-weight: 700;
 }
 .step--active .step__dot {
   border-color: var(--primary);
@@ -191,22 +183,13 @@ function handleClick(): void {
   box-shadow: var(--shadow-focus);
 }
 
-/* ---------- state: viewing — 与 active 统一绿色底 ---------- */
+/* ---------- state: viewing — 与 active 同语言，bg + weight 区分 ---------- */
 .step--viewing {
   background: var(--accent-ultra-soft);
 }
-.step--viewing::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: var(--space-sm);
-  bottom: var(--space-sm);
-  width: 3px;
-  background: var(--primary);
-  border-radius: 0 3px 3px 0;
-}
 .step--viewing .step__title {
   color: var(--primary-hover);
+  font-weight: 700;
 }
 .step--viewing .step__dot {
   border-color: var(--primary);

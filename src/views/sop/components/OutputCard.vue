@@ -156,13 +156,10 @@ function handleToggleBookmark() {
 </script>
 
 <style scoped>
+/* 去掉外壳容器：markdown 内容直接占据宽度，head/foot 的薄分隔线承担分组职责。
+ * 避免 impeccable "DO NOT wrap everything in cards"。*/
 .output {
   max-width: 980px;
-  background-color: var(--surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
   animation: slideUp 0.5s;
 }
 
@@ -177,14 +174,16 @@ function handleToggleBookmark() {
   }
 }
 
-.output--streaming {
-  border-color: var(--accent-soft);
+/* streaming 态换成整块轻绿呼吸底，不再依赖外框边色 */
+.output--streaming .output__body {
+  background: var(--accent-ultra-soft);
+  border-radius: var(--radius-md);
 }
 
 /* ---------- head ---------- */
 
 .output__head {
-  padding: 12px 20px;
+  padding: 12px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -264,14 +263,14 @@ function handleToggleBookmark() {
 /* ---------- body ---------- */
 
 .output__body {
-  padding: var(--space-xl) var(--space-2xl);
+  padding: var(--space-lg) 0;
 }
 
 /* ---------- foot ---------- */
 
-/* 纯结构 wrapper，视觉样式（padding/border-top/背景）由内部 MetaFooter 承担，
-   保持与 mockup `.output__foot` DOM 对齐（F6 review fix E2）。 */
+/* MetaFooter 以薄顶分隔线与 body 区分（去掉外壳后的替代分组手段）*/
 .output__foot {
-  /* intentionally empty */
+  border-top: 1px solid var(--border-light);
+  padding-top: var(--space-sm);
 }
 </style>

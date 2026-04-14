@@ -140,25 +140,13 @@ defineExpose({
 <style scoped>
 /* ==================== Card shell ==================== */
 
+/* 去掉外壳容器：textarea 自己的 dropzone 边框已是主视觉。
+ * 避免 impeccable "DO NOT wrap everything in cards"。*/
 .input-card {
-  /* 生产环境毛玻璃效果 */
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-xl) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
   max-width: 980px;
-  margin-bottom: var(--space-lg);
-  transition: all 0.3s ease;
-}
-
-.input-card:focus-within {
-  box-shadow:
-    0 8px 24px rgba(37, 167, 105, 0.12),
-    0 0 0 2px rgba(37, 167, 105, 0.15);
-  border-color: rgba(37, 167, 105, 0.6);
 }
 
 .input-card__label {
@@ -168,7 +156,7 @@ defineExpose({
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 var(--space-md);
+  margin: 0;
 }
 
 /* ==================== Toolbar ==================== */
@@ -178,7 +166,6 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   gap: var(--space-md);
-  margin-top: var(--space-md);
 }
 
 .input-card__toolbar-left,

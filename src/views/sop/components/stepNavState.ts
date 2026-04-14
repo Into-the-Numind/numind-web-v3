@@ -91,7 +91,8 @@ export function computeStatusLine(
   }
   switch (state) {
     case 'done':
-      return '已完成'
+      // 绿色 ✓ icon 已表达完成态，避免文字冗余
+      return ''
     case 'active':
       return '等待输入'
     case 'viewing':
