@@ -75,12 +75,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import ChatBubble, { type ChatBubbleMessage } from './ChatBubble.vue'
 import ChatComposer from './ChatComposer.vue'
 import { listRunChatMessages, type RunChatMessageItem } from '@/api/sop'
 import type { SopChatMessageMeta } from '@/views/sop/types'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useScrollFollow } from '@/views/sop/composables/useScrollFollow'
 
 interface Props {
   runId: number | null
@@ -113,6 +114,9 @@ const messages = ref<RunChatMessageItem[]>([])
 const loading = ref(false)
 const historyRef = ref<HTMLDivElement | null>(null)
 
+// 自动滚动跟随状态机（2026-04-13 升级后支持 HTMLElement + interrupt + movingDown resume）
+const scrollFollow = useScrollFollow()
+
 // ===== 数据加载 =====
 
 async function loadHistory() {
@@ -125,7 +129,8 @@ async function loadHistory() {
     const resp = await listRunChatMessages(props.runId)
     messages.value = resp.messages
     await nextTick()
-    scrollToBottom()
+    // 加载/切换 runId 时重置为 Following 并贴底
+    if (historyRef.value) scrollFollow.resume(historyRef.value)
   } catch (err) {
     const msg = (err as Error)?.message || '加载聊天历史失败'
     notifications.error(msg)
@@ -170,9 +175,14 @@ async function handleCopy(content: string) {
   }
 }
 
+/**
+ * 外部可调：强制贴底（resume Following + 立即滚）。
+ * 保留此方法签名供父组件及 E2E 使用，内部改为走 useScrollFollow.resume，
+ * 以便同时重置 interrupt 状态。
+ */
 function scrollToBottom() {
   if (historyRef.value) {
-    historyRef.value.scrollTop = historyRef.value.scrollHeight
+    scrollFollow.resume(historyRef.value)
   }
 }
 
@@ -188,10 +198,20 @@ watch(
   }
 )
 
+/**
+ * 流式内容或思考内容生长时：若处于 Following 状态则自动贴底；
+ * 若用户已上滑（Interrupted），保持不动 — 由 useScrollFollow 的 onScroll
+ * 在用户滑回底部（方向向下 + 近底部）时自动 resume。
+ *
+ * 同时监听 content 和 thinking：两者都可能独立增长（流式深度思考阶段
+ * 只有 thinking 在长，content 为空），都应触发跟随。
+ */
 watch(
-  () => props.streamingMessage?.content,
+  () => [props.streamingMessage?.content, props.streamingMessage?.thinking],
   () => {
-    nextTick(() => scrollToBottom())
+    nextTick(() => {
+      if (historyRef.value) scrollFollow.checkAndScroll(historyRef.value)
+    })
   }
 )
 
@@ -205,9 +225,14 @@ watch(
 )
 
 onMounted(() => {
+  if (historyRef.value) scrollFollow.install(historyRef.value)
   if (props.runId) {
     loadHistory()
   }
+})
+
+onBeforeUnmount(() => {
+  scrollFollow.uninstall()
 })
 
 defineExpose({
