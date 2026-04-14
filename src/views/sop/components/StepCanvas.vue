@@ -114,24 +114,25 @@ defineEmits<{
   /* 生产环境: 微绿灰底色，让毛玻璃卡片浮起来 */
   background: var(--bg);
   flex: 1;
-  min-height: 0;
 }
 
+/* 非 trailing 模式：无内部滚动，内容自然撑高，由 body/window 滚动。
+ * SOP step view 场景下的主 UX —— 使整页作为单一滚动上下文。*/
 .canvas {
-  flex: 1;
-  min-height: 0;
   padding: var(--space-3xl) calc(var(--space-4xl) + var(--space-sm)) var(--space-4xl);
   font-family: var(--font-sans);
   color: var(--text);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* trailing chat 模式：撑满宽度 + 去掉 canvas padding，让 TrailingChat 自己管布局和滚动 */
+/* trailing chat 模式：保持固定视口高度，让 TrailingChat 内部独立滚动
+ * （聊天输入框需贴底、历史消息自滚才能用）。
+ * TopBar 56px 已由 sticky 占位，这里减去它得到 chat 可视区域。*/
 .canvas:has(> [data-testid='trailing-chat']) {
   padding: 0;
+  height: calc(100vh - 56px);
   overflow: hidden;
   align-items: stretch;
 }
