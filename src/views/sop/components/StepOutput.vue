@@ -106,20 +106,16 @@ const thinkingHtml = computed(() => renderMarkdown(props.thinking ?? ''))
 const contentHtml = computed(() => renderMarkdown(props.content ?? ''))
 
 /**
- * streaming 状态变化时的折叠默认值处理。
+ * streaming 状态变化时的折叠默认值处理：
+ *   - false → true（新一轮流式开始）：自动展开，让用户看到实时推理
+ *   - true → false（流式结束）：自动折叠，让用户聚焦最终正文
  *
- * 修改：只在"流式开始"时自动展开（让用户看到推理），流式结束时**保持当前
- * 折叠状态**，避免用户看到"生成完内容就消失"的错觉。用户仍可以手动点击
- * .thinking-header 收起。
+ * 用户仍可手动点击 .thinking-header 任意切换展开/折叠。
  */
 watch(
   () => props.streaming,
-  (newVal, oldVal) => {
-    if (!oldVal && newVal) {
-      // false → true：新一轮流式开始，自动展开
-      thinkingCollapsed.value = false
-    }
-    // true → false 时不再强制折叠：用户点击过展开就保持展开
+  (newVal) => {
+    thinkingCollapsed.value = !newVal
   }
 )
 
@@ -130,17 +126,16 @@ watch(
  * 否则 scrollHeight 拿到的是旧值。
  */
 watch([() => props.content, () => props.thinking], async () => {
-  if (!scrollContainerRef.value) return
   await nextTick()
-  if (scrollContainerRef.value) {
-    scrollFollow.checkAndScroll(scrollContainerRef.value)
-  }
+  // body-level 滚动接管：对 window 做 checkAndScroll
+  scrollFollow.checkAndScroll(window)
 })
 
 onMounted(() => {
-  if (scrollContainerRef.value) {
-    scrollFollow.install(scrollContainerRef.value)
-  }
+  // 安装到 window：SOP 执行页整体走 body 滚动上下文，
+  // 上层容器 .sop-run-view-v2 min-height:100vh 不再自己 overflow，
+  // scrollContainerRef 永远 clientHeight === scrollHeight 无法触发 wheel。
+  scrollFollow.install(window)
 })
 
 onBeforeUnmount(() => {
@@ -265,7 +260,8 @@ defineExpose({
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.6;
-  white-space: pre-wrap;
+  /* 移除 white-space: pre-wrap —— markdown 已渲染为 HTML，pre-wrap 会把
+   * block 之间的换行空白也显示出来，造成段与段之间过大的空隙 */
   border-top: 1px solid var(--divider, var(--border-light));
   transition:
     max-height 0.3s ease-out,
@@ -350,6 +346,28 @@ defineExpose({
 
 .step-output .prose li {
   margin: var(--space-xs) 0;
+}
+
+/* 思考内容是次要信息层 —— 段与段间距需比正文更紧凑，避免视觉拖沓
+ * 覆盖 .prose 的默认 margin，仅在 .thinking-content 作用域内生效 */
+.step-output .thinking-content.prose p {
+  margin: 4px 0;
+}
+.step-output .thinking-content.prose h1,
+.step-output .thinking-content.prose h2,
+.step-output .thinking-content.prose h3,
+.step-output .thinking-content.prose h4,
+.step-output .thinking-content.prose h5,
+.step-output .thinking-content.prose h6 {
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+.step-output .thinking-content.prose ul,
+.step-output .thinking-content.prose ol {
+  margin: 4px 0;
+}
+.step-output .thinking-content.prose li {
+  margin: 2px 0;
 }
 
 .step-output .prose strong {

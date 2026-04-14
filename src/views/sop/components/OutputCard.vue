@@ -39,27 +39,6 @@
         </span>
         <span>AI 输出</span>
       </div>
-      <div class="output__head-right">
-        <template v-if="!isStreaming">
-          <button
-            v-if="hasOutput"
-            type="button"
-            class="tiny-btn tiny-btn--star"
-            :class="{ 'is-active': hasBookmark }"
-            :title="hasBookmark ? '已收藏 · 点击移除书签' : '保存为书签'"
-            data-testid="bookmark-toggle"
-            @click="handleToggleBookmark"
-          >
-            <Star v-if="!hasBookmark" :size="13" aria-hidden="true" />
-            <Star v-else :size="13" fill="currentColor" aria-hidden="true" />
-            <span>{{ hasBookmark ? '已收藏' : '收藏' }}</span>
-          </button>
-          <button type="button" class="tiny-btn" data-testid="output-copy" @click="handleCopy">
-            <Copy :size="12" aria-hidden="true" />
-            <span>复制</span>
-          </button>
-        </template>
-      </div>
     </div>
 
     <div class="output__body">
@@ -69,6 +48,26 @@
         :streaming="isStreaming"
         :empty-hint="emptyHint"
       />
+    </div>
+
+    <!-- 正文结束后才出现的动作条：复制在前，收藏在后 -->
+    <div v-if="!isStreaming && hasOutput" class="output__actions">
+      <button type="button" class="tiny-btn" data-testid="output-copy" @click="handleCopy">
+        <Copy :size="12" aria-hidden="true" />
+        <span>复制</span>
+      </button>
+      <button
+        type="button"
+        class="tiny-btn tiny-btn--star"
+        :class="{ 'is-active': hasBookmark }"
+        :title="hasBookmark ? '已收藏 · 点击移除书签' : '保存为书签'"
+        data-testid="bookmark-toggle"
+        @click="handleToggleBookmark"
+      >
+        <Star v-if="!hasBookmark" :size="13" aria-hidden="true" />
+        <Star v-else :size="13" fill="currentColor" aria-hidden="true" />
+        <span>{{ hasBookmark ? '已收藏' : '收藏' }}</span>
+      </button>
     </div>
 
     <div v-if="!isStreaming && nodeRun" class="output__foot">
@@ -222,6 +221,14 @@ function handleToggleBookmark() {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
+}
+
+/* 正文下方动作条：复制 · 收藏（按此顺序）。仅在 !isStreaming && hasOutput 时渲染 */
+.output__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
 }
 
 /* ---------- tiny buttons (read-only head) ---------- */
