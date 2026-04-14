@@ -188,7 +188,6 @@ function handleToggleBookmark() {
   align-items: center;
   justify-content: space-between;
   background: transparent;
-  border-bottom: 1px solid var(--border-light);
 }
 
 .output__head-left {
@@ -268,9 +267,17 @@ function handleToggleBookmark() {
 
 /* ---------- foot ---------- */
 
-/* MetaFooter 以薄顶分隔线与 body 区分（去掉外壳后的替代分组手段）*/
+/* MetaFooter 靠 tiny mono 字体自然区分 body，无需分隔线 */
 .output__foot {
-  border-top: 1px solid var(--border-light);
-  padding-top: var(--space-sm);
+  padding-top: var(--space-md);
+}
+
+/* 在 OutputCard 上下文里覆盖 MetaFooter 默认的 border-top 和 padding
+ * （ChatBubble 上下文保留默认行为，因此仅在本 scope 覆盖）*/
+.output__foot :deep(.meta-footer) {
+  border-top: none;
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
 }
 </style>
