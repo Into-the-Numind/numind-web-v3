@@ -106,14 +106,20 @@ const thinkingHtml = computed(() => renderMarkdown(props.thinking ?? ''))
 const contentHtml = computed(() => renderMarkdown(props.content ?? ''))
 
 /**
- * streaming 状态变化时重置折叠默认值。
- * true → false（流式结束）：自动折叠思维链
- * false → true（新一轮开始）：自动展开
+ * streaming 状态变化时的折叠默认值处理。
+ *
+ * 修改：只在"流式开始"时自动展开（让用户看到推理），流式结束时**保持当前
+ * 折叠状态**，避免用户看到"生成完内容就消失"的错觉。用户仍可以手动点击
+ * .thinking-header 收起。
  */
 watch(
   () => props.streaming,
-  (newVal) => {
-    thinkingCollapsed.value = !newVal
+  (newVal, oldVal) => {
+    if (!oldVal && newVal) {
+      // false → true：新一轮流式开始，自动展开
+      thinkingCollapsed.value = false
+    }
+    // true → false 时不再强制折叠：用户点击过展开就保持展开
   }
 )
 
@@ -159,7 +165,8 @@ defineExpose({
   flex-direction: column;
   gap: var(--space-sm);
   width: 100%;
-  height: 520px;
+  /* 高度随内容生长（页面 body 级滚动接管），避免固定 520px 造成
+   * "点击生成立刻出现大空框"的错觉 */
 }
 
 /* ==================== 空状态 ==================== */
@@ -277,25 +284,10 @@ defineExpose({
 
 /* ==================== 主内容滚动容器 ==================== */
 
+/* body 级滚动接管，step-output-scroll 不再作独立滚动容器 */
 .step-output-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
-}
-
-.step-output-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.step-output-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-pill);
-}
-
-.step-output-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  /* 保持结构存在以兼容 useScrollFollow 的 install 调用（它会 no-op，
+   * 因为 clientHeight === scrollHeight 时永远判定"在底部"）*/
 }
 
 .step-output-content {

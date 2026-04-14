@@ -174,11 +174,9 @@ function handleToggleBookmark() {
   }
 }
 
-/* streaming 态换成整块轻绿呼吸底，不再依赖外框边色 */
-.output--streaming .output__body {
-  background: var(--accent-ultra-soft);
-  border-radius: var(--radius-md);
-}
+/* streaming 态不再给 body 整块绿色底 — 深度思考的容器（.thinking-container）
+ * 自己会在 thinking 数据到达时以绿底呈现；body 本身保持透明，避免"点击生成
+ * 就出现一个固定高度绿框"的视觉误导 */
 
 /* ---------- head ---------- */
 
