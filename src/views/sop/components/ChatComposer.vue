@@ -35,23 +35,18 @@
         @focus="isFocused = true"
         @blur="isFocused = false"
       />
-      <div class="composer__toolbar">
-        <div class="composer__toolbar-left" />
-        <div class="composer__toolbar-right">
-          <button v-if="streaming" class="composer__stop-btn" title="停止" @click="handleStop">
-            <Square :size="16" />
-          </button>
-          <button
-            v-else
-            class="composer__send-btn"
-            :disabled="!canSend"
-            title="发送"
-            @click="handleSend"
-          >
-            <ArrowUp :size="20" />
-          </button>
-        </div>
-      </div>
+      <button v-if="streaming" class="composer__stop-btn" title="停止" @click="handleStop">
+        <Square :size="14" />
+      </button>
+      <button
+        v-else
+        class="composer__send-btn"
+        :disabled="!canSend"
+        title="发送"
+        @click="handleSend"
+      >
+        <ArrowUp :size="16" />
+      </button>
     </div>
   </div>
 </template>
@@ -90,7 +85,7 @@ function autoResize() {
   const el = textareaRef.value
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  el.style.height = Math.min(Math.max(el.scrollHeight, 24), 160) + 'px'
 }
 
 watch(text, () => nextTick(autoResize))
@@ -121,13 +116,11 @@ defineExpose({ text, textareaRef })
 <style scoped>
 .composer {
   flex-shrink: 0;
-  padding: var(--space-lg) var(--space-2xl) var(--space-2xl);
+  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
   display: flex;
   justify-content: center;
   position: relative;
   z-index: 20;
-  background: linear-gradient(to bottom, transparent 0%, var(--bg, #f8f9fb) 20%);
-  padding-top: var(--space-3xl);
 }
 
 .composer__container {
@@ -137,14 +130,16 @@ defineExpose({ text, textareaRef })
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: var(--radius-xl);
-  padding: var(--space-lg);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-lg);
   box-shadow: var(--shadow-md);
   border: 1.5px solid var(--border);
   transition:
     box-shadow var(--transition-base),
     border-color var(--transition-base);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: var(--space-sm);
 }
 
 .composer__container--focus {
@@ -155,13 +150,14 @@ defineExpose({ text, textareaRef })
 }
 
 .composer__input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
-  padding: var(--space-sm) 0;
+  padding: 8px 0;
   font-size: var(--text-base, 1rem);
   resize: none;
-  min-height: 44px;
+  min-height: 24px;
   max-height: 160px;
   color: var(--text);
   line-height: 1.5;
@@ -182,24 +178,10 @@ defineExpose({ text, textareaRef })
   cursor: not-allowed;
 }
 
-.composer__toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--border-light);
-}
-
-.composer__toolbar-left,
-.composer__toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
 .composer__send-btn {
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--accent));
   border: none;
@@ -225,8 +207,9 @@ defineExpose({ text, textareaRef })
 }
 
 .composer__stop-btn {
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);

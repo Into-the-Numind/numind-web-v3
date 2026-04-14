@@ -253,11 +253,12 @@ defineExpose({
   overflow: hidden;
 }
 
-/* .chat__history — 可滚动消息区，底部留出 composer 空间 */
+/* .chat__history — 可滚动消息区。composer 是 flex 兄弟（非 absolute），
+   此处只需很小的 padding-bottom 作为最后一条气泡和输入框的呼吸间距 */
 .chat__history {
   flex: 1;
   min-height: 0;
-  padding: var(--space-xl) var(--space-2xl) 120px;
+  padding: var(--space-xl) var(--space-2xl) var(--space-sm);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
