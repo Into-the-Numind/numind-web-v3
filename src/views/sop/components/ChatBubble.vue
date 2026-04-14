@@ -87,16 +87,6 @@
         <div v-else-if="hasContent" class="chat-bubble-text prose" v-html="contentHtml" />
       </div>
 
-      <!-- meta 行（仅 assistant + 非流式 + 非临时 + 有 meta） — F10 新增 -->
-      <MetaFooter
-        v-if="message.role === 'assistant' && !streaming && !isTemp && meta"
-        class="chat-bubble-meta"
-        :latency-ms="meta.duration_ms"
-        :model-name="meta.model_name"
-        :total-tokens="meta.total_tokens"
-        :completed-at="metaCompletedAt"
-      />
-
       <!-- 操作按钮（仅 assistant + 非流式 + 非临时） -->
       <div
         v-if="message.role === 'assistant' && !streaming && !isTemp && hasContent"
@@ -130,7 +120,6 @@
 import { computed, ref, watch } from 'vue'
 import { ChevronRight, ChevronDown, Copy } from 'lucide-vue-next'
 import { renderMarkdown } from '@/utils/markdown'
-import MetaFooter from './MetaFooter.vue'
 import type { SopChatMessageMeta } from '@/views/sop/types'
 
 /**
@@ -149,30 +138,13 @@ export interface ChatBubbleMessage {
 interface Props {
   message: ChatBubbleMessage
   streaming?: boolean
-  /**
-   * F10 新增：AI 气泡下方 meta 行（模型 + 耗时 + token）。
-   * 仅 assistant 角色 + 非流式 + 非临时消息时渲染。
-   * 由 TrailingChat 传入，来自 listRunChatMessages 返回的 RunChatMessageItem。
-   */
+  /** 保留 prop 以兼容父组件传入，但当前 UI 不再渲染 meta 信息（仅保留复制/重新生成） */
   meta?: SopChatMessageMeta
 }
 
 const props = withDefaults(defineProps<Props>(), {
   streaming: false,
   meta: undefined
-})
-
-/**
- * meta.created_at 格式化为 "HH:MM:SS"（MetaFooter 期望的 completedAt 字符串）。
- * 若 meta 或 created_at 缺失则返回空字符串，MetaFooter 内部会跳过该段渲染。
- */
-const metaCompletedAt = computed(() => {
-  const ts = props.meta?.created_at
-  if (!ts) return ''
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 })
 
 const emit = defineEmits<{
@@ -397,24 +369,6 @@ watch(
   40% {
     transform: scale(1);
   }
-}
-
-/* ==================== Meta 行（F10） ==================== */
-
-/*
- * MetaFooter 默认带 padding + border-top + 背景（为 OutputCard foot 设计）。
- * 在 ChatBubble 中它是气泡下方的一行小字 meta，不需要边框/背景/padding。
- * 这里用 :deep() 覆写。
- */
-.chat-bubble-meta {
-  width: 100%;
-}
-
-.chat-bubble-meta :deep(.meta-footer) {
-  padding: 0;
-  margin-top: var(--space-xs);
-  background: transparent;
-  border-top: none;
 }
 
 /* ==================== 操作按钮 ==================== */
