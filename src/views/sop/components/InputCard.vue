@@ -69,7 +69,7 @@
         <button
           type="button"
           class="input-card__btn input-card__btn--primary"
-          :disabled="isLoading || isExecuting || !canExecute"
+          :disabled="isLoading || isExecuting || filesUploading || !canExecute"
           data-testid="input-execute"
           @click="handleExecute"
         >
@@ -124,8 +124,24 @@ const canExecute = computed(() => {
   return hasText || hasFiles
 })
 
+/**
+ * 是否有文件正在上传/解析中 —— 生成按钮在此期间应被禁用，
+ * 避免用户提交未解析完的附件导致 compose() 丢失识别结果。
+ *
+ * StepInput defineExpose 的 `isUploading` 是 ComputedRef<boolean>；
+ * 不同 Vue 版本对 template ref 暴露的 refs 的自动 unwrap 行为不一致，
+ * 这里同时兼容两种情况（r.value 取 Ref 的 value / 直接取 boolean）。
+ */
+const filesUploading = computed(() => {
+  const ref = stepInputRef.value as { isUploading?: unknown } | null
+  if (!ref) return false
+  const v = ref.isUploading as { value?: boolean } | boolean | undefined
+  if (typeof v === 'object' && v !== null) return Boolean(v.value)
+  return Boolean(v)
+})
+
 function handleExecute() {
-  if (!canExecute.value) return
+  if (!canExecute.value || filesUploading.value) return
   // compose() 返回合并了上传文件识别结果的完整文本
   const composed = stepInputRef.value?.compose() ?? innerText.value
   emit('execute', composed)
