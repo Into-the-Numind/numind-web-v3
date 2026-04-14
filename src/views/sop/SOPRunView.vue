@@ -528,6 +528,7 @@ async function handleChatSend(question: string) {
     run_id: store.currentRun.id,
     conversation_id: store.currentRun.conversation_id || '',
     question,
+    // 空字符串是合法的 fallback 信号：后端会走"用户偏好 → 系统默认 → 最后一个节点默认配置"
     model_key: llmStore.getSelectedModelKey('sop'),
     deep_thinking: llmStore.isThinkingEnabled('sop'),
     regenerate_msg_id: 0
