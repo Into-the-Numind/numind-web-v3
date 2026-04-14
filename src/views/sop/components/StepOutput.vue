@@ -126,17 +126,16 @@ watch(
  * 否则 scrollHeight 拿到的是旧值。
  */
 watch([() => props.content, () => props.thinking], async () => {
-  if (!scrollContainerRef.value) return
   await nextTick()
-  if (scrollContainerRef.value) {
-    scrollFollow.checkAndScroll(scrollContainerRef.value)
-  }
+  // body-level 滚动接管：对 window 做 checkAndScroll
+  scrollFollow.checkAndScroll(window)
 })
 
 onMounted(() => {
-  if (scrollContainerRef.value) {
-    scrollFollow.install(scrollContainerRef.value)
-  }
+  // 安装到 window：SOP 执行页整体走 body 滚动上下文，
+  // 上层容器 .sop-run-view-v2 min-height:100vh 不再自己 overflow，
+  // scrollContainerRef 永远 clientHeight === scrollHeight 无法触发 wheel。
+  scrollFollow.install(window)
 })
 
 onBeforeUnmount(() => {
