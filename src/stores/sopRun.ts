@@ -50,8 +50,72 @@ export const useSopRunStore = defineStore('sopRun', () => {
   // ===== 流式输出实时状态 =====
   /** 当前节点正在流式生成的 thinking + content */
   const streamingNodeId = ref<number | null>(null)
+  // displayed values — UI 读这两个，由 rAF 循环从 target 逐步"打字机"揭示，避免 chunk 爆裂感
   const streamingThinking = ref<string>('')
   const streamingContent = ref<string>('')
+  // target values — 后台完整累积；UI 不直接读
+  const streamingTargetThinking = ref<string>('')
+  const streamingTargetContent = ref<string>('')
+
+  // rAF 打字机揭示：后端每 ~250ms flush 一次 + 每次 ~13 字符，直接渲染会被感知为卡顿。
+  // 揭示速率按 80 字符/秒（接近平均到达速率 ~52 cps 的 1.5x），能稳住"持续流动"的感觉，
+  // 同时在爆裂间隔中逐步放字，不会堆积到肉眼可见的落后。
+  const REVEAL_CHARS_PER_SEC = 80
+  // rAF 两帧间 dt 超过此阈值视为页面被 backgrounded（rAF 被挂起），直接同步到 target
+  // 避免用户切回后看到缓慢滴字
+  const HIDDEN_FLUSH_THRESHOLD_MS = 300
+  let revealRafId: number | null = null
+  let revealLastTs = 0
+
+  function revealTick(ts: number): void {
+    const dt = ts - revealLastTs
+    revealLastTs = ts
+
+    if (dt > HIDDEN_FLUSH_THRESHOLD_MS) {
+      // 页面曾被挂起，直接同步
+      streamingThinking.value = streamingTargetThinking.value
+      streamingContent.value = streamingTargetContent.value
+    } else {
+      const budget = Math.max(1, Math.round((dt * REVEAL_CHARS_PER_SEC) / 1000))
+
+      const tLen = streamingThinking.value.length
+      const tTarget = streamingTargetThinking.value.length
+      if (tLen < tTarget) {
+        const add = Math.min(budget, tTarget - tLen)
+        streamingThinking.value = streamingTargetThinking.value.slice(0, tLen + add)
+      }
+
+      const cLen = streamingContent.value.length
+      const cTarget = streamingTargetContent.value.length
+      if (cLen < cTarget) {
+        const add = Math.min(budget, cTarget - cLen)
+        streamingContent.value = streamingTargetContent.value.slice(0, cLen + add)
+      }
+    }
+
+    const caughtUp =
+      streamingThinking.value.length === streamingTargetThinking.value.length &&
+      streamingContent.value.length === streamingTargetContent.value.length
+
+    if (caughtUp) {
+      revealRafId = null
+    } else {
+      revealRafId = requestAnimationFrame(revealTick)
+    }
+  }
+
+  function startReveal(): void {
+    if (revealRafId !== null) return
+    revealLastTs = performance.now()
+    revealRafId = requestAnimationFrame(revealTick)
+  }
+
+  function stopReveal(): void {
+    if (revealRafId !== null) {
+      cancelAnimationFrame(revealRafId)
+      revealRafId = null
+    }
+  }
 
   // ===== UI state =====
   /**
@@ -341,23 +405,41 @@ export const useSopRunStore = defineStore('sopRun', () => {
    * 更新 streaming 状态（由 executeNode 的 onThinking/onMessage 调用）
    */
   function setStreamingState(nodeId: number | null, thinking: string, content: string): void {
+    stopReveal()
     streamingNodeId.value = nodeId
     streamingThinking.value = thinking
     streamingContent.value = content
+    streamingTargetThinking.value = thinking
+    streamingTargetContent.value = content
   }
 
   function appendStreamingThinking(chunk: string): void {
-    streamingThinking.value += chunk
+    streamingTargetThinking.value += chunk
+    startReveal()
   }
 
   function appendStreamingContent(chunk: string): void {
-    streamingContent.value += chunk
+    streamingTargetContent.value += chunk
+    startReveal()
+  }
+
+  /**
+   * 立即把 displayed 同步到 target。onDone/onError 读取 streamingContent 前必须调用，
+   * 否则会丢掉揭示队列里尚未显示的尾部文本。
+   */
+  function flushStreaming(): void {
+    stopReveal()
+    streamingThinking.value = streamingTargetThinking.value
+    streamingContent.value = streamingTargetContent.value
   }
 
   function clearStreamingState(): void {
+    stopReveal()
     streamingNodeId.value = null
     streamingThinking.value = ''
     streamingContent.value = ''
+    streamingTargetThinking.value = ''
+    streamingTargetContent.value = ''
   }
 
   /**
@@ -461,6 +543,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
    * 已经实现：清空所有 state。
    */
   function reset(): void {
+    stopReveal()
     template.value = null
     nodes.value = []
     currentRun.value = null
@@ -471,6 +554,8 @@ export const useSopRunStore = defineStore('sopRun', () => {
     streamingNodeId.value = null
     streamingThinking.value = ''
     streamingContent.value = ''
+    streamingTargetThinking.value = ''
+    streamingTargetContent.value = ''
     currentStep.value = 1
     viewingStep.value = 1
     loading.value = false
@@ -516,6 +601,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
     setStreamingState,
     appendStreamingThinking,
     appendStreamingContent,
+    flushStreaming,
     clearStreamingState,
     executeNode,
     setActiveStep,
