@@ -528,6 +528,7 @@ async function handleChatSend(question: string) {
     run_id: store.currentRun.id,
     conversation_id: store.currentRun.conversation_id || '',
     question,
+    model_key: llmStore.getSelectedModelKey('sop'),
     deep_thinking: llmStore.isThinkingEnabled('sop'),
     regenerate_msg_id: 0
   }
