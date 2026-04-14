@@ -63,7 +63,8 @@ const emit = defineEmits<{
 .header__title {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 15px;
+  /* 上下文锚点：需要比右侧控件 chrome 更有视觉分量 */
+  font-size: 17px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0.01em;
