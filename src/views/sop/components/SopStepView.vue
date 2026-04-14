@@ -314,7 +314,7 @@ defineExpose({
 .sop-step-view {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 40px; /* 组间呼吸（header ↔ card ↔ action）*/
   font-family: var(--font-sans);
   color: var(--text);
   width: 100%;
@@ -341,7 +341,8 @@ defineExpose({
   font-family: var(--font-sans);
   font-size: 28px;
   font-weight: 700;
-  margin: 0 0 12px;
+  /* 与 desc 紧贴（同组），由父 gap 负责与下游内容拉开 */
+  margin: 0 0 6px;
   color: var(--text);
   display: flex;
   align-items: center;
