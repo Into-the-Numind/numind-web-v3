@@ -420,6 +420,8 @@ async function executeNode(nodeId: number, text: string) {
         store.appendStreamingContent(chunk)
       },
       onDone: async () => {
+        // 打字机揭示可能还有尾部未显示，先同步再读取，避免持久化丢尾
+        store.flushStreaming()
         const thinking = store.streamingThinking
         const content = store.streamingContent
         store.setNodeRun(nodeId, {
@@ -445,6 +447,7 @@ async function executeNode(nodeId: number, text: string) {
       },
       onError: (msg) => {
         // 保存已积累的部分内容，防止网络中断时丢失（后端也会保存已生成内容）
+        store.flushStreaming()
         const partialThinking = store.streamingThinking
         const partialContent = store.streamingContent
         if (partialThinking || partialContent) {
