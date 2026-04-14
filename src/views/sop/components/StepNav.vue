@@ -145,6 +145,14 @@ function handleItemClick(step: number): void {
 <style scoped>
 .nav {
   width: 264px;
+  flex-shrink: 0;
+  /* sticky 侧边栏：body 滚动时保持可见，自身高度限定 viewport，内部可滚 */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
   border-right: 1px solid hsla(160, 20%, 88%, 0.5);
   background: hsla(160, 30%, 96%, 0.65);
   backdrop-filter: blur(20px) saturate(1.4);
@@ -152,9 +160,6 @@ function handleItemClick(step: number): void {
   padding: var(--space-lg) 14px var(--space-lg);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  min-height: 0;
-  flex-shrink: 0;
 }
 
 .nav__back {

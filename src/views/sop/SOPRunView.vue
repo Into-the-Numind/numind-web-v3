@@ -684,11 +684,13 @@ onBeforeUnmount(() => {
   --transition-fast: 150ms ease; /* 对齐 DESIGN --transition-fast */
   --transition-base: 250ms ease; /* 对齐 DESIGN --transition-base */
 
-  /* ==================== v2 布局：侧边栏全高 + 右区 ==================== */
+  /* ==================== v2 布局：body-level 滚动 + sidebar/topbar sticky ====================
+   * 从 height:100vh+overflow:hidden（内部 canvas 滚动）改为 min-height:100vh（页面整体滚动）。
+   * StepNav 和 TopBar 通过 position:sticky 在 body 滚动时保持可见。
+   */
   display: flex;
   flex-direction: row;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
@@ -706,8 +708,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
 }
 
 /* ==================== 全屏状态提示（error / empty） ==================== */

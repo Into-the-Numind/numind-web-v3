@@ -58,6 +58,10 @@ const emit = defineEmits<{
   border-bottom: 1px solid transparent;
   background: var(--surface);
   gap: var(--space-xl);
+  /* sticky 顶栏：body 滚动时保持可见；z-index 压在内容之上 */
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .header__title {
