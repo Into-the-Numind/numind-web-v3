@@ -1241,7 +1241,7 @@ body.chatbot-chat-route #app {
 /* ===== Scroll to Bottom ===== */
 .scroll-to-bottom-btn {
   position: absolute;
-  bottom: 140px;
+  bottom: 175px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
