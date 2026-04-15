@@ -1021,11 +1021,14 @@ body.chatbot-chat-route #app {
 }
 
 .message-bubble.assistant {
-  background: var(--surface);
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border-light);
-  border-bottom-left-radius: 4px;
-  box-shadow: var(--shadow-sm);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: 100%;
+  width: 100%;
   font-size: 14px;
   line-height: var(--line-height-relaxed, 1.75);
 }
