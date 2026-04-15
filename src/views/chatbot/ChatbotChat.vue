@@ -872,7 +872,7 @@ body.chatbot-chat-route #app {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px 0;
+  padding: 20px 32px 140px;
   scroll-behavior: auto;
   position: relative;
 }
@@ -1238,7 +1238,7 @@ body.chatbot-chat-route #app {
 /* ===== Scroll to Bottom ===== */
 .scroll-to-bottom-btn {
   position: sticky;
-  bottom: 16px;
+  bottom: 150px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1264,12 +1264,42 @@ body.chatbot-chat-route #app {
 
 /* ===== Input Area ===== */
 .input-stage {
-  padding: 12px 32px 32px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
   z-index: 20;
+  pointer-events: none;
+}
+
+.input-stage::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 56px;
+  background: linear-gradient(to bottom, rgba(247, 248, 251, 0) 0%, #f7f8fb 100%);
+  pointer-events: none;
+}
+
+.input-stage::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--bg);
+  z-index: -1;
+}
+
+.input-stage > * {
+  pointer-events: auto;
 }
 
 .input-floating-container {
