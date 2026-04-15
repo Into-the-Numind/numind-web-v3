@@ -722,6 +722,7 @@ import {
   type KnowledgeDocument,
   type DocumentChunk
 } from '@/api/knowledge'
+import { copyText } from '@/utils/clipboard'
 
 // ── State ──────────────────────────────────────────────────────────
 const documents = ref<KnowledgeDocument[]>([])
@@ -958,10 +959,9 @@ function goBackToList() {
 }
 
 async function copyChunkContent(content: string) {
-  try {
-    await navigator.clipboard.writeText(content)
+  if (await copyText(content)) {
     showToast('已复制到剪贴板', 'success')
-  } catch {
+  } else {
     showToast('复制失败', 'error')
   }
 }
