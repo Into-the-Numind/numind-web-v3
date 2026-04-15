@@ -129,8 +129,8 @@ const trailingItem = computed<ItemVm | null>(() => {
   )
   return {
     step,
-    name: '继续问 AI',
-    description: '针对结果继续追问',
+    name: '追问AI',
+    description: '和AI进行更多讨论',
     state,
     statusLine: computeStatusLine(step, true, state)
   }
