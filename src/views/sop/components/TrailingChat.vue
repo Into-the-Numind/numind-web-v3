@@ -119,6 +119,23 @@ const scrollFollow = useScrollFollow()
 
 // ===== 数据加载 =====
 
+/**
+ * 强制贴底：nextTick + 两次 rAF。
+ *
+ * 仅 nextTick 不够——ChatBubble 内部 marked/highlight.js 把 markdown 渲染为
+ * 代码块/列表 等异步扩展高度，scrollHeight 在 nextTick 时往往尚未稳定，
+ * `scrollFollow.resume()` 基于当时的 scrollHeight 设定 scrollTop，之后高度
+ * 继续增长，scrollTop 不再跟随，用户看到的就是"顶部空白 + 最新回复被切掉"。
+ *
+ * 改为等到下下一帧再 resume——此时布局/样式/字体子像素都已 settled。
+ */
+async function resumeAfterLayout() {
+  await nextTick()
+  await new Promise<void>((r) => requestAnimationFrame(() => r()))
+  await new Promise<void>((r) => requestAnimationFrame(() => r()))
+  if (historyRef.value) scrollFollow.resume(historyRef.value)
+}
+
 async function loadHistory() {
   if (!props.runId) {
     messages.value = []
@@ -128,15 +145,17 @@ async function loadHistory() {
   try {
     const resp = await listRunChatMessages(props.runId)
     messages.value = resp.messages
-    await nextTick()
-    // 加载/切换 runId 时重置为 Following 并贴底
-    if (historyRef.value) scrollFollow.resume(historyRef.value)
+    // 必须在 resume 之前清 loading——loading=true 时 v-if 显示的是 spinner，
+    // 消息容器还没挂载，此时 scrollHeight === clientHeight，resume 把 scrollTop
+    // 设为 scrollHeight 实际被 clamp 为 0，之后内容扩展 scrollTop 不会跟随。
+    loading.value = false
+    // 加载/切换 runId / stream 结束后 reload 时重置为 Following 并贴底
+    await resumeAfterLayout()
   } catch (err) {
+    loading.value = false
     const msg = (err as Error)?.message || '加载聊天历史失败'
     notifications.error(msg)
     emit('error', msg)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -176,14 +195,12 @@ async function handleCopy(content: string) {
 }
 
 /**
- * 外部可调：强制贴底（resume Following + 立即滚）。
- * 保留此方法签名供父组件及 E2E 使用，内部改为走 useScrollFollow.resume，
- * 以便同时重置 interrupt 状态。
+ * 外部可调：强制贴底。走 resumeAfterLayout 而非裸 resume，
+ * 避免调用方未等 markdown 渲染完成就贴底、scrollTop 被 clamp 为 0 的老问题。
+ * 保留此方法签名供父组件及 E2E 使用。
  */
-function scrollToBottom() {
-  if (historyRef.value) {
-    scrollFollow.resume(historyRef.value)
-  }
+async function scrollToBottom() {
+  await resumeAfterLayout()
 }
 
 // ===== 生命周期 =====
@@ -212,6 +229,26 @@ watch(
     nextTick(() => {
       if (historyRef.value) scrollFollow.checkAndScroll(historyRef.value)
     })
+  }
+)
+
+/**
+ * 用户刚发送消息（pendingUserMessage 从 null → 对象）：显式强制 resume 贴底。
+ *
+ * 在修复之前，发送时的"贴底"是靠 streamingMessage 从 null → { content: '' }
+ * 的 watcher 顺带 checkAndScroll 的意外副作用——依赖父组件的赋值顺序，
+ * 一旦父组件先赋 pendingUserMessage 再 await 一段时间才赋 streamingMessage，
+ * 用户就会看到"自己的消息出现在屏幕外"。显式监听 pendingUserMessage 把这个
+ * 保障从"侥幸"变成"契约"，并重置 interrupt 状态——用户主动发消息 = 明确想回到底部。
+ */
+watch(
+  () => props.pendingUserMessage?.id,
+  (newId, oldId) => {
+    if (newId && newId !== oldId && historyRef.value) {
+      nextTick(() => {
+        if (historyRef.value) scrollFollow.resume(historyRef.value)
+      })
+    }
   }
 )
 
