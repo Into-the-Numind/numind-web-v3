@@ -66,10 +66,16 @@ onBeforeUnmount(() => {
           @click.stop="selectModel(model.model_key)"
         >
           <span class="model-option-name">{{ model.display_name }}</span>
-          <span v-if="model.thinking_only" class="model-thinking-badge thinking-only-badge"
+          <span
+            v-if="props.feature !== 'sop' && model.thinking_only"
+            class="model-thinking-badge thinking-only-badge"
             >仅思考</span
           >
-          <span v-else-if="model.supports_thinking" class="model-thinking-badge">思考</span>
+          <span
+            v-else-if="props.feature !== 'sop' && model.supports_thinking"
+            class="model-thinking-badge"
+            >思考</span
+          >
         </div>
         <div v-if="store.models.length === 0 && store.loading" class="model-loading">加载中...</div>
         <div v-if="store.models.length === 0 && !store.loading" class="model-empty">
@@ -78,8 +84,9 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Thinking toggle -->
+    <!-- Thinking toggle (chatbot 保留；SOP 始终默认开启，不需要按钮) -->
     <button
+      v-if="props.feature !== 'sop'"
       class="thinking-btn"
       :class="{
         enabled: thinkingEnabled,
