@@ -181,15 +181,16 @@ function handleStopStream() {
 }
 
 // ==================== Attachment display helpers ====================
-const ATTACHMENT_SEPARATOR = '\n\n---附件内容---'
+// compose() 可能产生带或不带前导换行的分隔符，两种情况都要剥离解析正文
+const ATTACHMENT_MARKER = '---附件内容---'
 
 function getDisplayText(content: string): string {
-  const idx = content.indexOf(ATTACHMENT_SEPARATOR)
+  const idx = content.indexOf(ATTACHMENT_MARKER)
   return idx === -1 ? content : content.slice(0, idx).trim()
 }
 
 function getAttachmentNames(content: string): string[] {
-  const sepIdx = content.indexOf('---附件内容---')
+  const sepIdx = content.indexOf(ATTACHMENT_MARKER)
   if (sepIdx === -1) return []
   const section = content.slice(sepIdx)
   return Array.from(section.matchAll(/【(.+?)】/g), (m) => m[1])
@@ -338,18 +339,24 @@ onBeforeUnmount(() => {
                     />
                     <div v-if="msg.role === 'assistant'" v-html="render(msg.content)"></div>
                     <template v-else>
-                      <span>{{ getDisplayText(msg.content) }}</span>
+                      <span v-if="getDisplayText(msg.content)" class="msg-text">{{
+                        getDisplayText(msg.content)
+                      }}</span>
                       <div
                         v-if="getAttachmentNames(msg.content).length > 0"
                         class="msg-attachments"
+                        :class="{ 'no-text': !getDisplayText(msg.content) }"
                       >
                         <span
                           v-for="name in getAttachmentNames(msg.content)"
                           :key="name"
-                          class="msg-attachment-chip"
+                          class="msg-attachment-card"
                         >
-                          <Paperclip :size="11" />
-                          <span>{{ name }}</span>
+                          <FileText :size="16" class="msg-attachment-icon" />
+                          <span class="msg-attachment-meta">
+                            <span class="msg-attachment-name" :title="name">{{ name }}</span>
+                            <span class="msg-attachment-kind">附件</span>
+                          </span>
                         </span>
                       </div>
                     </template>
@@ -892,26 +899,68 @@ body.chatbot-chat-route #app {
   border-bottom-right-radius: 4px;
 }
 
-/* ===== User Bubble Attachment Chips ===== */
+/* ===== User Bubble Attachment Cards ===== */
+/* 与 composer 的 .attachment-item 视觉同源：文档图标 + 文件名 + 次级标签
+   适配 primary 绿底：用白色半透明卡片承载文本 */
+.msg-text {
+  white-space: pre-wrap;
+}
+
 .msg-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-.msg-attachment-chip {
+.msg-attachments.no-text {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.msg-attachment-card {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.18);
-  font-size: 12px;
-  line-height: 1.4;
-  opacity: 0.9;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  max-width: 220px;
+  transition: background 0.15s ease;
+}
+
+.msg-attachment-card:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.msg-attachment-icon {
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+.msg-attachment-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.msg-attachment-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-attachment-kind {
+  font-size: 11px;
+  opacity: 0.72;
+  margin-top: 2px;
 }
 
 .message-bubble.assistant {
