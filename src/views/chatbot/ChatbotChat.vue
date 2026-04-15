@@ -830,7 +830,7 @@ body.chatbot-chat-route #app {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 8px 24px;
   border-bottom: 1px solid transparent;
   background: transparent;
 }
@@ -872,7 +872,7 @@ body.chatbot-chat-route #app {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px;
+  padding: 20px 32px 0;
   scroll-behavior: auto;
   position: relative;
 }
@@ -924,7 +924,7 @@ body.chatbot-chat-route #app {
   gap: 24px;
   max-width: 800px;
   margin: 0 auto;
-  padding-bottom: 20px;
+  padding-bottom: 0;
 }
 
 /* ===== Messages ===== */

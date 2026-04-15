@@ -101,4 +101,16 @@ watch(
   padding-bottom: 0;
   border-top-color: transparent;
 }
+
+.thinking-content :deep(p) {
+  margin: 0 0 4px;
+}
+
+.thinking-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.thinking-content :deep(br) {
+  line-height: 1.2;
+}
 </style>
