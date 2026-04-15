@@ -407,7 +407,7 @@ defineExpose({
 /* 回到底部按钮 — 绝对定位在输入框上方 */
 .chat__scroll-btn {
   position: absolute;
-  bottom: 90px;
+  bottom: 102px;
   left: 50%;
   transform: translateX(-50%);
   width: 36px;
