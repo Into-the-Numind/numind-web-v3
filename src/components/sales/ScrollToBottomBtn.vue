@@ -12,11 +12,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="scroll-btn-wrapper">
-    <button
-      class="scroll-to-bottom-btn"
-      :class="{ visible }"
-      @click="emit('click')"
-    >
+    <button class="scroll-to-bottom-btn" :class="{ visible }" @click="emit('click')">
       <ArrowDown :size="16" />
       <span>回到底部</span>
     </button>
@@ -25,12 +21,14 @@ const emit = defineEmits<{
 
 <style scoped>
 .scroll-btn-wrapper {
-  position: sticky;
-  bottom: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 175px;
   display: flex;
   justify-content: center;
   pointer-events: none;
-  z-index: 10;
+  z-index: 25;
 }
 
 .scroll-to-bottom-btn {
@@ -38,7 +36,6 @@ const emit = defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 20px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

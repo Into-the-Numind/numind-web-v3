@@ -156,10 +156,10 @@ watch(
           </div>
         </div>
       </template>
-
-      <!-- Scroll to bottom button -->
-      <ScrollToBottomBtn :visible="showScrollButton" @click="handleScrollToBottomClick" />
     </div>
+
+    <!-- Scroll to bottom button (anchored above input) -->
+    <ScrollToBottomBtn :visible="showScrollButton" @click="handleScrollToBottomClick" />
   </div>
 </template>
 
@@ -175,7 +175,7 @@ watch(
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px;
+  padding: 20px 32px 200px;
   scroll-behavior: auto;
 }
 
@@ -202,7 +202,7 @@ watch(
   gap: 24px;
   max-width: 800px;
   margin: 0 auto;
-  padding-bottom: 20px;
+  padding-bottom: 0;
 }
 
 .stream-error {
