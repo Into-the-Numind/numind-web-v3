@@ -22,6 +22,8 @@ export interface HandleFilesResult {
 export interface UseDocUploadReturn {
   items: Ref<DocUploadItem[]>
   isUploading: ComputedRef<boolean>
+  hasErrors: ComputedRef<boolean>
+  errorFileNames: ComputedRef<string[]>
   handleFiles: (files: File[] | FileList) => Promise<HandleFilesResult>
   removeItem: (localId: string) => void
   clearItems: () => void
@@ -44,6 +46,10 @@ export function useDocUpload(): UseDocUploadReturn {
   const items = ref<DocUploadItem[]>([])
 
   const isUploading = computed(() => items.value.some((i) => i.status === 'uploading'))
+  const hasErrors = computed(() => items.value.some((i) => i.status === 'error'))
+  const errorFileNames = computed(() =>
+    items.value.filter((i) => i.status === 'error').map((i) => i.fileName)
+  )
 
   async function handleFiles(files: File[] | FileList): Promise<HandleFilesResult> {
     const fileArray = Array.from(files)
@@ -172,6 +178,8 @@ export function useDocUpload(): UseDocUploadReturn {
   return {
     items,
     isUploading,
+    hasErrors,
+    errorFileNames,
     handleFiles,
     removeItem,
     clearItems,
