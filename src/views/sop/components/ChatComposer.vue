@@ -115,12 +115,41 @@ defineExpose({ text, textareaRef })
 
 <style scoped>
 .composer {
-  flex-shrink: 0;
-  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 var(--space-2xl) var(--space-lg);
   display: flex;
   justify-content: center;
-  position: relative;
   z-index: 20;
+  pointer-events: none;
+}
+
+.composer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 56px;
+  background: linear-gradient(to bottom, rgba(247, 248, 251, 0) 0%, #f7f8fb 100%);
+  pointer-events: none;
+}
+
+.composer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--bg);
+  z-index: -1;
+}
+
+.composer > * {
+  pointer-events: auto;
 }
 
 .composer__container {
