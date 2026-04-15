@@ -319,7 +319,7 @@ defineExpose({
 .chat__history {
   flex: 1;
   min-height: 0;
-  padding: var(--space-xl) var(--space-2xl) 200px;
+  padding: var(--space-xl) var(--space-2xl) 150px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
@@ -407,7 +407,7 @@ defineExpose({
 /* 回到底部按钮 — 绝对定位在输入框上方 */
 .chat__scroll-btn {
   position: absolute;
-  bottom: 110px;
+  bottom: 90px;
   left: 50%;
   transform: translateX(-50%);
   width: 36px;
