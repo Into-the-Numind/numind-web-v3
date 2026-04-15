@@ -29,10 +29,8 @@ watch(
       @click="collapsed = !collapsed"
       @keydown.enter.prevent="collapsed = !collapsed"
     >
-      <span class="thinking-title">
-        <ChevronDown :size="14" class="thinking-icon" aria-hidden="true" />
-        <span>{{ finished ? '思考过程' : '思考中...' }}</span>
-      </span>
+      <ChevronDown :size="14" class="thinking-icon" aria-hidden="true" />
+      <span>{{ finished ? '思考过程' : '思考中...' }}</span>
     </div>
     <div class="thinking-content" v-html="render(content)"></div>
   </div>
@@ -40,33 +38,22 @@ watch(
 
 <style scoped>
 .thinking-container {
-  margin-bottom: 16px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid hsl(155, 20%, 92%);
-  background-color: hsl(150, 25%, 96%);
+  margin-bottom: 12px;
 }
 
 .thinking-header {
-  padding: 8px 16px;
-  background-color: hsl(150, 25%, 94%);
-  cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   font-size: 13px;
-  color: var(--text-secondary, var(--text-muted));
+  color: var(--text-muted);
+  cursor: pointer;
   user-select: none;
+  padding: 2px 0;
 }
 
 .thinking-header:hover {
-  background-color: hsl(150, 25%, 92%);
-}
-
-.thinking-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  color: var(--text-secondary, var(--text));
 }
 
 .thinking-icon {
@@ -81,28 +68,27 @@ watch(
 }
 
 .thinking-content {
-  padding: 12px 16px;
+  margin-top: 6px;
   font-size: 13px;
-  color: var(--text-secondary, var(--text-muted));
-  line-height: 1.6;
-  border-top: 1px solid hsl(155, 20%, 92%);
+  color: var(--text-muted);
+  line-height: 1.7;
   transition:
     max-height 0.3s ease-out,
-    padding 0.3s ease-out,
-    border-top-color 0.3s ease-out;
+    margin-top 0.3s ease-out,
+    opacity 0.2s ease-out;
   max-height: 4000px;
-  overflow-y: auto;
+  overflow: hidden;
+  opacity: 0.9;
 }
 
 .thinking-container.collapsed .thinking-content {
   max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  border-top-color: transparent;
+  margin-top: 0;
+  opacity: 0;
 }
 
 .thinking-content :deep(p) {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 
 .thinking-content :deep(p:last-child) {
@@ -111,11 +97,16 @@ watch(
 
 .thinking-content :deep(ul),
 .thinking-content :deep(ol) {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   padding-left: 20px;
 }
 
 .thinking-content :deep(li) {
   margin-bottom: 2px;
+}
+
+.thinking-content :deep(strong) {
+  color: var(--text-secondary, var(--text));
+  font-weight: 600;
 }
 </style>
