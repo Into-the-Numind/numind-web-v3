@@ -127,7 +127,7 @@ import { useUiDialogsStore } from '@/stores/uiDialogs'
 import { useDraftLifecycle } from './composables/useDraftLifecycle'
 import { useBookmarks } from './composables/useBookmarks'
 import { useSSEStream } from './composables/useSSEStream'
-import { useTypewriterReveal } from './composables/useTypewriterReveal'
+import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
 
 const route = useRoute()
 const router = useRouter()
