@@ -255,6 +255,7 @@ watch(
 
 .chat-bubble--assistant .chat-bubble-body {
   align-items: flex-start;
+  max-width: 100%;
 }
 
 /* ==================== Thinking 面板（嵌入在气泡内） ==================== */
@@ -263,9 +264,8 @@ watch(
   width: 100%;
 }
 
-/* 展开 + 底下有正文时：思考块与正文之间加分隔线 */
+/* 展开 + 底下有正文时：仅加底部呼吸间距，无分隔线 */
 .chat-bubble-thinking.has-content-below:not(.is-collapsed) {
-  border-bottom: 1px solid hsl(150, 15%, 88%);
   margin-bottom: var(--space-sm);
   padding-bottom: var(--space-sm);
 }
@@ -302,6 +302,28 @@ watch(
   line-height: var(--line-height-relaxed);
 }
 
+.chat-bubble-thinking-content :deep(*) {
+  color: inherit !important;
+}
+
+.chat-bubble-thinking-content :deep(p) {
+  margin: 0 0 6px;
+}
+
+.chat-bubble-thinking-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.chat-bubble-thinking-content :deep(ul),
+.chat-bubble-thinking-content :deep(ol) {
+  margin: 0 0 6px;
+  padding-left: 20px;
+}
+
+.chat-bubble-thinking-content :deep(strong) {
+  font-weight: 600;
+}
+
 /* ==================== 主气泡 ==================== */
 
 .chat-bubble-content {
@@ -320,13 +342,50 @@ watch(
 }
 
 .chat-bubble--assistant .chat-bubble-content {
-  background: var(--accent-soft);
+  background: transparent;
   color: var(--text);
-  border-bottom-left-radius: var(--radius-sm);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: 100%;
 }
 
-.chat-bubble-text {
-  /* prose 样式由全局定义处理 Markdown 渲染结果 */
+/* 助手消息 Markdown 标题层级 — 与 chatbot 页面对齐，仅保留微弱层级 */
+.chat-bubble--assistant :deep(.chat-bubble-text h1),
+.chat-bubble--assistant :deep(.chat-bubble-text h2),
+.chat-bubble--assistant :deep(.chat-bubble-text h3),
+.chat-bubble--assistant :deep(.chat-bubble-text h4),
+.chat-bubble--assistant :deep(.chat-bubble-text h5),
+.chat-bubble--assistant :deep(.chat-bubble-text h6) {
+  font-family: var(--font-sans);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h1) {
+  font-size: 16px;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h2) {
+  font-size: 15px;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h3),
+.chat-bubble--assistant :deep(.chat-bubble-text h4),
+.chat-bubble--assistant :deep(.chat-bubble-text h5),
+.chat-bubble--assistant :deep(.chat-bubble-text h6) {
+  font-size: inherit;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h1:first-child),
+.chat-bubble--assistant :deep(.chat-bubble-text h2:first-child),
+.chat-bubble--assistant :deep(.chat-bubble-text h3:first-child),
+.chat-bubble--assistant :deep(.chat-bubble-text h4:first-child) {
+  margin-top: 0;
 }
 
 /* 生产环境风格：白色气泡 + 弹跳点 */

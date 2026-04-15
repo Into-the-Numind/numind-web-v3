@@ -66,6 +66,28 @@
       </template>
     </div>
 
+    <!-- 回到底部按钮（用户上滑脱离贴底时显示） -->
+    <button
+      v-if="isScrollInterrupted"
+      type="button"
+      class="chat__scroll-btn"
+      aria-label="回到底部"
+      @click="scrollToBottom"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </button>
+
     <ChatComposer
       :streaming="streaming"
       @send="(t: string) => emit('send', t)"
@@ -116,6 +138,7 @@ const historyRef = ref<HTMLDivElement | null>(null)
 
 // 自动滚动跟随状态机（2026-04-13 升级后支持 HTMLElement + interrupt + movingDown resume）
 const scrollFollow = useScrollFollow()
+const isScrollInterrupted = scrollFollow.isInterrupted
 
 // ===== 数据加载 =====
 
@@ -290,12 +313,12 @@ defineExpose({
   overflow: hidden;
 }
 
-/* .chat__history — 可滚动消息区。composer 是 flex 兄弟（非 absolute），
-   此处只需很小的 padding-bottom 作为最后一条气泡和输入框的呼吸间距 */
+/* .chat__history — 可滚动消息区。composer 现在是 absolute 定位，
+   padding-bottom 预留空间让最后一条气泡可以滚过渐变淡出区 */
 .chat__history {
   flex: 1;
   min-height: 0;
-  padding: var(--space-xl) var(--space-2xl) var(--space-sm);
+  padding: var(--space-xl) var(--space-2xl) 200px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
@@ -378,5 +401,31 @@ defineExpose({
   font-size: var(--text-sm);
   color: var(--text-muted);
   max-width: 320px;
+}
+
+/* 回到底部按钮 — 绝对定位在输入框上方 */
+.chat__scroll-btn {
+  position: absolute;
+  bottom: 175px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 25;
+  transition: all 0.2s;
+}
+
+.chat__scroll-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
 }
 </style>
