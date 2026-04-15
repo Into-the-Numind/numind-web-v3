@@ -91,12 +91,14 @@ function handleClick(): void {
 <style scoped>
 .step {
   position: relative;
-  padding: var(--space-md) var(--space-md) var(--space-md) var(--space-lg);
+  padding: var(--space-md);
   margin: 2px 0;
   border-radius: var(--radius-md);
-  display: grid;
-  grid-template-columns: 22px 1fr;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
   cursor: pointer;
   transition: background var(--transition-fast);
   background: transparent;
@@ -134,6 +136,10 @@ function handleClick(): void {
 
 .step__body {
   min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .step__title {
   font-size: 13px;

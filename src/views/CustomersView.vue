@@ -15,9 +15,20 @@
             <p class="hero-subtitle">管理您的子用户、模板权限与会员等级</p>
           </div>
           <button class="hero-action-btn" @click="showRegisterModal = true">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" x2="19" y1="8" y2="14" />
+              <line x1="22" x2="16" y1="11" y2="11" />
             </svg>
             注册新用户
           </button>
@@ -101,8 +112,19 @@
             </button>
           </div>
           <div class="search-box">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="search-icon"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
             </svg>
             <input
               v-model="searchQuery"
@@ -118,10 +140,25 @@
         <div v-if="allSubUsers.length === 0" class="empty-state">
           <div class="empty-icon-wrapper">
             <svg viewBox="0 0 48 48" fill="none" class="empty-icon">
-              <path d="M32 42v-4a8 8 0 0 0-8-8H12a8 8 0 0 0-8 8v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="18" cy="14" r="8" stroke="currentColor" stroke-width="2"/>
-              <path d="M44 42v-4a8 8 0 0 0-6-7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M32 6.25a8 8 0 0 1 0 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path
+                d="M32 42v-4a8 8 0 0 0-8-8H12a8 8 0 0 0-8 8v4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <circle cx="18" cy="14" r="8" stroke="currentColor" stroke-width="2" />
+              <path
+                d="M44 42v-4a8 8 0 0 0-6-7.75"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M32 6.25a8 8 0 0 1 0 15.5"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
             </svg>
           </div>
           <div class="empty-title">暂无子用户</div>
@@ -147,17 +184,29 @@
                       :class="{ checked: isAllSelected }"
                       @click="toggleSelectAll"
                     >
-                      <svg v-if="isAllSelected" viewBox="0 0 12 12" fill="none" width="12" height="12">
-                        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <svg
+                        v-if="isAllSelected"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        width="12"
+                        height="12"
+                      >
+                        <path
+                          d="M2.5 6L5 8.5L9.5 3.5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                     </span>
                   </th>
                   <th class="col-user">用户信息</th>
+                  <th>用户名</th>
                   <th>会员状态</th>
                   <th>额度</th>
                   <th>到期时间</th>
                   <th>已授权模板</th>
-                  <th>总运行次数</th>
                   <th>本月运行</th>
                   <th class="col-action">操作</th>
                 </tr>
@@ -174,16 +223,33 @@
                       :class="{ checked: selectedIds.has(user.user_id ?? user.id) }"
                       @click="toggleSelect(user.user_id ?? user.id)"
                     >
-                      <svg v-if="selectedIds.has(user.user_id ?? user.id)" viewBox="0 0 12 12" fill="none" width="12" height="12">
-                        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <svg
+                        v-if="selectedIds.has(user.user_id ?? user.id)"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        width="12"
+                        height="12"
+                      >
+                        <path
+                          d="M2.5 6L5 8.5L9.5 3.5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
                       </svg>
                     </span>
                   </td>
                   <td class="col-user">
                     <div class="user-info">
                       <div class="user-name">{{ user.nickname || '未命名用户' }}</div>
-                      <div class="user-meta">{{ user.phone || ('ID: ' + (user.user_id ?? user.id)) }}</div>
+                      <div class="user-meta">
+                        {{ user.phone || 'ID: ' + (user.user_id ?? user.id) }}
+                      </div>
                     </div>
+                  </td>
+                  <td>
+                    <span class="cell-secondary">{{ user.username || '-' }}</span>
                   </td>
                   <td>
                     <span class="tier-badge" :class="getStatusClass(user)">
@@ -198,10 +264,9 @@
                     <span class="cell-secondary">{{ getExpiryDisplay(user) }}</span>
                   </td>
                   <td>
-                    <span class="cell-metric">{{ user.authorized_templates || user.template_count || 0 }}</span>
-                  </td>
-                  <td>
-                    <span class="cell-metric">{{ user.total_sop_runs || 0 }}</span>
+                    <span class="cell-metric">{{
+                      user.authorized_templates || user.template_count || 0
+                    }}</span>
                   </td>
                   <td>
                     <span class="cell-metric">{{ user.monthly_sop_runs || 0 }}</span>
@@ -216,12 +281,41 @@
                         @keydown.escape="openMenuId = null"
                       >
                         管理
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
                       </button>
-                      <div v-if="openMenuId === (user.user_id ?? user.id)" class="action-menu" role="menu">
-                        <button class="action-menu-item" role="menuitem" @click="handleMenuPermission(user)">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+                      <div
+                        v-if="openMenuId === (user.user_id ?? user.id)"
+                        class="action-menu"
+                        role="menu"
+                      >
+                        <button
+                          class="action-menu-item"
+                          role="menuitem"
+                          @click="handleMenuPermission(user)"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <rect width="18" height="18" x="3" y="3" rx="2" />
+                            <path d="m9 12 2 2 4-4" />
                           </svg>
                           管理权限
                         </button>
@@ -230,8 +324,19 @@
                           role="menuitem"
                           @click="handleMenuPurchase(user)"
                         >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                            <path d="M12 18V6" />
                           </svg>
                           升级会员
                         </button>
@@ -246,13 +351,35 @@
           <!-- 分页 -->
           <div v-if="totalPages > 1" class="pagination">
             <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
               上一页
             </button>
             <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
             <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">
               下一页
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
             </button>
           </div>
         </div>
@@ -266,14 +393,35 @@
             {{ isAllSelected ? '取消全选' : '全选' }}
           </button>
           <button class="manage-btn-grant" @click="batchGrant">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect width="18" height="18" x="3" y="3" rx="2" />
+              <path d="m9 12 2 2 4-4" />
             </svg>
             批量授权
           </button>
           <button class="manage-btn-revoke" @click="batchRevoke">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
             </svg>
             批量撤销
           </button>
@@ -288,39 +436,97 @@
               <div class="modal-header">
                 <h2 class="modal-title">注册新用户</h2>
                 <button class="modal-close" @click="closeRegisterModal">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
               <form id="register-form" class="modal-body" @submit.prevent="handleRegister">
                 <div class="form-group">
-                  <label class="form-label">用户名（用于登录）<span class="required">*</span></label>
+                  <label class="form-label"
+                    >用户名（用于登录）<span class="required">*</span></label
+                  >
                   <div class="input-row">
-                    <input v-model="registerForm.username" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.username }" placeholder="3-20位字母及数字" maxlength="20" required />
-                    <button type="button" class="btn-inline" :disabled="!registerForm.username.trim() || usernameStatus === 'checking'" @click="checkUsernameAvailability">
+                    <input
+                      v-model="registerForm.username"
+                      type="text"
+                      class="form-input"
+                      :class="{ 'input-error': regFieldErrors.username }"
+                      placeholder="3-20位字母及数字"
+                      maxlength="20"
+                      required
+                    />
+                    <button
+                      type="button"
+                      class="btn-inline"
+                      :disabled="!registerForm.username.trim() || usernameStatus === 'checking'"
+                      @click="checkUsernameAvailability"
+                    >
                       {{ usernameStatus === 'checking' ? '检测中...' : '检测' }}
                     </button>
                   </div>
-                  <div v-if="regFieldErrors.username" class="field-error">{{ regFieldErrors.username }}</div>
-                  <div v-else-if="usernameStatus && usernameStatus !== 'checking'" class="field-hint" :class="usernameStatus">
+                  <div v-if="regFieldErrors.username" class="field-error">
+                    {{ regFieldErrors.username }}
+                  </div>
+                  <div
+                    v-else-if="usernameStatus && usernameStatus !== 'checking'"
+                    class="field-hint"
+                    :class="usernameStatus"
+                  >
                     {{ usernameStatus === 'available' ? '用户名可用' : '用户名已被使用' }}
                   </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">密码 <span class="required">*</span></label>
-                  <input v-model="registerForm.password" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.password }" placeholder="6-18位字母、数字或常用符号" maxlength="18" required />
-                  <div v-if="regFieldErrors.password" class="field-error">{{ regFieldErrors.password }}</div>
+                  <input
+                    v-model="registerForm.password"
+                    type="text"
+                    class="form-input"
+                    :class="{ 'input-error': regFieldErrors.password }"
+                    placeholder="6-18位字母、数字或常用符号"
+                    maxlength="18"
+                    required
+                  />
+                  <div v-if="regFieldErrors.password" class="field-error">
+                    {{ regFieldErrors.password }}
+                  </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">昵称 <span class="required">*</span></label>
-                  <input v-model="registerForm.nickname" type="text" class="form-input" :class="{ 'input-error': regFieldErrors.nickname }" placeholder="2-20位字符" maxlength="20" required />
-                  <div v-if="regFieldErrors.nickname" class="field-error">{{ regFieldErrors.nickname }}</div>
+                  <input
+                    v-model="registerForm.nickname"
+                    type="text"
+                    class="form-input"
+                    :class="{ 'input-error': regFieldErrors.nickname }"
+                    placeholder="2-20位字符"
+                    maxlength="20"
+                    required
+                  />
+                  <div v-if="regFieldErrors.nickname" class="field-error">
+                    {{ regFieldErrors.nickname }}
+                  </div>
                 </div>
 
                 <div v-if="registerError" class="form-error">{{ registerError }}</div>
               </form>
               <div class="modal-footer">
                 <button type="button" class="btn-cancel" @click="closeRegisterModal">取消</button>
-                <button type="submit" form="register-form" class="btn-primary" :disabled="!isRegFormValid || isRegistering">
+                <button
+                  type="submit"
+                  form="register-form"
+                  class="btn-primary"
+                  :disabled="!isRegFormValid || isRegistering"
+                >
                   {{ isRegistering ? '注册中...' : '注册' }}
                 </button>
               </div>
@@ -337,20 +543,46 @@
               <div class="modal-header">
                 <h2 class="modal-title">管理模板权限</h2>
                 <button class="modal-close" @click="closePermissionModal">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
               <div class="modal-body perm-body">
                 <!-- User info -->
                 <div class="perm-user">
                   <div class="perm-avatar">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="24"
+                      height="24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
                     </svg>
                   </div>
                   <div>
-                    <div class="perm-name">{{ permTarget?.nickname || permTarget?.username || '用户' }}</div>
-                    <div class="perm-meta">{{ permTarget?.phone || ('ID: ' + (permTarget?.user_id ?? permTarget?.id)) }}</div>
+                    <div class="perm-name">
+                      {{ permTarget?.nickname || permTarget?.username || '用户' }}
+                    </div>
+                    <div class="perm-meta">
+                      {{ permTarget?.phone || 'ID: ' + (permTarget?.user_id ?? permTarget?.id) }}
+                    </div>
                   </div>
                 </div>
 
@@ -365,11 +597,28 @@
                     <div
                       class="perm-item"
                       :class="{ checked: featurePermissions['sales_agent'] }"
-                      @click="featurePermissions['sales_agent'] = !featurePermissions['sales_agent']"
+                      @click="
+                        featurePermissions['sales_agent'] = !featurePermissions['sales_agent']
+                      "
                     >
-                      <span class="checkbox-mark" :class="{ checked: featurePermissions['sales_agent'] }">
-                        <svg v-if="featurePermissions['sales_agent']" viewBox="0 0 12 12" fill="none" width="12" height="12">
-                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <span
+                        class="checkbox-mark"
+                        :class="{ checked: featurePermissions['sales_agent'] }"
+                      >
+                        <svg
+                          v-if="featurePermissions['sales_agent']"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          width="12"
+                          height="12"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
                         </svg>
                       </span>
                       <span class="perm-item-label">销售智能体</span>
@@ -394,9 +643,24 @@
                       :class="{ checked: permSelectedIds[String(tpl.id)] }"
                       @click="togglePermTemplate(String(tpl.id))"
                     >
-                      <span class="checkbox-mark" :class="{ checked: permSelectedIds[String(tpl.id)] }">
-                        <svg v-if="permSelectedIds[String(tpl.id)]" viewBox="0 0 12 12" fill="none" width="12" height="12">
-                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <span
+                        class="checkbox-mark"
+                        :class="{ checked: permSelectedIds[String(tpl.id)] }"
+                      >
+                        <svg
+                          v-if="permSelectedIds[String(tpl.id)]"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          width="12"
+                          height="12"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
                         </svg>
                       </span>
                       <span class="perm-item-label">{{ tpl.name }}</span>
@@ -406,7 +670,12 @@
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn-cancel" @click="closePermissionModal">取消</button>
-                <button type="button" class="btn-primary" :disabled="permSaving" @click="savePermissions">
+                <button
+                  type="button"
+                  class="btn-primary"
+                  :disabled="permSaving"
+                  @click="savePermissions"
+                >
                   {{ permSaving ? '保存中...' : '保存更改' }}
                 </button>
               </div>
@@ -421,25 +690,55 @@
           <div v-if="showBatchConfirm" class="modal-overlay" @click.self="showBatchConfirm = false">
             <div class="confirm-dialog">
               <div class="confirm-icon" :class="batchAction === 'revoke' ? 'danger' : ''">
-                <svg v-if="batchAction === 'grant'" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+                <svg
+                  v-if="batchAction === 'grant'"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                  <path d="m9 12 2 2 4-4" />
                 </svg>
-                <svg v-else viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                <svg
+                  v-else
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <div class="confirm-title">{{ batchAction === 'grant' ? '批量授权确认' : '批量撤销确认' }}</div>
+              <div class="confirm-title">
+                {{ batchAction === 'grant' ? '批量授权确认' : '批量撤销确认' }}
+              </div>
               <div class="confirm-message">
                 <template v-if="batchAction === 'grant'">
-                  确定要为选中的 <strong>{{ selectedIds.size }}</strong> 位用户授权全部 <strong>{{ allTemplates.length }}</strong> 个模板吗？
+                  确定要为选中的 <strong>{{ selectedIds.size }}</strong> 位用户授权全部
+                  <strong>{{ allTemplates.length }}</strong> 个模板吗？
                 </template>
                 <template v-else>
-                  确定要撤销选中的 <strong>{{ selectedIds.size }}</strong> 位用户的全部模板权限吗？此操作不可恢复。
+                  确定要撤销选中的
+                  <strong>{{ selectedIds.size }}</strong> 位用户的全部模板权限吗？此操作不可恢复。
                 </template>
               </div>
               <div class="confirm-actions">
                 <button class="btn-cancel" @click="showBatchConfirm = false">取消</button>
-                <button :class="batchAction === 'revoke' ? 'btn-danger' : 'btn-primary'" @click="executeBatchAction">
+                <button
+                  :class="batchAction === 'revoke' ? 'btn-danger' : 'btn-primary'"
+                  @click="executeBatchAction"
+                >
                   确认{{ batchAction === 'grant' ? '授权' : '撤销' }}
                 </button>
               </div>
@@ -456,18 +755,42 @@
               <div class="modal-header">
                 <h2 class="modal-title">升级会员</h2>
                 <button class="modal-close" @click="closePurchaseModal">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
               <div class="modal-body">
                 <div class="perm-user">
                   <div class="perm-avatar">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="24"
+                      height="24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
                     </svg>
                   </div>
                   <div>
-                    <div class="perm-name">{{ purchaseTargetUser?.nickname || purchaseTargetUser?.username || '用户' }}</div>
+                    <div class="perm-name">
+                      {{ purchaseTargetUser?.nickname || purchaseTargetUser?.username || '用户' }}
+                    </div>
                     <div class="perm-meta">为该用户选择会员套餐</div>
                   </div>
                 </div>
@@ -478,7 +801,10 @@
                     :class="{ selected: purchaseForm.productType === 'trial' }"
                     @click="purchaseForm.productType = 'trial'"
                   >
-                    <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'trial' }"></div>
+                    <div
+                      class="upgrade-radio"
+                      :class="{ active: purchaseForm.productType === 'trial' }"
+                    ></div>
                     <div class="upgrade-info">
                       <div class="upgrade-header">
                         <span class="upgrade-name trial">体验会员</span>
@@ -493,7 +819,10 @@
                     :class="{ selected: purchaseForm.productType === 'monthly' }"
                     @click="purchaseForm.productType = 'monthly'"
                   >
-                    <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'monthly' }"></div>
+                    <div
+                      class="upgrade-radio"
+                      :class="{ active: purchaseForm.productType === 'monthly' }"
+                    ></div>
                     <div class="upgrade-info">
                       <div class="upgrade-header">
                         <span class="upgrade-name standard">月度会员</span>
@@ -508,7 +837,10 @@
                     :class="{ selected: purchaseForm.productType === 'yearly' }"
                     @click="purchaseForm.productType = 'yearly'"
                   >
-                    <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'yearly' }"></div>
+                    <div
+                      class="upgrade-radio"
+                      :class="{ active: purchaseForm.productType === 'yearly' }"
+                    ></div>
                     <div class="upgrade-info">
                       <div class="upgrade-header">
                         <span class="upgrade-name premium">年度会员</span>
@@ -523,7 +855,10 @@
                     :class="{ selected: purchaseForm.productType === 'booster' }"
                     @click="purchaseForm.productType = 'booster'"
                   >
-                    <div class="upgrade-radio" :class="{ active: purchaseForm.productType === 'booster' }"></div>
+                    <div
+                      class="upgrade-radio"
+                      :class="{ active: purchaseForm.productType === 'booster' }"
+                    ></div>
                     <div class="upgrade-info">
                       <div class="upgrade-header">
                         <span class="upgrade-name">加量包</span>
@@ -550,7 +885,10 @@
                       :class="{ selected: purchaseForm.payChannel === 'wechat' }"
                       @click="purchaseForm.payChannel = 'wechat'"
                     >
-                      <div class="upgrade-radio" :class="{ active: purchaseForm.payChannel === 'wechat' }"></div>
+                      <div
+                        class="upgrade-radio"
+                        :class="{ active: purchaseForm.payChannel === 'wechat' }"
+                      ></div>
                       <span>微信支付</span>
                     </div>
                     <div
@@ -558,20 +896,32 @@
                       :class="{ selected: purchaseForm.payChannel === 'alipay' }"
                       @click="purchaseForm.payChannel = 'alipay'"
                     >
-                      <div class="upgrade-radio" :class="{ active: purchaseForm.payChannel === 'alipay' }"></div>
+                      <div
+                        class="upgrade-radio"
+                        :class="{ active: purchaseForm.payChannel === 'alipay' }"
+                      ></div>
                       <span>支付宝</span>
                     </div>
                   </div>
                 </div>
 
                 <div class="tier-preview">
-                  参考价格：<strong style="color: var(--accent); font-size: 1.2em;">¥{{ purchaseAmount }}</strong>
-                  <span style="font-size: 12px; color: #999; display: block; margin-top: 4px;">实际金额以提交订单后为准</span>
+                  参考价格：<strong style="color: var(--accent); font-size: 1.2em"
+                    >¥{{ purchaseAmount }}</strong
+                  >
+                  <span style="font-size: 12px; color: #999; display: block; margin-top: 4px"
+                    >实际金额以提交订单后为准</span
+                  >
                 </div>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn-cancel" @click="closePurchaseModal">取消</button>
-                <button type="button" class="btn-primary" :disabled="purchaseLoading" @click="handlePurchase">
+                <button
+                  type="button"
+                  class="btn-primary"
+                  :disabled="purchaseLoading"
+                  @click="handlePurchase"
+                >
                   {{ purchaseLoading ? '提交中...' : '确认购买' }}
                 </button>
               </div>
@@ -584,27 +934,68 @@
       <Teleport to="body">
         <Transition name="overlay-fade">
           <div v-if="showPaymentModal" class="modal-overlay" @click.self="closePaymentModal">
-            <div class="modal-dialog" style="max-width: 400px;">
+            <div class="modal-dialog" style="max-width: 400px">
               <div class="modal-header">
                 <h2 class="modal-title">完成支付</h2>
                 <button class="modal-close" @click="closePaymentModal">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
-              <div class="modal-body" style="text-align: center; padding: 24px;">
+              <div class="modal-body" style="text-align: center; padding: 24px">
                 <template v-if="purchaseOrder">
-                  <p style="margin-bottom: 8px; color: #666;">订单号：{{ purchaseOrder.order_no }}</p>
-                  <p style="margin-bottom: 16px; font-size: 1.3em; font-weight: 600; color: var(--accent);">¥{{ (purchaseOrder.amount / 100).toFixed(2) }}</p>
+                  <p style="margin-bottom: 8px; color: #666">
+                    订单号：{{ purchaseOrder.order_no }}
+                  </p>
+                  <p
+                    style="
+                      margin-bottom: 16px;
+                      font-size: 1.3em;
+                      font-weight: 600;
+                      color: var(--accent);
+                    "
+                  >
+                    ¥{{ (purchaseOrder.amount / 100).toFixed(2) }}
+                  </p>
                   <template v-if="purchaseForm.payChannel === 'wechat'">
-                    <p style="margin-bottom: 12px;">请使用微信扫描下方二维码完成支付</p>
-                    <canvas v-show="!qrError" ref="qrCanvas" style="width: 200px; height: 200px; border: 1px solid #eee; border-radius: 8px;"></canvas>
-                    <p v-if="qrError" style="color: #e65100; font-size: 14px; padding: 20px;">{{ qrError }}</p>
+                    <p style="margin-bottom: 12px">请使用微信扫描下方二维码完成支付</p>
+                    <canvas
+                      v-show="!qrError"
+                      ref="qrCanvas"
+                      style="
+                        width: 200px;
+                        height: 200px;
+                        border: 1px solid #eee;
+                        border-radius: 8px;
+                      "
+                    ></canvas>
+                    <p v-if="qrError" style="color: #e65100; font-size: 14px; padding: 20px">
+                      {{ qrError }}
+                    </p>
                   </template>
                   <template v-else>
-                    <p style="margin-bottom: 12px;">请在新打开的标签页中完成支付宝支付</p>
-                    <a :href="purchaseOrder.code_url" target="_blank" style="color: var(--accent); text-decoration: underline;">点击此处重新打开支付页面</a>
+                    <p style="margin-bottom: 12px">请在新打开的标签页中完成支付宝支付</p>
+                    <a
+                      :href="purchaseOrder.code_url"
+                      target="_blank"
+                      style="color: var(--accent); text-decoration: underline"
+                      >点击此处重新打开支付页面</a
+                    >
                   </template>
-                  <p style="margin-top: 16px; color: #999; font-size: 0.85em;">支付完成后将自动确认，请勿关闭此窗口</p>
+                  <p style="margin-top: 16px; color: #999; font-size: 0.85em">
+                    支付完成后将自动确认，请勿关闭此窗口
+                  </p>
                 </template>
               </div>
             </div>
@@ -616,14 +1007,49 @@
       <Teleport to="body">
         <Transition name="toast-fade">
           <div v-if="toast.visible" class="toast" :class="toast.type">
-            <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            <svg
+              v-if="toast.type === 'success'"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            <svg v-else-if="toast.type === 'error'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            <svg
+              v-else-if="toast.type === 'error'"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
             </svg>
-            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            <svg
+              v-else
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
             {{ toast.message }}
           </div>
@@ -676,7 +1102,13 @@ const activeFilter = ref<'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premiu
 // Register
 type TierValue = 'free' | 'trial' | 'standard' | 'premium'
 const showRegisterModal = ref(false)
-const registerForm = ref<{ username: string; password: string; nickname: string; tier: TierValue; months: number }>({ username: '', password: '', nickname: '', tier: 'free', months: 1 })
+const registerForm = ref<{
+  username: string
+  password: string
+  nickname: string
+  tier: TierValue
+  months: number
+}>({ username: '', password: '', nickname: '', tier: 'free', months: 1 })
 const isRegistering = ref(false)
 const usernameStatus = ref<'available' | 'taken' | 'checking' | null>(null)
 const registerError = ref('')
@@ -697,7 +1129,6 @@ const permOriginalIds = ref<Set<string>>(new Set())
 const featurePermissions = reactive<Record<string, boolean>>({})
 const featurePermOriginal = ref<Set<string>>(new Set())
 
-
 // Purchase credits
 const showPurchaseModal = ref(false)
 const purchaseTargetUser = ref<SubUser | null>(null)
@@ -715,7 +1146,8 @@ const qrCanvas = ref<HTMLCanvasElement>()
 const qrError = ref('')
 
 watch(
-  () => showPaymentModal.value && purchaseForm.payChannel === 'wechat' && purchaseOrder.value?.code_url,
+  () =>
+    showPaymentModal.value && purchaseForm.payChannel === 'wechat' && purchaseOrder.value?.code_url,
   async (url) => {
     qrError.value = ''
     if (!url) return
@@ -762,27 +1194,46 @@ const pageUsers = computed(() => {
 })
 
 const isAllSelected = computed(() => {
-  return pageUsers.value.length > 0 && pageUsers.value.every((u) => selectedIds.has(u.user_id ?? u.id))
+  return (
+    pageUsers.value.length > 0 && pageUsers.value.every((u) => selectedIds.has(u.user_id ?? u.id))
+  )
 })
 
 const isPermAllSelected = computed(() => {
-  return allTemplates.value.length > 0 && allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
+  return (
+    allTemplates.value.length > 0 &&
+    allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
+  )
 })
 
-const freeCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'free').length)
-const proCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'pro').length)
-const trialCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'trial').length)
-const standardCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'standard').length)
-const premiumCount = computed(() => allSubUsers.value.filter((u) => getMemberStatus(u) === 'premium').length)
-
+const freeCount = computed(
+  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'free').length
+)
+const proCount = computed(
+  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'pro').length
+)
+const trialCount = computed(
+  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'trial').length
+)
+const standardCount = computed(
+  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'standard').length
+)
+const premiumCount = computed(
+  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'premium').length
+)
 
 const purchaseAmount = computed(() => {
   switch (purchaseForm.productType) {
-    case 'trial': return 9.9
-    case 'monthly': return 99 * purchaseForm.months
-    case 'yearly': return 949
-    case 'booster': return 29.9
-    default: return 0
+    case 'trial':
+      return 9.9
+    case 'monthly':
+      return 99 * purchaseForm.months
+    case 'yearly':
+      return 949
+    case 'booster':
+      return 29.9
+    default:
+      return 0
   }
 })
 
@@ -795,9 +1246,16 @@ const regFieldErrors = computed(() => {
   const password = f.password
   const nickname = f.nickname.trim()
   return {
-    username: username && !/^[a-zA-Z0-9]{3,20}$/.test(username) ? '用户名格式不正确（3-20位字母或数字）' : '',
-    password: password && !passwordRegex.test(password) ? '密码格式不正确（6-18位字母、数字或符号）' : '',
-    nickname: nickname && (nickname.length < 2 || nickname.length > 20) ? '昵称格式不正确（2-20位字符）' : ''
+    username:
+      username && !/^[a-zA-Z0-9]{3,20}$/.test(username)
+        ? '用户名格式不正确（3-20位字母或数字）'
+        : '',
+    password:
+      password && !passwordRegex.test(password) ? '密码格式不正确（6-18位字母、数字或符号）' : '',
+    nickname:
+      nickname && (nickname.length < 2 || nickname.length > 20)
+        ? '昵称格式不正确（2-20位字符）'
+        : ''
   }
 })
 
@@ -806,14 +1264,19 @@ const isRegFormValid = computed(() => {
   const username = f.username.trim()
   const password = f.password
   const nickname = f.nickname.trim()
-  return /^[a-zA-Z0-9]{3,20}$/.test(username) &&
+  return (
+    /^[a-zA-Z0-9]{3,20}$/.test(username) &&
     passwordRegex.test(password) &&
-    nickname.length >= 2 && nickname.length <= 20 &&
+    nickname.length >= 2 &&
+    nickname.length <= 20 &&
     usernameStatus.value !== 'taken'
+  )
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
-function handleGlobalClick() { openMenuId.value = null }
+function handleGlobalClick() {
+  openMenuId.value = null
+}
 
 onBeforeUnmount(() => {
   if (toastTimer) clearTimeout(toastTimer)
@@ -843,7 +1306,9 @@ async function loadStatistics() {
       statistics.total_templates = d.total_templates_count ?? d.total_templates ?? 0
       statistics.total_runs = 0
     }
-  } catch (e) { console.error('加载统计数据失败:', e) }
+  } catch (e) {
+    console.error('加载统计数据失败:', e)
+  }
 }
 
 async function loadSubUsers() {
@@ -854,7 +1319,9 @@ async function loadSubUsers() {
       allSubUsers.value = Array.isArray(d) ? d : d?.sub_users || []
       statistics.total_runs = allSubUsers.value.reduce((sum, u) => sum + (u.total_sop_runs || 0), 0)
     }
-  } catch (e) { console.error('加载子用户列表失败:', e) }
+  } catch (e) {
+    console.error('加载子用户列表失败:', e)
+  }
 }
 
 async function loadAllTemplates() {
@@ -865,13 +1332,17 @@ async function loadAllTemplates() {
       const raw: any[] = Array.isArray(td) ? td : td?.templates || []
       allTemplates.value = raw.map((t) => ({ ...t, id: t.id ?? t.ID, name: t.name || '' }))
     }
-  } catch (e) { console.error('加载模板列表失败:', e) }
+  } catch (e) {
+    console.error('加载模板列表失败:', e)
+  }
 }
 
 // ── Search & Filter ────────────────────────────────────────────────
 function handleSearch() {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { currentPage.value = 1 }, 300)
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+  }, 300)
 }
 
 function setFilter(f: 'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premium') {
@@ -881,7 +1352,11 @@ function setFilter(f: 'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premium')
 
 // ── Selection ──────────────────────────────────────────────────────
 function toggleSelect(id: number | string) {
-  if (selectedIds.has(id)) { selectedIds.delete(id) } else { selectedIds.add(id) }
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id)
+  } else {
+    selectedIds.add(id)
+  }
 }
 
 function toggleSelectAll() {
@@ -895,19 +1370,31 @@ function toggleSelectAll() {
 // ── Register ───────────────────────────────────────────────────────
 function closeRegisterModal() {
   showRegisterModal.value = false
-  registerForm.value = { username: '', password: '', nickname: '', tier: 'free' as TierValue, months: 1 }
+  registerForm.value = {
+    username: '',
+    password: '',
+    nickname: '',
+    tier: 'free' as TierValue,
+    months: 1
+  }
   usernameStatus.value = null
   registerError.value = ''
 }
 
 async function checkUsernameAvailability() {
   const name = registerForm.value.username.trim()
-  if (!name) { usernameStatus.value = null; return }
+  if (!name) {
+    usernameStatus.value = null
+    return
+  }
   usernameStatus.value = 'checking'
   try {
     const res = await checkUsername(name)
-    usernameStatus.value = (res.code === 200 || res.code === 0) && res.data?.available ? 'available' : 'taken'
-  } catch { usernameStatus.value = 'taken' }
+    usernameStatus.value =
+      (res.code === 200 || res.code === 0) && res.data?.available ? 'available' : 'taken'
+  } catch {
+    usernameStatus.value = 'taken'
+  }
 }
 
 function validateRegisterForm(): string | null {
@@ -924,8 +1411,14 @@ function validateRegisterForm(): string | null {
 
 async function handleRegister() {
   const error = validateRegisterForm()
-  if (error) { registerError.value = error; return }
-  if (usernameStatus.value === 'taken') { registerError.value = '用户名已被使用'; return }
+  if (error) {
+    registerError.value = error
+    return
+  }
+  if (usernameStatus.value === 'taken') {
+    registerError.value = '用户名已被使用'
+    return
+  }
   registerError.value = ''
   isRegistering.value = true
   try {
@@ -947,7 +1440,9 @@ async function handleRegister() {
     }
   } catch (e: unknown) {
     registerError.value = e instanceof Error ? e.message : '注册失败'
-  } finally { isRegistering.value = false }
+  } finally {
+    isRegistering.value = false
+  }
 }
 
 // ── Permission ─────────────────────────────────────────────────────
@@ -960,19 +1455,38 @@ async function openPermissionModal(user: SubUser) {
   const userId = user.user_id ?? user.id
   try {
     const [templateRes, featureRes] = await Promise.all([
-      fetchUserTemplates(userId).catch((e) => { console.error('加载授权模板失败:', e); return null }),
-      fetchUserFeatures(userId).catch((e) => { console.error('加载功能权限失败:', e); return null })
+      fetchUserTemplates(userId).catch((e) => {
+        console.error('加载授权模板失败:', e)
+        return null
+      }),
+      fetchUserFeatures(userId).catch((e) => {
+        console.error('加载功能权限失败:', e)
+        return null
+      })
     ])
     if (templateRes && (templateRes.code === 200 || templateRes.code === 0)) {
       const d = templateRes.data as Record<string, unknown> | unknown[]
-      const rawAuth = (Array.isArray(d) ? d : (d as Record<string, unknown>)?.templates || []) as Array<Record<string, unknown>>
-      rawAuth.forEach((t) => { const id = String(t.id ?? t.ID); permSelectedIds[id] = true; permOriginalIds.value.add(id) })
+      const rawAuth = (
+        Array.isArray(d) ? d : (d as Record<string, unknown>)?.templates || []
+      ) as Array<Record<string, unknown>>
+      rawAuth.forEach((t) => {
+        const id = String(t.id ?? t.ID)
+        permSelectedIds[id] = true
+        permOriginalIds.value.add(id)
+      })
     }
     if (featureRes && (featureRes.code === 200 || featureRes.code === 0)) {
       const features = (featureRes.data as any)?.features || []
-      if (Array.isArray(features)) { features.forEach((f: string) => { featurePermissions[f] = true; featurePermOriginal.value.add(f) }) }
+      if (Array.isArray(features)) {
+        features.forEach((f: string) => {
+          featurePermissions[f] = true
+          featurePermOriginal.value.add(f)
+        })
+      }
     }
-  } finally { permLoading.value = false }
+  } finally {
+    permLoading.value = false
+  }
 }
 
 function closePermissionModal() {
@@ -986,14 +1500,20 @@ function closePermissionModal() {
 }
 
 function togglePermTemplate(id: string) {
-  if (permSelectedIds[id]) { delete permSelectedIds[id] } else { permSelectedIds[id] = true }
+  if (permSelectedIds[id]) {
+    delete permSelectedIds[id]
+  } else {
+    permSelectedIds[id] = true
+  }
 }
 
 function togglePermSelectAll() {
   if (isPermAllSelected.value) {
     allTemplates.value.forEach((t) => delete permSelectedIds[String(t.id)])
   } else {
-    allTemplates.value.forEach((t) => { permSelectedIds[String(t.id)] = true })
+    allTemplates.value.forEach((t) => {
+      permSelectedIds[String(t.id)] = true
+    })
   }
 }
 
@@ -1004,18 +1524,33 @@ async function savePermissions() {
   try {
     const featuresToGrant: string[] = []
     const featuresToRevoke: string[] = []
-    Object.keys(featurePermissions).forEach((key) => { if (!featurePermOriginal.value.has(key)) featuresToGrant.push(key) })
-    featurePermOriginal.value.forEach((key) => { if (!featurePermissions[key]) featuresToRevoke.push(key) })
+    Object.keys(featurePermissions).forEach((key) => {
+      if (!featurePermOriginal.value.has(key)) featuresToGrant.push(key)
+    })
+    featurePermOriginal.value.forEach((key) => {
+      if (!featurePermissions[key]) featuresToRevoke.push(key)
+    })
     if (featuresToGrant.length > 0) await grantFeatures(userId, featuresToGrant)
     if (featuresToRevoke.length > 0) await revokeFeatures(userId, featuresToRevoke)
 
     const toGrant: string[] = []
     const toRevoke: string[] = []
-    Object.keys(permSelectedIds).forEach((id) => { if (!permOriginalIds.value.has(id)) toGrant.push(id) })
-    permOriginalIds.value.forEach((id) => { if (!permSelectedIds[id]) toRevoke.push(id) })
+    Object.keys(permSelectedIds).forEach((id) => {
+      if (!permOriginalIds.value.has(id)) toGrant.push(id)
+    })
+    permOriginalIds.value.forEach((id) => {
+      if (!permSelectedIds[id]) toRevoke.push(id)
+    })
 
-    if (toGrant.length === 0 && toRevoke.length === 0 && featuresToGrant.length === 0 && featuresToRevoke.length === 0) {
-      showToast('没有变更', 'info'); closePermissionModal(); return
+    if (
+      toGrant.length === 0 &&
+      toRevoke.length === 0 &&
+      featuresToGrant.length === 0 &&
+      featuresToRevoke.length === 0
+    ) {
+      showToast('没有变更', 'info')
+      closePermissionModal()
+      return
     }
     if (toGrant.length > 0) await grantTemplates(userId, toGrant.map(Number))
     if (toRevoke.length > 0) await revokeTemplates(userId, toRevoke.map(Number))
@@ -1024,16 +1559,25 @@ async function savePermissions() {
     await loadSubUsers()
   } catch (e: unknown) {
     showToast(`保存失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
-  } finally { permSaving.value = false }
+  } finally {
+    permSaving.value = false
+  }
 }
 
 // ── Batch ──────────────────────────────────────────────────────────
 function batchGrant() {
-  if (allTemplates.value.length === 0) { showToast('没有可用模板', 'info'); return }
-  batchAction.value = 'grant'; showBatchConfirm.value = true
+  if (allTemplates.value.length === 0) {
+    showToast('没有可用模板', 'info')
+    return
+  }
+  batchAction.value = 'grant'
+  showBatchConfirm.value = true
 }
 
-function batchRevoke() { batchAction.value = 'revoke'; showBatchConfirm.value = true }
+function batchRevoke() {
+  batchAction.value = 'revoke'
+  showBatchConfirm.value = true
+}
 
 async function executeBatchAction() {
   showBatchConfirm.value = false
@@ -1049,14 +1593,16 @@ async function executeBatchAction() {
     }
     selectedIds.clear()
     await loadSubUsers()
-  } catch (e: unknown) { showToast(`批量操作失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error') }
+  } catch (e: unknown) {
+    showToast(`批量操作失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
 function getActualTier(user: SubUser): string {
   const tier = user.user_tier || 'free'
   const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
-  return (isExpired || tier === 'free') ? 'free' : tier
+  return isExpired || tier === 'free' ? 'free' : tier
 }
 
 // 统一会员状态：free / pro / trial / standard / premium
@@ -1106,18 +1652,30 @@ function getExpiryDisplay(user: SubUser): string {
   return user.credit_expires ? formatDate(user.credit_expires) : '—'
 }
 
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('zh-CN')
+}
 
-function formatDate(dateStr: string) { return new Date(dateStr).toLocaleDateString('zh-CN') }
-
-function showToast(message: string, type: 'success' | 'error' | 'info' = 'success', duration = 3000) {
+function showToast(
+  message: string,
+  type: 'success' | 'error' | 'info' = 'success',
+  duration = 3000
+) {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { visible: true, message, type }
-  toastTimer = setTimeout(() => { toast.value.visible = false }, duration)
+  toastTimer = setTimeout(() => {
+    toast.value.visible = false
+  }, duration)
 }
 
 // ── Action Dropdown ───────────────────────────────────────────────
-function toggleActionMenu(id: number | string) { openMenuId.value = openMenuId.value === id ? null : id }
-function handleMenuPermission(user: SubUser) { openMenuId.value = null; openPermissionModal(user) }
+function toggleActionMenu(id: number | string) {
+  openMenuId.value = openMenuId.value === id ? null : id
+}
+function handleMenuPermission(user: SubUser) {
+  openMenuId.value = null
+  openPermissionModal(user)
+}
 // ── Purchase Credits ─────────────────────────────────────────────
 function handleMenuPurchase(user: SubUser) {
   openMenuId.value = null
@@ -1159,7 +1717,9 @@ function startPaymentPolling(orderId: number) {
         showToast('支付成功！额度已到账', 'success')
         await loadSubUsers()
       }
-    } catch { /* ignore polling errors */ }
+    } catch {
+      /* ignore polling errors */
+    }
   }, 3000)
 }
 
@@ -1192,7 +1752,9 @@ async function handlePurchase() {
     }
   } catch (e: unknown) {
     showToast(e instanceof Error ? e.message : '创建订单失败', 'error')
-  } finally { purchaseLoading.value = false }
+  } finally {
+    purchaseLoading.value = false
+  }
 }
 </script>
 
@@ -1212,7 +1774,9 @@ async function handlePurchase() {
   padding: 20px 0 0;
 }
 
-.hero-content { flex: 1; }
+.hero-content {
+  flex: 1;
+}
 
 .hero-title {
   font-family: var(--font-sans);
@@ -1336,15 +1900,37 @@ async function handlePurchase() {
   box-shadow: 0 4px 16px hsl(158 64% 50% / 0.3);
 }
 
-.filter-btn.active .filter-count { background: hsla(0, 0%, 100%, 0.25); color: #fff; }
-.filter-btn.active .filter-dot { background: #fff; box-shadow: none; }
+.filter-btn.active .filter-count {
+  background: hsla(0, 0%, 100%, 0.25);
+  color: #fff;
+}
+.filter-btn.active .filter-dot {
+  background: #fff;
+  box-shadow: none;
+}
 
-.filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.filter-dot.free { background: hsl(0, 0%, 65%); }
-.filter-dot.pro { background: hsl(158, 64%, 45%); }
-.filter-dot.trial { background: hsl(217, 71%, 53%); }
-.filter-dot.standard { background: hsl(158, 64%, 45%); }
-.filter-dot.premium { background: hsl(45, 90%, 50%); box-shadow: 0 0 5px hsl(45 90% 50% / 0.4); }
+.filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.filter-dot.free {
+  background: hsl(0, 0%, 65%);
+}
+.filter-dot.pro {
+  background: hsl(158, 64%, 45%);
+}
+.filter-dot.trial {
+  background: hsl(217, 71%, 53%);
+}
+.filter-dot.standard {
+  background: hsl(158, 64%, 45%);
+}
+.filter-dot.premium {
+  background: hsl(45, 90%, 50%);
+  box-shadow: 0 0 5px hsl(45 90% 50% / 0.4);
+}
 
 .filter-count {
   padding: 1px 7px;
@@ -1359,7 +1945,11 @@ async function handlePurchase() {
 }
 
 /* ===== Search ===== */
-.search-box { position: relative; display: flex; align-items: center; }
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 
 .search-icon {
   position: absolute;
@@ -1379,7 +1969,9 @@ async function handlePurchase() {
   color: hsl(155, 25%, 18%);
   outline: none;
   transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
-  box-shadow: 0 2px 12px hsl(150 15% 0% / 0.05), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
 }
 
 .search-input:focus {
@@ -1399,7 +1991,9 @@ async function handlePurchase() {
   overflow: hidden;
 }
 
-.table-scroll { overflow-x: auto; }
+.table-scroll {
+  overflow-x: auto;
+}
 
 .data-table {
   width: 100%;
@@ -1427,15 +2021,33 @@ async function handlePurchase() {
   text-align: center;
 }
 
-.data-table tbody tr { transition: background 0.15s; }
-.data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: hsl(155, 20%, 98%); }
-.data-table tbody tr.row-selected td { background: hsl(158, 50%, 97%); }
+.data-table tbody tr {
+  transition: background 0.15s;
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.data-table tbody tr:hover td {
+  background: hsl(155, 20%, 98%);
+}
+.data-table tbody tr.row-selected td {
+  background: hsl(158, 50%, 97%);
+}
 
-.col-check { width: 48px; text-align: center; }
-.col-check .checkbox-mark { margin: 0 auto; }
-.col-user { min-width: 160px; }
-.col-action { width: 100px; text-align: center; }
+.col-check {
+  width: 48px;
+  text-align: center;
+}
+.col-check .checkbox-mark {
+  margin: 0 auto;
+}
+.col-user {
+  min-width: 160px;
+}
+.col-action {
+  width: 100px;
+  text-align: center;
+}
 
 /* Checkbox */
 .checkbox-mark {
@@ -1459,9 +2071,20 @@ async function handlePurchase() {
 }
 
 /* User info cell */
-.user-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.user-name { font-weight: 600; color: hsl(155, 25%, 18%); }
-.user-meta { font-size: 12px; color: hsl(155, 12%, 55%); }
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.user-name {
+  font-weight: 600;
+  color: hsl(155, 25%, 18%);
+}
+.user-meta {
+  font-size: 12px;
+  color: hsl(155, 12%, 55%);
+}
 
 /* Tier badge */
 .tier-badge {
@@ -1475,7 +2098,10 @@ async function handlePurchase() {
   white-space: nowrap;
 }
 
-.tier-badge-sm { font-size: 11px; padding: 2px 8px; }
+.tier-badge-sm {
+  font-size: 11px;
+  padding: 2px 8px;
+}
 
 .tier-dot {
   width: 6px;
@@ -1484,11 +2110,26 @@ async function handlePurchase() {
   background: currentColor;
 }
 
-.tier-free { background: hsl(0, 0%, 93%); color: hsl(150, 10%, 45%); }
-.tier-trial { background: hsl(217, 91%, 95%); color: hsl(217, 71%, 45%); }
-.tier-pro { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
-.tier-standard { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
-.tier-premium { background: hsl(45, 90%, 94%); color: hsl(35, 80%, 35%); }
+.tier-free {
+  background: hsl(0, 0%, 93%);
+  color: hsl(150, 10%, 45%);
+}
+.tier-trial {
+  background: hsl(217, 91%, 95%);
+  color: hsl(217, 71%, 45%);
+}
+.tier-pro {
+  background: hsl(158, 50%, 93%);
+  color: hsl(158, 64%, 32%);
+}
+.tier-standard {
+  background: hsl(158, 50%, 93%);
+  color: hsl(158, 64%, 32%);
+}
+.tier-premium {
+  background: hsl(45, 90%, 94%);
+  color: hsl(35, 80%, 35%);
+}
 
 .cell-secondary,
 .cell-metric {
@@ -1498,7 +2139,11 @@ async function handlePurchase() {
 }
 
 /* Action dropdown */
-.action-dropdown { position: relative; display: inline-flex; justify-content: center; }
+.action-dropdown {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+}
 
 .action-trigger {
   display: inline-flex;
@@ -1530,15 +2175,23 @@ async function handlePurchase() {
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
   border: 1px solid hsla(155, 30%, 90%, 0.7);
   border-radius: 12px;
-  box-shadow: 0 8px 24px hsl(150 10% 0% / 0.10), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 8px 24px hsl(150 10% 0% / 0.1),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   z-index: 200;
   padding: 4px;
   animation: menu-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes menu-pop {
-  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .action-menu-item {
@@ -1557,8 +2210,14 @@ async function handlePurchase() {
   white-space: nowrap;
 }
 
-.action-menu-item:hover:not(.disabled) { background: hsl(155, 20%, 95%); color: var(--accent); }
-.action-menu-item.disabled { opacity: 0.4; cursor: not-allowed; }
+.action-menu-item:hover:not(.disabled) {
+  background: hsl(155, 20%, 95%);
+  color: var(--accent);
+}
+.action-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 /* ===== Pagination ===== */
 .pagination {
@@ -1583,9 +2242,19 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.page-btn:hover:not(:disabled) { background: hsl(155, 20%, 96%); color: var(--accent); }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-info { font-size: 13px; color: hsl(155, 12%, 50%); font-weight: 500; }
+.page-btn:hover:not(:disabled) {
+  background: hsl(155, 20%, 96%);
+  color: var(--accent);
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-info {
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+  font-weight: 500;
+}
 
 /* ===== Loading ===== */
 .loading-state {
@@ -1606,12 +2275,24 @@ async function handlePurchase() {
   margin-bottom: 16px;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-text { font-size: 14px; color: var(--text-secondary); }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.loading-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
 
 /* ===== Empty ===== */
-.empty-state { text-align: center; padding: 80px 20px; }
-.empty-state.compact { padding: 48px 20px; }
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+}
+.empty-state.compact {
+  padding: 48px 20px;
+}
 
 .empty-icon-wrapper {
   display: inline-flex;
@@ -1626,9 +2307,22 @@ async function handlePurchase() {
   box-shadow: 0 4px 16px hsl(150 15% 0% / 0.06);
 }
 
-.empty-icon { width: 36px; height: 36px; color: hsl(158, 30%, 65%); }
-.empty-title { font-weight: 650; font-size: 18px; color: hsl(155, 25%, 18%); margin-bottom: 6px; }
-.empty-desc { font-size: 14px; color: hsl(155, 12%, 50%); margin-bottom: 24px; }
+.empty-icon {
+  width: 36px;
+  height: 36px;
+  color: hsl(158, 30%, 65%);
+}
+.empty-title {
+  font-weight: 650;
+  font-size: 18px;
+  color: hsl(155, 25%, 18%);
+  margin-bottom: 6px;
+}
+.empty-desc {
+  font-size: 14px;
+  color: hsl(155, 12%, 50%);
+  margin-bottom: 24px;
+}
 
 .empty-action {
   display: inline-flex;
@@ -1663,11 +2357,17 @@ async function handlePurchase() {
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.92));
   border: 1px solid hsla(155, 30%, 90%, 0.7);
   border-radius: 20px;
-  box-shadow: 0 12px 40px hsl(150 15% 0% / 0.12), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 12px 40px hsl(150 15% 0% / 0.12),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   z-index: 100;
 }
 
-.manage-count { font-size: 14px; font-weight: 600; color: hsl(155, 25%, 18%); }
+.manage-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(155, 25%, 18%);
+}
 
 .manage-select-all {
   padding: 7px 16px;
@@ -1681,7 +2381,10 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.manage-select-all:hover { border-color: var(--accent); color: var(--accent); }
+.manage-select-all:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 .manage-btn-grant {
   display: flex;
@@ -1699,7 +2402,9 @@ async function handlePurchase() {
   box-shadow: 0 2px 8px hsl(158 64% 50% / 0.25);
 }
 
-.manage-btn-grant:hover { background: var(--accent-hover); }
+.manage-btn-grant:hover {
+  background: var(--accent-hover);
+}
 
 .manage-btn-revoke {
   display: flex;
@@ -1717,11 +2422,22 @@ async function handlePurchase() {
   box-shadow: 0 2px 8px hsl(0 72% 56% / 0.25);
 }
 
-.manage-btn-revoke:hover { background: hsl(0, 72%, 48%); }
+.manage-btn-revoke:hover {
+  background: hsl(0, 72%, 48%);
+}
 
-.bar-slide-enter-active, .bar-slide-leave-active { transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
-.bar-slide-enter-from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-.bar-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+.bar-slide-enter-active,
+.bar-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+.bar-slide-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
+.bar-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
 
 /* ===== Modal Shared ===== */
 .modal-overlay {
@@ -1739,8 +2455,14 @@ async function handlePurchase() {
   padding: 24px 0;
 }
 
-.overlay-fade-enter-active, .overlay-fade-leave-active { transition: opacity 0.2s ease; }
-.overlay-fade-enter-from, .overlay-fade-leave-to { opacity: 0; }
+.overlay-fade-enter-active,
+.overlay-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.overlay-fade-enter-from,
+.overlay-fade-leave-to {
+  opacity: 0;
+}
 
 .modal-dialog {
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
@@ -1752,13 +2474,21 @@ async function handlePurchase() {
   overflow-y: auto;
   scrollbar-width: none;
   flex-shrink: 0;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes dialog-pop {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .modal-header {
@@ -1769,7 +2499,12 @@ async function handlePurchase() {
   border-bottom: 1px solid hsl(155, 20%, 93%);
 }
 
-.modal-title { font-size: 18px; font-weight: 700; color: hsl(155, 25%, 18%); margin: 0; }
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+  margin: 0;
+}
 
 .modal-close {
   background: transparent;
@@ -1781,10 +2516,20 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.modal-close:hover { color: hsl(155, 25%, 25%); background: hsl(155, 20%, 94%); }
+.modal-close:hover {
+  color: hsl(155, 25%, 25%);
+  background: hsl(155, 20%, 94%);
+}
 
-.modal-body { padding: 24px; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 0 24px 24px; }
+.modal-body {
+  padding: 24px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
 
 /* Confirm Dialog */
 .confirm-dialog {
@@ -1794,7 +2539,9 @@ async function handlePurchase() {
   padding: 36px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   flex-direction: column;
@@ -1814,14 +2561,35 @@ async function handlePurchase() {
   margin-bottom: 16px;
 }
 
-.confirm-icon.danger { background: hsl(0, 80%, 96%); color: hsl(0, 70%, 55%); }
-.confirm-title { font-size: 18px; font-weight: 700; color: hsl(155, 25%, 18%); margin-bottom: 8px; }
-.confirm-message { font-size: 14px; color: hsl(155, 12%, 45%); line-height: 1.5; margin-bottom: 24px; }
-.confirm-actions { display: flex; gap: 12px; width: 100%; }
+.confirm-icon.danger {
+  background: hsl(0, 80%, 96%);
+  color: hsl(0, 70%, 55%);
+}
+.confirm-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+  margin-bottom: 8px;
+}
+.confirm-message {
+  font-size: 14px;
+  color: hsl(155, 12%, 45%);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
 
 /* ===== Form ===== */
-.form-group { margin-bottom: 20px; }
-.form-group--compact { margin-bottom: 12px; }
+.form-group {
+  margin-bottom: 20px;
+}
+.form-group--compact {
+  margin-bottom: 12px;
+}
 
 .form-label {
   display: block;
@@ -1831,7 +2599,9 @@ async function handlePurchase() {
   margin-bottom: 8px;
 }
 
-.required { color: #ef4444; }
+.required {
+  color: #ef4444;
+}
 
 .form-input {
   width: 100%;
@@ -1846,13 +2616,31 @@ async function handlePurchase() {
   box-sizing: border-box;
 }
 
-.form-input:focus { border-color: hsl(158, 64%, 50%); box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12); background: #fff; }
-.form-input.input-error { border-color: #ef4444; }
-.form-input.input-error:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); }
-.form-select { appearance: auto; cursor: pointer; }
+.form-input:focus {
+  border-color: hsl(158, 64%, 50%);
+  box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
+  background: #fff;
+}
+.form-input.input-error {
+  border-color: #ef4444;
+}
+.form-input.input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+.form-select {
+  appearance: auto;
+  cursor: pointer;
+}
 
-.input-row { display: flex; gap: 8px; }
-.input-row .form-input { flex: 1; min-width: 0; }
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+.input-row .form-input {
+  flex: 1;
+  min-width: 0;
+}
 
 .btn-inline {
   flex-shrink: 0;
@@ -1868,13 +2656,30 @@ async function handlePurchase() {
   white-space: nowrap;
 }
 
-.btn-inline:hover:not(:disabled) { background: hsl(158, 50%, 92%); border-color: hsl(158, 64%, 50%); }
-.btn-inline:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-inline:hover:not(:disabled) {
+  background: hsl(158, 50%, 92%);
+  border-color: hsl(158, 64%, 50%);
+}
+.btn-inline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-.field-error { margin-top: 6px; font-size: 12px; color: #ef4444; }
-.field-hint { margin-top: 6px; font-size: 12px; }
-.field-hint.available { color: hsl(158, 64%, 40%); }
-.field-hint.taken { color: #ef4444; }
+.field-error {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #ef4444;
+}
+.field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.field-hint.available {
+  color: hsl(158, 64%, 40%);
+}
+.field-hint.taken {
+  color: #ef4444;
+}
 
 .form-error {
   color: #ef4444;
@@ -1900,7 +2705,9 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.btn-cancel:hover { background: hsl(150, 15%, 95%); }
+.btn-cancel:hover {
+  background: hsl(150, 15%, 95%);
+}
 
 .btn-primary {
   flex: 1;
@@ -1916,8 +2723,14 @@ async function handlePurchase() {
   box-shadow: 0 2px 10px hsl(158 64% 45% / 0.25);
 }
 
-.btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-danger {
   flex: 1;
@@ -1933,13 +2746,21 @@ async function handlePurchase() {
   box-shadow: 0 2px 8px hsl(0 72% 56% / 0.2);
 }
 
-.btn-danger:hover { background: hsl(0, 72%, 48%); }
+.btn-danger:hover {
+  background: hsl(0, 72%, 48%);
+}
 
 /* ===== Tier Section (Register) ===== */
 
 @keyframes fadeSlideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tier-preview {
@@ -1950,13 +2771,30 @@ async function handlePurchase() {
   color: hsl(155, 12%, 40%);
 }
 
-.tier-preview strong { color: hsl(155, 25%, 18%); }
-.tier-preview-hint { font-size: 12px; color: hsl(155, 12%, 55%); }
+.tier-preview strong {
+  color: hsl(155, 25%, 18%);
+}
+.tier-preview-hint {
+  font-size: 12px;
+  color: hsl(155, 12%, 55%);
+}
 
 /* ===== Permission Modal ===== */
-.perm-dialog { max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; }
-.perm-body { overflow-y: auto; flex: 1; }
-.perm-loading { padding: 32px; display: flex; justify-content: center; }
+.perm-dialog {
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.perm-body {
+  overflow-y: auto;
+  flex: 1;
+}
+.perm-loading {
+  padding: 32px;
+  display: flex;
+  justify-content: center;
+}
 
 .perm-user {
   display: flex;
@@ -1979,10 +2817,20 @@ async function handlePurchase() {
   flex-shrink: 0;
 }
 
-.perm-name { font-size: 16px; font-weight: 700; color: hsl(155, 25%, 18%); }
-.perm-meta { font-size: 13px; color: hsl(155, 12%, 50%); margin-top: 2px; }
+.perm-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+}
+.perm-meta {
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+  margin-top: 2px;
+}
 
-.perm-group { margin-bottom: 20px; }
+.perm-group {
+  margin-bottom: 20px;
+}
 
 .perm-group-title {
   display: flex;
@@ -2014,9 +2862,18 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.perm-toggle-all:hover { background: hsl(158, 50%, 95%); border-color: hsl(158, 64%, 50%); }
+.perm-toggle-all:hover {
+  background: hsl(158, 50%, 95%);
+  border-color: hsl(158, 64%, 50%);
+}
 
-.perm-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+.perm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
 
 .perm-item {
   display: flex;
@@ -2029,14 +2886,29 @@ async function handlePurchase() {
   transition: all 0.15s;
 }
 
-.perm-item:hover { background: hsl(155, 20%, 98%); }
-.perm-item.checked { background: hsl(158, 50%, 97%); border-color: hsl(158, 40%, 80%); }
-.perm-item-label { font-size: 14px; color: hsl(155, 12%, 20%); }
+.perm-item:hover {
+  background: hsl(155, 20%, 98%);
+}
+.perm-item.checked {
+  background: hsl(158, 50%, 97%);
+  border-color: hsl(158, 40%, 80%);
+}
+.perm-item-label {
+  font-size: 14px;
+  color: hsl(155, 12%, 20%);
+}
 
 /* ===== Tier Upgrade Modal ===== */
-.tier-dialog { max-width: 480px; }
+.tier-dialog {
+  max-width: 480px;
+}
 
-.upgrade-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.upgrade-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
 
 .upgrade-card {
   display: flex;
@@ -2049,8 +2921,13 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.upgrade-card:hover { border-color: hsl(155, 20%, 80%); }
-.upgrade-card.selected { border-color: hsl(158, 64%, 50%); background: hsl(158, 50%, 97%); }
+.upgrade-card:hover {
+  border-color: hsl(155, 20%, 80%);
+}
+.upgrade-card.selected {
+  border-color: hsl(158, 64%, 50%);
+  background: hsl(158, 50%, 97%);
+}
 
 .upgrade-radio {
   width: 18px;
@@ -2062,7 +2939,9 @@ async function handlePurchase() {
   transition: all 0.2s;
 }
 
-.upgrade-radio.active { border-color: hsl(158, 64%, 45%); }
+.upgrade-radio.active {
+  border-color: hsl(158, 64%, 45%);
+}
 
 .upgrade-radio.active::after {
   content: '';
@@ -2075,7 +2954,10 @@ async function handlePurchase() {
   background: hsl(158, 64%, 45%);
 }
 
-.upgrade-info { flex: 1; min-width: 0; }
+.upgrade-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .upgrade-header {
   display: flex;
@@ -2084,10 +2966,19 @@ async function handlePurchase() {
   margin-bottom: 4px;
 }
 
-.upgrade-name { font-size: 15px; font-weight: 600; }
-.upgrade-name.trial { color: hsl(217, 71%, 45%); }
-.upgrade-name.standard { color: hsl(158, 64%, 35%); }
-.upgrade-name.premium { color: hsl(45, 100%, 40%); }
+.upgrade-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.upgrade-name.trial {
+  color: hsl(217, 71%, 45%);
+}
+.upgrade-name.standard {
+  color: hsl(158, 64%, 35%);
+}
+.upgrade-name.premium {
+  color: hsl(45, 100%, 40%);
+}
 
 .upgrade-price {
   font-size: 17px;
@@ -2100,7 +2991,11 @@ async function handlePurchase() {
   color: hsl(155, 12%, 50%);
 }
 
-.upgrade-desc { font-size: 13px; color: hsl(155, 12%, 50%); margin-bottom: 2px; }
+.upgrade-desc {
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+  margin-bottom: 2px;
+}
 
 .upgrade-note {
   font-size: 12px;
@@ -2136,34 +3031,87 @@ async function handlePurchase() {
   box-shadow: 0 8px 24px hsl(0 0% 0% / 0.12);
 }
 
-.toast.success { background: hsl(155, 30%, 18%); color: hsl(158, 50%, 85%); }
-.toast.error { background: hsl(0, 80%, 96%); color: hsl(0, 70%, 45%); border: 1px solid hsl(0, 70%, 90%); }
-.toast.info { background: hsl(155, 30%, 18%); color: hsl(158, 50%, 85%); }
+.toast.success {
+  background: hsl(155, 30%, 18%);
+  color: hsl(158, 50%, 85%);
+}
+.toast.error {
+  background: hsl(0, 80%, 96%);
+  color: hsl(0, 70%, 45%);
+  border: 1px solid hsl(0, 70%, 90%);
+}
+.toast.info {
+  background: hsl(155, 30%, 18%);
+  color: hsl(158, 50%, 85%);
+}
 
-.toast-fade-enter-active, .toast-fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.toast-fade-enter-from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-.toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+.toast-fade-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+}
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+}
 
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
-  .hero-section { flex-direction: column; gap: 12px; }
-  .hero-title { font-size: 24px; }
+  .hero-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .hero-title {
+    font-size: 24px;
+  }
 
-  .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
-  .filter-bar { gap: 4px; flex-wrap: wrap; }
-  .filter-btn { padding: 7px 10px; font-size: 12px; }
-  .search-box { width: 100%; }
-  .search-input { width: 100%; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .filter-bar {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .search-box {
+    width: 100%;
+  }
+  .search-input {
+    width: 100%;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 
-  .table-container { border-radius: 14px; }
-  .data-table { font-size: 13px; }
-  .data-table th { padding: 10px 12px; font-size: 11px; }
-  .data-table td { padding: 10px 12px; }
+  .table-container {
+    border-radius: 14px;
+  }
+  .data-table {
+    font-size: 13px;
+  }
+  .data-table th {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  .data-table td {
+    padding: 10px 12px;
+  }
 
   .manage-bar {
     left: 12px;
@@ -2176,11 +3124,16 @@ async function handlePurchase() {
     gap: 8px;
   }
 
-  .bar-slide-enter-from, .bar-slide-leave-to { transform: translateY(20px); }
+  .bar-slide-enter-from,
+  .bar-slide-leave-to {
+    transform: translateY(20px);
+  }
 }
 
 /* ===== Purchase pay channel ===== */
-.purchase-pay-channel { margin-top: 16px; }
+.purchase-pay-channel {
+  margin-top: 16px;
+}
 
 .pay-channel-options {
   display: flex;
@@ -2202,6 +3155,11 @@ async function handlePurchase() {
   color: hsl(155, 15%, 30%);
 }
 
-.pay-channel-card:hover { border-color: hsl(155, 20%, 80%); }
-.pay-channel-card.selected { border-color: hsl(158, 64%, 50%); background: hsl(158, 50%, 97%); }
+.pay-channel-card:hover {
+  border-color: hsl(155, 20%, 80%);
+}
+.pay-channel-card.selected {
+  border-color: hsl(158, 64%, 50%);
+  background: hsl(158, 50%, 97%);
+}
 </style>
