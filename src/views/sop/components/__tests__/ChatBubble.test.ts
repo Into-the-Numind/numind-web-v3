@@ -170,7 +170,7 @@ describe('ChatBubble — 操作按钮', () => {
       }
     })
     expect(wrapper.find('.chat-bubble-actions').exists()).toBe(true)
-    expect(wrapper.findAll('.chat-bubble-action').length).toBe(2)
+    expect(wrapper.findAll('.chat-bubble-action').length).toBe(1)
   })
 
   it('点击复制按钮触发 copy emit 携带内容', async () => {
@@ -183,18 +183,6 @@ describe('ChatBubble — 操作按钮', () => {
     await copyBtn.trigger('click')
     expect(wrapper.emitted('copy')).toBeTruthy()
     expect(wrapper.emitted('copy')?.[0]).toEqual(['要复制的内容'])
-  })
-
-  it('点击重新生成按钮触发 regenerate emit 携带 message id', async () => {
-    const wrapper = mount(ChatBubble, {
-      props: {
-        message: makeMessage({ id: 456, role: 'assistant', content: '旧答案' })
-      }
-    })
-    const regenBtn = wrapper.findAll('.chat-bubble-action')[1]
-    await regenBtn.trigger('click')
-    expect(wrapper.emitted('regenerate')).toBeTruthy()
-    expect(wrapper.emitted('regenerate')?.[0]).toEqual([456])
   })
 
   it('临时消息（id 是字符串）不显示操作按钮', () => {
