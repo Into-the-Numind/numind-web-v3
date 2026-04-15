@@ -182,23 +182,24 @@
                 <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle
                     cx="16"
-                    cy="12"
+                    cy="10"
                     r="4"
                     stroke="currentColor"
                     stroke-width="1.5"
                     fill="none"
                   />
                   <path
-                    d="M8 26C8 21.5817 11.5817 18 16 18C20.4183 18 24 21.5817 24 26"
+                    d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22"
                     stroke="currentColor"
                     stroke-width="1.5"
                     stroke-linecap="round"
                   />
                   <path
-                    d="M22 8L26 4M26 8L22 4"
+                    d="M20 10L24 6M24 6L28 10M24 6V14"
                     stroke="currentColor"
                     stroke-width="1.5"
                     stroke-linecap="round"
+                    stroke-linejoin="round"
                   />
                 </svg>
               </div>
