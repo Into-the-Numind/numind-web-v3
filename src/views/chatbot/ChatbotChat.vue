@@ -19,6 +19,7 @@ import { useLLMModelStore } from '@/stores/llmModel'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import { useMarkdown } from '@/composables/useMarkdown'
 import { useDocUpload } from '@/composables/useDocUpload'
+import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import ModelSelector from '@/components/common/ModelSelector.vue'
 
@@ -51,12 +52,59 @@ const canSend = computed(() => {
   return (hasText || hasSuccessfulUploads) && !store.streaming
 })
 
+// ==================== Typewriter Reveal ====================
+// 对齐 SOP 的 SSE 渲染方案：后端每 ~250ms burst 推送 ~13 字符，直接渲染会被
+// 肉眼感知为掉帧/卡顿。reveal 层由 rAF 驱动以固定 80 cps 搬字，产生连续流动感。
+const contentReveal = useTypewriterReveal()
+const thinkingReveal = useTypewriterReveal()
+
+watch(
+  () => store.streamContent,
+  (next, prev) => {
+    if (!next) {
+      contentReveal.reset()
+      return
+    }
+    if (prev && next.startsWith(prev)) {
+      contentReveal.append(next.slice(prev.length))
+    } else {
+      contentReveal.reset(next)
+    }
+  }
+)
+
+watch(
+  () => store.streamThinkingContent,
+  (next, prev) => {
+    if (!next) {
+      thinkingReveal.reset()
+      return
+    }
+    if (prev && next.startsWith(prev)) {
+      thinkingReveal.append(next.slice(prev.length))
+    } else {
+      thinkingReveal.reset(next)
+    }
+  }
+)
+
+watch(
+  () => store.streaming,
+  (streaming, was) => {
+    if (was && !streaming) {
+      contentReveal.flush()
+      thinkingReveal.flush()
+    }
+  }
+)
+
 // ==================== Auto Scroll ====================
 const { smartScrollToBottom, onScroll, showScrollButton, handleScrollToBottomClick } =
   useAutoScroll(chatContainerRef)
 
 watch(
-  () => [store.messages.length, store.streamContent, store.streamThinkingContent] as const,
+  () =>
+    [store.messages.length, contentReveal.displayed.value, thinkingReveal.displayed.value] as const,
   () => {
     requestAnimationFrame(() => smartScrollToBottom())
   }
@@ -237,6 +285,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.body.classList.remove('chatbot-chat-route')
+  contentReveal.dispose()
+  thinkingReveal.dispose()
   store.cleanup()
 })
 </script>
@@ -368,7 +418,9 @@ onBeforeUnmount(() => {
                   <!-- Status indicator -->
                   <div
                     v-if="
-                      store.streamStatus && !store.streamContent && !store.streamThinkingContent
+                      store.streamStatus &&
+                      !contentReveal.displayed.value &&
+                      !thinkingReveal.displayed.value
                     "
                     class="stream-status"
                   >
@@ -378,21 +430,26 @@ onBeforeUnmount(() => {
 
                   <!-- Streaming bubble (thinking + content) -->
                   <div
-                    v-if="store.streamThinkingContent || store.streamContent"
+                    v-if="thinkingReveal.displayed.value || contentReveal.displayed.value"
                     class="message-bubble assistant"
                   >
                     <ThinkingBlock
-                      v-if="store.streamThinkingContent"
-                      :content="store.streamThinkingContent"
+                      v-if="thinkingReveal.displayed.value"
+                      :content="thinkingReveal.displayed.value"
                       :finished="false"
                     />
-                    <div v-if="store.streamContent" v-html="render(store.streamContent)" />
+                    <div
+                      v-if="contentReveal.displayed.value"
+                      v-html="render(contentReveal.displayed.value)"
+                    />
                   </div>
 
                   <!-- Typing indicator (no content yet, no status) -->
                   <div
                     v-if="
-                      !store.streamContent && !store.streamThinkingContent && !store.streamStatus
+                      !contentReveal.displayed.value &&
+                      !thinkingReveal.displayed.value &&
+                      !store.streamStatus
                     "
                     class="typing-indicator"
                   >
