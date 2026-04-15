@@ -100,8 +100,8 @@ export const useSalesStore = defineStore('sales', () => {
     })
   })
 
-  const currentSession = computed(() =>
-    sessions.value.find((s) => s.id === currentSessionId.value) || null
+  const currentSession = computed(
+    () => sessions.value.find((s) => s.id === currentSessionId.value) || null
   )
 
   const hasCurrentSession = computed(() => currentSessionId.value !== null)
@@ -179,21 +179,23 @@ export const useSalesStore = defineStore('sales', () => {
       messagesLoading.value = false
 
       // Load session config in background (non-blocking)
-      fetchSessionDetail(id).then(detail => {
-        if (currentSessionId.value !== id) return
-        if (detail) {
-          salesStage.value = detail.salesStage
-          isDeepThinking.value = detail.deepThinking
-          kbSelection.value = {
-            product: detail.productDocIds,
-            cases: detail.caseDocIds,
-            faq: detail.faqDocIds,
-            opinion: detail.opinionDocIds
+      fetchSessionDetail(id)
+        .then((detail) => {
+          if (currentSessionId.value !== id) return
+          if (detail) {
+            salesStage.value = detail.salesStage
+            isDeepThinking.value = true
+            kbSelection.value = {
+              product: detail.productDocIds,
+              cases: detail.caseDocIds,
+              faq: detail.faqDocIds,
+              opinion: detail.opinionDocIds
+            }
+            opinionTrackSelection.value = detail.opinionTrackIds
+            customerProfile.value = detail.customerProfile
           }
-          opinionTrackSelection.value = detail.opinionTrackIds
-          customerProfile.value = detail.customerProfile
-        }
-      }).catch(e => console.error('[sales] fetchSessionDetail failed:', e))
+        })
+        .catch((e) => console.error('[sales] fetchSessionDetail failed:', e))
       return
     }
 
@@ -571,9 +573,10 @@ export const useSalesStore = defineStore('sales', () => {
 
     // Check limit (opinion category counts both system tracks and custom docs)
     const limit = category === 'opinion' ? 2 : 3
-    const used = category === 'opinion'
-      ? currentCategory.length + opinionTrackSelection.value.length
-      : currentCategory.length
+    const used =
+      category === 'opinion'
+        ? currentCategory.length + opinionTrackSelection.value.length
+        : currentCategory.length
     if (used >= limit) return 'limited'
 
     currentCategory.push(docId)

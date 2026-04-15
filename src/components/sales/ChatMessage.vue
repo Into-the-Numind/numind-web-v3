@@ -160,10 +160,14 @@ async function copyMessage() {
 <template>
   <div class="message" :class="[isAssistant ? 'assistant' : isUser ? 'user' : 'system']">
     <div class="message-content">
-      <div v-if="isAssistant && salesStage" class="message-stage">
-        当前阶段：{{ salesStage }}
-      </div>
-      <button v-if="isUser" class="user-copy-btn" :class="{ copied }" aria-label="复制" @click="copyMessage">
+      <div v-if="isAssistant && salesStage" class="message-stage">当前阶段：{{ salesStage }}</div>
+      <button
+        v-if="isUser"
+        class="user-copy-btn"
+        :class="{ copied }"
+        aria-label="复制"
+        @click="copyMessage"
+      >
         <Copy :size="14" />
       </button>
       <div class="msg-bubble markdown-body" :class="{ 'img-only': hasImagesOnly }">
@@ -193,7 +197,12 @@ async function copyMessage() {
             <button class="ai-action-btn" aria-label="复制" @click="copyMessage" title="复制">
               <Copy :size="14" />
             </button>
-            <button class="ai-action-btn" aria-label="重新生成" @click="emit('regenerate')" title="重新生成">
+            <button
+              class="ai-action-btn"
+              aria-label="重新生成"
+              @click="emit('regenerate')"
+              title="重新生成"
+            >
               <RefreshCw :size="14" />
             </button>
             <button
@@ -296,9 +305,17 @@ async function copyMessage() {
 }
 
 .assistant .msg-bubble {
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
   color: var(--text);
-  border-top-left-radius: 4px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: 100%;
+}
+
+.message.assistant {
+  max-width: 100%;
 }
 
 /* Message image grid */
@@ -414,7 +431,10 @@ async function copyMessage() {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
   visibility: hidden;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
@@ -445,6 +465,42 @@ async function copyMessage() {
 }
 
 /* Markdown body styles */
+.assistant .markdown-body :deep(h1),
+.assistant .markdown-body :deep(h2),
+.assistant .markdown-body :deep(h3),
+.assistant .markdown-body :deep(h4),
+.assistant .markdown-body :deep(h5),
+.assistant .markdown-body :deep(h6) {
+  font-family: var(--font-sans);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.assistant .markdown-body :deep(h1) {
+  font-size: 16px;
+}
+
+.assistant .markdown-body :deep(h2) {
+  font-size: 15px;
+}
+
+.assistant .markdown-body :deep(h3),
+.assistant .markdown-body :deep(h4),
+.assistant .markdown-body :deep(h5),
+.assistant .markdown-body :deep(h6) {
+  font-size: inherit;
+}
+
+.assistant .markdown-body :deep(h1:first-child),
+.assistant .markdown-body :deep(h2:first-child),
+.assistant .markdown-body :deep(h3:first-child),
+.assistant .markdown-body :deep(h4:first-child) {
+  margin-top: 0;
+}
+
 .markdown-body :deep(p) {
   margin-bottom: 0.8em;
 }

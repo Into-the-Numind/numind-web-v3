@@ -34,10 +34,13 @@ const modeLabel = computed(() => {
 })
 
 // Reset expand state on session switch
-watch(() => store.currentSessionId, () => {
-  isExpanded.value = false
-  nextTick(autoResize)
-})
+watch(
+  () => store.currentSessionId,
+  () => {
+    isExpanded.value = false
+    nextTick(autoResize)
+  }
+)
 
 // Auto-resize textarea
 function autoResize() {
@@ -51,7 +54,10 @@ function autoResize() {
   }
 }
 
-watch(() => store.draftText, () => nextTick(autoResize))
+watch(
+  () => store.draftText,
+  () => nextTick(autoResize)
+)
 
 // Toggle expand
 function toggleExpand() {
@@ -189,7 +195,11 @@ onUnmounted(() => {
         ref="textareaRef"
         v-model="store.draftText"
         class="chat-input"
-        :placeholder="store.chatMode === 'sales' ? '输入客户的话或销售场景，帮你生成话术...' : '输入问题，获取销售策略建议...'"
+        :placeholder="
+          store.chatMode === 'sales'
+            ? '输入客户的话或销售场景，帮你生成话术...'
+            : '输入问题，获取销售策略建议...'
+        "
         @keydown="handleKeydown"
         @compositionstart="isComposing = true"
         @compositionend="isComposing = false"
@@ -221,6 +231,7 @@ onUnmounted(() => {
             <span>{{ modeLabel }}</span>
           </button>
           <button
+            v-if="false"
             class="deep-thinking-btn"
             :class="{ active: store.isDeepThinking }"
             title="开启后大模型会展示思考过程"
@@ -228,21 +239,13 @@ onUnmounted(() => {
           >
             <span>深度思考</span>
           </button>
-          <button
-            class="image-upload-btn"
-            title="上传图片回复"
-            @click="triggerImageUpload"
-          >
+          <button class="image-upload-btn" title="上传图片回复" @click="triggerImageUpload">
             <Image :size="16" />
             <span>图片</span>
           </button>
         </div>
         <div class="toolbar-right">
-          <button
-            class="send-btn"
-            :disabled="!canSend"
-            @click="handleSend"
-          >
+          <button class="send-btn" :disabled="!canSend" @click="handleSend">
             <ArrowUp :size="20" />
           </button>
         </div>
@@ -269,12 +272,42 @@ onUnmounted(() => {
 
 <style scoped>
 .input-stage {
-  padding: 12px 32px 32px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
   z-index: 20;
+  pointer-events: none;
+}
+
+.input-stage::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 56px;
+  background: linear-gradient(to bottom, rgba(247, 248, 251, 0) 0%, #f7f8fb 100%);
+  pointer-events: none;
+}
+
+.input-stage::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--bg);
+  z-index: -1;
+}
+
+.input-stage > * {
+  pointer-events: auto;
 }
 
 .input-floating-container {
@@ -441,12 +474,12 @@ onUnmounted(() => {
 .mode-toggle-btn.free-mode {
   background: rgba(20, 184, 166, 0.08);
   border-color: rgba(20, 184, 166, 0.2);
-  color: #0D9488;
+  color: #0d9488;
 }
 
 .mode-toggle-btn.free-mode .mode-indicator {
-  background: #14B8A6;
-  box-shadow: 0 0 6px #14B8A6;
+  background: #14b8a6;
+  box-shadow: 0 0 6px #14b8a6;
 }
 
 /* Deep thinking button */
