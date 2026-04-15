@@ -438,15 +438,14 @@ watch(
   font-weight: 600;
 }
 
-/* 生产环境风格：白色气泡 + 弹跳点 */
+/* 仅保留动效 + 字样，无容器 */
 .chat-bubble-loading {
   display: inline-flex;
   align-items: center;
   gap: var(--space-md);
-  padding: 16px 20px;
-  background-color: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 .chat-bubble-loading-name {

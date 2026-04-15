@@ -1,19 +1,10 @@
 <!--
-  StepNavItem.vue — 单条 step nav item（F3 task）
+  StepNavItem.vue — 单条 step nav item
 
-  5 个视觉状态：
-    - active          当前任务，翠绿 ring + accent-ultra-soft 底
-    - done            已完成，✓ check icon 绿底白字
-    - viewing         正在看历史步骤，中性灰 highlight（无翠绿）
-    - pending-return  虚线 accent-light border，提示"当前任务等你回来"
-    - disabled        灰掉不可点击
+  布局：icon 在左 + title 在右，水平 row + 垂直居中，文字左对齐。
+  仅渲染 marker icon 与节点名，不再展示 description / status line。
 
-  props/emits 与 spec §5.2 + plan F3 对齐。
-  CSS 类名严格对齐 mockup 01 的 .step / .step--{state} / .step__marker /
-  .step__dot / .step__body / .step__title / .step__desc / .step__status。
-
-  Spec 引用：§3.2 状态机 + §5.2 StepNavItem.vue
-  Mockup 引用：01-active-and-history.html 行 737-784 + 850-887
+  5 个视觉状态：active / done / viewing / pending-return / disabled
 -->
 <template>
   <div
@@ -30,18 +21,12 @@
     @keydown.enter.prevent="handleClick"
     @keydown.space.prevent="handleClick"
   >
-    <div class="step__marker">
-      <span class="step__dot">
-        <Check v-if="state === 'done'" :size="12" aria-hidden="true" />
-        <MessageCircle v-else-if="isTrailingChat" :size="11" aria-hidden="true" />
-        <template v-else>{{ step }}</template>
-      </span>
-    </div>
-    <div class="step__body">
-      <div class="step__title">{{ name }}</div>
-      <p v-if="description" class="step__desc">{{ description }}</p>
-      <div v-if="statusLine" class="step__status">{{ statusLine }}</div>
-    </div>
+    <span class="step__dot">
+      <Check v-if="state === 'done'" :size="12" aria-hidden="true" />
+      <MessageCircle v-else-if="isTrailingChat" :size="11" aria-hidden="true" />
+      <template v-else>{{ step }}</template>
+    </span>
+    <div class="step__title">{{ name }}</div>
   </div>
 </template>
 
@@ -55,19 +40,13 @@ interface Props {
   step: number
   /** 节点名（或 trailing chat 固定文案） */
   name: string
-  /** 节点描述；R4 graceful fallback：为 null/空 时不渲染描述行 */
-  description?: string | null
   /** 5 态视觉 */
   state: StepNavItemState
-  /** 可选状态行（如 "已完成 · 7.4s" / "等待输入" / "当前任务 · 点击返回"） */
-  statusLine?: string
   /** 是否为 trailing chat 项（影响图标展示） */
   isTrailingChat?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  description: null,
-  statusLine: '',
   isTrailingChat: false
 })
 
@@ -77,10 +56,7 @@ const emit = defineEmits<{
 
 const stateClass = computed(() => `step--${props.state}`)
 
-const ariaLabel = computed(() => {
-  const base = `步骤 ${props.step}：${props.name}`
-  return props.statusLine ? `${base}，${props.statusLine}` : base
-})
+const ariaLabel = computed(() => `步骤 ${props.step}：${props.name}`)
 
 function handleClick(): void {
   if (props.state === 'disabled') return
@@ -95,10 +71,10 @@ function handleClick(): void {
   margin: 2px 0;
   border-radius: var(--radius-md);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  text-align: center;
-  gap: 8px;
+  text-align: left;
+  gap: var(--space-sm);
   cursor: pointer;
   transition: background var(--transition-fast);
   background: transparent;
@@ -112,14 +88,8 @@ function handleClick(): void {
   box-shadow: var(--shadow-focus);
 }
 
-.step__marker {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-}
-
 .step__dot {
+  flex-shrink: 0;
   width: 22px;
   height: 22px;
   border-radius: var(--radius-pill);
@@ -134,36 +104,13 @@ function handleClick(): void {
   font-weight: 600;
 }
 
-.step__body {
-  min-width: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
 .step__title {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 3px;
   line-height: 1.35;
-}
-.step__desc {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  line-height: 1.45;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.step__status {
-  font-size: 10.5px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  letter-spacing: 0.01em;
-  margin-top: 5px;
 }
 
 /* ---------- state: done ---------- */
