@@ -115,7 +115,7 @@ function autoResize() {
   const el = textareaRef.value
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px'
 }
 
 watch(draftText, () => nextTick(autoResize))
@@ -1278,8 +1278,8 @@ body.chatbot-chat-route #app {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 16px;
+  border-radius: 16px;
+  padding: 10px 12px;
   box-shadow: 0 4px 12px rgba(37, 167, 105, 0.05);
   border: 1px solid rgba(37, 167, 105, 0.3);
   transition: all 0.3s ease;
@@ -1298,13 +1298,13 @@ body.chatbot-chat-route #app {
   width: 100%;
   border: none;
   background: transparent;
-  padding: 10px 0;
-  font-size: 1rem;
+  padding: 4px 0;
+  font-size: 0.95rem;
   resize: none;
-  min-height: 44px;
-  max-height: 160px;
+  min-height: 28px;
+  max-height: 140px;
   color: var(--text);
-  line-height: 24px;
+  line-height: 22px;
   overflow-y: auto;
   font-family: inherit;
 }
@@ -1321,7 +1321,7 @@ body.chatbot-chat-route #app {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 12px;
+  padding-top: 8px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
@@ -1333,8 +1333,8 @@ body.chatbot-chat-route #app {
 }
 
 .send-btn {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--accent));
   border: none;
@@ -1361,8 +1361,8 @@ body.chatbot-chat-route #app {
 }
 
 .stop-btn {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);

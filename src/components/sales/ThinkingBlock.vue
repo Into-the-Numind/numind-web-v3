@@ -85,7 +85,6 @@ watch(
   font-size: 13px;
   color: var(--text-secondary, var(--text-muted));
   line-height: 1.6;
-  white-space: pre-wrap;
   border-top: 1px solid hsl(155, 20%, 92%);
   transition:
     max-height 0.3s ease-out,
@@ -103,14 +102,20 @@ watch(
 }
 
 .thinking-content :deep(p) {
-  margin: 0 0 4px;
+  margin: 0 0 8px;
 }
 
 .thinking-content :deep(p:last-child) {
   margin-bottom: 0;
 }
 
-.thinking-content :deep(br) {
-  line-height: 1.2;
+.thinking-content :deep(ul),
+.thinking-content :deep(ol) {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.thinking-content :deep(li) {
+  margin-bottom: 2px;
 }
 </style>
