@@ -1033,8 +1033,7 @@ body.chatbot-chat-route #app {
   line-height: var(--line-height-relaxed, 1.75);
 }
 
-/* Markdown headings inside assistant messages — keep size uniform with body,
-   differentiate only via weight so the first line does not jump to 28px */
+/* Markdown headings inside assistant messages — subtle hierarchy only */
 .message-bubble.assistant :deep(h1),
 .message-bubble.assistant :deep(h2),
 .message-bubble.assistant :deep(h3),
@@ -1047,6 +1046,20 @@ body.chatbot-chat-route #app {
   font-weight: 600;
   color: var(--text);
   line-height: 1.4;
+}
+
+.message-bubble.assistant :deep(h1) {
+  font-size: 16px;
+}
+
+.message-bubble.assistant :deep(h2) {
+  font-size: 15px;
+}
+
+.message-bubble.assistant :deep(h3),
+.message-bubble.assistant :deep(h4),
+.message-bubble.assistant :deep(h5),
+.message-bubble.assistant :deep(h6) {
   font-size: inherit;
 }
 
