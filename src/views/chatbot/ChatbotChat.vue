@@ -465,27 +465,27 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </template>
-
-            <!-- Scroll to bottom button -->
-            <button
-              v-if="showScrollButton"
-              class="scroll-to-bottom-btn"
-              @click="handleScrollToBottomClick"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
           </div>
+
+          <!-- Scroll to bottom button (anchored above input, outside scroll area) -->
+          <button
+            v-if="showScrollButton"
+            class="scroll-to-bottom-btn"
+            @click="handleScrollToBottomClick"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         </div>
 
         <!-- Input Area -->
@@ -872,7 +872,7 @@ body.chatbot-chat-route #app {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px 140px;
+  padding: 20px 32px 200px;
   scroll-behavior: auto;
   position: relative;
 }
@@ -1240,8 +1240,8 @@ body.chatbot-chat-route #app {
 
 /* ===== Scroll to Bottom ===== */
 .scroll-to-bottom-btn {
-  position: sticky;
-  bottom: 150px;
+  position: absolute;
+  bottom: 140px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1256,7 +1256,7 @@ body.chatbot-chat-route #app {
   cursor: pointer;
   transition: all 0.2s;
   color: var(--text-muted);
-  margin: 0 auto;
+  z-index: 25;
 }
 
 .scroll-to-bottom-btn:hover {
