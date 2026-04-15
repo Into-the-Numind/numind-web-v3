@@ -20,11 +20,7 @@ const emit = defineEmits<{
       class="image-preview-item"
       :class="img.status"
     >
-      <img
-        :src="img.previewUrl"
-        alt="上传图片预览"
-        @click="emit('preview', img.previewUrl)"
-      />
+      <img :src="img.previewUrl" alt="上传图片预览" @click="emit('preview', img.previewUrl)" />
       <div v-if="img.status === 'processing'" class="image-processing-overlay">
         <Loader2 :size="20" class="spin-icon" />
       </div>
@@ -92,8 +88,12 @@ const emit = defineEmits<{
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .image-error-overlay {

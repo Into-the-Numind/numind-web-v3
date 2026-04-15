@@ -168,12 +168,12 @@ request.interceptors.response.use(
       }
       return Promise.reject(new Error('API响应格式异常，请检查代理配置'))
     }
-    
+
     // 如果响应成功，直接返回数据
     if (res.code === 200 || res.code === 0) {
       return res as any
     }
-    
+
     // 业务错误
     const errorMessage = res.message || res.msg || '请求失败'
     return Promise.reject(new Error(errorMessage))
@@ -187,7 +187,7 @@ request.interceptors.response.use(
         return retryPromise
       }
     }
-    
+
     // 处理不同状态码
     if (response) {
       switch (response.status) {
@@ -199,7 +199,7 @@ request.interceptors.response.use(
             window.location.href = '/login'
           }
           return Promise.reject(new Error('登录已过期，请重新登录'))
-          
+
         case 403: {
           // 区分 token 过期（后端可能返回 403）和真正的权限不足
           const msg403 = response.data?.message || response.data?.msg || ''
@@ -207,7 +207,11 @@ request.interceptors.response.use(
           if (msg403.includes('额度不足')) {
             window.dispatchEvent(new CustomEvent('insufficient-credits', { detail: msg403 }))
           }
-          const isAuthExpired = !getToken() || msg403.includes('token') || msg403.includes('过期') || msg403.includes('expired')
+          const isAuthExpired =
+            !getToken() ||
+            msg403.includes('token') ||
+            msg403.includes('过期') ||
+            msg403.includes('expired')
           if (isAuthExpired) {
             clearAuth()
             if (!window.location.pathname.includes('/login')) {
@@ -217,30 +221,31 @@ request.interceptors.response.use(
           }
           return Promise.reject(new Error(msg403 || '没有权限访问该资源'))
         }
-          
+
         case 404:
           return Promise.reject(new Error('请求的资源不存在'))
-          
+
         case 500:
           return Promise.reject(new Error('服务器内部错误'))
-          
+
         default: {
-          const message = response.data?.message || response.data?.msg || `请求失败 (${response.status})`
+          const message =
+            response.data?.message || response.data?.msg || `请求失败 (${response.status})`
           return Promise.reject(new Error(message))
         }
       }
     }
-    
+
     // 网络错误
     if (error.message?.includes('Network Error') || error.message?.includes('ECONNREFUSED')) {
       return Promise.reject(new Error('网络连接失败，请检查网络'))
     }
-    
+
     // 超时
     if (error.message?.includes('timeout')) {
       return Promise.reject(new Error('请求超时，请稍后重试'))
     }
-    
+
     return Promise.reject(new Error(error.message || '请求失败'))
   }
 )

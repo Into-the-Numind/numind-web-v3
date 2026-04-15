@@ -16,7 +16,7 @@ declare module 'lucide/dist/esm/replaceElement.js' {
       nameAttr: string
       icons: Record<string, LucideIconNode>
       attrs: Record<string, string>
-    },
+    }
   ) => ChildNode | undefined
   export default replaceElement
 }

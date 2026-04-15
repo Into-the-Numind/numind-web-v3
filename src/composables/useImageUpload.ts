@@ -6,8 +6,8 @@ export function useImageUpload(options?: { maxImages?: number }) {
   const maxImages = options?.maxImages ?? 10
   const images = ref<ImageUploadItem[]>([])
 
-  const allReady = computed(() =>
-    images.value.length > 0 && images.value.every((img) => img.status === 'success')
+  const allReady = computed(
+    () => images.value.length > 0 && images.value.every((img) => img.status === 'success')
   )
 
   const hasImages = computed(() => images.value.length > 0)

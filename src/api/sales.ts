@@ -140,7 +140,14 @@ export interface SendSalesMessagePayload {
   chat_mode?: ChatMode
 }
 
-export type SalesChatEventType = 'status' | 'thinking' | 'token' | 'verdict' | 'citations' | 'done' | 'error'
+export type SalesChatEventType =
+  | 'status'
+  | 'thinking'
+  | 'token'
+  | 'verdict'
+  | 'citations'
+  | 'done'
+  | 'error'
 
 export interface SalesChatEvent {
   type: SalesChatEventType
@@ -162,7 +169,9 @@ const parseJsonArray = (raw: unknown): number[] => {
   if (!raw) return []
   try {
     const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
-    return Array.isArray(arr) ? arr.map((id: unknown) => parseInt(String(id), 10)).filter(Number.isFinite) : []
+    return Array.isArray(arr)
+      ? arr.map((id: unknown) => parseInt(String(id), 10)).filter(Number.isFinite)
+      : []
   } catch {
     return []
   }
@@ -217,7 +226,10 @@ const normalizeSessionDetail = (raw: unknown): SalesSessionDetail | null => {
 
   // Backward compat: if new fields empty but old document_ids exists, treat as product
   const effectiveProductDocIds =
-    productDocIds.length === 0 && caseDocIds.length === 0 && faqDocIds.length === 0 && opinionDocIds.length === 0
+    productDocIds.length === 0 &&
+    caseDocIds.length === 0 &&
+    faqDocIds.length === 0 &&
+    opinionDocIds.length === 0
       ? legacyDocIds
       : productDocIds
 
@@ -261,7 +273,9 @@ const normalizeMessage = (raw: unknown): SalesMessage | null => {
   if (obj.images) {
     try {
       const parsed = typeof obj.images === 'string' ? JSON.parse(obj.images) : obj.images
-      images = Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : undefined
+      images = Array.isArray(parsed)
+        ? parsed.filter((v): v is string => typeof v === 'string')
+        : undefined
     } catch {
       images = undefined
     }
@@ -329,14 +343,19 @@ const parseChatText = (payload: unknown): string | null => {
     let tokenText = ''
     const chunks = trimmed.split('\n\n')
     for (const chunk of chunks) {
-      const line = chunk.split('\n').map((entry) => entry.trim()).find((entry) => entry.startsWith('data:'))
+      const line = chunk
+        .split('\n')
+        .map((entry) => entry.trim())
+        .find((entry) => entry.startsWith('data:'))
       if (!line) continue
       const jsonText = line.slice(5).trim()
       if (!jsonText) continue
       try {
         const event = JSON.parse(jsonText)
         if (event?.type === 'token' && typeof event?.data === 'string') tokenText += event.data
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     return tokenText.trim() || null
   }
@@ -351,7 +370,10 @@ const parseChatText = (payload: unknown): string | null => {
 }
 
 export const parseSseChunk = (chunk: string): SalesChatEvent | null => {
-  const line = chunk.split('\n').map((item) => item.trim()).find((item) => item.startsWith('data:'))
+  const line = chunk
+    .split('\n')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith('data:'))
   if (!line) return null
   const raw = line.slice(5).trim()
   if (!raw) return null
@@ -470,7 +492,12 @@ export const fetchSSE = async (
       const body = await response.json()
       message = body?.message || body?.msg || message
     } catch {
-      try { const text = await response.text(); if (text) message = text } catch { /* ignore */ }
+      try {
+        const text = await response.text()
+        if (text) message = text
+      } catch {
+        /* ignore */
+      }
     }
     throw new Error(message)
   }
@@ -554,10 +581,7 @@ export const sendSalesMessageStream = async (
 
 // ==================== Customer Profile APIs ====================
 
-export const saveCustomerProfile = async (
-  sessionId: number,
-  profile: string
-): Promise<void> => {
+export const saveCustomerProfile = async (sessionId: number, profile: string): Promise<void> => {
   await request.put(`/v1/sales-rag/sessions/${sessionId}/customer-profile`, { profile })
 }
 

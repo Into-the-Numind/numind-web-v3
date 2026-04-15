@@ -10,7 +10,16 @@
       <!-- No permission -->
       <div v-else-if="!store.hasPermission" class="no-permission-state">
         <div class="empty-icon">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="48"
+            height="48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <circle cx="12" cy="12" r="10" />
             <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
           </svg>
@@ -78,7 +87,7 @@ const tabs = [
   { key: 'bloggers', label: '博主管理' },
   { key: 'notes', label: '内容流' },
   { key: 'briefings', label: '简报' },
-  { key: 'config', label: '配置' },
+  { key: 'config', label: '配置' }
 ]
 
 onMounted(async () => {
@@ -116,7 +125,9 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

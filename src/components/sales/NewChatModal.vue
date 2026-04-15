@@ -1,7 +1,12 @@
 <template>
   <Teleport to="body">
     <div class="modal-overlay" :class="{ open }">
-      <div class="modal-card modal-card-compact" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
+      <div
+        class="modal-card modal-card-compact"
+        role="dialog"
+        aria-modal="true"
+        @keydown.escape="emit('close')"
+      >
         <div class="modal-header-compact">
           <span class="modal-title">新建客户对话</span>
         </div>

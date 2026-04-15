@@ -3,13 +3,19 @@
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <button
-          class="generate-btn"
-          :disabled="generating"
-          @click="handleGenerate"
-        >
+        <button class="generate-btn" :disabled="generating" @click="handleGenerate">
           <span v-if="generating" class="btn-spinner"></span>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
           手动生成
@@ -33,7 +39,16 @@
     <!-- Empty state -->
     <div v-else-if="store.briefings.length === 0" class="empty-state">
       <div class="empty-icon">
-        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          width="48"
+          height="48"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
           <line x1="16" y1="13" x2="8" y2="13" />
@@ -91,9 +106,17 @@
 
     <!-- Pagination -->
     <div v-if="store.briefingsTotal > pageSize" class="pagination">
-      <button class="page-btn" :disabled="currentPage <= 1" @click="loadBriefings(currentPage - 1)">上一页</button>
+      <button class="page-btn" :disabled="currentPage <= 1" @click="loadBriefings(currentPage - 1)">
+        上一页
+      </button>
       <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
-      <button class="page-btn" :disabled="currentPage >= totalPages" @click="loadBriefings(currentPage + 1)">下一页</button>
+      <button
+        class="page-btn"
+        :disabled="currentPage >= totalPages"
+        @click="loadBriefings(currentPage + 1)"
+      >
+        下一页
+      </button>
     </div>
 
     <!-- Detail modal -->
@@ -134,7 +157,7 @@ async function loadBriefings(page: number) {
   await store.fetchBriefings({
     offset: (page - 1) * pageSize,
     limit: pageSize,
-    type: filterType.value || undefined,
+    type: filterType.value || undefined
   })
 }
 
@@ -163,7 +186,7 @@ function formatDate(dateStr: string): string {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString('zh-CN', {
     month: 'short',
-    day: 'numeric',
+    day: 'numeric'
   })
 }
 
@@ -173,7 +196,7 @@ function formatDateTime(dateStr: string): string {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit',
+    minute: '2-digit'
   })
 }
 
@@ -267,7 +290,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

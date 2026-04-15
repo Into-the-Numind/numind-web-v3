@@ -42,7 +42,16 @@
     <!-- Empty -->
     <div v-else-if="store.notes.length === 0" class="empty-state">
       <div class="empty-icon">
-        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          width="48"
+          height="48"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
           <line x1="16" y1="13" x2="8" y2="13" />
@@ -55,12 +64,7 @@
 
     <!-- Note cards grid -->
     <div v-else class="notes-grid">
-      <div
-        v-for="note in store.notes"
-        :key="note.id"
-        class="note-card"
-        @click="openDetail(note)"
-      >
+      <div v-for="note in store.notes" :key="note.id" class="note-card" @click="openDetail(note)">
         <!-- Cover image -->
         <div v-if="note.images && note.images.length > 0" class="note-cover">
           <img :src="note.images[0]" :alt="note.title" class="cover-img" />
@@ -87,19 +91,48 @@
           <!-- Engagement -->
           <div class="note-engagement">
             <span class="eng-item" title="点赞">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+                />
               </svg>
               {{ formatNumber(note.likes) }}
             </span>
             <span class="eng-item" title="评论">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               {{ formatNumber(note.comments) }}
             </span>
             <span class="eng-item" title="收藏">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
               </svg>
               {{ formatNumber(note.collects) }}
@@ -111,9 +144,17 @@
 
     <!-- Pagination -->
     <div v-if="store.notesTotal > pageSize" class="pagination">
-      <button class="page-btn" :disabled="currentPage <= 1" @click="loadNotes(currentPage - 1)">上一页</button>
+      <button class="page-btn" :disabled="currentPage <= 1" @click="loadNotes(currentPage - 1)">
+        上一页
+      </button>
       <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
-      <button class="page-btn" :disabled="currentPage >= totalPages" @click="loadNotes(currentPage + 1)">下一页</button>
+      <button
+        class="page-btn"
+        :disabled="currentPage >= totalPages"
+        @click="loadNotes(currentPage + 1)"
+      >
+        下一页
+      </button>
     </div>
 
     <!-- Note detail modal -->
@@ -287,7 +328,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

@@ -32,11 +32,14 @@ let limitWarningTimer: ReturnType<typeof setTimeout> | null = null
 
 function showLimitWarning() {
   const max = activeCategory.value === 'opinion' ? 2 : 3
-  limitWarning.value = activeCategory.value === 'opinion'
-    ? `系统赛道与自定义赛道合计最多选择 ${max} 个`
-    : `最多选择 ${max} 个文档`
+  limitWarning.value =
+    activeCategory.value === 'opinion'
+      ? `系统赛道与自定义赛道合计最多选择 ${max} 个`
+      : `最多选择 ${max} 个文档`
   if (limitWarningTimer) clearTimeout(limitWarningTimer)
-  limitWarningTimer = setTimeout(() => { limitWarning.value = '' }, 2000)
+  limitWarningTimer = setTimeout(() => {
+    limitWarning.value = ''
+  }, 2000)
 }
 
 // ==================== Constants ====================
@@ -64,23 +67,27 @@ const isLoading = ref(false)
 let selectionSnapshot: { kb: KbSelection; tracks: number[] } | null = null
 
 // ==================== Open/Close ====================
-watch(() => props.open, async (show) => {
-  if (show) {
-    isLoading.value = true
-    await store.loadKnowledgeDocuments()
-    isLoading.value = false
+watch(
+  () => props.open,
+  async (show) => {
+    if (show) {
+      isLoading.value = true
+      await store.loadKnowledgeDocuments()
+      isLoading.value = false
 
-    // Decide initial view
-    const hasSelection = KB_CATEGORIES.some(c => (store.kbSelection[c] || []).length > 0)
-      || (store.opinionTrackSelection || []).length > 0
-    if (hasSelection) {
-      showView('overview')
-    } else {
-      wizardStep.value = 0
-      showView('wizard')
+      // Decide initial view
+      const hasSelection =
+        KB_CATEGORIES.some((c) => (store.kbSelection[c] || []).length > 0) ||
+        (store.opinionTrackSelection || []).length > 0
+      if (hasSelection) {
+        showView('overview')
+      } else {
+        wizardStep.value = 0
+        showView('wizard')
+      }
     }
   }
-})
+)
 
 // ==================== View Switching ====================
 function showView(view: KbView) {
@@ -101,8 +108,9 @@ function showBackBtn(): boolean {
 }
 
 function goBack() {
-  const hasSelection = KB_CATEGORIES.some(c => (store.kbSelection[c] || []).length > 0)
-    || (store.opinionTrackSelection || []).length > 0
+  const hasSelection =
+    KB_CATEGORIES.some((c) => (store.kbSelection[c] || []).length > 0) ||
+    (store.opinionTrackSelection || []).length > 0
   if (currentView.value === 'categoryEdit' && hasSelection) {
     showView('overview')
   } else {
@@ -122,15 +130,15 @@ function getCategoryMax(cat: keyof KbSelection): number {
 }
 
 function getCategoryDocs(cat: keyof KbSelection) {
-  return (store.kbSelection[cat] || []).map(docId => {
-    const doc = store.availableDocuments.find(d => d.id === docId)
+  return (store.kbSelection[cat] || []).map((docId) => {
+    const doc = store.availableDocuments.find((d) => d.id === docId)
     return { id: docId, name: doc ? doc.name : `文档 #${docId}` }
   })
 }
 
 function getCategoryTracks() {
-  return store.opinionTrackSelection.map(trackId => {
-    const track = store.availableOpinionTracks.find(t => t.id === trackId)
+  return store.opinionTrackSelection.map((trackId) => {
+    const track = store.availableOpinionTracks.find((t) => t.id === trackId)
     return { id: trackId, name: track ? track.name : `赛道 #${trackId}` }
   })
 }
@@ -154,7 +162,7 @@ const otherSelectedIds = computed(() => {
 })
 
 const filteredDocs = computed(() => {
-  return store.availableDocuments.filter(doc => {
+  return store.availableDocuments.filter((doc) => {
     return doc.isEnabled !== false
   })
 })
@@ -274,20 +282,17 @@ function getCategoryEditHint(): string {
 
 <template>
   <Teleport to="body">
-    <div
-      class="modal-overlay"
-      :class="{ open: props.open }"
-      @click="onOverlayClick"
-    >
-      <div class="modal-card profile-modal-card kb-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
+    <div class="modal-overlay" :class="{ open: props.open }" @click="onOverlayClick">
+      <div
+        class="modal-card profile-modal-card kb-modal-card"
+        role="dialog"
+        aria-modal="true"
+        @keydown.escape="emit('close')"
+      >
         <!-- Header -->
         <div class="profile-modal-header">
           <div class="kb-header-left">
-            <button
-              v-if="showBackBtn()"
-              class="kb-back-btn"
-              @click="goBack"
-            >
+            <button v-if="showBackBtn()" class="kb-back-btn" @click="goBack">
               <ArrowLeft :size="16" />
             </button>
             <span class="modal-title">{{ getTitle() }}</span>
@@ -306,18 +311,15 @@ function getCategoryEditHint(): string {
         <div v-show="currentView === 'overview' && !isLoading" class="kb-view">
           <div class="profile-modal-body kb-overview-body">
             <div class="kb-overview-grid">
-              <div
-                v-for="cat in KB_CATEGORIES"
-                :key="cat"
-                class="kb-overview-card"
-                :class="cat"
-              >
+              <div v-for="cat in KB_CATEGORIES" :key="cat" class="kb-overview-card" :class="cat">
                 <div class="kb-overview-card-header">
                   <div class="kb-overview-card-title">
                     <div class="kb-overview-card-dot" :class="cat" />
                     {{ KB_CATEGORY_LABELS[cat] }}
                   </div>
-                  <span class="kb-overview-card-count">{{ getCategoryCount(cat) }}/{{ getCategoryMax(cat) }}</span>
+                  <span class="kb-overview-card-count"
+                    >{{ getCategoryCount(cat) }}/{{ getCategoryMax(cat) }}</span
+                  >
                 </div>
                 <div class="kb-overview-doc-list">
                   <!-- Opinion tracks -->
@@ -341,9 +343,7 @@ function getCategoryEditHint(): string {
                     <span class="kb-overview-doc-name" :title="doc.name">{{ doc.name }}</span>
                   </div>
                   <!-- Empty state -->
-                  <div v-if="getCategoryCount(cat) === 0" class="kb-overview-empty">
-                    未选择文档
-                  </div>
+                  <div v-if="getCategoryCount(cat) === 0" class="kb-overview-empty">未选择文档</div>
                 </div>
                 <button class="kb-overview-edit-btn" @click="editCategory(cat)">
                   <Pencil :size="14" />
@@ -351,9 +351,8 @@ function getCategoryEditHint(): string {
                 </button>
               </div>
             </div>
-
           </div>
-          <div class="profile-modal-footer" style="justify-content: flex-end; gap: 12px;">
+          <div class="profile-modal-footer" style="justify-content: flex-end; gap: 12px">
             <button class="btn-secondary" @click="emit('close')">取消</button>
             <button class="btn-primary" @click="saveAndClose">
               <span>确定</span>
@@ -366,18 +365,11 @@ function getCategoryEditHint(): string {
           <!-- Step indicators -->
           <div class="kb-wizard-steps">
             <template v-for="(cat, i) in KB_CATEGORIES" :key="cat">
-              <div
-                class="kb-step"
-                :class="{ active: i === wizardStep, completed: i < wizardStep }"
-              >
+              <div class="kb-step" :class="{ active: i === wizardStep, completed: i < wizardStep }">
                 <div class="kb-step-dot">{{ i + 1 }}</div>
                 <span>{{ KB_CATEGORY_LABELS[cat] }}</span>
               </div>
-              <div
-                v-if="i < 3"
-                class="kb-step-line"
-                :class="{ completed: i < wizardStep }"
-              />
+              <div v-if="i < 3" class="kb-step-line" :class="{ completed: i < wizardStep }" />
             </template>
           </div>
 
@@ -418,13 +410,19 @@ function getCategoryEditHint(): string {
                       </div>
                       <div class="kb-track-info">
                         <div class="kb-track-name">{{ track.name }}</div>
-                        <div v-if="track.description" class="kb-track-desc">{{ track.description }}</div>
+                        <div v-if="track.description" class="kb-track-desc">
+                          {{ track.description }}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
                 <!-- Custom docs -->
-                <div v-if="sortedDocs.length > 0" class="kb-opinion-section" style="margin-top: 16px;">
+                <div
+                  v-if="sortedDocs.length > 0"
+                  class="kb-opinion-section"
+                  style="margin-top: 16px"
+                >
                   <div class="kb-opinion-section-title">
                     <FilePlus :size="14" />
                     <span>自定义赛道</span>
@@ -460,8 +458,8 @@ function getCategoryEditHint(): string {
               <!-- Non-opinion steps -->
               <template v-else>
                 <div v-if="sortedDocs.length === 0" class="kb-empty-state">
-                  <Inbox :size="48" style="opacity: 0.3;" />
-                  <div style="font-size: 14px; color: var(--text-muted);">暂无可选文档</div>
+                  <Inbox :size="48" style="opacity: 0.3" />
+                  <div style="font-size: 14px; color: var(--text-muted)">暂无可选文档</div>
                 </div>
                 <div
                   v-for="doc in sortedDocs"
@@ -507,12 +505,10 @@ function getCategoryEditHint(): string {
           </div>
 
           <!-- Footer -->
-          <div class="profile-modal-footer" style="justify-content: flex-end; gap: 12px;">
-            <button
-              v-show="wizardStep > 0"
-              class="btn-secondary"
-              @click="wizardPrev"
-            >上一步</button>
+          <div class="profile-modal-footer" style="justify-content: flex-end; gap: 12px">
+            <button v-show="wizardStep > 0" class="btn-secondary" @click="wizardPrev">
+              上一步
+            </button>
             <button class="btn-primary" @click="wizardNext">
               <span>{{ wizardStep === 3 ? '完成' : '下一步' }}</span>
             </button>
@@ -557,12 +553,18 @@ function getCategoryEditHint(): string {
                       </div>
                       <div class="kb-track-info">
                         <div class="kb-track-name">{{ track.name }}</div>
-                        <div v-if="track.description" class="kb-track-desc">{{ track.description }}</div>
+                        <div v-if="track.description" class="kb-track-desc">
+                          {{ track.description }}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div v-if="sortedDocs.length > 0" class="kb-opinion-section" style="margin-top: 16px;">
+                <div
+                  v-if="sortedDocs.length > 0"
+                  class="kb-opinion-section"
+                  style="margin-top: 16px"
+                >
                   <div class="kb-opinion-section-title">
                     <FilePlus :size="14" />
                     <span>自定义赛道</span>
@@ -598,8 +600,8 @@ function getCategoryEditHint(): string {
               <!-- Non-opinion category edit -->
               <template v-else>
                 <div v-if="sortedDocs.length === 0" class="kb-empty-state">
-                  <Inbox :size="48" style="opacity: 0.3;" />
-                  <div style="font-size: 14px; color: var(--text-muted);">暂无可选文档</div>
+                  <Inbox :size="48" style="opacity: 0.3" />
+                  <div style="font-size: 14px; color: var(--text-muted)">暂无可选文档</div>
                 </div>
                 <div
                   v-for="doc in sortedDocs"
@@ -738,10 +740,20 @@ function getCategoryEditHint(): string {
 }
 
 @keyframes dots {
-  0%, 20% { content: '.'; }
-  40% { content: '..'; }
-  60% { content: '...'; }
-  80%, 100% { content: ''; }
+  0%,
+  20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60% {
+    content: '...';
+  }
+  80%,
+  100% {
+    content: '';
+  }
 }
 
 /* --- Overview body --- */
@@ -784,10 +796,18 @@ function getCategoryEditHint(): string {
   flex-shrink: 0;
 }
 
-.kb-overview-card-dot.product { background: #3b82f6; }
-.kb-overview-card-dot.cases { background: #10b981; }
-.kb-overview-card-dot.faq { background: #f59e0b; }
-.kb-overview-card-dot.opinion { background: #8b5cf6; }
+.kb-overview-card-dot.product {
+  background: #3b82f6;
+}
+.kb-overview-card-dot.cases {
+  background: #10b981;
+}
+.kb-overview-card-dot.faq {
+  background: #f59e0b;
+}
+.kb-overview-card-dot.opinion {
+  background: #8b5cf6;
+}
 
 .kb-overview-card-header {
   display: flex;
