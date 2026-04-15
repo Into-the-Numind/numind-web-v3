@@ -311,6 +311,7 @@ defineExpose({
   position: relative;
   min-height: 0;
   overflow: hidden;
+  background: #ffffff;
 }
 
 /* .chat__history — 可滚动消息区。composer 现在是 absolute 定位，
