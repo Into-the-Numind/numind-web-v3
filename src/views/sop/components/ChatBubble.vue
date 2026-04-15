@@ -4,7 +4,7 @@
   职责：
     - 显示一条聊天消息（user 或 assistant）
     - 用户消息：右侧气泡，无 thinking / 无操作按钮
-    - 助手消息：左侧气泡 + thinking 折叠面板 + 复制 / 重新生成按钮
+    - 助手消息：左侧气泡 + thinking 折叠面板 + 复制按钮
     - Markdown 渲染 content（通过 @/utils/markdown）
     - 流式状态下显示光标
 
@@ -17,7 +17,6 @@
   ## Emits
 
   - copy(content) — 点击复制按钮（父组件调 navigator.clipboard 并 toast）
-  - regenerate(messageId) — 点击重新生成（父组件处理删除+重新发送）
 
   ## 为什么不直接复用 StepOutput
 
@@ -88,14 +87,6 @@
           <Copy :size="14" aria-hidden="true" />
           <span>复制</span>
         </button>
-        <button
-          type="button"
-          class="chat-bubble-action"
-          aria-label="重新生成"
-          @click="emit('regenerate', message.id as number)"
-        >
-          <span>重新生成</span>
-        </button>
       </div>
     </div>
 
@@ -136,7 +127,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   copy: [content: string]
-  regenerate: [messageId: number]
 }>()
 
 const hasThinking = computed(
