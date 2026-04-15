@@ -120,6 +120,7 @@ import HistoryModal from './components/HistoryModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatBubbleMessage } from './components/ChatBubble.vue'
 
+import { copyText } from '@/utils/clipboard'
 import { useSopRunStore } from '@/stores/sopRun'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -290,10 +291,9 @@ async function handleCopy() {
   if (!node) return
   const text = store.nodeRuns[node.id]?.output || ''
   if (!text) return
-  try {
-    await navigator.clipboard.writeText(text)
+  if (await copyText(text)) {
     notifications.success('已复制到剪贴板')
-  } catch {
+  } else {
     notifications.error('复制失败，请手动选择复制')
   }
 }

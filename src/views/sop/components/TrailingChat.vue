@@ -104,6 +104,7 @@ import { listRunChatMessages, type RunChatMessageItem } from '@/api/sop'
 import type { SopChatMessageMeta } from '@/views/sop/types'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useScrollFollow } from '@/views/sop/composables/useScrollFollow'
+import { copyText } from '@/utils/clipboard'
 
 interface Props {
   runId: number | null
@@ -209,10 +210,9 @@ function extractMeta(item: RunChatMessageItem): SopChatMessageMeta | undefined {
 // ===== 交互 =====
 
 async function handleCopy(content: string) {
-  try {
-    await navigator.clipboard.writeText(content)
+  if (await copyText(content)) {
     notifications.success('已复制')
-  } catch {
+  } else {
     notifications.error('复制失败，请手动选择复制')
   }
 }
