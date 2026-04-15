@@ -22,6 +22,7 @@ import { useDocUpload } from '@/composables/useDocUpload'
 import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import ModelSelector from '@/components/common/ModelSelector.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,7 +50,18 @@ const chatbotSessions = computed(() =>
 const canSend = computed(() => {
   const hasText = draftText.value.trim().length > 0
   const hasSuccessfulUploads = docUpload.items.value.some((i) => i.status === 'success')
-  return (hasText || hasSuccessfulUploads) && !store.streaming
+  // P0: 阻止在任何文件仍在解析中时发送——避免竞态导致上传中的文件被静默丢弃
+  return (hasText || hasSuccessfulUploads) && !store.streaming && !docUpload.isUploading.value
+})
+
+// P1: 含解析失败的文件时，发送前弹确认对话框
+// ConfirmModal 是模态阻塞的，期间 items 不会被修改，因此直接从
+// docUpload.errorFileNames 读取即可，不需要 pending 快照（避免状态泄漏）
+const confirmSendVisible = ref(false)
+
+const confirmSendMessage = computed(() => {
+  const names = docUpload.errorFileNames.value
+  return `以下 ${names.length} 个文件未能成功解析，将不会被发送给 AI。是否继续？\n\n${names.join('\n')}`
 })
 
 // ==================== Typewriter Reveal ====================
@@ -200,11 +212,23 @@ async function handleDrop(e: DragEvent) {
 
 function handleSend() {
   if (!canSend.value) return
+  if (docUpload.hasErrors.value) {
+    confirmSendVisible.value = true
+    return
+  }
+  performSend()
+}
+
+function performSend() {
   const text = docUpload.compose(draftText.value.trim())
   draftText.value = ''
   docUpload.clearItems()
   nextTick(autoResize)
   store.sendMessage(text)
+}
+
+function onConfirmSend() {
+  performSend()
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -567,7 +591,13 @@ onBeforeUnmount(() => {
                 >
                   <Square :size="16" />
                 </button>
-                <button v-else class="send-btn" :disabled="!canSend" @click="handleSend">
+                <button
+                  v-else
+                  class="send-btn"
+                  :disabled="!canSend"
+                  :title="docUpload.isUploading.value ? '附件解析中，稍候…' : ''"
+                  @click="handleSend"
+                >
                   <ArrowUp :size="20" />
                 </button>
               </div>
@@ -590,6 +620,15 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </Teleport>
+
+    <ConfirmModal
+      v-model="confirmSendVisible"
+      title="部分文件解析失败"
+      :message="confirmSendMessage"
+      confirm-text="仍然发送"
+      cancel-text="取消"
+      @confirm="onConfirmSend"
+    />
   </div>
 </template>
 
