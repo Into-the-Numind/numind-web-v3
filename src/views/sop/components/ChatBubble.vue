@@ -347,6 +347,97 @@ watch(
   margin-top: 0;
 }
 
+/* Markdown 正文样式 — 与 chatbot 页面完全对齐 */
+.chat-bubble--assistant :deep(.chat-bubble-text p) {
+  margin: 12px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text p:last-child) {
+  margin-bottom: 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text ul),
+.chat-bubble--assistant :deep(.chat-bubble-text ol) {
+  margin: 12px 0;
+  padding-left: 28px;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text li) {
+  margin: 4px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text strong) {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text em) {
+  font-style: italic;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text code) {
+  background-color: hsl(150, 10%, 92%);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono, 'SF Mono', Monaco, Consolas, monospace);
+  font-size: 13px;
+  color: hsl(158, 64%, 40%);
+  border: 1px solid hsl(150, 15%, 90%);
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text pre) {
+  background-color: hsl(150, 10%, 92%);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid hsl(150, 15%, 90%);
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  border: none;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text blockquote) {
+  border-left: 4px solid hsl(158, 64%, 40%);
+  padding-left: 16px;
+  margin: 16px 0;
+  color: hsl(150, 10%, 40%);
+  font-style: italic;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text hr) {
+  border: none;
+  border-top: 1px solid var(--divider, var(--border-light));
+  margin: 24px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text a) {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text th),
+.chat-bubble--assistant :deep(.chat-bubble-text td) {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text th) {
+  background-color: var(--surface-tint, var(--surface-hover));
+  font-weight: 600;
+}
+
 /* 生产环境风格：白色气泡 + 弹跳点 */
 .chat-bubble-loading {
   display: inline-flex;

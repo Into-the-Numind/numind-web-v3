@@ -133,7 +133,7 @@ defineExpose({ text, textareaRef })
   right: 0;
   bottom: 100%;
   height: 56px;
-  background: linear-gradient(to bottom, rgba(247, 248, 251, 0) 0%, #f7f8fb 100%);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
   pointer-events: none;
 }
 
@@ -144,7 +144,7 @@ defineExpose({ text, textareaRef })
   right: 0;
   top: 0;
   bottom: 0;
-  background: var(--bg);
+  background: #ffffff;
   z-index: -1;
 }
 
