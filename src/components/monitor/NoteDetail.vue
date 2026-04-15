@@ -6,8 +6,18 @@
         <div class="panel-header">
           <h2 class="panel-title">{{ note.title || '无标题' }}</h2>
           <button class="close-btn" @click="emit('close')">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
@@ -84,11 +94,7 @@
           <div class="ai-section">
             <div class="ai-header">
               <h3 class="section-title">AI 分析</h3>
-              <button
-                class="analyze-btn"
-                :disabled="analyzing"
-                @click="handleAnalyze"
-              >
+              <button class="analyze-btn" :disabled="analyzing" @click="handleAnalyze">
                 <span v-if="analyzing" class="btn-spinner"></span>
                 {{ note.ai_summary ? '重新分析' : '开始分析' }}
               </button>
@@ -489,7 +495,9 @@ function formatNumber(n: number): string {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive */

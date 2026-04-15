@@ -19,11 +19,7 @@ function onOverlayClick(e: MouseEvent) {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="props.open"
-      class="image-preview-modal open"
-      @click="onOverlayClick"
-    >
+    <div v-if="props.open" class="image-preview-modal open" @click="onOverlayClick">
       <div class="image-preview-content">
         <img :src="props.imageUrl" alt="图片预览" />
         <button class="image-preview-close" aria-label="关闭预览" @click="emit('close')">

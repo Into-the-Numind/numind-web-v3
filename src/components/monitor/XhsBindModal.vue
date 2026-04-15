@@ -90,8 +90,8 @@ async function startQRLogin() {
       margin: 2,
       color: {
         dark: '#000000',
-        light: '#ffffff',
-      },
+        light: '#ffffff'
+      }
     })
 
     // Start polling
@@ -195,7 +195,7 @@ watch(
       qrStatus.value = 0
       errorMsg.value = ''
     }
-  },
+  }
 )
 
 onBeforeUnmount(() => {

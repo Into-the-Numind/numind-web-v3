@@ -38,7 +38,10 @@ export const getDocument = (id: number): Promise<ApiResponse<KnowledgeDocument>>
 }
 
 // 更新文档（启用/禁用）
-export const updateDocument = (id: number, data: Partial<KnowledgeDocument>): Promise<ApiResponse<any>> => {
+export const updateDocument = (
+  id: number,
+  data: Partial<KnowledgeDocument>
+): Promise<ApiResponse<any>> => {
   return request.put(`/v1/sales-rag/documents/${id}`, data)
 }
 

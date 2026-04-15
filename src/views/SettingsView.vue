@@ -224,13 +224,14 @@ const tierLabel = computed(() => {
 // Computed: profile
 const displayName = computed(() => userData.value.nickname || userStore.nickname || '加载中..')
 const displayId = computed(
-  () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--',
+  () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--'
 )
 
 // Computed: expiry
 const expiryText = computed(() => {
   // 老会员用 tier_expires
-  const tierExpiry = userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
+  const tierExpiry =
+    userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
   if (isOldMember.value && tierExpiry) {
     const d = new Date(tierExpiry)
     if (d.getFullYear() > 2090) return '永久有效'
@@ -241,7 +242,6 @@ const expiryText = computed(() => {
   if (!isOldMember.value && userStore.creditBalance > 0) return '—'
   return '—'
 })
-
 
 // Fetch user data
 const fetchData = async () => {
@@ -290,7 +290,7 @@ onMounted(() => {
   font-family: var(--font-sans);
   font-size: 28px;
   font-weight: 700;
-  color: #1A1D26;
+  color: #1a1d26;
   letter-spacing: -0.02em;
   margin: 0;
 }
@@ -304,7 +304,7 @@ onMounted(() => {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
-  color: #8B90A0;
+  color: #8b90a0;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 10px;
@@ -313,8 +313,8 @@ onMounted(() => {
 
 /* ===== Settings Group (card wrapper) ===== */
 .settings-group {
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
   border-radius: 14px;
   overflow: hidden;
 }
@@ -329,7 +329,7 @@ onMounted(() => {
 }
 
 .settings-row + .settings-row {
-  border-top: 1px solid #F0F1F5;
+  border-top: 1px solid #f0f1f5;
 }
 
 .settings-row-block {
@@ -350,33 +350,33 @@ onMounted(() => {
 }
 
 .settings-row-action:hover {
-  background: #FAFBFC;
+  background: #fafbfc;
 }
 
 /* ===== Row Label / Value ===== */
 .row-label {
   font-size: 14px;
   font-weight: 500;
-  color: #3D4055;
+  color: #3d4055;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .row-label-danger {
-  color: #EF4444;
+  color: #ef4444;
 }
 
 .row-value {
   font-size: 14px;
-  color: #1A1D26;
+  color: #1a1d26;
   font-weight: 500;
 }
 
 .row-value-mono {
   font-family: var(--font-mono, monospace);
   font-size: 13px;
-  color: #6B7085;
+  color: #6b7085;
 }
 
 .row-value-num {
@@ -390,7 +390,7 @@ onMounted(() => {
 }
 
 .row-chevron {
-  color: #C4C6D0;
+  color: #c4c6d0;
   flex-shrink: 0;
 }
 
@@ -417,17 +417,17 @@ onMounted(() => {
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
-  background: #F3F4F6;
-  color: #6B7280;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .settings-page[data-tier='trial'] .badge-tier {
-  background: #EFF6FF;
-  color: #2563EB;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .settings-page[data-tier='standard'] .badge-tier {
-  background: #ECFDF5;
+  background: #ecfdf5;
   color: #059669;
 }
 
@@ -451,8 +451,8 @@ onMounted(() => {
 }
 
 .confirm-dialog {
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
   border-radius: 16px;
   padding: 28px 32px;
   width: 360px;
@@ -461,20 +461,26 @@ onMounted(() => {
 }
 
 @keyframes dialog-pop {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .confirm-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1A1D26;
+  color: #1a1d26;
   margin-bottom: 8px;
 }
 
 .confirm-message {
   font-size: 14px;
-  color: #6B7085;
+  color: #6b7085;
   margin-bottom: 24px;
 }
 
@@ -495,23 +501,23 @@ onMounted(() => {
 }
 
 .confirm-btn-cancel {
-  background: #F5F5F7;
-  border: 1px solid #E8E9EE;
-  color: #3D4055;
+  background: #f5f5f7;
+  border: 1px solid #e8e9ee;
+  color: #3d4055;
 }
 
 .confirm-btn-cancel:hover {
-  background: #EEEEF1;
+  background: #eeeef1;
 }
 
 .confirm-btn-ok {
-  background: #EF4444;
+  background: #ef4444;
   border: none;
   color: #fff;
 }
 
 .confirm-btn-ok:hover {
-  background: #DC2626;
+  background: #dc2626;
 }
 
 /* ===== Quota Progress Bar ===== */
@@ -524,7 +530,7 @@ onMounted(() => {
 .quota-bar {
   flex: 1;
   height: 8px;
-  background: #E2E4EA;
+  background: #e2e4ea;
   border-radius: 4px;
   overflow: hidden;
   position: relative;
@@ -552,7 +558,7 @@ onMounted(() => {
 .quota-percent {
   font-size: 14px;
   font-weight: 600;
-  color: #3D4055;
+  color: #3d4055;
   min-width: 40px;
   text-align: right;
 }
@@ -568,7 +574,7 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #8B90A0;
+  color: #8b90a0;
 }
 
 .quota-legend-dot {

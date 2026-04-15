@@ -28,11 +28,7 @@
         </div>
       </div>
 
-      <XhsBindModal
-        :visible="showBindModal"
-        @close="showBindModal = false"
-        @bound="onXhsBound"
-      />
+      <XhsBindModal :visible="showBindModal" @close="showBindModal = false" @bound="onXhsBound" />
 
       <div class="config-form">
         <!-- Crawl frequency -->
@@ -81,11 +77,7 @@
 
         <!-- Save button -->
         <div class="form-actions">
-          <button
-            class="save-btn"
-            :disabled="saving"
-            @click="handleSave"
-          >
+          <button class="save-btn" :disabled="saving" @click="handleSave">
             <span v-if="saving" class="btn-spinner"></span>
             保存配置
           </button>
@@ -124,7 +116,7 @@ const form = reactive({
   briefing_cron: '0 9 * * *',
   briefing_type: 'daily',
   feishu_webhook: '',
-  notify_on_update: true,
+  notify_on_update: true
 })
 
 async function loadXhsBindStatus() {
@@ -185,7 +177,7 @@ async function handleSave() {
       briefing_cron: form.briefing_cron,
       briefing_type: form.briefing_type,
       feishu_webhook: form.feishu_webhook,
-      notify_on_update: form.notify_on_update,
+      notify_on_update: form.notify_on_update
     })
     saveMessage.value = '保存成功'
     saveSuccess.value = true
@@ -230,7 +222,9 @@ onMounted(loadConfig)
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

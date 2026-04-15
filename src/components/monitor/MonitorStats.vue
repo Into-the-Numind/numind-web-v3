@@ -37,7 +37,7 @@ function formatDate(dateStr: string): string {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString('zh-CN', {
     month: 'short',
-    day: 'numeric',
+    day: 'numeric'
   })
 }
 </script>

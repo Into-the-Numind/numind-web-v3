@@ -65,36 +65,53 @@ export const checkUsername = (username: string): Promise<ApiResponse<{ available
 }
 
 // 获取用户已授权模板
-export const fetchUserTemplates = (userId: number | string): Promise<ApiResponse<TemplateItem[]>> => {
+export const fetchUserTemplates = (
+  userId: number | string
+): Promise<ApiResponse<TemplateItem[]>> => {
   return request.get(`/v1/customers/sub-users/${userId}/templates`)
 }
 
 // 授予模板权限
-export const grantTemplates = (userId: number | string, templateIds: (number | string)[]): Promise<ApiResponse<any>> => {
+export const grantTemplates = (
+  userId: number | string,
+  templateIds: (number | string)[]
+): Promise<ApiResponse<any>> => {
   return request.post(`/v1/customers/sub-users/${userId}/templates`, {
     template_ids: templateIds
   })
 }
 
 // 撤销模板权限
-export const revokeTemplates = (userId: number | string, templateIds: (number | string)[]): Promise<ApiResponse<any>> => {
+export const revokeTemplates = (
+  userId: number | string,
+  templateIds: (number | string)[]
+): Promise<ApiResponse<any>> => {
   return request.delete(`/v1/customers/sub-users/${userId}/templates`, {
     data: { template_ids: templateIds }
   })
 }
 
 // 批量授权模板
-export const batchGrantTemplates = (data: { user_ids: (number | string)[], template_ids: (number | string)[] }): Promise<ApiResponse<any>> => {
+export const batchGrantTemplates = (data: {
+  user_ids: (number | string)[]
+  template_ids: (number | string)[]
+}): Promise<ApiResponse<any>> => {
   return request.post('/v1/customers/batch/grant-templates', data)
 }
 
 // 批量撤销模板
-export const batchRevokeTemplates = (data: { user_ids: (number | string)[], template_ids: (number | string)[] }): Promise<ApiResponse<any>> => {
+export const batchRevokeTemplates = (data: {
+  user_ids: (number | string)[]
+  template_ids: (number | string)[]
+}): Promise<ApiResponse<any>> => {
   return request.post('/v1/customers/batch/revoke-templates', data)
 }
 
 // 升级子用户会员等级
-export const updateSubUserTier = (userId: number | string, data: { tier: string; months: number }): Promise<ApiResponse<{ message: string }>> => {
+export const updateSubUserTier = (
+  userId: number | string,
+  data: { tier: string; months: number }
+): Promise<ApiResponse<{ message: string }>> => {
   return request.put(`/v1/customers/sub-users/${userId}/tier`, data)
 }
 
@@ -104,17 +121,25 @@ export const fetchAllTemplates = (): Promise<ApiResponse<TemplateItem[]>> => {
 }
 
 // 获取子用户功能权限
-export const fetchUserFeatures = (userId: number | string): Promise<ApiResponse<{ features: string[] }>> => {
+export const fetchUserFeatures = (
+  userId: number | string
+): Promise<ApiResponse<{ features: string[] }>> => {
   return request.get(`/v1/customers/sub-users/${userId}/features`)
 }
 
 // 授予功能权限
-export const grantFeatures = (userId: number | string, features: string[]): Promise<ApiResponse<any>> => {
+export const grantFeatures = (
+  userId: number | string,
+  features: string[]
+): Promise<ApiResponse<any>> => {
   return request.post(`/v1/customers/sub-users/${userId}/features`, { features })
 }
 
 // 撤销功能权限
-export const revokeFeatures = (userId: number | string, features: string[]): Promise<ApiResponse<any>> => {
+export const revokeFeatures = (
+  userId: number | string,
+  features: string[]
+): Promise<ApiResponse<any>> => {
   return request.delete(`/v1/customers/sub-users/${userId}/features`, {
     data: { features }
   })

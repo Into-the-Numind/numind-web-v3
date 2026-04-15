@@ -49,7 +49,7 @@ const crawlOptions = [
   { label: '每 6 小时', cron: '0 */6 * * *' },
   { label: '每 8 小时', cron: '0 */8 * * *' },
   { label: '每 12 小时', cron: '0 */12 * * *' },
-  { label: '每天 1 次', cron: '0 9 * * *' },
+  { label: '每天 1 次', cron: '0 9 * * *' }
 ]
 
 const selectedCrawl = ref(crawlOptions[0].cron)
@@ -67,9 +67,7 @@ const briefingFreq = ref<'daily' | 'weekly'>('daily')
 function emitBriefing() {
   const m = briefingMinute.value
   const h = briefingHour.value
-  const cron = briefingFreq.value === 'daily'
-    ? `${m} ${h} * * *`
-    : `${m} ${h} * * 1`
+  const cron = briefingFreq.value === 'daily' ? `${m} ${h} * * *` : `${m} ${h} * * 1`
   emit('update:modelValue', cron)
 }
 

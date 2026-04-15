@@ -106,7 +106,7 @@ export const icons: Record<string, IconNode> = {
   Upload,
   User,
   X,
-  XCircle,
+  XCircle
 }
 
 /**
@@ -117,7 +117,7 @@ export function createIcons({
   icons: iconSet = icons,
   nameAttr = 'data-lucide',
   attrs = {},
-  root = document,
+  root = document
 }: {
   icons?: Record<string, IconNode>
   nameAttr?: string
@@ -127,12 +127,12 @@ export function createIcons({
   if (!Object.values(iconSet).length) {
     throw new Error(
       'Please provide an icons object.\n' +
-        "Import it like: import { icons } from '@/utils/lucide-icons'",
+        "Import it like: import { icons } from '@/utils/lucide-icons'"
     )
   }
   const elements = Array.from(root.querySelectorAll(`[${nameAttr}]`))
   elements.forEach((element) =>
-    replaceElement(element as Element, { nameAttr, icons: iconSet, attrs }),
+    replaceElement(element as Element, { nameAttr, icons: iconSet, attrs })
   )
 }
 
@@ -146,7 +146,7 @@ export function diagnoseMissingIcons() {
     if (!el.querySelector('svg')) {
       const name = el.getAttribute('data-lucide')
       console.error(
-        `[lucide-whitelist] 图标 "${name}" 未在白名单中，请添加到 src/utils/lucide-icons.ts`,
+        `[lucide-whitelist] 图标 "${name}" 未在白名单中，请添加到 src/utils/lucide-icons.ts`
       )
     }
   })

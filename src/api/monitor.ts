@@ -171,7 +171,9 @@ export const addBlogger = (params: AddBloggerParams): Promise<ApiResponse<Monito
   return request.post('/v1/monitor/bloggers', params)
 }
 
-export const listBloggers = (params?: ListBloggersParams): Promise<ApiResponse<ListBloggersResponse>> => {
+export const listBloggers = (
+  params?: ListBloggersParams
+): Promise<ApiResponse<ListBloggersResponse>> => {
   return request.get('/v1/monitor/bloggers', { params })
 }
 
@@ -179,7 +181,10 @@ export const getBlogger = (id: number): Promise<ApiResponse<MonitorBlogger>> => 
   return request.get(`/v1/monitor/bloggers/${id}`)
 }
 
-export const updateBlogger = (id: number, params: UpdateBloggerParams): Promise<ApiResponse<MonitorBlogger>> => {
+export const updateBlogger = (
+  id: number,
+  params: UpdateBloggerParams
+): Promise<ApiResponse<MonitorBlogger>> => {
   return request.put(`/v1/monitor/bloggers/${id}`, params)
 }
 
@@ -210,7 +215,9 @@ export const analyzeNote = (id: number): Promise<ApiResponse<MonitorNote>> => {
 }
 
 // 简报管理
-export const listBriefings = (params?: ListBriefingsParams): Promise<ApiResponse<ListBriefingsResponse>> => {
+export const listBriefings = (
+  params?: ListBriefingsParams
+): Promise<ApiResponse<ListBriefingsResponse>> => {
   return request.get('/v1/monitor/briefings', { params })
 }
 
@@ -218,7 +225,9 @@ export const getBriefing = (id: number): Promise<ApiResponse<MonitorBriefing>> =
   return request.get(`/v1/monitor/briefings/${id}`)
 }
 
-export const generateBriefing = (params: GenerateBriefingParams): Promise<ApiResponse<MonitorBriefing>> => {
+export const generateBriefing = (
+  params: GenerateBriefingParams
+): Promise<ApiResponse<MonitorBriefing>> => {
   return request.post('/v1/monitor/briefings/generate', params)
 }
 
@@ -227,7 +236,9 @@ export const getMonitorConfig = (): Promise<ApiResponse<MonitorConfig>> => {
   return request.get('/v1/monitor/config')
 }
 
-export const updateMonitorConfig = (params: UpdateMonitorConfigParams): Promise<ApiResponse<MonitorConfig>> => {
+export const updateMonitorConfig = (
+  params: UpdateMonitorConfigParams
+): Promise<ApiResponse<MonitorConfig>> => {
   return request.put('/v1/monitor/config', params)
 }
 

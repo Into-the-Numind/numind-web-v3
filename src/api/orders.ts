@@ -28,7 +28,10 @@ export function createOrder(data: CreateOrderRequest): Promise<ApiResponse<Order
   return request.post('/v1/orders', data)
 }
 
-export function listOrders(offset = 0, limit = 20): Promise<ApiResponse<{ items: Order[]; total: number }>> {
+export function listOrders(
+  offset = 0,
+  limit = 20
+): Promise<ApiResponse<{ items: Order[]; total: number }>> {
   return request.get('/v1/orders', {
     params: { offset, limit }
   })

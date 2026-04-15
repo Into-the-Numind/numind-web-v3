@@ -4,8 +4,18 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <button class="add-btn" @click="showAddModal = true">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           添加博主
         </button>
@@ -36,9 +46,20 @@
     <!-- Empty state -->
     <div v-else-if="store.bloggers.length === 0" class="empty-state">
       <div class="empty-icon">
-        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-          <line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+        <svg
+          viewBox="0 0 24 24"
+          width="48"
+          height="48"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <line x1="19" y1="8" x2="19" y2="14" />
+          <line x1="22" y1="11" x2="16" y2="11" />
         </svg>
       </div>
       <h3 class="empty-title">还没有监控博主</h3>
@@ -111,7 +132,11 @@
               <span v-else class="text-muted">从未</span>
             </td>
             <td class="col-failures">
-              <span v-if="blogger.consecutive_failures > 0" class="failure-count" :title="blogger.check_error">
+              <span
+                v-if="blogger.consecutive_failures > 0"
+                class="failure-count"
+                :title="blogger.check_error"
+              >
                 {{ blogger.consecutive_failures }}
               </span>
               <span v-else class="text-muted">0</span>
@@ -123,10 +148,31 @@
                   :title="blogger.is_active ? '暂停监控' : '恢复监控'"
                   @click="handleToggleActive(blogger)"
                 >
-                  <svg v-if="blogger.is_active" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+                  <svg
+                    v-if="blogger.is_active"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
                   </svg>
-                  <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
                 </button>
@@ -137,13 +183,36 @@
                   @click="handleCheckNow(blogger.id)"
                 >
                   <span v-if="checkingIds.has(blogger.id)" class="btn-spinner-sm"></span>
-                  <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                   </svg>
                 </button>
                 <button class="icon-btn danger" title="删除" @click="handleDelete(blogger)">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path
+                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    />
                   </svg>
                 </button>
               </div>
@@ -155,9 +224,17 @@
 
     <!-- Pagination -->
     <div v-if="store.bloggersTotal > pageSize" class="pagination">
-      <button class="page-btn" :disabled="currentPage <= 1" @click="loadBloggers(currentPage - 1)">上一页</button>
+      <button class="page-btn" :disabled="currentPage <= 1" @click="loadBloggers(currentPage - 1)">
+        上一页
+      </button>
       <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
-      <button class="page-btn" :disabled="currentPage >= totalPages" @click="loadBloggers(currentPage + 1)">下一页</button>
+      <button
+        class="page-btn"
+        :disabled="currentPage >= totalPages"
+        @click="loadBloggers(currentPage + 1)"
+      >
+        下一页
+      </button>
     </div>
 
     <!-- Add blogger modal -->
@@ -187,7 +264,11 @@
           <div v-if="addError" class="form-error">{{ addError }}</div>
           <div class="modal-actions">
             <button class="cancel-btn" @click="showAddModal = false">取消</button>
-            <button class="confirm-btn" :disabled="!addForm.xhs_user_id.trim() || adding" @click="handleAdd">
+            <button
+              class="confirm-btn"
+              :disabled="!addForm.xhs_user_id.trim() || adding"
+              @click="handleAdd"
+            >
               <span v-if="adding" class="btn-spinner"></span>
               确认添加
             </button>
@@ -202,7 +283,8 @@
         <div class="modal-card">
           <h3 class="modal-title">确认删除</h3>
           <p class="modal-desc">
-            确定要删除博主 <strong>{{ deleteTarget.nickname || deleteTarget.xhs_user_id }}</strong> 吗？
+            确定要删除博主
+            <strong>{{ deleteTarget.nickname || deleteTarget.xhs_user_id }}</strong> 吗？
             该博主的所有笔记记录也将被删除，此操作无法撤销。
           </p>
           <div class="modal-actions">
@@ -222,13 +304,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useMonitorStore } from '@/stores/monitor'
 import type { MonitorBlogger } from '@/api/monitor'
-import {
-  addBlogger,
-  updateBlogger,
-  deleteBlogger,
-  checkBlogger,
-  checkBatch
-} from '@/api/monitor'
+import { addBlogger, updateBlogger, deleteBlogger, checkBlogger, checkBatch } from '@/api/monitor'
 
 const store = useMonitorStore()
 
@@ -511,7 +587,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
