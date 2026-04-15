@@ -32,19 +32,6 @@
     class="chat-bubble"
     :class="[`chat-bubble--${message.role}`, { 'is-streaming': streaming }, { 'is-temp': isTemp }]"
   >
-    <!-- 助手头像（左侧）— 生产环境 arcticons AI 图标 -->
-    <div
-      v-if="message.role === 'assistant'"
-      class="chat-bubble-avatar chat-bubble-avatar--assistant"
-      aria-hidden="true"
-    >
-      <img
-        src="https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/iconify-arcticons_ai.png"
-        alt="AI"
-        class="chat-bubble-avatar-img"
-      />
-    </div>
-
     <div class="chat-bubble-body">
       <!-- 主气泡 — 思维链折叠面板作为气泡内首块 -->
       <div class="chat-bubble-content">
@@ -209,34 +196,6 @@ watch(
 .chat-bubble--assistant {
   flex-direction: row;
 }
-
-/* ==================== 头像 ==================== */
-
-.chat-bubble-avatar {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.chat-bubble-avatar--assistant {
-  background-color: var(--accent-soft);
-  padding: 6px;
-}
-
-.chat-bubble-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  /* 生产环境：hue-rotate 将蓝色图标转为主题绿色 */
-  filter: hue-rotate(-82deg) saturate(1.2);
-}
-
-/* 用户 avatar 已移除 */
 
 /* ==================== Body ==================== */
 
