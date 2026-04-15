@@ -1033,7 +1033,8 @@ body.chatbot-chat-route #app {
   line-height: var(--line-height-relaxed, 1.75);
 }
 
-/* Markdown content styling inside assistant bubbles — aligned with SOP prose */
+/* Markdown headings inside assistant messages — keep size uniform with body,
+   differentiate only via weight so the first line does not jump to 28px */
 .message-bubble.assistant :deep(h1),
 .message-bubble.assistant :deep(h2),
 .message-bubble.assistant :deep(h3),
@@ -1041,27 +1042,19 @@ body.chatbot-chat-route #app {
 .message-bubble.assistant :deep(h5),
 .message-bubble.assistant :deep(h6) {
   font-family: var(--font-sans);
-  margin-top: var(--space-xl, 24px);
-  margin-bottom: var(--space-md, 12px);
+  margin-top: 16px;
+  margin-bottom: 8px;
   font-weight: 600;
   color: var(--text);
-  line-height: var(--line-height-tight, 1.25);
+  line-height: 1.4;
+  font-size: inherit;
 }
 
-.message-bubble.assistant :deep(h1) {
-  font-size: 28px;
-}
-
-.message-bubble.assistant :deep(h2) {
-  font-size: 22px;
-}
-
-.message-bubble.assistant :deep(h3) {
-  font-size: 18px;
-}
-
-.message-bubble.assistant :deep(h4) {
-  font-size: 16px;
+.message-bubble.assistant :deep(h1:first-child),
+.message-bubble.assistant :deep(h2:first-child),
+.message-bubble.assistant :deep(h3:first-child),
+.message-bubble.assistant :deep(h4:first-child) {
+  margin-top: 0;
 }
 
 .message-bubble.assistant :deep(p) {
