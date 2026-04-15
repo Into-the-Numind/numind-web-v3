@@ -637,6 +637,7 @@ onBeforeUnmount(() => {
 body.chatbot-chat-route {
   --sidebar-width: 260px;
   --text-light: var(--text-muted);
+  --bg: #ffffff;
 
   margin: 0;
   padding: 0;
@@ -1331,7 +1332,7 @@ body.chatbot-chat-route #app {
   right: 0;
   bottom: 100%;
   height: 56px;
-  background: linear-gradient(to bottom, rgba(247, 248, 251, 0) 0%, #f7f8fb 100%);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
   pointer-events: none;
 }
 
