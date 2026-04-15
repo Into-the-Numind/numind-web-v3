@@ -185,7 +185,8 @@ const menuItems = computed(() => {
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
-  items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
+  // 竞品监控暂时隐藏（开发中，未对用户开放）
+  // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
