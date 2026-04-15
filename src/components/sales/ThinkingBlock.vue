@@ -105,8 +105,11 @@ watch(
   margin-bottom: 2px;
 }
 
+.thinking-content :deep(*) {
+  color: inherit !important;
+}
+
 .thinking-content :deep(strong) {
-  color: var(--text-secondary, var(--text));
   font-weight: 600;
 }
 </style>
