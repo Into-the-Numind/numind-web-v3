@@ -29,9 +29,7 @@
       :key="`node-${item.step}`"
       :step="item.step"
       :name="item.name"
-      :description="item.description"
       :state="item.state"
-      :status-line="item.statusLine"
       @click="handleItemClick(item.step)"
     />
 
@@ -41,10 +39,8 @@
         v-if="trailingItem"
         :step="trailingItem.step"
         :name="trailingItem.name"
-        :description="trailingItem.description"
         :is-trailing-chat="true"
         :state="trailingItem.state"
-        :status-line="trailingItem.statusLine"
         @click="handleItemClick(trailingItem.step)"
       />
     </template>
@@ -55,7 +51,7 @@
 import { computed } from 'vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import StepNavItem from './StepNavItem.vue'
-import { computeStepState, computeStatusLine, type StepNavItemState } from './stepNavState'
+import { computeStepState, type StepNavItemState } from './stepNavState'
 import type { SopNodePublic } from '@/views/sop/types'
 
 interface Props {
@@ -82,9 +78,7 @@ const emit = defineEmits<{
 interface ItemVm {
   step: number
   name: string
-  description: string | null
   state: StepNavItemState
-  statusLine: string
 }
 
 const completedNodeIdsSet = computed<Set<number>>(() =>
@@ -107,9 +101,7 @@ const mainItems = computed<ItemVm[]>(() =>
     return {
       step,
       name: node.name || `步骤 ${step}`,
-      description: node.description || null,
-      state,
-      statusLine: computeStatusLine(step, false, state)
+      state
     }
   })
 )
@@ -130,9 +122,7 @@ const trailingItem = computed<ItemVm | null>(() => {
   return {
     step,
     name: '追问AI',
-    description: '和AI进行更多讨论',
-    state,
-    statusLine: computeStatusLine(step, true, state)
+    state
   }
 })
 

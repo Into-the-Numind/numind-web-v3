@@ -76,32 +76,3 @@ export function computeStepState(
   // ---------- 6) fallback ----------
   return 'disabled'
 }
-
-/**
- * 计算状态行文案（纯展示，不参与 state 判定）。
- */
-export function computeStatusLine(
-  index: number,
-  isTrailingChat: boolean,
-  state: StepNavItemState
-): string {
-  if (isTrailingChat) {
-    if (state === 'disabled') return '完成主流程后开启'
-    return ''
-  }
-  switch (state) {
-    case 'done':
-      // 绿色 ✓ icon 已表达完成态，避免文字冗余
-      return ''
-    case 'active':
-      return '等待输入'
-    case 'viewing':
-      return '正在查看'
-    case 'pending-return':
-      return '当前任务 · 点击返回'
-    case 'disabled':
-      return index > 1 ? '等待解锁' : ''
-    default:
-      return ''
-  }
-}
