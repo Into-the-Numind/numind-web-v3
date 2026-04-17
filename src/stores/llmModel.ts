@@ -15,20 +15,24 @@ export const useLLMModelStore = defineStore('llmModel', () => {
   const modelsByFeature = ref<Record<string, LLMModel[]>>({})
   const defaultModelKeyByFeature = ref<Record<string, string>>({})
   const loadedByFeature = ref<Record<string, boolean>>({})
+  const loadingByFeature = ref<Record<string, boolean>>({})
   const preferences = ref<Record<string, UserPreference>>({})
-  const loading = ref(false)
 
   async function fetchModels(feature: Feature) {
     if (loadedByFeature.value[feature]) return
-    loading.value = true
+    loadingByFeature.value[feature] = true
     try {
       const res = await getModelsApi(feature)
       modelsByFeature.value[feature] = (res as any)?.data?.list ?? []
       defaultModelKeyByFeature.value[feature] = (res as any)?.data?.default_model_key ?? ''
       loadedByFeature.value[feature] = true
     } finally {
-      loading.value = false
+      loadingByFeature.value[feature] = false
     }
+  }
+
+  function isLoading(feature: string): boolean {
+    return loadingByFeature.value[feature] === true
   }
 
   async function fetchPreferences() {
@@ -78,7 +82,7 @@ export const useLLMModelStore = defineStore('llmModel', () => {
     modelsByFeature,
     defaultModelKeyByFeature,
     preferences,
-    loading,
+    loadingByFeature,
     loadedByFeature,
     fetchModels,
     fetchPreferences,
@@ -87,6 +91,7 @@ export const useLLMModelStore = defineStore('llmModel', () => {
     getDefaultModelKey,
     getSelectedModel,
     getSelectedModelKey,
-    isThinkingEnabled
+    isThinkingEnabled,
+    isLoading
   }
 })

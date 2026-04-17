@@ -68,13 +68,13 @@ onBeforeUnmount(() => {
           <span class="model-option-name">{{ model.display_name }}</span>
         </div>
         <div
-          v-if="store.getModels(props.feature).length === 0 && store.loading"
+          v-if="store.getModels(props.feature).length === 0 && store.isLoading(props.feature)"
           class="model-loading"
         >
           加载中...
         </div>
         <div
-          v-if="store.getModels(props.feature).length === 0 && !store.loading"
+          v-if="store.getModels(props.feature).length === 0 && !store.isLoading(props.feature)"
           class="model-empty"
         >
           暂无可用模型
