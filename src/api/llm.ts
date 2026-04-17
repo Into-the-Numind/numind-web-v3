@@ -19,8 +19,10 @@ export interface ModelsResponse {
   default_model_key: string
 }
 
-export function getModelsApi() {
-  return request.get<{ data: ModelsResponse }>('/v1/llm/models')
+export function getModelsApi(feature: 'chatbot' | 'sop') {
+  return request.get<{ data: ModelsResponse }>(
+    `/v1/llm/models?feature=${encodeURIComponent(feature)}`
+  )
 }
 
 export function getPreferenceApi() {

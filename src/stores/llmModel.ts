@@ -8,21 +8,24 @@ import {
   type UserPreference
 } from '@/api/llm'
 
+type Feature = 'chatbot' | 'sop'
+
 export const useLLMModelStore = defineStore('llmModel', () => {
-  const models = ref<LLMModel[]>([])
-  const defaultModelKey = ref('')
+  // Backend returns different allowed lists per feature, so we cache per-feature.
+  const modelsByFeature = ref<Record<string, LLMModel[]>>({})
+  const defaultModelKeyByFeature = ref<Record<string, string>>({})
+  const loadedByFeature = ref<Record<string, boolean>>({})
   const preferences = ref<Record<string, UserPreference>>({})
   const loading = ref(false)
-  const loaded = ref(false)
 
-  async function fetchModels() {
-    if (loaded.value) return // only fetch once
+  async function fetchModels(feature: Feature) {
+    if (loadedByFeature.value[feature]) return
     loading.value = true
     try {
-      const res = await getModelsApi()
-      models.value = (res as any)?.data?.list ?? []
-      defaultModelKey.value = (res as any)?.data?.default_model_key ?? ''
-      loaded.value = true
+      const res = await getModelsApi(feature)
+      modelsByFeature.value[feature] = (res as any)?.data?.list ?? []
+      defaultModelKeyByFeature.value[feature] = (res as any)?.data?.default_model_key ?? ''
+      loadedByFeature.value[feature] = true
     } finally {
       loading.value = false
     }
@@ -47,8 +50,16 @@ export const useLLMModelStore = defineStore('llmModel', () => {
     }
   }
 
+  function getModels(feature: string): LLMModel[] {
+    return modelsByFeature.value[feature] ?? []
+  }
+
+  function getDefaultModelKey(feature: string): string {
+    return defaultModelKeyByFeature.value[feature] ?? ''
+  }
+
   function getSelectedModelKey(feature: string): string {
-    return preferences.value[feature]?.model_key || defaultModelKey.value
+    return preferences.value[feature]?.model_key || getDefaultModelKey(feature)
   }
 
   function isThinkingEnabled(feature: string): boolean {
@@ -60,18 +71,20 @@ export const useLLMModelStore = defineStore('llmModel', () => {
 
   function getSelectedModel(feature: string): LLMModel | undefined {
     const key = getSelectedModelKey(feature)
-    return models.value.find((m) => m.model_key === key)
+    return getModels(feature).find((m) => m.model_key === key)
   }
 
   return {
-    models,
-    defaultModelKey,
+    modelsByFeature,
+    defaultModelKeyByFeature,
     preferences,
     loading,
-    loaded,
+    loadedByFeature,
     fetchModels,
     fetchPreferences,
     savePreference,
+    getModels,
+    getDefaultModelKey,
     getSelectedModel,
     getSelectedModelKey,
     isThinkingEnabled

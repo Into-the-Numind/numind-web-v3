@@ -274,7 +274,7 @@ onMounted(async () => {
 
   // 每次进入智能体页面，强制开启深度思考
   const llmStore = useLLMModelStore()
-  await llmStore.fetchModels()
+  await llmStore.fetchModels('chatbot')
   await llmStore.fetchPreferences()
   const modelKey = llmStore.getSelectedModelKey('chatbot')
   if (!llmStore.isThinkingEnabled('chatbot')) {

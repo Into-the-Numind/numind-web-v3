@@ -40,7 +40,7 @@ function onClickOutside(e: MouseEvent) {
 
 onMounted(async () => {
   document.addEventListener('click', onClickOutside)
-  await store.fetchModels()
+  await store.fetchModels(props.feature)
   await store.fetchPreferences()
 })
 
@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
       <!-- Dropdown -->
       <div v-show="isOpen" class="model-dropdown" :class="{ 'drop-up': feature === 'chatbot' }">
         <div
-          v-for="model in store.models"
+          v-for="model in store.getModels(props.feature)"
           :key="model.model_key"
           class="model-option"
           :class="{ selected: model.model_key === selectedModelKey }"
@@ -67,8 +67,16 @@ onBeforeUnmount(() => {
         >
           <span class="model-option-name">{{ model.display_name }}</span>
         </div>
-        <div v-if="store.models.length === 0 && store.loading" class="model-loading">加载中...</div>
-        <div v-if="store.models.length === 0 && !store.loading" class="model-empty">
+        <div
+          v-if="store.getModels(props.feature).length === 0 && store.loading"
+          class="model-loading"
+        >
+          加载中...
+        </div>
+        <div
+          v-if="store.getModels(props.feature).length === 0 && !store.loading"
+          class="model-empty"
+        >
           暂无可用模型
         </div>
       </div>
