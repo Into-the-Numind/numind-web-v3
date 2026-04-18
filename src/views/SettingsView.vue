@@ -6,6 +6,18 @@
         <h1 class="page-title">设置</h1>
       </div>
 
+      <!-- Section: 我的积分（credits-system Phase 2 Task 2.4）
+           CreditBalanceCard 自动按 user.tier + billing_mode 三态渲染；
+           BoosterPurchaseCard 以 4 态灰态交互。余额数据由 credits store 的
+           fetchBalance() 填充（onMounted 触发）。 -->
+      <div class="settings-section">
+        <div class="section-label">我的积分</div>
+        <div class="credit-grid">
+          <CreditBalanceCard />
+          <BoosterPurchaseCard @purchase="handleBoosterPurchase" />
+        </div>
+      </div>
+
       <!-- Section: 个人信息 -->
       <div class="settings-section">
         <div class="section-label">个人信息</div>
@@ -157,11 +169,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useCreditsStore } from '@/stores/credits'
+import { useNotificationsStore } from '@/stores/notifications'
 import { getUserInfo } from '@/api/auth'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
+import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const creditsStore = useCreditsStore()
+const notifications = useNotificationsStore()
 
 // Raw data from API
 const userData = ref<Record<string, any>>({})
@@ -269,8 +287,20 @@ const doLogout = () => {
   router.push('/login')
 }
 
+/**
+ * BoosterPurchaseCard 触发 purchase 事件（credits 模式会员点击"立即购买"）。
+ *
+ * 当前订单流程尚未接入（Phase 2 Task 2.5 才会对齐 admin 端加量包订单 API），
+ * 先 toast 提示，保留埋点。父级负责最终订单路由。
+ */
+function handleBoosterPurchase(): void {
+  notifications.info('加量包购买流程即将上线，敬请期待')
+}
+
 onMounted(() => {
   void fetchData()
+  // credits-system：拉 credits store 的完整 QuotaBreakdown（含 billing_mode / 过期）
+  void creditsStore.fetchBalance()
 })
 </script>
 
@@ -298,6 +328,14 @@ onMounted(() => {
 /* ===== Section ===== */
 .settings-section {
   margin-bottom: 32px;
+}
+
+/* credits-system Phase 2: 两张 credit 卡片并排（宽屏）→ 纵排（窄屏） */
+.credit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
 }
 
 .section-label {
@@ -603,6 +641,10 @@ onMounted(() => {
 
   .settings-row {
     padding: 12px 14px;
+  }
+
+  .credit-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
