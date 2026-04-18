@@ -25,29 +25,46 @@ const insufficientCreditsDialog = ref<InstanceType<typeof InsufficientCreditsDia
  * 新代码应调用 uiDialogs.openCreditsDialog(msg) 而不是直接 dispatchEvent。
  *
  * 触发后立刻重置 flag，这样下次调用 openCreditsDialog 时 watch 能重新触发。
+ *
+ * credits-system Track E.6：dialog.show() 接受结构化 payload（{message, reason}），
+ * 这里把 store 的 creditsMessage + creditsReason 打包传入，让 reason 文案能落到
+ * dialog 的 `.modal-reason` 区域。若都为空，则传 undefined 走 dialog 默认文案。
  */
 watch(
   () => uiDialogs.showCreditsDialog,
   (show) => {
     if (show) {
-      // 传 undefined 而非空字符串：InsufficientCreditsDialog.show() 内部
-      // 用 `if (msg) { message = msg }` 判断，空字符串会被跳过，保留上次
-      // 或默认文案。传 undefined 语义上更清楚"没有提供新消息"。
-      insufficientCreditsDialog.value?.show(uiDialogs.creditsMessage || undefined)
+      const msg = uiDialogs.creditsMessage
+      const reason = uiDialogs.creditsReason
+      if (msg || reason) {
+        insufficientCreditsDialog.value?.show({
+          message: msg || undefined,
+          reason: reason || undefined
+        })
+      } else {
+        insufficientCreditsDialog.value?.show()
+      }
       uiDialogs.closeCreditsDialog()
     }
   }
 )
 
 /**
- * 向后兼容：src/api/request.ts 的 axios 拦截器仍使用 CustomEvent 触发。
- * 此 handler 把 CustomEvent 路径也接入 store，让所有路径通过 store 汇聚。
+ * 向后兼容 + credits-system Track E.1 拦截器：src/api/request.ts 的 axios
+ * 拦截器派发 `insufficient-credits` CustomEvent。detail 可能是两种形态：
+ *   - string（旧路径 / 403 "额度不足"兜底）
+ *   - { message, reason }（新路径 / 402 Credits.Insufficient）
+ *
+ * 统一路由到 uiDialogs store，由 store 内部分发两种形态。
  *
  * 未来重构可以让 request.ts 直接调用 store.openCreditsDialog，届时可以
  * 删除本 handler。当前保留以确保零破坏。
  */
 const handleInsufficientCredits = (e: Event) => {
-  const detail = (e as CustomEvent).detail as string | undefined
+  const detail = (e as CustomEvent).detail as
+    | string
+    | { message?: string; reason?: string }
+    | undefined
   uiDialogs.openCreditsDialog(detail)
 }
 
