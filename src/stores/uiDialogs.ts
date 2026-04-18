@@ -44,6 +44,15 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+/**
+ * 结构化 payload — 对应 request.ts 402 拦截器派发的 CustomEvent.detail
+ * 和 InsufficientCreditsDialog.show() 的扩展参数。
+ */
+export interface CreditsDialogPayload {
+  message?: string
+  reason?: string
+}
+
 export const useUiDialogsStore = defineStore('uiDialogs', () => {
   /**
    * InsufficientCreditsDialog 是否应显示。
@@ -59,12 +68,29 @@ export const useUiDialogsStore = defineStore('uiDialogs', () => {
   const creditsMessage = ref<string>('')
 
   /**
+   * 附加原因（spec §4.2.2 的 reason 字段，如 "booster_empty"）。可能为空字符串。
+   */
+  const creditsReason = ref<string>('')
+
+  /**
    * 打开余额不足 dialog。
    *
-   * @param msg 可选的错误消息；不传则 Dialog 使用默认文案
+   * @param payload 可选，三种形式：
+   *   - `string` — 向后兼容：作为 message
+   *   - `{ message, reason }` — 结构化 payload（credits-system 拦截器路径）
+   *   - 不传 — 沿用默认文案
    */
-  function openCreditsDialog(msg?: string): void {
-    creditsMessage.value = msg ?? ''
+  function openCreditsDialog(payload?: string | CreditsDialogPayload): void {
+    if (typeof payload === 'string') {
+      creditsMessage.value = payload
+      creditsReason.value = ''
+    } else if (payload && typeof payload === 'object') {
+      creditsMessage.value = payload.message ?? ''
+      creditsReason.value = payload.reason ?? ''
+    } else {
+      creditsMessage.value = ''
+      creditsReason.value = ''
+    }
     showCreditsDialog.value = true
   }
 
@@ -81,6 +107,7 @@ export const useUiDialogsStore = defineStore('uiDialogs', () => {
   return {
     showCreditsDialog,
     creditsMessage,
+    creditsReason,
     openCreditsDialog,
     closeCreditsDialog
   }
