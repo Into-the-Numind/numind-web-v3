@@ -6,6 +6,7 @@
           <div class="modal-icon">✦</div>
           <div class="modal-title">额度不足</div>
           <div class="modal-message">{{ message }}</div>
+          <div v-if="reason" class="modal-reason" data-testid="reason">{{ reason }}</div>
           <button class="modal-btn" @click="close">我知道了</button>
         </div>
       </div>
@@ -14,13 +15,37 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * InsufficientCreditsDialog — 全局 dialog（credits-system Track E.6 扩展）
+ *
+ * show() API：
+ *   - 兼容原签名 show(msg: string) — 仅设置主消息文案
+ *   - 新支持 show({ message, reason }) — 结构化 payload（spec §4.2.2 对应 402 拦截器）
+ *   - show() 无参数 — 保留当前 message，仅打开 dialog
+ *
+ * reason 以次要文案形式单独呈现在主消息下方，用于展示后端给出的补充说明
+ * （如"本月次数已用尽"、"booster_empty"）。无 reason 时不渲染对应 DOM。
+ */
 import { ref } from 'vue'
+
+export interface InsufficientCreditsPayload {
+  message?: string
+  reason?: string
+}
 
 const visible = ref(false)
 const message = ref('额度不足，请联系管理员充值')
+const reason = ref<string>('')
 
-function show(msg?: string) {
-  if (msg) message.value = msg
+function show(payload?: string | InsufficientCreditsPayload) {
+  if (typeof payload === 'string') {
+    if (payload) message.value = payload
+    reason.value = ''
+  } else if (payload && typeof payload === 'object') {
+    if (payload.message) message.value = payload.message
+    reason.value = payload.reason ?? ''
+  }
+  // 完全不传参：保留当前 message 和 reason
   visible.value = true
 }
 
@@ -89,6 +114,19 @@ defineExpose({ show })
   text-align: center;
   line-height: 1.6;
   margin-bottom: 8px;
+}
+
+.modal-reason {
+  font-size: 12px;
+  color: var(--text-tertiary, #9ea1b1);
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  background: var(--bg-muted, #f6f7f9);
+  border-radius: 8px;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .modal-btn {

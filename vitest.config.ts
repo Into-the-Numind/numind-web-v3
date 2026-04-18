@@ -11,6 +11,7 @@ import vue from '@vitejs/plugin-vue'
  *   - src/**\/*.test.ts            (composable / 工具函数单测)
  *   - src/**\/*.spec.ts            (与 .test.ts 等价)
  *   - src/**\/__tests__/**\/*.test.ts  (按目录组织的组件测试)
+ *   - tests/unit/**\/*.{test,spec}.ts  (顶层 tests 目录，credits-system Track E 引入)
  *
  * 排除：
  *   - e2e 目录（由 Playwright 管理）
@@ -21,7 +22,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    include: ['src/**/*.{test,spec}.{ts,vue}', 'src/**/__tests__/**/*.{test,spec}.{ts,vue}'],
+    include: [
+      'src/**/*.{test,spec}.{ts,vue}',
+      'src/**/__tests__/**/*.{test,spec}.{ts,vue}',
+      'tests/**/*.{test,spec}.{ts,vue}'
+    ],
     exclude: ['node_modules', 'e2e', 'dist']
   },
   resolve: {
