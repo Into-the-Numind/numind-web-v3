@@ -200,6 +200,32 @@ request.interceptors.response.use(
           }
           return Promise.reject(new Error('登录已过期，请重新登录'))
 
+        case 402: {
+          // 积分不足（credits-system 专用状态码）— spec §4.2.2
+          //
+          // 后端在 `CheckAndEstimate` / `Reserve` / `ChatStream` 等处返回 402 +
+          // body `{ code: 'Credits.Insufficient', message, reason }`。前端派发
+          // `insufficient-credits` 事件，`App.vue` 监听并打开 `InsufficientCreditsDialog`。
+          //
+          // detail 采用结构化 payload（`{ message, reason }`）而不是裸 string，
+          // 让 dialog 可以展示原因分支（如 "legacy_tier 当月次数用尽"）。
+          //
+          // 注意：仅当 body.code === 'Credits.Insufficient' 时命中此分支；
+          // 其它 402（如网关级 Payment Required）fallthrough 到 default。
+          const payload402 = response.data
+          if (payload402 && payload402.code === 'Credits.Insufficient') {
+            const detail = {
+              message: payload402.message || '积分不足',
+              reason: payload402.reason
+            }
+            window.dispatchEvent(new CustomEvent('insufficient-credits', { detail }))
+            return Promise.reject(payload402)
+          }
+          const message402 =
+            response.data?.message || response.data?.msg || `请求失败 (${response.status})`
+          return Promise.reject(new Error(message402))
+        }
+
         case 403: {
           // 区分 token 过期（后端可能返回 403）和真正的权限不足
           const msg403 = response.data?.message || response.data?.msg || ''
