@@ -1,5 +1,5 @@
 /**
- * credits store — 新制积分体系的余额与估算状态中心（credits-system Track E.5）
+ * credits store — 新制积分体系的余额状态中心（credits-system Track E.5）
  *
  * ## 职责
  *
@@ -8,8 +8,7 @@
  * / `remaining_runs` / `sub_expires_at` 等 v3 新字段）。新建一个独立 store：
  *
  *   - `balance`：完整 QuotaBreakdown（源自 GET /v1/credits/balance）
- *   - `estimate`：最近一次 EstimateResp（SopEstimateBar 消费）
- *   - `fetchBalance()` / `fetchEstimate(op, ref)`：拉取 actions
+ *   - `fetchBalance()`：拉取 action
  *
  * 不取代 userStore 里的旧字段（老 UI 还在读），两个 store 并存一段时间，
  * Phase 2 集成后再决定是否收敛。
@@ -28,27 +27,17 @@
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import {
-  getCreditBalance,
-  estimateCredits,
-  type QuotaBreakdown,
-  type EstimateResp
-} from '@/api/credits'
+import { getCreditBalance, type QuotaBreakdown } from '@/api/credits'
 
 export const useCreditsStore = defineStore('credits', () => {
   // ── State ────────────────────────────────────────────────────────────────
   const balance = ref<QuotaBreakdown | null>(null)
-  const estimate = ref<EstimateResp | null>(null)
 
   /** balance 拉取 loading flag（UI 骨架屏用）。 */
   const balanceLoading = ref(false)
-  /** estimate 拉取 loading flag。 */
-  const estimateLoading = ref(false)
 
   /** 最近一次 fetchBalance 的错误（仅用于 UI 分支，非拦截器级别的错误）。 */
   const balanceError = ref<string | null>(null)
-  /** 最近一次 fetchEstimate 的错误。 */
-  const estimateError = ref<string | null>(null)
 
   // ── Getters ──────────────────────────────────────────────────────────────
   /** billing_mode 快捷访问（undefined 代表 balance 还没拉取）。 */
@@ -83,50 +72,23 @@ export const useCreditsStore = defineStore('credits', () => {
     }
   }
 
-  /**
-   * 拉取 estimate（POST /v1/credits/estimate）。
-   *
-   * @param operation - sop_run / sop_chat / salesrag_chat / profile_analysis / ...
-   * @param referenceId - 业务 ID（sop_template_id / session_id / ...），见 spec §4.3
-   */
-  async function fetchEstimate(operation: string, referenceId: string): Promise<void> {
-    estimateLoading.value = true
-    estimateError.value = null
-    try {
-      const res = await estimateCredits(operation, referenceId)
-      estimate.value = (res as unknown as { data: EstimateResp }).data ?? null
-    } catch (e) {
-      estimateError.value = e instanceof Error ? e.message : '估算失败'
-      estimate.value = null
-    } finally {
-      estimateLoading.value = false
-    }
-  }
-
   /** 清空本 store（logout 时调）。 */
   function reset(): void {
     balance.value = null
-    estimate.value = null
     balanceError.value = null
-    estimateError.value = null
     balanceLoading.value = false
-    estimateLoading.value = false
   }
 
   return {
     // state
     balance,
-    estimate,
     balanceLoading,
-    estimateLoading,
     balanceError,
-    estimateError,
     // getters
     billingMode,
     totalRemain,
     // actions
     fetchBalance,
-    fetchEstimate,
     reset
   }
 })

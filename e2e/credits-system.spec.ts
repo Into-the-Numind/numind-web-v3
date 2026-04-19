@@ -59,12 +59,6 @@ const sel = {
   boosterCta: '.booster-card .cta-label',
   boosterDisabled: '.booster-card.is-disabled',
 
-  // SopEstimateBar — :data-sufficient="true|false"
-  estimateBarSlot: '[data-testid="estimate-bar-slot"]',
-  estimateBar: '.sop-estimate-bar',
-  estimateBarSufficient: '.sop-estimate-bar[data-sufficient="true"]',
-  estimateBarInsufficient: '.sop-estimate-bar[data-sufficient="false"]',
-
   // InsufficientCreditsDialog (Teleported to body)
   insufficientDialog: '.modal-dialog',
   insufficientReason: '[data-testid="reason"]',
@@ -168,10 +162,8 @@ test.describe('Path 1: credits 会员新购 + SOP 正常扣减', () => {
     await expect(page.locator(sel.balanceCardCredits)).toBeVisible({ timeout: 10_000 })
     await expect(page.locator(sel.subscriptionRow)).toContainText('2000')
 
-    // 4) Navigate to SOP run page → SopEstimateBar should render (credits + non-free)
+    // 4) Navigate to SOP run page (SopEstimateBar removed — just verify page loads)
     await gotoSopRun(page, 1)
-    await expect(page.locator(sel.estimateBar)).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator(sel.estimateBarSufficient)).toBeVisible()
 
     // 5) Simulate SOP run by direct POST /v1/sop/runs (the mock will deduct 150)
     await page.evaluate(async () => {
@@ -317,7 +309,7 @@ test.describe('Path 3: 非会员购买 booster 被拒（灰态 + 403）', () => 
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe('Path 4: legacy_tier 老会员 SOP 零扣减（零感知）', () => {
-  test('legacy_tier standard: SopEstimateBar NOT rendered + monthly_sop_runs increments', async ({
+  test('legacy_tier standard: monthly_sop_runs increments without reservation', async ({
     page
   }) => {
     const handle = await createCreditsAdminHandle(page)
@@ -335,12 +327,9 @@ test.describe('Path 4: legacy_tier 老会员 SOP 零扣减（零感知）', () =
     await expect(page.locator(sel.boosterCardLegacy)).toBeVisible()
     await expect(page.locator(sel.boosterCta)).toContainText('老会员制暂不支持')
 
-    // Navigate to SOP run — the estimate bar must NOT render (guard in
-    // SopEstimateBar.vue: legacy_tier skips both render and API call)
+    // Navigate to SOP run (SopEstimateBar removed entirely — legacy user just
+    // sees the regular run page with no estimate UI)
     await gotoSopRun(page, 1)
-    // Wait a bit for potential late render
-    await page.waitForTimeout(800)
-    await expect(page.locator(sel.estimateBar)).toHaveCount(0)
 
     // Direct SOP run should still succeed, and mock records zero credit deduction
     // (legacy_tier doesn't go through reservation — just monthly_sop_runs++)
