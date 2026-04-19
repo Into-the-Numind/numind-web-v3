@@ -228,7 +228,9 @@ body.sales-agent-route {
   height: 100vh;
   overflow: hidden;
   font-family: var(--font-sans);
-  background: var(--bg);
+  /* body 底色改白，跟 .app-container + .input-stage::after 一致（2026-04-19 改动）。
+     这个 selector scope 到 body.sales-agent-route，不影响其他路由。 */
+  background: #ffffff;
   color: var(--text);
 }
 
