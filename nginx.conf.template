@@ -10,7 +10,9 @@ server {
     # Docker 内置 DNS，valid=5s 让变量形式的 proxy_pass 每 5s 重解析 upstream IP，
     # 避免后端容器 rm+run 换 IP 后 nginx 卡旧 IP 导致 502（开源 nginx 原生机制）。
     # 127.0.0.11 在 Docker 容器内会 forward 到宿主机 DNS，对公网域名同样生效。
+    # resolver_timeout 5s：默认 30s 太长，DNS 临时不可用时 worker 会被挂 30s/请求。
     resolver 127.0.0.11 valid=5s ipv6=off;
+    resolver_timeout 5s;
 
     # 健康检查
     location /health {
@@ -21,6 +23,9 @@ server {
     # 同源 API 反向代理，避免浏览器跨域；上游地址由环境变量注入
     location /api/ {
         # proxy_pass 含变量时才走 resolver 动态解析，无变量则启动时解析后永久缓存。
+        # DO NOT INLINE: 必须保留 set $upstream + proxy_pass $upstream 两行分写。
+        # 如果"简化"成 proxy_pass "${API_PROXY_UPSTREAM}"; 会退回到 nginx 启动时
+        # 解析 DNS 一次后永久缓存的静态模式，本次修复失效。
         set $upstream "${API_PROXY_UPSTREAM}";
         # 剥掉 /api 前缀（变量 proxy_pass 不会自动替换 location）
         rewrite ^/api(/.*)$ $1 break;
