@@ -105,6 +105,18 @@
           />
         </svg>
         <svg
+          v-else-if="item.icon === 'membership'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 2l2.39 6.9H22l-5.8 4.26 2.22 6.84L12 15.9l-6.42 4.1L7.8 13.16 2 8.9h7.61z" />
+        </svg>
+        <svg
           v-else-if="item.icon === 'settings'"
           class="nav-icon-svg"
           viewBox="0 0 24 24"
@@ -190,6 +202,11 @@ const menuItems = computed(() => {
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
+    items.push({
+      path: '/parent/children-membership',
+      title: '子账户会员',
+      icon: 'membership'
+    })
   }
 
   items.push({ path: '/settings', title: '设置', icon: 'settings' })
