@@ -1,10 +1,10 @@
 <!--
-  PaymentQRModal — 加量包支付二维码弹窗（骨架 / Task 1）
+  PaymentQRModal — 加量包支付二维码弹窗
 
-  当前状态（Task 1）：仅实现状态机骨架 + 生命周期 + Mock API。
-  - 真实 API 接入见 Task 2
-  - QR 渲染 / 支付宝跳转 / UI 对齐 DESIGN.md 见 Task 3
-  - SettingsView 接入 + 成功回调见 Task 4
+  Task 1（done）：状态机骨架 + 生命周期 + Mock API
+  Task 2（this commit）：接入真实 /v1/orders API
+  Task 3（todo）：tab 切换重下单、QR 渲染、支付宝跳转、UI 精致化
+  Task 4（todo）：SettingsView 接入 + 成功回调
 
   状态机（spec §3）：
     idle → creating → pending → paid
@@ -17,10 +17,16 @@
     - watch props.open：true → startFlow()；false → cleanup()
     - onBeforeUnmount(cleanup) 兜底清理 timer
 
+  API 约定（src/api/request.ts 拦截器）：
+    - 成功（code === 0）：返回 ApiResponse，`res.data` 是 Order
+    - 业务失败（code !== 0）：拦截器 throw Error(message)
+    - 网络失败 / 401：拦截器 throw AxiosError / Error
+    - 因此业务代码只需 try/catch，不需要手动检查 res.code
+
   设计决策：
     - Teleport to body 避免父级 z-index/overflow 裁剪
     - 固定定位遮罩 fallback，不引入外部 UI 框架（CLAUDE.md §5）
-    - state 文本在 Task 1 是调试用，Task 3 会替换为生产级 UI
+    - refunded 状态按 expired 处理（spec §6 #5）
 -->
 <template>
   <Teleport to="body">
@@ -61,8 +67,14 @@
             <div>剩余 {{ formattedCountdown }}</div>
           </div>
           <div v-else-if="state === 'paid'">支付成功！</div>
-          <div v-else-if="state === 'expired'">订单已过期，请重新下单</div>
-          <div v-else-if="state === 'error'">出错了：{{ errorMsg || '未知错误' }}</div>
+          <div v-else-if="state === 'expired'">
+            <div>订单已过期或已关闭，请重新下单</div>
+            <button type="button" class="pqm-action" @click="handleReorder">重新下单</button>
+          </div>
+          <div v-else-if="state === 'error'">
+            <div>出错了：{{ errorMsg || '未知错误' }}</div>
+            <button type="button" class="pqm-action" @click="handleRetry">重试</button>
+          </div>
           <div v-else-if="state === 'closed'">已关闭</div>
         </div>
 
@@ -76,24 +88,14 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { createOrder, getOrder, type Order } from '@/api/orders'
+import { useUserStore } from '@/stores/user'
 
 /** 状态机（spec §3）。 */
 type State = 'idle' | 'creating' | 'pending' | 'paid' | 'expired' | 'error' | 'closed'
 
 /** 支付通道。 */
 type PayChannel = 'wechat' | 'alipay'
-
-// TODO(T2): replace with `import type { Order } from '@/api/orders'` and remove this local definition.
-/** 订单响应对象形状（与后端契约对齐，Task 2 会替换为真实 API 类型）。 */
-interface Order {
-  id: number
-  order_no: string
-  pay_status: 'pending' | 'paid' | 'closed' | 'refunded'
-  code_url: string
-  amount: number
-  expired_at: string
-  pay_channel: PayChannel
-}
 
 interface Props {
   open: boolean
@@ -109,6 +111,10 @@ const emit = defineEmits<{
 // --- Constants (spec §3) ---
 const POLL_INTERVAL_MS = 2000
 const PAYMENT_TIMEOUT_SECS = 300 // 前端 5 分钟上限，短于后端 30 分钟过期，提前兜底
+const MAX_POLL_FAILURES = 3
+
+// --- User store ---
+const userStore = useUserStore()
 
 // --- State refs ---
 const state = ref<State>('idle')
@@ -123,7 +129,7 @@ let pollTimer: number | null = null
 let countdownTimer: number | null = null
 let isPolling = false
 
-// --- Countdown formatter（Task 3 会复用） ---
+// --- Countdown formatter ---
 const formattedCountdown = computed<string>(() => {
   const total = Math.max(0, countdown.value)
   const mm = Math.floor(total / 60)
@@ -158,7 +164,6 @@ function clearAllTimers(): void {
  * 状态机 transition（唯一入口，禁止直接 `state.value = 'xxx'`）。
  *
  * 每次 transition 都先清理旧 state 的资源（timer），再根据新 state 启动资源。
- * Task 2 会在这里接入真实 API 调用。
  */
 function transitionTo(next: State): void {
   const prev = state.value
@@ -174,10 +179,13 @@ function transitionTo(next: State): void {
   // 设置新 state 资源
   switch (next) {
     case 'creating':
-      createOrder().catch((err: unknown) => {
-        // T2 真实 API 接入后，下单网络失败会走到这里
-        errorMsg.value = err instanceof Error ? err.message : '下单失败'
-        transitionTo('error')
+      createBoosterOrder(activeTab.value).catch((err: unknown) => {
+        // 兜底：createBoosterOrder 内部已处理业务错误并 transitionTo('error')，
+        // 此处仅捕获意外的 rethrow（防止 unhandled rejection）
+        if (state.value === 'creating') {
+          errorMsg.value = err instanceof Error ? err.message : '下单失败'
+          transitionTo('error')
+        }
       })
       break
     case 'pending':
@@ -186,7 +194,7 @@ function transitionTo(next: State): void {
       startPolling()
       break
     case 'paid':
-      // Task 2 会加 250ms 成功动画后再 emit，此处仅发 emit 骨架
+      // Task 3 会加 250ms 成功动画；骨架：emit 成功事件 + 延迟关闭
       emit('paid')
       window.setTimeout(() => {
         emit('update:open', false)
@@ -202,46 +210,79 @@ function transitionTo(next: State): void {
   }
 }
 
-// --- Mock API（Task 2 会替换为真实 @/api/orders.ts） ---
-
 /**
- * Mock：模拟下单，500ms 延迟返回假订单。
- * Task 2 将替换为 `createOrder({ user_id, product_type: 'booster', ... })`。
+ * 下单：调用 POST /v1/orders 生成加量包订单。
+ *
+ * 成功 → order.value = res.data + transitionTo('pending')
+ * 业务错误（拦截器 throw）→ errorMsg + transitionTo('error')
+ * 网络错误 → errorMsg + transitionTo('error')
  */
-function createOrder(): Promise<void> {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(() => {
-      // unmount/关闭时可能已经 transition 走了，丢弃响应
-      if (state.value !== 'creating') {
-        resolve()
-        return
-      }
-      order.value = {
-        id: 999,
-        order_no: 'MOCK-ORDER-999',
-        pay_status: 'pending',
-        code_url: 'weixin://mock',
-        amount: 2990,
-        expired_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-        pay_channel: activeTab.value
-      }
-      pollFailureCount.value = 0
-      transitionTo('pending')
-      resolve()
-    }, 500)
-  })
+async function createBoosterOrder(channel: PayChannel): Promise<void> {
+  const userId = userStore.userInfo?.id
+  if (userId === undefined || userId === null || userId === '') {
+    errorMsg.value = '未登录，请重新登录后重试'
+    transitionTo('error')
+    return
+  }
+
+  try {
+    const res = await createOrder({
+      user_id: userId,
+      product_type: 'booster',
+      months: 0,
+      pay_channel: channel
+    })
+
+    // 拦截器已保证 code === 0 才走到这里，res.data 即 Order
+    // open 已关闭或状态被切走，丢弃响应
+    if (state.value !== 'creating') return
+
+    order.value = res.data
+    pollFailureCount.value = 0
+    transitionTo('pending')
+  } catch (err: unknown) {
+    if (state.value !== 'creating') return
+    errorMsg.value = err instanceof Error ? err.message : '下单失败'
+    transitionTo('error')
+  }
 }
 
 /**
- * Mock：轮询订单状态。Task 1 仅返回 pending 占位。
- * Task 2 将替换为 `getOrder(order.id)` + paid/closed/refunded 分支。
+ * 轮询订单状态：调用 GET /v1/orders/:id。
+ *
+ * pay_status 分支（spec §6）：
+ *   - pending  → 保持不变，继续轮询
+ *   - paid     → transitionTo('paid')
+ *   - closed   → transitionTo('expired')
+ *   - refunded → transitionTo('expired')（按 expired 处理，§6 #5）
+ *
+ * 本函数可能 throw（拦截器把业务错误 / 网络错误转成 Error），
+ * 由外层 startPolling 的 .catch 累加 pollFailureCount。
  */
 async function pollOrderStatus(): Promise<void> {
-  // Task 2 会把真实请求替换进来；Task 1 保留去重 + 丢弃逻辑的结构
   if (!order.value) return
   if (state.value !== 'pending') return
-  // 模拟成功响应为 pending，无 state 变化
-  await Promise.resolve()
+
+  const res = await getOrder(order.value.id)
+
+  // 状态可能在 await 期间被切走（close / expired / error），丢弃响应
+  if (state.value !== 'pending') return
+
+  const payStatus = res.data.pay_status
+  switch (payStatus) {
+    case 'paid':
+      transitionTo('paid')
+      break
+    case 'closed':
+    case 'refunded':
+      // refunded 按 expired 处理（spec §6 #5）
+      transitionTo('expired')
+      break
+    case 'pending':
+    default:
+      // 保持 pending，继续轮询
+      break
+  }
 }
 
 function startPolling(): void {
@@ -253,9 +294,9 @@ function startPolling(): void {
     isPolling = true
     pollOrderStatus()
       .catch((err: unknown) => {
-        // 轮询错误处理：连续 3 次失败 → error state
+        // 连续 MAX_POLL_FAILURES 次失败 → error state
         pollFailureCount.value += 1
-        if (pollFailureCount.value >= 3) {
+        if (pollFailureCount.value >= MAX_POLL_FAILURES) {
           errorMsg.value = err instanceof Error ? err.message : '网络异常'
           transitionTo('error')
         }
@@ -279,16 +320,23 @@ function startCountdown(): void {
 
 // --- Flow entry / cleanup ---
 
-/** 打开弹窗：重置状态 + 开始下单流程。 */
-function startFlow(): void {
-  // 连续快速 open 的极端场景下，显式兜底清理旧 timer 再改 state
+/**
+ * 重置状态，为 creating 做准备。
+ * 由 startFlow / handleRetry / handleReorder 复用。
+ */
+function resetForReorder(): void {
   clearAllTimers()
   order.value = null
   countdown.value = 0
   pollFailureCount.value = 0
   errorMsg.value = ''
+  state.value = 'idle' // 复位到 idle（非 transition，无资源清理）
+}
+
+/** 打开弹窗：重置状态 + 开始下单流程。 */
+function startFlow(): void {
+  resetForReorder()
   activeTab.value = 'wechat'
-  state.value = 'idle' // 初始化复位（无旧资源需清理，非 transition）
   transitionTo('creating')
 }
 
@@ -306,6 +354,18 @@ function cleanup(): void {
 function handleClose(): void {
   cleanup()
   emit('update:open', false)
+}
+
+/** error 态点击重试：重置 + 重新下单。 */
+function handleRetry(): void {
+  resetForReorder()
+  transitionTo('creating')
+}
+
+/** expired 态点击重新下单：重置 + 重新下单。 */
+function handleReorder(): void {
+  resetForReorder()
+  transitionTo('creating')
 }
 
 // --- Lifecycle ---
@@ -417,6 +477,26 @@ onBeforeUnmount(() => {
   font-size: var(--text-sm, 14px);
   color: var(--color-text, #1a1d26);
   line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.pqm-action {
+  align-self: flex-start;
+  padding: 8px 16px;
+  background: var(--color-brand, #10b981);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  font-size: var(--text-sm, 14px);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pqm-action:hover {
+  background: var(--color-brand-hover, #059669);
 }
 
 .pqm-footer {
