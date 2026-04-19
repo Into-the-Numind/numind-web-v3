@@ -175,7 +175,9 @@ watch(
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px 200px;
+  /* padding-bottom 从 200 加到 240：输入框缩高后 input-stage ≈ 196 + fade 28 = 224 被遮，
+     240 留 16px 余量让最后一条消息的复制按钮等工具栏不被 input 盖住。 */
+  padding: 20px 32px 240px;
   scroll-behavior: auto;
 }
 

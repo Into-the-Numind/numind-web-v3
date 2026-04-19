@@ -505,6 +505,13 @@ async function copyMessage() {
   margin-bottom: 0.8em;
 }
 
+/* Markdown 分割线：浏览器默认黑色 inset 太抢眼，改成浅灰（gray-200） */
+.markdown-body :deep(hr) {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 16px 0;
+}
+
 .markdown-body :deep(p:last-child) {
   margin-bottom: 0;
 }
