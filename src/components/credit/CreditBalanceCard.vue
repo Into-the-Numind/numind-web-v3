@@ -49,14 +49,14 @@
 /**
  * CreditBalanceCard — 三态余额展示（credits-system Track E.2，Q2 改造）
  *
- * 状态判定（spec §4.2.4，按优先级）：
- *   1. user.tier === 'free'                                → 'free'   联系管理员提示
- *   2. balance.billing_mode === 'legacy_tier'              → 'legacy' 次数用量
- *   3. 其它（credits 新制 / trial 走新制）                  → 'credits' 双档
+ * 状态判定（按优先级）：
+ *   1. billing_mode === 'credits' 且有积分包 → 'credits' 双档
+ *   2. billing_mode === 'legacy_tier'        → 'legacy'  次数用量
+ *   3. user_tier !== 'free'（兼容）          → 'credits'
+ *   4. 其它                                  → 'free'    联系管理员提示
  *
- * 跨 store：user.tier 来自 `useUserStore`，balance 来自 `useCreditsStore`。
- * 采用 `userInfo.user_tier` 字段（项目既存约定，见 SettingsView.vue），不要求
- * user store 暴露 `tier` getter——避免触碰 Phase 0 冻结外的文件。
+ * 注意：credits 制下 user_tier 始终为 'free'（该字段属于 legacy 体系），
+ * 因此必须优先检查 billing_mode，不能以 user_tier 作为首要判据。
  *
  * Q2 变更：C 端不能自购会员（B2B2C 模式）。free state 移除"升级会员"CTA，
  * 仅展示"请联系您的管理员开通会员"静态文案。父账户（parent user）在
@@ -78,11 +78,24 @@ const tier = computed(() => {
   return String(raw).toLowerCase()
 })
 
-/** 三态 — 优先级顺序见 jsdoc。 */
+/**
+ * 三态判定（修正优先级）：
+ *   1. billing_mode === 'credits' 且有活跃订阅（sub_total > 0）→ 'credits'
+ *   2. billing_mode === 'legacy_tier'                           → 'legacy'
+ *   3. 其它（free，无订阅）                                      → 'free'
+ *
+ * 旧逻辑先看 user_tier，但 credits 制下 user_tier 始终为 'free'，
+ * 导致已购会员的 credits 用户被误判为 free。
+ */
 const cardState = computed<'free' | 'legacy' | 'credits'>(() => {
-  if (tier.value === 'free') return 'free'
+  if (
+    balance.value?.billing_mode === 'credits' &&
+    (balance.value.sub_total > 0 || balance.value.booster_total > 0)
+  )
+    return 'credits'
   if (balance.value?.billing_mode === 'legacy_tier') return 'legacy'
-  return 'credits'
+  if (tier.value !== 'free') return 'credits' // legacy tier 未标记 billing_mode 的兼容
+  return 'free'
 })
 
 const legacyUsed = computed(() => {

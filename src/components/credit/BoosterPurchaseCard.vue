@@ -79,12 +79,24 @@ const tier = computed(() => {
   return String(raw).toLowerCase()
 })
 
-/** 四态优先级：legacy > free > trial > credits。 */
+/**
+ * 四态优先级：
+ *   1. billing_mode=legacy_tier           → 'legacy'（老会员制暂不支持）
+ *   2. billing_mode=credits 且有积分包    → 'credits'（可购买）
+ *   3. user_tier !== free（兼容）         → 'credits'
+ *   4. user_tier=trial（legacy trial）    → 'trial'
+ *   5. 其它                               → 'free'
+ *
+ * credits 制下 user_tier 始终为 'free'，必须优先检查 billing_mode。
+ */
 const cardState = computed<'credits' | 'free' | 'trial' | 'legacy'>(() => {
-  if (creditsStore.balance?.billing_mode === 'legacy_tier') return 'legacy'
-  if (tier.value === 'free') return 'free'
+  const bal = creditsStore.balance
+  if (bal?.billing_mode === 'legacy_tier') return 'legacy'
+  if (bal?.billing_mode === 'credits' && (bal.sub_total > 0 || bal.booster_total > 0))
+    return 'credits'
   if (tier.value === 'trial') return 'trial'
-  return 'credits'
+  if (tier.value !== 'free') return 'credits' // legacy tier 未标记 billing_mode 的兼容
+  return 'free'
 })
 
 const subtitle = computed(() => {
