@@ -83,6 +83,7 @@ type State = 'idle' | 'creating' | 'pending' | 'paid' | 'expired' | 'error' | 'c
 /** 支付通道。 */
 type PayChannel = 'wechat' | 'alipay'
 
+// TODO(T2): replace with `import type { Order } from '@/api/orders'` and remove this local definition.
 /** 订单响应对象形状（与后端契约对齐，Task 2 会替换为真实 API 类型）。 */
 interface Order {
   id: number
@@ -104,6 +105,10 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   paid: []
 }>()
+
+// --- Constants (spec §3) ---
+const POLL_INTERVAL_MS = 2000
+const PAYMENT_TIMEOUT_SECS = 300 // 前端 5 分钟上限，短于后端 30 分钟过期，提前兜底
 
 // --- State refs ---
 const state = ref<State>('idle')
@@ -169,10 +174,14 @@ function transitionTo(next: State): void {
   // 设置新 state 资源
   switch (next) {
     case 'creating':
-      void createOrder()
+      createOrder().catch((err: unknown) => {
+        // T2 真实 API 接入后，下单网络失败会走到这里
+        errorMsg.value = err instanceof Error ? err.message : '下单失败'
+        transitionTo('error')
+      })
       break
     case 'pending':
-      countdown.value = 300 // 5min，Task 2 接真 API 时保持此值
+      countdown.value = PAYMENT_TIMEOUT_SECS
       startCountdown()
       startPolling()
       break
@@ -254,7 +263,7 @@ function startPolling(): void {
       .finally(() => {
         isPolling = false
       })
-  }, 2000)
+  }, POLL_INTERVAL_MS)
 }
 
 function startCountdown(): void {
@@ -272,26 +281,30 @@ function startCountdown(): void {
 
 /** 打开弹窗：重置状态 + 开始下单流程。 */
 function startFlow(): void {
-  // 每次打开都是全新状态
+  // 连续快速 open 的极端场景下，显式兜底清理旧 timer 再改 state
+  clearAllTimers()
   order.value = null
   countdown.value = 0
   pollFailureCount.value = 0
   errorMsg.value = ''
   activeTab.value = 'wechat'
-  state.value = 'idle' // 安全的初始化重置，不走 transitionTo（无旧资源需清理）
+  state.value = 'idle' // 初始化复位（无旧资源需清理，非 transition）
   transitionTo('creating')
 }
 
-/** 关闭弹窗：清理所有 timer + 切到 closed。 */
+/** 关闭弹窗：切到 closed（transitionTo 内部统一 clearAllTimers）。 */
 function cleanup(): void {
-  clearAllTimers()
   if (state.value !== 'closed' && state.value !== 'idle') {
-    state.value = 'closed'
+    transitionTo('closed')
+  } else {
+    // 已处于终态，仅兜底确保 timer 干净
+    clearAllTimers()
   }
 }
 
-/** 关闭按钮 / overlay 点击。 */
+/** 关闭按钮 / overlay 点击：立即 cleanup（不依赖 watch 异步生效，防 timer 泄漏）+ 通知父组件。 */
 function handleClose(): void {
+  cleanup()
   emit('update:open', false)
 }
 
