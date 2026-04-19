@@ -303,7 +303,9 @@ onUnmounted(() => {
   right: 0;
   top: 0;
   bottom: 0;
-  background: var(--bg);
+  /* 匹配 SalesView .app-container 白色背景（2026-04-19 灰→白改动）。
+     之前是 var(--bg) (#f7f8fb)，覆盖了 app-container 的白色导致底部灰条。 */
+  background: #ffffff;
   z-index: -1;
 }
 
