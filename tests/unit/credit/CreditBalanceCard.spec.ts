@@ -1,14 +1,17 @@
 /**
- * CreditBalanceCard 三态单元测试 — credits-system Track E.2
+ * CreditBalanceCard 三态单元测试 — credits-system Track E.2 + Q2 改造
  *
  * 覆盖 spec §4.2.4 的状态机：
- *   1. state='free'    → user.tier='free' → 升级引导 CTA 渲染，不渲染用量数字
+ *   1. state='free'    → user.tier='free' → 联系管理员文案；**不渲染升级按钮**（Q2）
  *   2. state='legacy'  → tier !== 'free' + billing_mode='legacy_tier' → 次数文案
  *      2a. monthly_limit=null → "无限"
  *      2b. monthly_limit 有限 → "已用 X / limit"
  *   3. state='credits' → 双档（订阅 + 加量包）数字；加量包 total=0 时隐藏
  *
  * 特别校验：free 优先级最高（即使 balance 存在 billing_mode 也取 free）。
+ *
+ * Q2 变更（B2B2C 模式）：C 端不能自购会员，free state 移除跳转按钮，
+ * 改为静态文案"请联系您的管理员开通会员"。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
@@ -19,7 +22,8 @@ import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 import type { QuotaBreakdown } from '@/api/credits'
 
-// vue-router mock：组件只调用 router.push，不需要完整路由
+// vue-router mock：组件已不再直接 useRouter，但保留 mock 避免
+// 其它未来用例潜在依赖。
 const pushSpy = vi.fn()
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushSpy })
@@ -34,8 +38,8 @@ beforeEach(() => {
   pushSpy.mockClear()
 })
 
-describe('CreditBalanceCard — free 状态', () => {
-  it('user.tier=free → 渲染升级 CTA，不渲染余额', async () => {
+describe('CreditBalanceCard — free 状态（Q2: 联系管理员）', () => {
+  it('user.tier=free → 渲染"联系管理员"文案，不渲染升级按钮', async () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'free' }
     const wrapper = mountCard()
@@ -43,7 +47,10 @@ describe('CreditBalanceCard — free 状态', () => {
 
     expect(wrapper.attributes('data-state')).toBe('free')
     expect(wrapper.text()).toContain('成为会员解锁 AI 能力')
-    expect(wrapper.text()).toContain('升级会员')
+    expect(wrapper.text()).toContain('请联系您的管理员开通会员')
+    // Q2: 不应再渲染"升级会员"按钮（B2B2C 模式移除 C 端自购 CTA）
+    expect(wrapper.find('button').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('升级会员')
     // 不应出现积分数字相关元素
     expect(wrapper.find('.credit-row.subscription').exists()).toBe(false)
   })
@@ -65,12 +72,17 @@ describe('CreditBalanceCard — free 状态', () => {
     expect(wrapper.attributes('data-state')).toBe('free')
   })
 
-  it('点击升级按钮触发 router.push(/settings)', async () => {
+  it('free state 没有任何可点击跳转元素（B2B2C 模式）', async () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'free' }
     const wrapper = mountCard()
-    await wrapper.find('button').trigger('click')
-    expect(pushSpy).toHaveBeenCalledWith('/settings')
+    await flushPromises()
+
+    // 不应触发任何 router.push
+    expect(pushSpy).not.toHaveBeenCalled()
+    // 确认没有 button / a 元素存在
+    expect(wrapper.find('button').exists()).toBe(false)
+    expect(wrapper.find('a').exists()).toBe(false)
   })
 })
 

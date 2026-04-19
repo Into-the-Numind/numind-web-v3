@@ -3,7 +3,7 @@
     class="booster-card"
     :class="{
       'is-disabled': cardState !== 'credits',
-      'no-route': cardState === 'legacy'
+      'no-route': cardState !== 'credits'
     }"
     :data-state="cardState"
     @click="handleClick"
@@ -33,28 +33,28 @@
 
 <script setup lang="ts">
 /**
- * BoosterPurchaseCard — 4 状态加量包购买卡（credits-system Track E.4，spec §4.2.6）
+ * BoosterPurchaseCard — 4 状态加量包购买卡（credits-system Track E.4，Q2 改造）
  *
  * ## 四态交互矩阵
  *
- * | cardState  | 条件                                    | 点击行为                 | CTA 文案           |
- * |------------|-----------------------------------------|--------------------------|--------------------|
- * | `credits`  | tier standard/premium + billing=credits | 触发 purchase emit       | "立即购买"         |
- * | `free`     | tier=free                               | router.push('/settings') | "升级会员后可购买" |
- * | `trial`    | tier=trial                              | router.push('/settings') | "升级会员后可购买" |
- * | `legacy`   | billing_mode=legacy_tier                | 无动作（禁用）           | "老会员制暂不支持" |
+ * | cardState  | 条件                                    | 点击行为              | CTA 文案             |
+ * |------------|-----------------------------------------|-----------------------|----------------------|
+ * | `credits`  | tier standard/premium + billing=credits | 触发 purchase emit    | "立即购买"           |
+ * | `free`     | tier=free                               | 无动作（禁用）        | "请联系管理员开通"   |
+ * | `trial`    | tier=trial                              | 无动作（禁用）        | "请联系管理员开通"   |
+ * | `legacy`   | billing_mode=legacy_tier                | 无动作（禁用）        | "老会员制暂不支持"   |
  *
- * 灰态逻辑：三种非 credits 状态都灰，但仅 free/trial 的灰态点击跳会员升级；
- * legacy_tier 点击完全无动作（防止把老会员强推到新制）。
+ * Q2 变更（B2B2C 模式）：C 端不能自购会员。free/trial 灰态点击从"跳转会员购买"
+ * 改为"无动作 + 联系管理员提示"，与 CreditBalanceCard free state 保持一致。
+ * 三种非 credits 状态统一 no-route，只有 credits 会员可点击触发购买（走 QR 扫码）。
  *
  * ## Emits
  *
  * - `purchase`：仅 credits 状态下点击触发，父组件接管订单流程
  *
- * Refs: spec §4.2.6, plan Track E.4
+ * Refs: spec §4.2.6, plan Track E.4, Q2 gap-fill (B2B2C 子账户不自购)
  */
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 
@@ -70,7 +70,6 @@ withDefaults(defineProps<Props>(), {
 })
 const emit = defineEmits<{ (e: 'purchase'): void }>()
 
-const router = useRouter()
 const user = useUserStore()
 const creditsStore = useCreditsStore()
 
@@ -108,7 +107,7 @@ const ctaLabel = computed(() => {
       return '立即购买'
     case 'free':
     case 'trial':
-      return '升级会员后可购买'
+      return '请联系管理员开通会员'
     case 'legacy':
       return '老会员制暂不支持'
     default:
@@ -120,7 +119,7 @@ const tooltip = computed(() => {
   switch (cardState.value) {
     case 'free':
     case 'trial':
-      return '升级为正式会员（standard / premium）后可购买加量包'
+      return '加量包为会员专享，请联系您的管理员开通会员后使用'
     case 'legacy':
       return '老会员制暂不支持加量包，到期升级后可购买'
     default:
@@ -128,16 +127,16 @@ const tooltip = computed(() => {
   }
 })
 
+/**
+ * Q2: 所有非 credits 态（free / trial / legacy）点击均无动作。
+ * B2B2C 模式下 C 端不能自购会员，父账户在"客户管理"页帮子账户开通。
+ */
 function handleClick(): void {
   if (cardState.value === 'credits') {
     emit('purchase')
     return
   }
-  if (cardState.value === 'free' || cardState.value === 'trial') {
-    router.push('/settings')
-    return
-  }
-  // legacy 无动作
+  // free / trial / legacy 统一无动作
 }
 </script>
 

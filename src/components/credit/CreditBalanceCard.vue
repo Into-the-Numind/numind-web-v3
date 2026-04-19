@@ -37,20 +37,20 @@
       </div>
     </template>
 
-    <!-- free：未购买过任何付费，引导升级 -->
+    <!-- free：未购买过任何付费 → B2B2C 模式，子账户联系父账户管理员开通 -->
     <template v-else>
       <p class="upgrade-hint">成为会员解锁 AI 能力</p>
-      <AppButton variant="primary" size="sm" @click="goToMembership">升级会员</AppButton>
+      <p class="contact-admin">请联系您的管理员开通会员</p>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * CreditBalanceCard — 三态余额展示（credits-system Track E.2）
+ * CreditBalanceCard — 三态余额展示（credits-system Track E.2，Q2 改造）
  *
  * 状态判定（spec §4.2.4，按优先级）：
- *   1. user.tier === 'free'                                → 'free'   升级引导
+ *   1. user.tier === 'free'                                → 'free'   联系管理员提示
  *   2. balance.billing_mode === 'legacy_tier'              → 'legacy' 次数用量
  *   3. 其它（credits 新制 / trial 走新制）                  → 'credits' 双档
  *
@@ -58,15 +58,14 @@
  * 采用 `userInfo.user_tier` 字段（项目既存约定，见 SettingsView.vue），不要求
  * user store 暴露 `tier` getter——避免触碰 Phase 0 冻结外的文件。
  *
- * 点击"升级会员"走路由跳转（固定到 /settings，与 SettingsView 的会员区段对齐）。
+ * Q2 变更：C 端不能自购会员（B2B2C 模式）。free state 移除"升级会员"CTA，
+ * 仅展示"请联系您的管理员开通会员"静态文案。父账户（parent user）在
+ * 客户管理 / 子账户会员管理视图中帮子账户开通。
  */
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
-import AppButton from '@/components/common/AppButton.vue'
 
-const router = useRouter()
 const user = useUserStore()
 const credits = useCreditsStore()
 
@@ -110,10 +109,6 @@ function formatDate(iso: string): string {
   } catch {
     return iso
   }
-}
-
-function goToMembership(): void {
-  router.push('/settings')
 }
 </script>
 
@@ -163,6 +158,12 @@ function goToMembership(): void {
 .upgrade-hint {
   font-size: 14px;
   color: var(--text-secondary, #6b7085);
-  margin: 0 0 var(--space-sm, 8px);
+  margin: 0 0 var(--space-xs, 4px);
+}
+
+.contact-admin {
+  font-size: 13px;
+  color: var(--text-tertiary, #9ea1b1);
+  margin: 0;
 }
 </style>
