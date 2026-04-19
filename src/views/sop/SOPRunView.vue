@@ -68,14 +68,6 @@
           @open-history="showHistory = true"
         />
 
-        <!-- credits-system Phase 2 Task 2.4：预估消耗 + 余额提示
-             挂载约束（spec §4.2.5）：仅在 SOP 运行详情页，仅在尚未开始运行
-             （store.currentRun 为 null）时显示。组件内部已做 billing_mode /
-             free tier guard，并带 300ms debounce —— 切换 templateId 不重复 fetch。-->
-        <div v-if="showEstimateBar" class="estimate-bar-wrap" data-testid="estimate-bar-slot">
-          <SopEstimateBar :sop-template-id="String(templateId)" @start="handleEstimateStart" />
-        </div>
-
         <StepCanvas
           :ensure-run="ensureRun"
           :current-step="store.currentStep"
@@ -125,7 +117,6 @@ import TopBar from './components/TopBar.vue'
 import StepNav from './components/StepNav.vue'
 import StepCanvas from './components/StepCanvas.vue'
 import HistoryModal from './components/HistoryModal.vue'
-import SopEstimateBar from './components/SopEstimateBar.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatBubbleMessage } from './components/ChatBubble.vue'
 
@@ -134,7 +125,6 @@ import { useSopRunStore } from '@/stores/sopRun'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useUiDialogsStore } from '@/stores/uiDialogs'
-import { useCreditsStore } from '@/stores/credits'
 import { useDraftLifecycle } from './composables/useDraftLifecycle'
 import { useBookmarks } from './composables/useBookmarks'
 import { useSSEStream } from './composables/useSSEStream'
@@ -147,7 +137,6 @@ const store = useSopRunStore()
 const llmStore = useLLMModelStore()
 const notifications = useNotificationsStore()
 const uiDialogs = useUiDialogsStore()
-const creditsStore = useCreditsStore()
 
 const draft = useDraftLifecycle()
 const bookmarks = useBookmarks()
@@ -199,31 +188,6 @@ let tempMsgCounter = 0
 function makeTempId(): string {
   tempMsgCounter += 1
   return `tmp_${Date.now()}_${tempMsgCounter}`
-}
-
-// ===== credits-system 预估条显示条件 =====
-// 仅在真正"尚未开始"的 SOP 运行前展示估算条：
-//   - 有 templateId（正在查看某个 SOP 模板）
-//   - store.currentRun 为 null（未 lazy create draft run，或 route 没带 runId）
-//   - SopEstimateBar 内部再做 billing_mode / free tier guard（§4.2.5），这里只管挂载时机
-// 一旦首个节点被执行、draft run lazy 建出来后，currentRun 非 null，估算条自动卸载。
-const showEstimateBar = computed(() => Boolean(templateId.value) && !store.currentRun)
-
-/**
- * SopEstimateBar 的"开始运行"按钮点击 —— 积分充足时触发。
- *
- * 实际的节点执行仍由 InputCard 内的"生成"按钮驱动（需要用户填入输入文本
- * + 可选文件上传）。这里不强行推进流程，而是滚动视图到 InputCard 并
- * 把焦点交出去，让用户自然完成输入。
- */
-function handleEstimateStart(): void {
-  // 滚动到输入区域（StepInput 的 textarea）。选择器：StepInput 的 test-id 或
-  // input-execute 按钮反向定位到最近的 StepInput 容器。若找不到节点（比如
-  // 未渲染完毕），静默忽略 —— 不影响业务逻辑。
-  const btn = document.querySelector<HTMLElement>('[data-testid="input-execute"]')
-  if (btn) {
-    btn.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
 }
 
 // ===== 生命周期：初始化 =====
@@ -671,10 +635,6 @@ onMounted(async () => {
   if (!llmStore.isThinkingEnabled('sop')) {
     await llmStore.savePreference('sop', modelKey, true)
   }
-
-  // credits-system Phase 2：拉 QuotaBreakdown，让 SopEstimateBar 能读到
-  // billing_mode + 当前余额做 guard。若已有数据，fetchBalance 是幂等的。
-  void creditsStore.fetchBalance()
 })
 
 onBeforeUnmount(() => {
