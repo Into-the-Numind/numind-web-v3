@@ -12,7 +12,9 @@ import {
   Paperclip,
   X,
   FileText,
-  Loader2
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
 import { useLLMModelStore } from '@/stores/llmModel'
@@ -252,6 +254,46 @@ function handleStopStream() {
   store.cancelStream()
 }
 
+// ==================== Copy message ====================
+// 每条消息独立的"已复制"态（key=msg.id），2s 后自动复位；
+// 全局共享一个 ref 会让多条消息互相冲掉高亮
+const copiedMap = ref<Record<number, boolean>>({})
+const copyTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+async function copyMessage(id: number, text: string) {
+  const markCopied = () => {
+    copiedMap.value = { ...copiedMap.value, [id]: true }
+    const existing = copyTimers.get(id)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      const next = { ...copiedMap.value }
+      delete next[id]
+      copiedMap.value = next
+      copyTimers.delete(id)
+    }, 2000)
+    copyTimers.set(id, timer)
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    markCopied()
+  } catch {
+    // Fallback for non-secure contexts (HTTP dev etc.)
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      markCopied()
+    } catch {
+      // silently fail
+    }
+  }
+}
+
 // ==================== Attachment display helpers ====================
 // compose() 可能产生带或不带前导换行的分隔符，两种情况都要剥离解析正文
 const ATTACHMENT_MARKER = '---附件内容---'
@@ -311,6 +353,8 @@ onBeforeUnmount(() => {
   document.body.classList.remove('chatbot-chat-route')
   contentReveal.dispose()
   thinkingReveal.dispose()
+  copyTimers.forEach((t) => clearTimeout(t))
+  copyTimers.clear()
   store.cleanup()
 })
 </script>
@@ -404,15 +448,18 @@ onBeforeUnmount(() => {
             <template v-else>
               <div class="messages-container">
                 <div v-for="msg in store.messages" :key="msg.id" class="message" :class="msg.role">
-                  <div class="message-bubble" :class="msg.role">
-                    <!-- Thinking block for assistant messages -->
-                    <ThinkingBlock
-                      v-if="msg.role === 'assistant' && msg.thinking"
-                      :content="msg.thinking"
-                      :finished="true"
-                    />
-                    <div v-if="msg.role === 'assistant'" v-html="render(msg.content)"></div>
-                    <template v-else>
+                  <!-- User: bubble wrap (relative anchor for floating copy btn) -->
+                  <div v-if="msg.role === 'user'" class="user-bubble-wrap">
+                    <button
+                      class="user-copy-btn"
+                      :class="{ copied: copiedMap[msg.id] }"
+                      :aria-label="copiedMap[msg.id] ? '已复制' : '复制'"
+                      @click="copyMessage(msg.id, getDisplayText(msg.content))"
+                    >
+                      <Check v-if="copiedMap[msg.id]" :size="14" />
+                      <Copy v-else :size="14" />
+                    </button>
+                    <div class="message-bubble user">
                       <span v-if="getDisplayText(msg.content)" class="msg-text">{{
                         getDisplayText(msg.content)
                       }}</span>
@@ -433,8 +480,28 @@ onBeforeUnmount(() => {
                           </span>
                         </span>
                       </div>
-                    </template>
+                    </div>
                   </div>
+                  <!-- Assistant: bubble + actions row -->
+                  <template v-else>
+                    <div class="message-bubble assistant">
+                      <ThinkingBlock v-if="msg.thinking" :content="msg.thinking" :finished="true" />
+                      <div v-html="render(msg.content)"></div>
+                    </div>
+                    <div v-if="msg.content" class="ai-actions-container">
+                      <button
+                        class="ai-action-btn"
+                        :class="{ copied: copiedMap[msg.id] }"
+                        :aria-label="copiedMap[msg.id] ? '已复制' : '复制'"
+                        :title="copiedMap[msg.id] ? '已复制' : '复制'"
+                        @click="copyMessage(msg.id, msg.content)"
+                      >
+                        <Check v-if="copiedMap[msg.id]" :size="14" />
+                        <Copy v-else :size="14" />
+                      </button>
+                      <span v-if="copiedMap[msg.id]" class="copied-toast">已复制</span>
+                    </div>
+                  </template>
                 </div>
 
                 <!-- Streaming message -->
@@ -994,6 +1061,130 @@ body.chatbot-chat-route #app {
   background: var(--primary);
   color: white;
   border-bottom-right-radius: 4px;
+}
+
+/* ===== User bubble wrap (anchor for floating copy btn) ===== */
+/* Wrap constrains to 85% on the right; inner bubble fills wrap */
+.user-bubble-wrap {
+  position: relative;
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.user-bubble-wrap .message-bubble {
+  max-width: 100%;
+}
+
+.user-copy-btn {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  margin-right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* 扩大 hover 命中区域，避免指针从气泡滑到按钮时 flicker */
+.user-copy-btn::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  left: -10px;
+  right: -20px;
+  z-index: -1;
+}
+
+.message.user:hover .user-copy-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+.user-copy-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.user-copy-btn.copied {
+  /* Copy 成功：强制可见 + 绿色，2s 后 copiedMap 超时自动复位 */
+  visibility: visible;
+  opacity: 1;
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
+}
+
+/* ===== AI actions row (below assistant bubble) ===== */
+.ai-actions-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  justify-content: flex-start;
+  align-self: stretch;
+}
+
+.ai-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-action-btn:hover {
+  color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
+}
+
+.ai-action-btn.copied {
+  color: var(--primary);
+  background: rgba(37, 167, 105, 0.12);
+}
+
+.copied-toast {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 500;
+  animation: copied-fade 0.2s ease;
+}
+
+@keyframes copied-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* ===== User Bubble Attachment Cards ===== */
