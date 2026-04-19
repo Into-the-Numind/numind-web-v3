@@ -683,6 +683,11 @@ export const getFeedback = async (
   sessionId: number,
   messageId: number
 ): Promise<{ rating?: number; comment?: string }> => {
+  // 临时 / placeholder message id（前端流式途中生成的负数 id）不会在后端存在
+  // 反馈记录，直接短路返回空，避免 /feedback?message_id=-N 打到后端产生无谓 400。
+  if (!Number.isFinite(messageId) || messageId <= 0) {
+    return {}
+  }
   const res = await request.get(
     `/v1/sales-rag/sessions/${sessionId}/messages/${messageId}/feedback`
   )
