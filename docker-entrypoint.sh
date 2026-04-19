@@ -8,10 +8,15 @@ case "$API_PROXY_PASS" in
   */) ;;
   *) API_PROXY_PASS="${API_PROXY_PASS}/" ;;
 esac
-export API_PROXY_PASS
+
+# 无尾斜杠版本，给 nginx 变量形式的 proxy_pass 使用（配合 rewrite 剥 location 前缀）。
+# nginx 含变量的 proxy_pass URL 若带尾 "/" 会只发根路径，丢失请求 path。
+API_PROXY_UPSTREAM="${API_PROXY_PASS%/}"
+
+export API_PROXY_PASS API_PROXY_UPSTREAM
 
 if [ -f /etc/nginx/templates/default.conf.template ]; then
-  envsubst '${API_PROXY_PASS}' \
+  envsubst '${API_PROXY_PASS} ${API_PROXY_UPSTREAM}' \
     < /etc/nginx/templates/default.conf.template \
     > /etc/nginx/conf.d/default.conf
 fi
