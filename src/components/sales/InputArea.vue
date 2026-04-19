@@ -291,7 +291,8 @@ onUnmounted(() => {
   right: 0;
   bottom: 100%;
   height: 56px;
-  background: linear-gradient(to bottom, rgba(247, 248, 251, 0) 0%, #f7f8fb 100%);
+  /* Fade 到白色，匹配 SalesView .app-container 背景（2026-04-19 灰→白改动） */
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
   pointer-events: none;
 }
 

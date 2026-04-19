@@ -248,7 +248,7 @@ body.sales-agent-route #app {
   width: 100%;
   height: 100%;
   position: relative;
-  background: var(--bg);
+  background: #ffffff;
 }
 
 .app-container *,
