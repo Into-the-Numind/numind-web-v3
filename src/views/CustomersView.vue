@@ -322,7 +322,7 @@
                         <button
                           class="action-menu-item"
                           role="menuitem"
-                          @click="handleMenuPurchase(user)"
+                          @click="handleMenuGrantMembership()"
                         >
                           <svg
                             viewBox="0 0 24 24"
@@ -338,7 +338,7 @@
                             <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
                             <path d="M12 18V6" />
                           </svg>
-                          升级会员
+                          帮开通会员
                         </button>
                       </div>
                     </div>
@@ -747,262 +747,6 @@
         </Transition>
       </Teleport>
 
-      <!-- ========== Upgrade Membership Modal ========== -->
-      <Teleport to="body">
-        <Transition name="overlay-fade">
-          <div v-if="showPurchaseModal" class="modal-overlay" @click.self="closePurchaseModal">
-            <div class="modal-dialog tier-dialog">
-              <div class="modal-header">
-                <h2 class="modal-title">升级会员</h2>
-                <button class="modal-close" @click="closePurchaseModal">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div class="modal-body">
-                <div class="perm-user">
-                  <div class="perm-avatar">
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="24"
-                      height="24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="perm-name">
-                      {{ purchaseTargetUser?.nickname || purchaseTargetUser?.username || '用户' }}
-                    </div>
-                    <div class="perm-meta">为该用户选择会员套餐</div>
-                  </div>
-                </div>
-
-                <div class="upgrade-options">
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: purchaseForm.productType === 'trial' }"
-                    @click="purchaseForm.productType = 'trial'"
-                  >
-                    <div
-                      class="upgrade-radio"
-                      :class="{ active: purchaseForm.productType === 'trial' }"
-                    ></div>
-                    <div class="upgrade-info">
-                      <div class="upgrade-header">
-                        <span class="upgrade-name trial">体验会员</span>
-                        <span class="upgrade-price">¥9.9</span>
-                      </div>
-                      <div class="upgrade-desc">200 额度 · 有效期 3 天</div>
-                      <div class="upgrade-note">适合首次体验 AI 工作流</div>
-                    </div>
-                  </div>
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: purchaseForm.productType === 'monthly' }"
-                    @click="purchaseForm.productType = 'monthly'"
-                  >
-                    <div
-                      class="upgrade-radio"
-                      :class="{ active: purchaseForm.productType === 'monthly' }"
-                    ></div>
-                    <div class="upgrade-info">
-                      <div class="upgrade-header">
-                        <span class="upgrade-name standard">月度会员</span>
-                        <span class="upgrade-price">¥99<small>/月</small></span>
-                      </div>
-                      <div class="upgrade-desc">每月 2,000 额度 · 按月续费</div>
-                      <div class="upgrade-note">适合日常使用</div>
-                    </div>
-                  </div>
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: purchaseForm.productType === 'yearly' }"
-                    @click="purchaseForm.productType = 'yearly'"
-                  >
-                    <div
-                      class="upgrade-radio"
-                      :class="{ active: purchaseForm.productType === 'yearly' }"
-                    ></div>
-                    <div class="upgrade-info">
-                      <div class="upgrade-header">
-                        <span class="upgrade-name premium">年度会员</span>
-                        <span class="upgrade-price">¥949<small>/年</small></span>
-                      </div>
-                      <div class="upgrade-desc">每月 2,000 额度 · 12 个月</div>
-                      <div class="upgrade-tag">省 ¥239</div>
-                    </div>
-                  </div>
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: purchaseForm.productType === 'booster' }"
-                    @click="purchaseForm.productType = 'booster'"
-                  >
-                    <div
-                      class="upgrade-radio"
-                      :class="{ active: purchaseForm.productType === 'booster' }"
-                    ></div>
-                    <div class="upgrade-info">
-                      <div class="upgrade-header">
-                        <span class="upgrade-name">加量包</span>
-                        <span class="upgrade-price">¥29.9</span>
-                      </div>
-                      <div class="upgrade-desc">600 额度 · 有效期 90 天</div>
-                      <div class="upgrade-note">额度不够时随时补充</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="purchaseForm.productType === 'monthly'" class="form-group">
-                  <label class="form-label">购买月数</label>
-                  <select v-model="purchaseForm.months" class="form-input form-select">
-                    <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
-                  </select>
-                </div>
-
-                <div class="purchase-pay-channel">
-                  <label class="form-label">支付方式</label>
-                  <div class="pay-channel-options">
-                    <div
-                      class="pay-channel-card"
-                      :class="{ selected: purchaseForm.payChannel === 'wechat' }"
-                      @click="purchaseForm.payChannel = 'wechat'"
-                    >
-                      <div
-                        class="upgrade-radio"
-                        :class="{ active: purchaseForm.payChannel === 'wechat' }"
-                      ></div>
-                      <span>微信支付</span>
-                    </div>
-                    <div
-                      class="pay-channel-card"
-                      :class="{ selected: purchaseForm.payChannel === 'alipay' }"
-                      @click="purchaseForm.payChannel = 'alipay'"
-                    >
-                      <div
-                        class="upgrade-radio"
-                        :class="{ active: purchaseForm.payChannel === 'alipay' }"
-                      ></div>
-                      <span>支付宝</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="tier-preview">
-                  参考价格：<strong style="color: var(--accent); font-size: 1.2em"
-                    >¥{{ purchaseAmount }}</strong
-                  >
-                  <span style="font-size: 12px; color: #999; display: block; margin-top: 4px"
-                    >实际金额以提交订单后为准</span
-                  >
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn-cancel" @click="closePurchaseModal">取消</button>
-                <button
-                  type="button"
-                  class="btn-primary"
-                  :disabled="purchaseLoading"
-                  @click="handlePurchase"
-                >
-                  {{ purchaseLoading ? '提交中...' : '确认购买' }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
-
-      <!-- ========== Payment QR Modal ========== -->
-      <Teleport to="body">
-        <Transition name="overlay-fade">
-          <div v-if="showPaymentModal" class="modal-overlay" @click.self="closePaymentModal">
-            <div class="modal-dialog" style="max-width: 400px">
-              <div class="modal-header">
-                <h2 class="modal-title">完成支付</h2>
-                <button class="modal-close" @click="closePaymentModal">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div class="modal-body" style="text-align: center; padding: 24px">
-                <template v-if="purchaseOrder">
-                  <p style="margin-bottom: 8px; color: #666">
-                    订单号：{{ purchaseOrder.order_no }}
-                  </p>
-                  <p
-                    style="
-                      margin-bottom: 16px;
-                      font-size: 1.3em;
-                      font-weight: 600;
-                      color: var(--accent);
-                    "
-                  >
-                    ¥{{ (purchaseOrder.amount / 100).toFixed(2) }}
-                  </p>
-                  <template v-if="purchaseForm.payChannel === 'wechat'">
-                    <p style="margin-bottom: 12px">请使用微信扫描下方二维码完成支付</p>
-                    <canvas
-                      v-show="!qrError"
-                      ref="qrCanvas"
-                      style="
-                        width: 200px;
-                        height: 200px;
-                        border: 1px solid #eee;
-                        border-radius: 8px;
-                      "
-                    ></canvas>
-                    <p v-if="qrError" style="color: #e65100; font-size: 14px; padding: 20px">
-                      {{ qrError }}
-                    </p>
-                  </template>
-                  <template v-else>
-                    <p style="margin-bottom: 12px">请在新打开的标签页中完成支付宝支付</p>
-                    <a
-                      :href="purchaseOrder.code_url"
-                      target="_blank"
-                      style="color: var(--accent); text-decoration: underline"
-                      >点击此处重新打开支付页面</a
-                    >
-                  </template>
-                  <p style="margin-top: 16px; color: #999; font-size: 0.85em">
-                    支付完成后将自动确认，请勿关闭此窗口
-                  </p>
-                </template>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
-
       <!-- ========== Toast ========== -->
       <Teleport to="body">
         <Transition name="toast-fade">
@@ -1060,8 +804,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import QRCode from 'qrcode'
+import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import {
   fetchStatistics,
@@ -1080,7 +824,8 @@ import {
   type SubUser,
   type TemplateItem
 } from '@/api/customers'
-import { createOrder, getOrder, type Order } from '@/api/orders'
+
+const router = useRouter()
 
 // ── State ──────────────────────────────────────────────────────────
 const statistics = reactive({
@@ -1128,39 +873,6 @@ const permOriginalIds = ref<Set<string>>(new Set())
 // Feature permission
 const featurePermissions = reactive<Record<string, boolean>>({})
 const featurePermOriginal = ref<Set<string>>(new Set())
-
-// Purchase credits
-const showPurchaseModal = ref(false)
-const purchaseTargetUser = ref<SubUser | null>(null)
-const purchaseForm = reactive({
-  productType: 'monthly' as 'trial' | 'monthly' | 'yearly' | 'booster',
-  months: 1,
-  payChannel: 'wechat' as 'wechat' | 'alipay'
-})
-const purchaseLoading = ref(false)
-const purchaseOrder = ref<Order | null>(null)
-const showPaymentModal = ref(false)
-const paymentPolling = ref<number | null>(null)
-const qrCanvas = ref<HTMLCanvasElement>()
-
-const qrError = ref('')
-
-watch(
-  () =>
-    showPaymentModal.value && purchaseForm.payChannel === 'wechat' && purchaseOrder.value?.code_url,
-  async (url) => {
-    qrError.value = ''
-    if (!url) return
-    await nextTick()
-    if (qrCanvas.value) {
-      try {
-        await QRCode.toCanvas(qrCanvas.value, url as string, { width: 200, margin: 2 })
-      } catch {
-        qrError.value = '二维码生成失败，请复制订单号联系客服完成支付'
-      }
-    }
-  }
-)
 
 // Dropdown
 const openMenuId = ref<number | string | null>(null)
@@ -1222,21 +934,6 @@ const premiumCount = computed(
   () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'premium').length
 )
 
-const purchaseAmount = computed(() => {
-  switch (purchaseForm.productType) {
-    case 'trial':
-      return 9.9
-    case 'monthly':
-      return 99 * purchaseForm.months
-    case 'yearly':
-      return 949
-    case 'booster':
-      return 29.9
-    default:
-      return 0
-  }
-})
-
 // eslint-disable-next-line no-useless-escape
 const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,18}$/
 
@@ -1281,7 +978,6 @@ function handleGlobalClick() {
 onBeforeUnmount(() => {
   if (toastTimer) clearTimeout(toastTimer)
   if (searchTimer) clearTimeout(searchTimer)
-  stopPaymentPolling()
   document.removeEventListener('click', handleGlobalClick)
 })
 
@@ -1676,85 +1372,12 @@ function handleMenuPermission(user: SubUser) {
   openMenuId.value = null
   openPermissionModal(user)
 }
-// ── Purchase Credits ─────────────────────────────────────────────
-function handleMenuPurchase(user: SubUser) {
+// ── Grant Membership (B2B2C) ─────────────────────────────────────
+// C 端不可自购会员（credits-system Q1），父账户通过 /parent/children-membership
+// 路径帮子账户开通。此处只负责关闭当前页的 action 菜单并跳转。
+function handleMenuGrantMembership() {
   openMenuId.value = null
-  purchaseTargetUser.value = user
-  purchaseForm.productType = 'monthly'
-  purchaseForm.months = 1
-  purchaseForm.payChannel = 'wechat'
-  showPurchaseModal.value = true
-}
-
-function closePurchaseModal() {
-  showPurchaseModal.value = false
-  purchaseTargetUser.value = null
-}
-
-function closePaymentModal() {
-  stopPaymentPolling()
-  showPaymentModal.value = false
-  purchaseOrder.value = null
-}
-
-function startPaymentPolling(orderId: number) {
-  stopPaymentPolling()
-  const MAX_POLLS = 100 // 5 minutes at 3s intervals
-  let pollCount = 0
-  paymentPolling.value = window.setInterval(async () => {
-    pollCount++
-    if (pollCount >= MAX_POLLS) {
-      stopPaymentPolling()
-      showToast('支��超时，请刷新页面查看支付状态', 'info')
-      return
-    }
-    try {
-      const res = await getOrder(orderId)
-      if (res.data?.pay_status === 'paid') {
-        stopPaymentPolling()
-        showPaymentModal.value = false
-        purchaseOrder.value = null
-        showToast('支付成功！额度已到账', 'success')
-        await loadSubUsers()
-      }
-    } catch {
-      /* ignore polling errors */
-    }
-  }, 3000)
-}
-
-function stopPaymentPolling() {
-  if (paymentPolling.value) {
-    clearInterval(paymentPolling.value)
-    paymentPolling.value = null
-  }
-}
-
-async function handlePurchase() {
-  if (!purchaseTargetUser.value) return
-  purchaseLoading.value = true
-  try {
-    const res = await createOrder({
-      user_id: purchaseTargetUser.value.user_id ?? purchaseTargetUser.value.id,
-      product_type: purchaseForm.productType,
-      months: purchaseForm.productType === 'monthly' ? purchaseForm.months : undefined,
-      pay_channel: purchaseForm.payChannel
-    })
-    const order = res.data
-    if (order) {
-      purchaseOrder.value = order
-      showPurchaseModal.value = false
-      showPaymentModal.value = true
-      if (purchaseForm.payChannel === 'alipay' && order.code_url) {
-        window.open(order.code_url, '_blank')
-      }
-      startPaymentPolling(order.id)
-    }
-  } catch (e: unknown) {
-    showToast(e instanceof Error ? e.message : '创建订单失败', 'error')
-  } finally {
-    purchaseLoading.value = false
-  }
+  router.push('/parent/children-membership')
 }
 </script>
 
