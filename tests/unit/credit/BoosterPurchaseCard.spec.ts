@@ -1,13 +1,16 @@
 /**
- * BoosterPurchaseCard 4 态交互测试 — credits-system Track E.4
+ * BoosterPurchaseCard 4 态交互测试 — credits-system Track E.4 + Q2 改造
  *
- * 覆盖 spec §4.2.6 矩阵：
+ * 覆盖 spec §4.2.6 矩阵（Q2 调整）：
  *   1. credits 模式会员    → 不灰 + 点击 emit purchase
- *   2. free                → 灰态 + tooltip + 点击 router.push(/settings)
- *   3. trial               → 灰态 + tooltip + 点击 router.push(/settings)
+ *   2. free                → 灰态 + tooltip + **点击无动作**（Q2: 不再跳转）
+ *   3. trial               → 灰态 + tooltip + **点击无动作**（Q2: 不再跳转）
  *   4. legacy_tier         → 灰态 + tooltip + 点击无动作（既不 emit 也不 push）
  *
  * 特别校验：legacy_tier 优先级最高（即便 tier=free 也应视为 legacy）。
+ *
+ * Q2 变更：B2B2C 模式下 C 端不能自购会员，非会员点击不再跳转 /settings，
+ * 改为静态 tooltip 提示联系管理员。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
@@ -17,6 +20,7 @@ import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
 import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 
+// 组件已不再 useRouter，但保留 mock 防御性捕获任何意外调用。
 const pushSpy = vi.fn()
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushSpy })
@@ -65,35 +69,37 @@ describe('BoosterPurchaseCard — credits 正常态', () => {
   })
 })
 
-describe('BoosterPurchaseCard — free 灰态跳转', () => {
-  it('tier=free → 灰态 + tooltip + 点击跳转 /settings', async () => {
+describe('BoosterPurchaseCard — free 灰态无跳转（Q2）', () => {
+  it('tier=free → 灰态 + tooltip + 点击不跳转不 emit（B2B2C 联系管理员）', async () => {
     setup({ tier: 'free' })
     const wrapper = mount(BoosterPurchaseCard)
     const card = wrapper.find('.booster-card')
 
     expect(card.attributes('data-state')).toBe('free')
     expect(card.classes()).toContain('is-disabled')
-    expect(wrapper.text()).toContain('升级会员后可购买')
-    expect(wrapper.text()).toContain('升级为正式会员')
+    expect(card.classes()).toContain('no-route')
+    expect(wrapper.text()).toContain('请联系管理员开通会员')
+    expect(wrapper.text()).toContain('加量包为会员专享')
 
     await card.trigger('click')
-    expect(pushSpy).toHaveBeenCalledWith('/settings')
+    expect(pushSpy).not.toHaveBeenCalled()
     expect(wrapper.emitted('purchase')).toBeUndefined()
   })
 })
 
-describe('BoosterPurchaseCard — trial 灰态跳转', () => {
-  it('tier=trial → 灰态 + tooltip + 点击跳转 /settings', async () => {
+describe('BoosterPurchaseCard — trial 灰态无跳转（Q2）', () => {
+  it('tier=trial → 灰态 + tooltip + 点击不跳转不 emit（B2B2C 联系管理员）', async () => {
     setup({ tier: 'trial' })
     const wrapper = mount(BoosterPurchaseCard)
     const card = wrapper.find('.booster-card')
 
     expect(card.attributes('data-state')).toBe('trial')
     expect(card.classes()).toContain('is-disabled')
-    expect(wrapper.text()).toContain('升级会员后可购买')
+    expect(card.classes()).toContain('no-route')
+    expect(wrapper.text()).toContain('请联系管理员开通会员')
 
     await card.trigger('click')
-    expect(pushSpy).toHaveBeenCalledWith('/settings')
+    expect(pushSpy).not.toHaveBeenCalled()
     expect(wrapper.emitted('purchase')).toBeUndefined()
   })
 })
