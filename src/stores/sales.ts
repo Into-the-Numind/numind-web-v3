@@ -477,6 +477,11 @@ export const useSalesStore = defineStore('sales', () => {
       activeStreams.delete(sessionIdAtStart)
 
       if (onSameSession) {
+        // Preserve error across resetStreamState (see 2026-04-19 incident:
+        // backend SSE error event was captured but wiped in finally, leaving
+        // user with no feedback — no bubble, no loading, no error).
+        const preservedError = streamError.value
+
         // Still on the same session — append AI message
         if (sd.content || sd.thinking) {
           const aiMsg: SalesMessage = {
@@ -491,6 +496,13 @@ export const useSalesStore = defineStore('sales', () => {
         }
         isLoading.value = false
         resetStreamState()
+
+        // Restore error AFTER reset so UI can display "服务暂不可用"/具体错误
+        // 而不是一片死寂。下次 sendMessage 开头会主动清空（line 380）。
+        if (preservedError) {
+          streamError.value = preservedError
+          streamFinished.value = true
+        }
       }
       // else: session was switched; server saved the result.
       // fetchSalesMessages() will load the AI response on switch-back.
