@@ -276,7 +276,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0 32px 24px;
+  /* 底部 padding 从 24 缩到 16，减少 input 高度让聊天可视面积更大 */
+  padding: 0 32px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -290,7 +291,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 56px;
+  /* Fade 高度从 56 缩到 28，减少对聊天底部内容的遮盖 */
+  height: 28px;
   /* Fade 到白色，匹配 SalesView .app-container 背景（2026-04-19 灰→白改动） */
   background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
   pointer-events: none;
@@ -320,7 +322,8 @@ onUnmounted(() => {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 20px;
-  padding: 16px;
+  /* padding 从 16 缩到 10，进一步降低 input 高度 */
+  padding: 10px;
   box-shadow: 0 4px 12px rgba(37, 167, 105, 0.05);
   border: 1px solid rgba(37, 167, 105, 0.3);
   transition: all 0.3s ease;
