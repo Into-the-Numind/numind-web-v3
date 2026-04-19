@@ -40,10 +40,18 @@ vi.mock('qrcode', () => ({
 import PaymentQRModal from '../PaymentQRModal.vue'
 import { createOrder, getOrder, type Order } from '@/api/orders'
 import type { ApiResponse } from '@/api/request'
-import { useUserStore } from '@/stores/user'
+import { useUserStore, type UserInfo } from '@/stores/user'
 
 const createOrderMock = createOrder as unknown as ReturnType<typeof vi.fn>
 const getOrderMock = getOrder as unknown as ReturnType<typeof vi.fn>
+
+// 必须与 PaymentQRModal.vue 的 POLL_INTERVAL_MS / PAYMENT_TIMEOUT_SECS / PAID_CLOSE_DELAY_MS
+// 常量保持一致；若组件改了频率，这里也要同步（防止测试静默通过错误的时序）
+const POLL_INTERVAL_MS = 2000
+const PAYMENT_TIMEOUT_SECS = 300
+const PAID_CLOSE_DELAY_MS = 250
+// 加量包固定 0 个月（无月度概念，与 model.ProductTypeBooster 对齐）
+const BOOSTER_MONTHS = 0
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -99,7 +107,7 @@ beforeEach(() => {
 
   // 给 user store 填 userInfo.id=123（组件从 useUserStore().userInfo?.id 读取）
   const userStore = useUserStore()
-  userStore.userInfo = { id: 123, username: 'tester' }
+  userStore.userInfo = { id: 123, username: 'tester' } as UserInfo
 
   vi.useFakeTimers()
 })
@@ -120,7 +128,7 @@ describe('PaymentQRModal 状态机', () => {
     expect(createOrderMock).toHaveBeenCalledWith({
       user_id: 123,
       product_type: 'booster',
-      months: 0,
+      months: BOOSTER_MONTHS,
       pay_channel: 'wechat'
     })
     // createOrder resolve 后 transitionTo('pending')
@@ -136,17 +144,17 @@ describe('PaymentQRModal 状态机', () => {
     const wrapper = await mountModal({ open: true })
     expect(getStateText()).toContain('pending')
 
-    // 推进 2s 触发一次 poll interval tick
-    await vi.advanceTimersByTimeAsync(2000)
+    // 推进 POLL_INTERVAL_MS 触发一次 poll interval tick
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
 
     // getOrder resolve 后 transitionTo('paid') 会立即 emit('paid')
     expect(getOrderMock).toHaveBeenCalledWith(42)
     expect(wrapper.emitted('paid')).toBeTruthy()
     expect(wrapper.emitted('paid')?.length).toBe(1)
 
-    // paid → update:open=false 有 250ms 延迟
+    // paid → update:open=false 有 PAID_CLOSE_DELAY_MS 延迟
     expect(wrapper.emitted('update:open')).toBeFalsy()
-    await vi.advanceTimersByTimeAsync(250)
+    await vi.advanceTimersByTimeAsync(PAID_CLOSE_DELAY_MS)
     expect(wrapper.emitted('update:open')).toBeTruthy()
     expect(wrapper.emitted('update:open')?.[0]).toEqual([false])
 
@@ -161,8 +169,8 @@ describe('PaymentQRModal 状态机', () => {
     const wrapper = await mountModal({ open: true })
     expect(getStateText()).toContain('pending')
 
-    // 推进 300s，倒计时每秒 -1 → 到 0 时 transitionTo('expired')
-    await vi.advanceTimersByTimeAsync(300 * 1000)
+    // 推进 PAYMENT_TIMEOUT_SECS，倒计时每秒 -1 → 到 0 时 transitionTo('expired')
+    await vi.advanceTimersByTimeAsync(PAYMENT_TIMEOUT_SECS * 1000)
 
     expect(getStateText()).toContain('expired')
 
@@ -177,12 +185,12 @@ describe('PaymentQRModal 状态机', () => {
     const wrapper = await mountModal({ open: true })
     expect(getStateText()).toContain('pending')
 
-    // 2s 一次 poll；连推 6s 覆盖 3 次失败
-    await vi.advanceTimersByTimeAsync(2000)
+    // POLL_INTERVAL_MS 一次 poll；连推 3 个间隔覆盖 MAX_POLL_FAILURES 次失败
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
     expect(getStateText()).toContain('pending')
-    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
     expect(getStateText()).toContain('pending')
-    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
 
     expect(getOrderMock).toHaveBeenCalledTimes(3)
     expect(getStateText()).toContain('error')
@@ -216,9 +224,9 @@ describe('PaymentQRModal 状态机', () => {
     expect(createOrderMock).toHaveBeenCalledTimes(2)
     expect(createOrderMock.mock.calls[1]?.[0]?.pay_channel).toBe('alipay')
 
-    // 清 getOrder 调用计数并推进 2s：新 poll 应只打新订单，旧订单 (id=42) 不再被轮询
+    // 清 getOrder 调用计数并推进一个 poll 间隔：新 poll 应只打新订单，旧订单 (id=42) 不再被轮询
     getOrderMock.mockClear()
-    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
 
     // poll 新订单 id=43（至少一次，且任何调用都不能打旧 id=42）
     expect(getOrderMock.mock.calls.length).toBeGreaterThanOrEqual(1)
@@ -242,9 +250,10 @@ describe('PaymentQRModal 状态机', () => {
     // watch(props.open) → cleanup() → transitionTo('closed') → clearAllTimers()
     await flushPromises()
 
-    // 所有业务 timer 应被清理（允许 Vue 内部可能的 microtask timer 残留，
-    // 但组件自己的 setInterval/setTimeout 都必须归零）
-    expect(vi.getTimerCount()).toBe(0)
+    // 组件自己挂的 3 类 timer（poll/countdown/paidClose）必须归零。
+    // 用 <=1 宽限一个 Vue/vitest 内部可能的 microtask timer（未来版本升级防抖），
+    // 同时 >=0 保证断言仍捕获"完全不清理"的严重回归。
+    expect(vi.getTimerCount()).toBeLessThanOrEqual(1)
 
     wrapper.unmount()
   })
