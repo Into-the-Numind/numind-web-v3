@@ -149,6 +149,9 @@
       </div>
     </div>
 
+    <!-- 加量包支付弹窗（booster-payment-ui T4） -->
+    <PaymentQRModal v-model:open="showPaymentModal" @paid="handleBoosterPaid" />
+
     <!-- Logout Confirm Dialog -->
     <Teleport to="body">
       <div v-if="confirmVisible" class="confirm-overlay" @click.self="confirmVisible = false">
@@ -175,6 +178,7 @@ import { getUserInfo } from '@/api/auth'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
 import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
+import PaymentQRModal from '@/components/credit/PaymentQRModal.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -187,6 +191,9 @@ const loading = ref(true)
 
 // Confirm dialog
 const confirmVisible = ref(false)
+
+// 加量包支付弹窗（booster-payment-ui T4：BoosterPurchaseCard 点击 → 打开弹窗）
+const showPaymentModal = ref(false)
 
 // Computed: tier
 const tier = computed(() => {
@@ -289,12 +296,28 @@ const doLogout = () => {
 
 /**
  * BoosterPurchaseCard 触发 purchase 事件（credits 模式会员点击"立即购买"）。
- *
- * 当前订单流程尚未接入（Phase 2 Task 2.5 才会对齐 admin 端加量包订单 API），
- * 先 toast 提示，保留埋点。父级负责最终订单路由。
+ * 打开 PaymentQRModal 进入下单 → 轮询 → 成功回调的完整流程。
  */
 function handleBoosterPurchase(): void {
-  notifications.info('加量包购买流程即将上线，敬请期待')
+  showPaymentModal.value = true
+}
+
+/**
+ * PaymentQRModal 支付成功回调。
+ *
+ * 后端回调已确认支付成功，前端仅需刷新余额 + 通知用户。
+ * 用 finally 确保即使 fetchBalance 失败（网络抖动等），成功 toast 依然显示，
+ * 用户可手动刷新页面获取最新余额，避免"钱扣了但看不到积分"的困惑。
+ */
+async function handleBoosterPaid(): Promise<void> {
+  try {
+    await creditsStore.fetchBalance()
+  } catch (err) {
+    // 余额刷新失败不影响扣费（后端已确认），但界面积分会暂不一致，记录便于排查
+    console.warn('[handleBoosterPaid] fetchBalance failed, balance may be stale:', err)
+  } finally {
+    notifications.success('加量包购买成功！600 积分已到账，有效期 90 天')
+  }
 }
 
 onMounted(() => {

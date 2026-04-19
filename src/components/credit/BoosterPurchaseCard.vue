@@ -10,7 +10,7 @@
   >
     <div class="header">
       <div class="title">加量包</div>
-      <div class="subtitle">{{ subtitle }}</div>
+      <div v-if="cardState === 'credits'" class="subtitle">为本月 SOP 运行扩充余量</div>
     </div>
 
     <div class="body">
@@ -18,15 +18,13 @@
         <span class="price-value">¥{{ price }}</span>
         <span class="price-unit">/ {{ credits }} 积分</span>
       </div>
-      <ul class="perks">
+      <ul v-if="cardState === 'credits'" class="perks">
         <li>立即生效，有效期 90 天</li>
-        <li>订阅会员专享，可叠加使用</li>
       </ul>
     </div>
 
-    <div class="footer">
-      <span class="cta-label">{{ ctaLabel }}</span>
-      <span v-if="tooltip" class="tooltip">{{ tooltip }}</span>
+    <div v-if="cardState === 'credits'" class="footer">
+      <span class="cta-label">立即购买</span>
     </div>
   </div>
 </template>
@@ -66,7 +64,7 @@ interface Props {
 }
 withDefaults(defineProps<Props>(), {
   price: 29.9,
-  credits: 500
+  credits: 600
 })
 const emit = defineEmits<{ (e: 'purchase'): void }>()
 
@@ -99,56 +97,10 @@ const cardState = computed<'credits' | 'free' | 'trial' | 'legacy'>(() => {
   return 'free'
 })
 
-const subtitle = computed(() => {
-  switch (cardState.value) {
-    case 'credits':
-      return '为本月 SOP 运行扩充余量'
-    case 'free':
-    case 'trial':
-      return '会员专享服务'
-    case 'legacy':
-      return '到期升级后可购买'
-    default:
-      return ''
-  }
-})
-
-const ctaLabel = computed(() => {
-  switch (cardState.value) {
-    case 'credits':
-      return '立即购买'
-    case 'free':
-    case 'trial':
-      return '请联系管理员开通会员'
-    case 'legacy':
-      return '老会员制暂不支持'
-    default:
-      return ''
-  }
-})
-
-const tooltip = computed(() => {
-  switch (cardState.value) {
-    case 'free':
-    case 'trial':
-      return '加量包为会员专享，请联系您的管理员开通会员后使用'
-    case 'legacy':
-      return '老会员制暂不支持加量包，到期升级后可购买'
-    default:
-      return ''
-  }
-})
-
-/**
- * Q2: 所有非 credits 态（free / trial / legacy）点击均无动作。
- * B2B2C 模式下 C 端不能自购会员，父账户在"客户管理"页帮子账户开通。
- */
 function handleClick(): void {
   if (cardState.value === 'credits') {
     emit('purchase')
-    return
   }
-  // free / trial / legacy 统一无动作
 }
 </script>
 
@@ -233,14 +185,5 @@ function handleClick(): void {
   font-size: 13px;
   font-weight: 600;
   color: var(--primary, #10b981);
-}
-
-.booster-card.is-disabled .cta-label {
-  color: var(--text-tertiary, #9ea1b1);
-}
-
-.tooltip {
-  font-size: 11px;
-  color: var(--text-tertiary, #9ea1b1);
 }
 </style>
