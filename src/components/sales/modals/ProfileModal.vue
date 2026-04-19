@@ -49,11 +49,16 @@ const hasText = () => inputText.value.trim().length > 0
 // ==================== Title ====================
 function getTitle(): string {
   switch (currentStep.value) {
-    case 'display': return '客户档案'
-    case 'input': return '创建客户档案'
-    case 'analyzing': return '生成客户档案'
-    case 'edit': return '编辑客户档案'
-    default: return '客户档案'
+    case 'display':
+      return '客户档案'
+    case 'input':
+      return '创建客户档案'
+    case 'analyzing':
+      return '生成客户档案'
+    case 'edit':
+      return '编辑客户档案'
+    default:
+      return '客户档案'
   }
 }
 
@@ -66,23 +71,26 @@ function switchStep(step: Step) {
 }
 
 // ==================== Open/Close ====================
-watch(() => props.open, async (show) => {
-  if (show) {
-    // Clear stale local state from previous session
-    errorMessage.value = ''
-    uploadedFiles.value = []
-    inputText.value = ''
-    editText.value = ''
-    await store.loadCustomerProfile()
-    updateRenderedContent()
-    switchStep('display')
-  } else {
-    if (abortController) {
-      abortController.abort()
-      abortController = null
+watch(
+  () => props.open,
+  async (show) => {
+    if (show) {
+      // Clear stale local state from previous session
+      errorMessage.value = ''
+      uploadedFiles.value = []
+      inputText.value = ''
+      editText.value = ''
+      await store.loadCustomerProfile()
+      updateRenderedContent()
+      switchStep('display')
+    } else {
+      if (abortController) {
+        abortController.abort()
+        abortController = null
+      }
     }
   }
-})
+)
 
 function updateRenderedContent() {
   const notes = store.customerProfile || ''
@@ -271,12 +279,13 @@ function onEditorPaste(e: ClipboardEvent) {
 
 <template>
   <Teleport to="body">
-    <div
-      class="modal-overlay"
-      :class="{ open: props.open }"
-      @click="onOverlayClick"
-    >
-      <div class="modal-card profile-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
+    <div class="modal-overlay" :class="{ open: props.open }" @click="onOverlayClick">
+      <div
+        class="modal-card profile-modal-card"
+        role="dialog"
+        aria-modal="true"
+        @keydown.escape="emit('close')"
+      >
         <!-- Header -->
         <div class="profile-modal-header">
           <span class="modal-title">{{ getTitle() }}</span>
@@ -388,11 +397,16 @@ function onEditorPaste(e: ClipboardEvent) {
           </div>
 
           <!-- Step 3: Analyzing -->
-          <div v-show="currentStep === 'analyzing'" class="profile-step profile-step-analyzing active">
+          <div
+            v-show="currentStep === 'analyzing'"
+            class="profile-step profile-step-analyzing active"
+          >
             <div class="profile-analyzing-state">
               <div class="profile-analyzing-spinner" />
               <div class="profile-analyzing-title">AI 正在分析中...</div>
-              <div class="profile-analyzing-subtitle">根据您上传的文件大小，生成时间可能需要 5 秒到 1 分钟，请耐心等待</div>
+              <div class="profile-analyzing-subtitle">
+                根据您上传的文件大小，生成时间可能需要 5 秒到 1 分钟，请耐心等待
+              </div>
             </div>
           </div>
 
@@ -415,18 +429,14 @@ function onEditorPaste(e: ClipboardEvent) {
             multiple
             accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.json,.html,.jpg,.jpeg,.png,.gif,.webp"
             @change="handleFileChange"
-          >
+          />
         </div>
 
         <!-- Footer -->
         <div class="profile-modal-footer">
           <!-- Display step footer -->
           <div v-show="currentStep === 'display'" class="profile-footer-display">
-            <button
-              type="button"
-              class="btn-secondary"
-              @click="switchStep('input')"
-            >
+            <button type="button" class="btn-secondary" @click="switchStep('input')">
               <Plus v-if="!hasContent()" :size="18" />
               <span>{{ hasContent() ? '重新生成' : '创建档案' }}</span>
             </button>

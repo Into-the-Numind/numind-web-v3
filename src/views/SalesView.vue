@@ -1,24 +1,17 @@
 <template>
   <div class="sales-view">
-    <!-- Home button -->
-    <a href="/" class="back-to-home-btn" title="返回首页" @click.prevent="goHome">
-      <Home :size="18" />
-    </a>
-
     <div class="app-container">
       <!-- Sidebar -->
       <SessionSidebar
+        :mobile-open="sidebarOpen"
+        @back="goHome"
         @new-chat="showNewChatModal = true"
         @rename="openRenameModal"
         @delete="openDeleteModal"
       />
 
       <!-- Sidebar Overlay (Mobile) -->
-      <div
-        class="sidebar-overlay"
-        :class="{ show: sidebarOpen }"
-        @click="sidebarOpen = false"
-      />
+      <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false" />
 
       <!-- Main Stage -->
       <main class="main-stage">
@@ -32,16 +25,10 @@
         />
 
         <!-- Chat Area -->
-        <ChatArea
-          @show-citations="openCitationModal"
-          @preview-image="openImagePreview"
-        />
+        <ChatArea @show-citations="openCitationModal" @preview-image="openImagePreview" />
 
         <!-- Input Area -->
-        <InputArea
-          v-if="store.hasCurrentSession"
-          @preview-image="openImagePreview"
-        />
+        <InputArea v-if="store.hasCurrentSession" @preview-image="openImagePreview" />
 
         <!-- Start chat prompt when no session -->
         <div v-if="!store.hasCurrentSession && !store.messagesLoading" class="start-chat-container">
@@ -75,20 +62,11 @@
       @confirm="handleDelete"
     />
 
-    <ProfileModal
-      :open="showProfileModal"
-      @close="showProfileModal = false"
-    />
+    <ProfileModal :open="showProfileModal" @close="showProfileModal = false" />
 
-    <KbModal
-      :open="showKbModal"
-      @close="showKbModal = false"
-    />
+    <KbModal :open="showKbModal" @close="showKbModal = false" />
 
-    <ChatStyleModal
-      :open="showChatStyleModal"
-      @close="showChatStyleModal = false"
-    />
+    <ChatStyleModal :open="showChatStyleModal" @close="showChatStyleModal = false" />
 
     <CitationModal
       :open="showCitationModal"
@@ -107,7 +85,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { Home, Plus } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { checkSalesPermission } from '@/api/sales'
 import type { Citation } from '@/api/sales'
@@ -233,53 +211,27 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<!-- Unscoped: CSS variables that all child components need -->
+<!-- Unscoped: route-level overrides (use variables.css as base) -->
 <style>
 body.sales-agent-route {
-  /* --- Palette (on body so Teleport modals inherit) --- */
-  --c-primary: 158, 64%, 40%;
-  --c-primary-rich: 160, 85%, 35%;
-  --c-accent: 158, 80%, 45%;
+  --sidebar-width: 280px;
+  --text-light: var(--text-muted);
 
-  --c-bg-base: 150, 20%, 98%;
-  --c-bg-grad-start: 150, 30%, 96%;
-  --c-bg-grad-end: 160, 30%, 99%;
-
-  --c-text-main: 150, 20%, 15%;
-  --c-text-muted: 150, 10%, 45%;
-  --c-text-light: 150, 10%, 65%;
-
-  --c-surface: 0, 0%, 100%;
-
-  /* --- Tokens --- */
-  --primary: hsl(var(--c-primary));
-  --accent: hsl(var(--c-accent));
-  --text: hsl(var(--c-text-main));
-  --text-muted: hsl(var(--c-text-muted));
-  --text-light: hsl(var(--c-text-light));
-
+  /* glass tokens (used by child components) */
   --glass-border: rgba(255, 255, 255, 0.4);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
   --glass-bg: rgba(255, 255, 255, 0.75);
-
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
-
-  --sidebar-width: 280px;
 
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: radial-gradient(circle at top left, hsl(150, 30%, 96%), hsl(160, 30%, 99%));
-  color: hsl(150, 20%, 15%);
+  font-family: var(--font-sans);
+  /* body 底色改白，跟 .app-container + .input-stage::after 一致（2026-04-19 改动）。
+     这个 selector scope 到 body.sales-agent-route，不影响其他路由。 */
+  background: #ffffff;
+  color: var(--text);
 }
 
 body.sales-agent-route #app {
@@ -298,9 +250,7 @@ body.sales-agent-route #app {
   width: 100%;
   height: 100%;
   position: relative;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(37, 167, 105, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(37, 167, 105, 0.04) 0px, transparent 50%);
+  background: #ffffff;
 }
 
 .app-container *,
@@ -309,35 +259,6 @@ body.sales-agent-route #app {
   box-sizing: border-box;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Home button */
-.back-to-home-btn {
-  position: fixed;
-  top: 24px;
-  left: 24px;
-  z-index: 100;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.back-to-home-btn:hover {
-  background: white;
-  color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
 }
 
 /* Main stage */
@@ -363,6 +284,7 @@ body.sales-agent-route #app {
 
 .sidebar-overlay.show {
   display: block;
+  touch-action: none;
 }
 
 /* Start chat container */
@@ -385,22 +307,12 @@ body.sales-agent-route #app {
   border: none;
   background: var(--primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(37, 167, 105, 0.2);
+  box-shadow: 0 2px 8px hsla(160, 75%, 44%, 0.2);
 }
 
 .start-chat-btn:hover {
-  background: hsl(var(--c-primary-rich));
-  box-shadow: 0 4px 12px rgba(37, 167, 105, 0.3);
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px hsla(160, 75%, 44%, 0.3);
   transform: translateY(-1px);
-}
-
-@media (max-width: 768px) {
-  .back-to-home-btn {
-    top: 12px;
-    left: 12px;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-  }
 }
 </style>

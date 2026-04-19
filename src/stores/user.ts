@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginApi, getUserInfo } from '@/api/auth'
 import request from '@/api/request'
+import { getCreditBalance } from '@/api/credits'
 
 export interface UserInfo {
   id: string | number
@@ -16,12 +17,20 @@ export interface UserInfo {
 
 export const useUserStore = defineStore('user', () => {
   // State
-  const token = ref<string>(localStorage.getItem('token') || localStorage.getItem('auth_token') || '')
+  const token = ref<string>(
+    localStorage.getItem('token') || localStorage.getItem('auth_token') || ''
+  )
   const userInfo = ref<UserInfo | null>(null)
   const loading = ref(false)
+  const creditBalance = ref<number>(0)
+  const quotaSubTotal = ref<number>(0)
+  const quotaSubRemain = ref<number>(0)
+  const quotaBoosterTotal = ref<number>(0)
+  const quotaBoosterRemain = ref<number>(0)
 
   // Getters
   const isLoggedIn = computed(() => !!token.value)
+  const isParentUser = computed(() => userInfo.value?.parent_user_id == null)
   const username = computed(() => userInfo.value?.username || '')
   const nickname = computed(() => userInfo.value?.nickname || userInfo.value?.username || '')
 
@@ -49,15 +58,18 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // 登录
-  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (
+    username: string,
+    password: string
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       loading.value = true
       const res = await loginApi({ username, password })
-      
+
       if (res.code === 200 || res.code === 0) {
         const { access_token, token: userToken, user } = res.data || {}
         const actualToken = access_token || userToken
-        
+
         if (actualToken) {
           setToken(actualToken)
           if (user) {
@@ -72,8 +84,8 @@ export const useUserStore = defineStore('user', () => {
       }
     } catch (error: any) {
       console.error('登录错误:', error)
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: error.message || '网络错误，请稍后重试'
       }
     } finally {
@@ -85,16 +97,33 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async (): Promise<boolean> => {
     try {
       if (!token.value) return false
-      
+
       const res = await getUserInfo()
       if (res.code === 200 || res.code === 0) {
         setUserInfo(res.data)
+        fetchCreditBalance()
         return true
       }
       return false
     } catch (error) {
       console.error('获取用户信息失败:', error)
       return false
+    }
+  }
+
+  // 获取额度余额及分布
+  const fetchCreditBalance = async () => {
+    try {
+      const res = await getCreditBalance()
+      if (res.data) {
+        creditBalance.value = res.data.balance
+        quotaSubTotal.value = res.data.sub_total ?? 0
+        quotaSubRemain.value = res.data.sub_remain ?? 0
+        quotaBoosterTotal.value = res.data.booster_total ?? 0
+        quotaBoosterRemain.value = res.data.booster_remain ?? 0
+      }
+    } catch (e) {
+      // 静默失败
     }
   }
 
@@ -130,6 +159,11 @@ export const useUserStore = defineStore('user', () => {
   const logout = () => {
     stopTokenValidation()
     clearToken()
+    creditBalance.value = 0
+    quotaSubTotal.value = 0
+    quotaSubRemain.value = 0
+    quotaBoosterTotal.value = 0
+    quotaBoosterRemain.value = 0
   }
 
   // 初始化（从本地存储恢复，兼容原版 auth_token / user_info key）
@@ -159,12 +193,19 @@ export const useUserStore = defineStore('user', () => {
     token,
     userInfo,
     loading,
+    creditBalance,
+    quotaSubTotal,
+    quotaSubRemain,
+    quotaBoosterTotal,
+    quotaBoosterRemain,
     isLoggedIn,
+    isParentUser,
     username,
     nickname,
     login,
     logout,
     fetchUserInfo,
+    fetchCreditBalance,
     init,
     setToken,
     clearToken,

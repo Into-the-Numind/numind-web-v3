@@ -15,22 +15,121 @@
         class="nav-item"
         :class="{ active: isActive(item.path) }"
         :style="{ '--item-index': index }"
-        :title="collapsed ? item.title : undefined"
+        :data-tooltip="collapsed ? item.title : undefined"
       >
-        <svg v-if="item.icon === 'workspace'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        <svg
+          v-if="item.icon === 'workspace'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
         </svg>
-        <svg v-else-if="item.icon === 'history'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/><path d="M12 7V12L15 15"/>
+        <svg
+          v-else-if="item.icon === 'history'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7V12L15 15" />
         </svg>
-        <svg v-else-if="item.icon === 'customers'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 21V19C16 16.7909 14.2091 15 12 15H6C3.79086 15 2 16.7909 2 19V21"/><circle cx="9" cy="7" r="4"/><path d="M22 21V19C22 17.1362 20.7252 15.5701 19 15.126"/><path d="M16 3.12602C17.7252 3.57006 19 5.13616 19 7.00002C19 8.86388 17.7252 10.43 16 10.874"/>
+        <svg
+          v-else-if="item.icon === 'customers'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M16 21V19C16 16.7909 14.2091 15 12 15H6C3.79086 15 2 16.7909 2 19V21" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21V19C22 17.1362 20.7252 15.5701 19 15.126" />
+          <path
+            d="M16 3.12602C17.7252 3.57006 19 5.13616 19 7.00002C19 8.86388 17.7252 10.43 16 10.874"
+          />
         </svg>
-        <svg v-else-if="item.icon === 'knowledge'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5C4 18.1193 5.11929 17 6.5 17H20"/><path d="M6.5 2H20V22H6.5C5.11929 22 4 20.8807 4 19.5V4.5C4 3.11929 5.11929 2 6.5 2Z"/><path d="M8 7H16"/><path d="M8 11H13"/>
+        <svg
+          v-else-if="item.icon === 'knowledge'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 19.5C4 18.1193 5.11929 17 6.5 17H20" />
+          <path d="M6.5 2H20V22H6.5C5.11929 22 4 20.8807 4 19.5V4.5C4 3.11929 5.11929 2 6.5 2Z" />
+          <path d="M8 7H16" />
+          <path d="M8 11H13" />
         </svg>
-        <svg v-else-if="item.icon === 'settings'" class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        <svg
+          v-else-if="item.icon === 'monitor'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        <svg
+          v-else-if="item.icon === 'config'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+          />
+        </svg>
+        <svg
+          v-else-if="item.icon === 'membership'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 2l2.39 6.9H22l-5.8 4.26 2.22 6.84L12 15.9l-6.42 4.1L7.8 13.16 2 8.9h7.61z" />
+        </svg>
+        <svg
+          v-else-if="item.icon === 'settings'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+          />
         </svg>
         <span class="nav-label">{{ item.title }}</span>
       </RouterLink>
@@ -38,9 +137,22 @@
 
     <!-- Toggle -->
     <div class="sidebar-bottom">
-      <button class="toggle-btn" :title="collapsed ? '展开导航' : '折叠导航'" @click="toggle()">
-        <svg class="toggle-icon" :class="{ flipped: collapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12H3M3 12L9 6M3 12L9 18"/>
+      <button
+        class="toggle-btn"
+        :data-tooltip="collapsed ? '展开导航' : undefined"
+        @click="toggle()"
+      >
+        <svg
+          class="toggle-icon"
+          :class="{ flipped: collapsed }"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 12H3M3 12L9 6M3 12L9 18" />
         </svg>
         <span class="toggle-label">折叠</span>
       </button>
@@ -52,15 +164,16 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useSidebarState } from '@/composables/useSidebarState'
 
 const route = useRoute()
 const userStore = useUserStore()
-const collapsed = ref(false)
+const { collapsed, toggle: toggleCollapsed } = useSidebarState()
 const animating = ref(false)
 
 const toggle = () => {
   animating.value = true
-  collapsed.value = !collapsed.value
+  toggleCollapsed()
 }
 
 const onTransitionEnd = (e: TransitionEvent) => {
@@ -79,12 +192,18 @@ const menuItems = computed(() => {
     { path: '/sop', title: '运行记录', icon: 'history' }
   ]
 
-  const parentUserId = userStore.userInfo?.parent_user_id
-  if (!parentUserId) {
+  if (userStore.isParentUser) {
     items.push({ path: '/customers', title: '客户管理', icon: 'customers' })
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
+  // 竞品监控暂时隐藏（开发中，未对用户开放）
+  // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
+
+  if (userStore.isParentUser) {
+    items.push({ path: '/config', title: '配置中心', icon: 'config' })
+  }
+
   items.push({ path: '/settings', title: '设置', icon: 'settings' })
 
   return items
@@ -185,9 +304,15 @@ const isActive = (path: string) => {
 }
 
 @keyframes logo-breathe {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(0.9); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .collapsed .logo-mark:hover {
@@ -270,9 +395,15 @@ const isActive = (path: string) => {
 }
 
 @keyframes icon-pulse {
-  0%   { transform: scale(1); }
-  35%  { transform: scale(1.15); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .nav-label {
@@ -297,7 +428,7 @@ const isActive = (path: string) => {
 
 .nav-item:hover {
   color: hsl(160, 40%, 36%);
-  background: hsla(160, 45%, 50%, 0.10);
+  background: hsla(160, 45%, 50%, 0.1);
 }
 
 .nav-item.active {
@@ -369,7 +500,7 @@ const isActive = (path: string) => {
 
 .toggle-btn:hover {
   color: hsl(160, 40%, 36%);
-  background: hsla(160, 45%, 50%, 0.10);
+  background: hsla(160, 45%, 50%, 0.1);
 }
 
 .toggle-btn:active {
@@ -379,6 +510,34 @@ const isActive = (path: string) => {
 /* Micro-pulse on the toggle icon during animation */
 .animating .toggle-icon {
   animation: icon-pulse 380ms var(--ease-spring) both;
+}
+
+/* ===== Tooltip (collapsed state) ===== */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  background: hsl(160, 20%, 22%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: 1000;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
 }
 
 /* ===== Accessibility ===== */
@@ -397,57 +556,60 @@ const isActive = (path: string) => {
   }
 }
 
-/* ===== Mobile — no sidebar animation ===== */
+/* ===== Mobile — bottom tab bar ===== */
 @media (max-width: 768px) {
   .sidebar,
   .sidebar.collapsed {
     width: 100%;
     height: auto;
     flex-direction: row;
-    padding: 10px 16px;
-    gap: 2px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: 0;
     transition: none;
     will-change: auto;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: hsl(160, 30%, 97%);
+    border-right: none;
+    border-top: 1px solid hsla(160, 20%, 88%, 0.6);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+    justify-content: center;
   }
 
   .sidebar-logo {
-    margin-bottom: 0;
-    margin-right: 12px;
-    padding: 0;
-  }
-
-  .logo-text {
-    font-size: 13px;
-    max-width: none;
-    opacity: 1;
-    transition: none;
-  }
-
-  .logo-mark {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    font-size: 14px;
-    border-radius: 9px;
-    animation: none !important;
+    display: none;
   }
 
   .nav-menu {
     flex-direction: row;
-    gap: 2px;
+    gap: 0;
     padding: 0;
+    flex: 1;
+    justify-content: space-around;
   }
 
   .nav-item {
-    padding: 8px 10px;
-    font-size: 12px;
-    transition: color 200ms ease, background 200ms ease;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 10px;
+    gap: 3px;
+    border-radius: 10px;
+    min-width: 0;
+    flex: 1;
+    transition:
+      color 200ms ease,
+      background 200ms ease;
   }
 
   .nav-icon-svg {
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
     animation: none !important;
   }
 
@@ -455,17 +617,24 @@ const isActive = (path: string) => {
     max-width: none;
     opacity: 1;
     transition: none;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .collapsed .nav-label {
+    max-width: none;
+    opacity: 1;
+  }
+
+  .collapsed .nav-item {
+    gap: 3px;
   }
 
   .sidebar-bottom {
-    margin-top: 0;
-    margin-left: auto;
-    flex-direction: row;
-    padding: 0;
-    gap: 0;
+    display: none;
   }
 
-  .toggle-btn {
+  [data-tooltip]::after {
     display: none;
   }
 }

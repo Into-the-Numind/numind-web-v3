@@ -18,8 +18,8 @@ const { render: renderMarkdown } = useMarkdown()
 // ==================== State ====================
 type Step = 'display' | 'input' | 'analyzing'
 const currentStep = ref<Step>('display')
-const styleContent = ref('')           // Raw markdown content
-const renderedContent = ref('')        // Rendered HTML
+const styleContent = ref('') // Raw markdown content
+const renderedContent = ref('') // Rendered HTML
 const uploadedFile = ref<File | null>(null)
 const inputText = ref('')
 const isGenerating = ref(false)
@@ -43,10 +43,14 @@ const canGenerate = () => !!uploadedFile.value || inputText.value.trim().length 
 // ==================== Title mapping ====================
 function getTitle(): string {
   switch (currentStep.value) {
-    case 'display': return '语言风格'
-    case 'input': return '创建语言风格'
-    case 'analyzing': return '生成语言风格'
-    default: return '语言风格'
+    case 'display':
+      return '语言风格'
+    case 'input':
+      return '创建语言风格'
+    case 'analyzing':
+      return '生成语言风格'
+    default:
+      return '语言风格'
   }
 }
 
@@ -56,17 +60,20 @@ function switchStep(step: Step) {
 }
 
 // ==================== Open/Close ====================
-watch(() => props.open, async (show) => {
-  if (show) {
-    await loadSavedStyle()
-    switchStep('display')
-  } else {
-    if (abortController) {
-      abortController.abort()
-      abortController = null
+watch(
+  () => props.open,
+  async (show) => {
+    if (show) {
+      await loadSavedStyle()
+      switchStep('display')
+    } else {
+      if (abortController) {
+        abortController.abort()
+        abortController = null
+      }
     }
   }
-})
+)
 
 // ==================== Load saved style ====================
 async function loadSavedStyle() {
@@ -151,33 +158,37 @@ async function startGeneration() {
       formData.append('text', inputText.value.trim())
     }
 
-    await analyzeChatStyleStream(formData, (event: SalesChatEvent) => {
-      if (event.type === 'token') {
-        result += String(event.data || '')
-        // Switch to display on first token
-        if (currentStep.value === 'analyzing') {
-          switchStep('display')
-        }
-        // Real-time render
-        styleContent.value = result
-        renderedContent.value = renderMarkdown(result)
-        // Auto-scroll
-        nextTick(() => {
-          if (editorRef.value) {
-            editorRef.value.scrollTop = editorRef.value.scrollHeight
+    await analyzeChatStyleStream(
+      formData,
+      (event: SalesChatEvent) => {
+        if (event.type === 'token') {
+          result += String(event.data || '')
+          // Switch to display on first token
+          if (currentStep.value === 'analyzing') {
+            switchStep('display')
           }
-        })
-      } else if (event.type === 'done') {
-        const doneData = event.data as Record<string, unknown> | null
-        if (doneData?.analysis || doneData?.style) {
-          result = String(doneData.analysis || doneData.style || result)
+          // Real-time render
           styleContent.value = result
           renderedContent.value = renderMarkdown(result)
+          // Auto-scroll
+          nextTick(() => {
+            if (editorRef.value) {
+              editorRef.value.scrollTop = editorRef.value.scrollHeight
+            }
+          })
+        } else if (event.type === 'done') {
+          const doneData = event.data as Record<string, unknown> | null
+          if (doneData?.analysis || doneData?.style) {
+            result = String(doneData.analysis || doneData.style || result)
+            styleContent.value = result
+            renderedContent.value = renderMarkdown(result)
+          }
+        } else if (event.type === 'error') {
+          throw new Error(String(event.data))
         }
-      } else if (event.type === 'error') {
-        throw new Error(String(event.data))
-      }
-    }, abortController.signal)
+      },
+      abortController.signal
+    )
 
     if (!result.trim()) {
       throw new Error('分析结果为空，请检查输入内容或稍后重试')
@@ -247,12 +258,13 @@ function onEditorPaste(e: ClipboardEvent) {
 
 <template>
   <Teleport to="body">
-    <div
-      class="modal-overlay"
-      :class="{ open: props.open }"
-      @click="onOverlayClick"
-    >
-      <div class="modal-card profile-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
+    <div class="modal-overlay" :class="{ open: props.open }" @click="onOverlayClick">
+      <div
+        class="modal-card profile-modal-card"
+        role="dialog"
+        aria-modal="true"
+        @keydown.escape="emit('close')"
+      >
         <!-- Header -->
         <div class="profile-modal-header">
           <span class="modal-title">{{ getTitle() }}</span>
@@ -310,7 +322,9 @@ function onEditorPaste(e: ClipboardEvent) {
                 </div>
                 <div class="profile-uploaded-file-info">
                   <div class="profile-uploaded-file-name">{{ uploadedFile.name }}</div>
-                  <div class="profile-uploaded-file-size">{{ formatFileSize(uploadedFile.size) }}</div>
+                  <div class="profile-uploaded-file-size">
+                    {{ formatFileSize(uploadedFile.size) }}
+                  </div>
                 </div>
                 <button class="profile-uploaded-file-remove" @click="clearUploadedFile($event)">
                   <X :size="16" />
@@ -334,11 +348,16 @@ function onEditorPaste(e: ClipboardEvent) {
           </div>
 
           <!-- Step 3: Analyzing -->
-          <div v-show="currentStep === 'analyzing'" class="chatstyle-step chatstyle-step-analyzing active">
+          <div
+            v-show="currentStep === 'analyzing'"
+            class="chatstyle-step chatstyle-step-analyzing active"
+          >
             <div class="profile-analyzing-state">
               <div class="profile-analyzing-spinner" />
               <div class="profile-analyzing-title">AI 正在分析中...</div>
-              <div class="profile-analyzing-subtitle">根据您上传的文件大小，生成时间可能需要 5 秒到 1 分钟，请耐心等待</div>
+              <div class="profile-analyzing-subtitle">
+                根据您上传的文件大小，生成时间可能需要 5 秒到 1 分钟，请耐心等待
+              </div>
             </div>
           </div>
 
@@ -349,18 +368,14 @@ function onEditorPaste(e: ClipboardEvent) {
             hidden
             accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.json,.html,.jpg,.jpeg,.png,.gif,.webp"
             @change="handleFileChange"
-          >
+          />
         </div>
 
         <!-- Footer -->
         <div class="profile-modal-footer">
           <!-- Display step footer -->
           <div v-show="currentStep === 'display'" class="profile-footer-display">
-            <button
-              type="button"
-              class="btn-secondary"
-              @click="switchStep('input')"
-            >
+            <button type="button" class="btn-secondary" @click="switchStep('input')">
               <Plus v-if="!hasContent()" :size="18" />
               <span>{{ hasContent() ? '重新生成' : '创建档案' }}</span>
             </button>

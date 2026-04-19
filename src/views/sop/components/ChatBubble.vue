@@ -1,0 +1,500 @@
+<!--
+  ChatBubble — 单条聊天消息气泡
+
+  职责：
+    - 显示一条聊天消息（user 或 assistant）
+    - 用户消息：右侧气泡，无 thinking / 无操作按钮
+    - 助手消息：左侧气泡 + thinking 折叠面板 + 复制按钮
+    - Markdown 渲染 content（通过 @/utils/markdown）
+    - 流式状态下显示光标
+
+  ## Props
+
+  - message: ChatBubbleMessage — 消息对象
+  - streaming?: boolean — 是否正在流式生成（仅 assistant 有意义）
+  - meta?: SopChatMessageMeta — 可选，AI 气泡下方贴 MetaFooter（F10 新增）
+
+  ## Emits
+
+  - copy(content) — 点击复制按钮（父组件调 navigator.clipboard 并 toast）
+
+  ## 为什么不直接复用 StepOutput
+
+  - StepOutput 有自己的滚动容器 + scrollFollow 集成（整个步骤输出）
+  - ChatBubble 是容器的子元素（多条消息共享父级滚动）
+  - 两者都会用 renderMarkdown，但外壳和交互完全不同
+
+  详见 spec §8.2
+-->
+<template>
+  <div
+    class="chat-bubble"
+    :class="[`chat-bubble--${message.role}`, { 'is-streaming': streaming }, { 'is-temp': isTemp }]"
+  >
+    <div class="chat-bubble-body">
+      <!-- 主气泡 — 思维链折叠面板作为气泡内首块 -->
+      <div class="chat-bubble-content">
+        <!-- 思维链折叠面板（仅 assistant + 有 thinking） -->
+        <div
+          v-if="hasThinking"
+          class="chat-bubble-thinking"
+          :class="{ 'is-collapsed': thinkingCollapsed, 'has-content-below': hasContent }"
+        >
+          <button
+            type="button"
+            class="chat-bubble-thinking-header"
+            :aria-expanded="!thinkingCollapsed"
+            @click="thinkingCollapsed = !thinkingCollapsed"
+          >
+            <span class="chat-bubble-thinking-icon" aria-hidden="true">
+              <component :is="thinkingCollapsed ? ChevronRight : ChevronDown" :size="14" />
+            </span>
+            <span>{{ streaming && !hasContent ? '思考中…' : '思考过程' }}</span>
+          </button>
+          <div
+            v-show="!thinkingCollapsed"
+            class="chat-bubble-thinking-content prose"
+            v-html="thinkingHtml"
+          />
+        </div>
+
+        <!-- 流式但无内容：弹跳点加载（生产环境风格） -->
+        <div v-if="streaming && !hasContent && !hasThinking" class="chat-bubble-loading">
+          <div>
+            <div class="chat-bubble-loading-name">AI 正在分析中</div>
+            <div class="chat-bubble-loading-dots">
+              <span class="chat-bubble-dot" style="animation-delay: -0.32s" />
+              <span class="chat-bubble-dot" style="animation-delay: -0.16s" />
+              <span class="chat-bubble-dot" />
+            </div>
+          </div>
+        </div>
+        <!-- 正常/流式内容 -->
+        <div v-else-if="hasContent" class="chat-bubble-text prose" v-html="contentHtml" />
+      </div>
+
+      <!-- 操作按钮（仅 assistant + 非流式 + 非临时） -->
+      <div
+        v-if="message.role === 'assistant' && !streaming && !isTemp && hasContent"
+        class="chat-bubble-actions"
+      >
+        <button
+          type="button"
+          class="chat-bubble-action"
+          aria-label="复制"
+          @click="emit('copy', message.content)"
+        >
+          <Copy :size="14" aria-hidden="true" />
+          <span>复制</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 用户头像已移除 — 用户消息无 avatar，靠右气泡即可 -->
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { ChevronRight, ChevronDown, Copy } from 'lucide-vue-next'
+import { renderMarkdown } from '@/utils/markdown'
+import type { SopChatMessageMeta } from '@/views/sop/types'
+
+/**
+ * 聊天消息类型（兼容后端 RunChatMessageItem 和前端临时消息）。
+ *
+ * 临时消息的 id 是字符串（如 "temp_123"），持久化后变为后端分配的 number。
+ */
+export interface ChatBubbleMessage {
+  id: number | string
+  role: 'user' | 'assistant'
+  content: string
+  thinking?: string
+  created_at?: string
+}
+
+interface Props {
+  message: ChatBubbleMessage
+  streaming?: boolean
+  /** 保留 prop 以兼容父组件传入，但当前 UI 不再渲染 meta 信息（仅保留复制/重新生成） */
+  meta?: SopChatMessageMeta
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  streaming: false,
+  meta: undefined
+})
+
+const emit = defineEmits<{
+  copy: [content: string]
+}>()
+
+const hasThinking = computed(
+  () =>
+    props.message.role === 'assistant' &&
+    !!props.message.thinking &&
+    props.message.thinking.length > 0
+)
+
+const hasContent = computed(() => !!props.message.content && props.message.content.length > 0)
+
+/** 临时消息判断（id 是字符串 = 临时） */
+const isTemp = computed(() => typeof props.message.id === 'string')
+
+const thinkingCollapsed = ref(!props.streaming)
+
+const thinkingHtml = computed(() => renderMarkdown(props.message.thinking ?? ''))
+const contentHtml = computed(() => renderMarkdown(props.message.content))
+
+/**
+ * streaming 状态变化时重置折叠：
+ * true→false 流式结束，自动折叠思维链
+ */
+watch(
+  () => props.streaming,
+  (newVal) => {
+    thinkingCollapsed.value = !newVal
+  }
+)
+
+/**
+ * 流式期间 content 首次出现 → 深度思考结束，自动折叠思考面板让出正文位置。
+ * （避免等到整轮 streaming 结束才折叠）
+ */
+watch(
+  () => props.message.content,
+  (newContent, oldContent) => {
+    if (props.streaming && !oldContent && newContent) {
+      thinkingCollapsed.value = true
+    }
+  }
+)
+</script>
+
+<style scoped>
+.chat-bubble {
+  display: flex;
+  gap: var(--space-sm);
+  max-width: 100%;
+  margin: var(--space-md) 0;
+}
+
+.chat-bubble--user {
+  flex-direction: row-reverse;
+}
+
+.chat-bubble--assistant {
+  flex-direction: row;
+}
+
+/* ==================== Body ==================== */
+
+.chat-bubble-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-width: 85%;
+}
+
+.chat-bubble--user .chat-bubble-body {
+  align-items: flex-end;
+}
+
+.chat-bubble--assistant .chat-bubble-body {
+  align-items: flex-start;
+  max-width: 100%;
+}
+
+/* ==================== Thinking 面板（嵌入在气泡内） ==================== */
+
+.chat-bubble-thinking {
+  width: 100%;
+}
+
+/* 展开 + 底下有正文时：仅加底部呼吸间距，无分隔线 */
+.chat-bubble-thinking.has-content-below:not(.is-collapsed) {
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.chat-bubble-thinking-header {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: left;
+  transition: color var(--transition-fast);
+}
+
+.chat-bubble-thinking-header:hover {
+  color: var(--color-text-secondary);
+}
+
+.chat-bubble-thinking-icon {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  display: inline-flex;
+}
+
+.chat-bubble-thinking-content {
+  margin-top: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-height-relaxed);
+}
+
+.chat-bubble-thinking-content :deep(*) {
+  color: inherit !important;
+}
+
+.chat-bubble-thinking-content :deep(p) {
+  margin: 0 0 6px;
+}
+
+.chat-bubble-thinking-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.chat-bubble-thinking-content :deep(ul),
+.chat-bubble-thinking-content :deep(ol) {
+  margin: 0 0 6px;
+  padding-left: 20px;
+}
+
+.chat-bubble-thinking-content :deep(strong) {
+  font-weight: 600;
+}
+
+/* ==================== 主气泡 ==================== */
+
+.chat-bubble-content {
+  max-width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-relaxed);
+  word-wrap: break-word;
+}
+
+.chat-bubble--user .chat-bubble-content {
+  background: var(--accent);
+  color: white;
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.chat-bubble--assistant .chat-bubble-content {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: 100%;
+}
+
+/* 助手消息 Markdown 标题层级 — 与 chatbot 页面对齐，仅保留微弱层级 */
+.chat-bubble--assistant :deep(.chat-bubble-text h1),
+.chat-bubble--assistant :deep(.chat-bubble-text h2),
+.chat-bubble--assistant :deep(.chat-bubble-text h3),
+.chat-bubble--assistant :deep(.chat-bubble-text h4),
+.chat-bubble--assistant :deep(.chat-bubble-text h5),
+.chat-bubble--assistant :deep(.chat-bubble-text h6) {
+  font-family: var(--font-sans);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h1) {
+  font-size: 16px;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h2) {
+  font-size: 15px;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h3),
+.chat-bubble--assistant :deep(.chat-bubble-text h4),
+.chat-bubble--assistant :deep(.chat-bubble-text h5),
+.chat-bubble--assistant :deep(.chat-bubble-text h6) {
+  font-size: inherit;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text h1:first-child),
+.chat-bubble--assistant :deep(.chat-bubble-text h2:first-child),
+.chat-bubble--assistant :deep(.chat-bubble-text h3:first-child),
+.chat-bubble--assistant :deep(.chat-bubble-text h4:first-child) {
+  margin-top: 0;
+}
+
+/* Markdown 正文样式 — 与 chatbot 页面完全对齐 */
+.chat-bubble--assistant :deep(.chat-bubble-text p) {
+  margin: 12px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text p:last-child) {
+  margin-bottom: 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text ul),
+.chat-bubble--assistant :deep(.chat-bubble-text ol) {
+  margin: 12px 0;
+  padding-left: 28px;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text li) {
+  margin: 4px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text strong) {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text em) {
+  font-style: italic;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text code) {
+  background-color: hsl(150, 10%, 92%);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono, 'SF Mono', Monaco, Consolas, monospace);
+  font-size: 13px;
+  color: hsl(158, 64%, 40%);
+  border: 1px solid hsl(150, 15%, 90%);
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text pre) {
+  background-color: hsl(150, 10%, 92%);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid hsl(150, 15%, 90%);
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  border: none;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text blockquote) {
+  border-left: 4px solid hsl(158, 64%, 40%);
+  padding-left: 16px;
+  margin: 16px 0;
+  color: hsl(150, 10%, 40%);
+  font-style: italic;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text hr) {
+  border: none;
+  border-top: 1px solid var(--divider, var(--border-light));
+  margin: 24px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text a) {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text th),
+.chat-bubble--assistant :deep(.chat-bubble-text td) {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.chat-bubble--assistant :deep(.chat-bubble-text th) {
+  background-color: var(--surface-tint, var(--surface-hover));
+  font-weight: 600;
+}
+
+/* 仅保留动效 + 字样，无容器 */
+.chat-bubble-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.chat-bubble-loading-name {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: 6px;
+}
+
+.chat-bubble-loading-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-bubble-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  animation: chat-dot-bounce 1.4s infinite ease-in-out both;
+}
+
+@keyframes chat-dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+/* ==================== 操作按钮 ==================== */
+
+.chat-bubble-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.chat-bubble-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chat-bubble-action:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+</style>

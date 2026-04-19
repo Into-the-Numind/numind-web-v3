@@ -6,6 +6,18 @@
         <h1 class="page-title">设置</h1>
       </div>
 
+      <!-- Section: 我的积分（credits-system Phase 2 Task 2.4）
+           CreditBalanceCard 自动按 user.tier + billing_mode 三态渲染；
+           BoosterPurchaseCard 以 4 态灰态交互。余额数据由 credits store 的
+           fetchBalance() 填充（onMounted 触发）。 -->
+      <div class="settings-section">
+        <div class="section-label">我的积分</div>
+        <div class="credit-grid">
+          <CreditBalanceCard />
+          <BoosterPurchaseCard @purchase="handleBoosterPurchase" />
+        </div>
+      </div>
+
       <!-- Section: 个人信息 -->
       <div class="settings-section">
         <div class="section-label">个人信息</div>
@@ -47,12 +59,12 @@
         <div class="section-label">会员信息</div>
         <div class="settings-group">
           <div class="settings-row">
-            <div class="row-label">当前套餐</div>
+            <div class="row-label">会员状态</div>
             <div class="row-value">
               <span class="badge-tier">{{ tierLabel }}</span>
             </div>
           </div>
-          <div class="settings-row">
+          <div v-if="expiryText !== '—'" class="settings-row">
             <div class="row-label">有效期至</div>
             <div class="row-value">{{ expiryText }}</div>
           </div>
@@ -63,45 +75,34 @@
       <div class="settings-section">
         <div class="section-label">用量统计</div>
         <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-label">本月已用</div>
-            <div class="row-value row-value-num">{{ monthlyUsage }} 次</div>
-          </div>
-          <div class="settings-row">
-            <div class="row-label">本月剩余</div>
-            <div class="row-value row-value-num">
-              {{ isPremium ? '无限' : remainingRuns + ' 次' }}
-            </div>
-          </div>
-          <!-- Progress bar (non-premium only) -->
-          <div v-if="!isPremium" class="settings-row settings-row-block">
+          <div class="settings-row settings-row-block">
             <div class="row-label">额度使用率</div>
             <div class="row-value-full">
-              <div class="usage-progress-wrap">
-                <div class="usage-progress-bar">
-                  <div class="usage-progress-fill" :style="{ width: usagePercent + '%' }"></div>
+              <div class="quota-bar-wrap">
+                <div class="quota-bar">
+                  <div
+                    class="quota-fill quota-fill-subscription"
+                    :style="{ width: subscriptionPercent + '%' }"
+                  ></div>
+                  <div
+                    v-if="!isOldMember"
+                    class="quota-fill quota-fill-booster"
+                    :style="{ width: boosterPercent + '%', left: subscriptionPercent + '%' }"
+                  ></div>
                 </div>
-                <span class="usage-progress-text">{{ usagePercent }}%</span>
+                <span class="quota-percent">{{ quotaLabel }}</span>
+              </div>
+              <div v-if="!isOldMember" class="quota-legend">
+                <span class="quota-legend-item">
+                  <span class="quota-legend-dot subscription"></span>
+                  订阅额度
+                </span>
+                <span class="quota-legend-item">
+                  <span class="quota-legend-dot booster"></span>
+                  加量包
+                </span>
               </div>
             </div>
-          </div>
-          <!-- Premium unlimited hint -->
-          <div v-if="isPremium" class="premium-hint">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="m2 4 3 12h14l3-12-5 4-5-6-5 6-5-4Z" />
-              <path d="M4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2" />
-            </svg>
-            尊享无限次运行权限
           </div>
         </div>
       </div>
@@ -148,6 +149,9 @@
       </div>
     </div>
 
+    <!-- 加量包支付弹窗（booster-payment-ui T4） -->
+    <PaymentQRModal v-model:open="showPaymentModal" @paid="handleBoosterPaid" />
+
     <!-- Logout Confirm Dialog -->
     <Teleport to="body">
       <div v-if="confirmVisible" class="confirm-overlay" @click.self="confirmVisible = false">
@@ -168,11 +172,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useCreditsStore } from '@/stores/credits'
+import { useNotificationsStore } from '@/stores/notifications'
 import { getUserInfo } from '@/api/auth'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
+import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
+import PaymentQRModal from '@/components/credit/PaymentQRModal.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const creditsStore = useCreditsStore()
+const notifications = useNotificationsStore()
 
 // Raw data from API
 const userData = ref<Record<string, any>>({})
@@ -181,52 +192,80 @@ const loading = ref(true)
 // Confirm dialog
 const confirmVisible = ref(false)
 
+// 加量包支付弹窗（booster-payment-ui T4：BoosterPurchaseCard 点击 → 打开弹窗）
+const showPaymentModal = ref(false)
+
 // Computed: tier
 const tier = computed(() => {
   const raw = userData.value.user_tier || userData.value.tier || userData.value.plan || 'free'
   return String(raw).toLowerCase()
 })
 
-const isPremium = computed(() => tier.value === 'premium' || tier.value === 'vip')
+const isOldMember = computed(() => {
+  const t = tier.value
+  return t === 'standard' || t === 'premium' || t === 'vip'
+})
+
+// 额度进度条计算（兼容新老会员）
+const subscriptionPercent = computed(() => {
+  if (isOldMember.value) {
+    const t = tier.value
+    if (t === 'premium' || t === 'vip') return 100
+    const limit = t === 'standard' ? 20 : 10 // standard 20次/月, trial 10次
+    const used = userData.value.monthly_sop_runs ?? 0
+    const remain = Math.max(limit - used, 0)
+    return Math.round((remain / limit) * 100)
+  }
+  const total = userStore.quotaSubTotal + userStore.quotaBoosterTotal
+  if (total <= 0) return 0
+  return Math.round((userStore.quotaSubRemain / total) * 100)
+})
+const boosterPercent = computed(() => {
+  if (isOldMember.value) return 0
+  const total = userStore.quotaSubTotal + userStore.quotaBoosterTotal
+  if (total <= 0) return 0
+  return Math.round((userStore.quotaBoosterRemain / total) * 100)
+})
+const quotaLabel = computed(() => {
+  if (isOldMember.value) {
+    const t = tier.value
+    if (t === 'premium' || t === 'vip') return '无限次'
+    const limit = t === 'standard' ? 20 : 10
+    const used = userData.value.monthly_sop_runs ?? 0
+    return `${Math.max(limit - used, 0)}/${limit} 次`
+  }
+  return `${userStore.creditBalance}`
+})
 
 const tierLabel = computed(() => {
-  const labels: Record<string, string> = {
-    free: '免费用户',
-    trial: '体验会员',
-    standard: '普通会员',
-    premium: '高级会员',
-    vip: '高级会员',
-    pro: '高级会员'
-  }
-  return labels[tier.value] || '免费用户'
+  const t = tier.value
+  if (t === 'premium' || t === 'vip') return '高级会员'
+  if (t === 'standard') return '普通会员'
+  if (t === 'trial') return '体验会员'
+  if (t === 'free' && userStore.creditBalance > 0) return 'Pro'
+  return 'Free'
 })
 
 // Computed: profile
 const displayName = computed(() => userData.value.nickname || userStore.nickname || '加载中..')
 const displayId = computed(
-  () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--',
+  () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--'
 )
 
 // Computed: expiry
 const expiryText = computed(() => {
-  const expiry =
+  // 老会员用 tier_expires
+  const tierExpiry =
     userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
-  if (!expiry) return '永久有效'
-  const d = new Date(expiry)
-  if (d.getFullYear() > 2090) return '永久有效'
-  return d.toLocaleDateString('zh-CN')
-})
-
-// Computed: usage
-const monthlyUsage = computed(() => userData.value.monthly_sop_runs ?? 0)
-
-const remainingRuns = computed(() => userData.value.remaining_sop_runs ?? 0)
-
-const usagePercent = computed(() => {
-  if (isPremium.value) return 0
-  const totalLimit = tier.value === 'standard' ? 20 : 10
-  const pct = Math.min(Math.round((monthlyUsage.value / totalLimit) * 100), 100)
-  return pct
+  if (isOldMember.value && tierExpiry) {
+    const d = new Date(tierExpiry)
+    if (d.getFullYear() > 2090) return '永久有效'
+    return d.toLocaleDateString('zh-CN')
+  }
+  // 新用户用 credit_expires (需要后端返回)
+  // 目前设置页 getUserInfo 不返回 credit_expires，暂用 '—'
+  if (!isOldMember.value && userStore.creditBalance > 0) return '—'
+  return '—'
 })
 
 // Fetch user data
@@ -255,8 +294,36 @@ const doLogout = () => {
   router.push('/login')
 }
 
+/**
+ * BoosterPurchaseCard 触发 purchase 事件（credits 模式会员点击"立即购买"）。
+ * 打开 PaymentQRModal 进入下单 → 轮询 → 成功回调的完整流程。
+ */
+function handleBoosterPurchase(): void {
+  showPaymentModal.value = true
+}
+
+/**
+ * PaymentQRModal 支付成功回调。
+ *
+ * 后端回调已确认支付成功，前端仅需刷新余额 + 通知用户。
+ * 用 finally 确保即使 fetchBalance 失败（网络抖动等），成功 toast 依然显示，
+ * 用户可手动刷新页面获取最新余额，避免"钱扣了但看不到积分"的困惑。
+ */
+async function handleBoosterPaid(): Promise<void> {
+  try {
+    await creditsStore.fetchBalance()
+  } catch (err) {
+    // 余额刷新失败不影响扣费（后端已确认），但界面积分会暂不一致，记录便于排查
+    console.warn('[handleBoosterPaid] fetchBalance failed, balance may be stale:', err)
+  } finally {
+    notifications.success('加量包购买成功！600 积分已到账，有效期 90 天')
+  }
+}
+
 onMounted(() => {
   void fetchData()
+  // credits-system：拉 credits store 的完整 QuotaBreakdown（含 billing_mode / 过期）
+  void creditsStore.fetchBalance()
 })
 </script>
 
@@ -276,7 +343,7 @@ onMounted(() => {
   font-family: var(--font-sans);
   font-size: 28px;
   font-weight: 700;
-  color: #1A1D26;
+  color: #1a1d26;
   letter-spacing: -0.02em;
   margin: 0;
 }
@@ -286,11 +353,19 @@ onMounted(() => {
   margin-bottom: 32px;
 }
 
+/* credits-system Phase 2: 两张 credit 卡片并排（宽屏）→ 纵排（窄屏） */
+.credit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
 .section-label {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
-  color: #8B90A0;
+  color: #8b90a0;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 10px;
@@ -299,8 +374,8 @@ onMounted(() => {
 
 /* ===== Settings Group (card wrapper) ===== */
 .settings-group {
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
   border-radius: 14px;
   overflow: hidden;
 }
@@ -315,7 +390,7 @@ onMounted(() => {
 }
 
 .settings-row + .settings-row {
-  border-top: 1px solid #F0F1F5;
+  border-top: 1px solid #f0f1f5;
 }
 
 .settings-row-block {
@@ -336,33 +411,33 @@ onMounted(() => {
 }
 
 .settings-row-action:hover {
-  background: #FAFBFC;
+  background: #fafbfc;
 }
 
 /* ===== Row Label / Value ===== */
 .row-label {
   font-size: 14px;
   font-weight: 500;
-  color: #3D4055;
+  color: #3d4055;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .row-label-danger {
-  color: #EF4444;
+  color: #ef4444;
 }
 
 .row-value {
   font-size: 14px;
-  color: #1A1D26;
+  color: #1a1d26;
   font-weight: 500;
 }
 
 .row-value-mono {
   font-family: var(--font-mono, monospace);
   font-size: 13px;
-  color: #6B7085;
+  color: #6b7085;
 }
 
 .row-value-num {
@@ -376,7 +451,7 @@ onMounted(() => {
 }
 
 .row-chevron {
-  color: #C4C6D0;
+  color: #c4c6d0;
   flex-shrink: 0;
 }
 
@@ -403,17 +478,17 @@ onMounted(() => {
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
-  background: #F3F4F6;
-  color: #6B7280;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .settings-page[data-tier='trial'] .badge-tier {
-  background: #EFF6FF;
-  color: #2563EB;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .settings-page[data-tier='standard'] .badge-tier {
-  background: #ECFDF5;
+  background: #ecfdf5;
   color: #059669;
 }
 
@@ -421,55 +496,6 @@ onMounted(() => {
   background: linear-gradient(135deg, hsl(45, 100%, 55%), hsl(38, 100%, 50%));
   color: white;
   box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
-}
-
-/* ===== Usage Progress ===== */
-.usage-progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.usage-progress-bar {
-  flex: 1;
-  height: 6px;
-  background: #F0F1F5;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.usage-progress-fill {
-  height: 100%;
-  background: #10B981;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-.usage-progress-text {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6B7085;
-  min-width: 36px;
-  text-align: right;
-}
-
-/* ===== Premium Hint ===== */
-.premium-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 18px;
-  border-top: 1px solid #F0F1F5;
-  font-size: 13px;
-  font-weight: 500;
-  color: #D97706;
-  background: #FFFBEB;
-}
-
-.settings-page[data-tier='premium'] .premium-hint {
-  background: linear-gradient(135deg, hsl(45, 100%, 97%), hsl(45, 100%, 93%));
-  color: hsl(45, 100%, 40%);
 }
 
 /* ===== Confirm Dialog ===== */
@@ -486,8 +512,8 @@ onMounted(() => {
 }
 
 .confirm-dialog {
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
   border-radius: 16px;
   padding: 28px 32px;
   width: 360px;
@@ -496,20 +522,26 @@ onMounted(() => {
 }
 
 @keyframes dialog-pop {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .confirm-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1A1D26;
+  color: #1a1d26;
   margin-bottom: 8px;
 }
 
 .confirm-message {
   font-size: 14px;
-  color: #6B7085;
+  color: #6b7085;
   margin-bottom: 24px;
 }
 
@@ -530,23 +562,94 @@ onMounted(() => {
 }
 
 .confirm-btn-cancel {
-  background: #F5F5F7;
-  border: 1px solid #E8E9EE;
-  color: #3D4055;
+  background: #f5f5f7;
+  border: 1px solid #e8e9ee;
+  color: #3d4055;
 }
 
 .confirm-btn-cancel:hover {
-  background: #EEEEF1;
+  background: #eeeef1;
 }
 
 .confirm-btn-ok {
-  background: #EF4444;
+  background: #ef4444;
   border: none;
   color: #fff;
 }
 
 .confirm-btn-ok:hover {
-  background: #DC2626;
+  background: #dc2626;
+}
+
+/* ===== Quota Progress Bar ===== */
+.quota-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quota-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e4ea;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.quota-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.quota-fill-subscription {
+  left: 0;
+  background: #10b981;
+  z-index: 2;
+}
+
+.quota-fill-booster {
+  background: #34d399;
+  z-index: 1;
+}
+
+.quota-percent {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3d4055;
+  min-width: 40px;
+  text-align: right;
+}
+
+.quota-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.quota-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8b90a0;
+}
+
+.quota-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.quota-legend-dot.subscription {
+  background: #10b981;
+}
+
+.quota-legend-dot.booster {
+  background: #34d399;
 }
 
 /* ===== Responsive ===== */
@@ -561,6 +664,10 @@ onMounted(() => {
 
   .settings-row {
     padding: 12px 14px;
+  }
+
+  .credit-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

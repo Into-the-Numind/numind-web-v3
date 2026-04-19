@@ -17,9 +17,19 @@
               <p class="hero-subtitle">集中管理业务文档，支持智能切分与向量检索</p>
             </div>
             <button class="hero-action-btn" @click="showUploadModal = true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
-                <path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                <path d="M12 12v9" />
+                <path d="m16 16-4-4-4 4" />
               </svg>
               创建知识库
             </button>
@@ -65,8 +75,19 @@
               </button>
             </div>
             <div class="search-box">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="search-icon"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
               </svg>
               <input
                 v-model="searchQuery"
@@ -81,10 +102,19 @@
           <div v-if="documents.length === 0" class="empty-state">
             <div class="empty-icon-wrapper">
               <svg viewBox="0 0 48 48" fill="none" class="empty-icon">
-                <path d="M12 14l1.5-2.9A2 2 0 0 1 15.24 10h17.52a2 2 0 0 1 1.74 1.1L36 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M12 14h24v16a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V14Z" stroke="currentColor" stroke-width="2"/>
-                <path d="M24 20v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M20 24h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path
+                  d="M12 14l1.5-2.9A2 2 0 0 1 15.24 10h17.52a2 2 0 0 1 1.74 1.1L36 14"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M12 14h24v16a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V14Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path d="M24 20v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <path d="M20 24h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               </svg>
             </div>
             <div class="empty-title">暂无知识文档</div>
@@ -110,8 +140,20 @@
                         :class="{ checked: isAllSelected }"
                         @click="toggleSelectAll"
                       >
-                        <svg v-if="isAllSelected" viewBox="0 0 12 12" fill="none" width="12" height="12">
-                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <svg
+                          v-if="isAllSelected"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          width="12"
+                          height="12"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
                         </svg>
                       </span>
                     </th>
@@ -140,17 +182,38 @@
                         :class="{ checked: selectedIds.has(doc.id) }"
                         @click="toggleSelect(doc.id)"
                       >
-                        <svg v-if="selectedIds.has(doc.id)" viewBox="0 0 12 12" fill="none" width="12" height="12">
-                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <svg
+                          v-if="selectedIds.has(doc.id)"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          width="12"
+                          height="12"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
                         </svg>
                       </span>
                     </td>
                     <td class="col-doc">
                       <div class="doc-info">
                         <div class="doc-icon" :class="getFileTypeClass(doc.name)">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="18"
+                            height="18"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
                           </svg>
                         </div>
                         <div class="doc-name" :title="doc.name">{{ doc.name }}</div>
@@ -164,7 +227,9 @@
                       </span>
                     </td>
                     <td class="col-desc">
-                      <span class="cell-secondary cell-desc" :title="doc.description">{{ doc.description || '暂无描述' }}</span>
+                      <span class="cell-secondary cell-desc" :title="doc.description">{{
+                        doc.description || '暂无描述'
+                      }}</span>
                     </td>
                     <td>
                       <span class="cell-metric">{{ doc.chunk_count || 0 }}</span>
@@ -181,8 +246,19 @@
                         title="删除文档"
                         @click="confirmDelete(doc)"
                       >
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="15"
+                          height="15"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
                         </svg>
                       </button>
                     </td>
@@ -190,12 +266,42 @@
                   <!-- 上传中骨架行 -->
                   <tr v-if="isUploading" class="row-skeleton">
                     <td class="col-check"></td>
-                    <td class="col-doc"><div class="skeleton" style="width:160px;height:16px;border-radius:4px"></div></td>
-                    <td><div class="skeleton" style="width:60px;height:16px;border-radius:4px"></div></td>
-                    <td class="col-desc"><div class="skeleton" style="width:120px;height:16px;border-radius:4px"></div></td>
-                    <td><div class="skeleton" style="width:30px;height:16px;border-radius:4px"></div></td>
-                    <td><div class="skeleton" style="width:50px;height:16px;border-radius:4px"></div></td>
-                    <td><div class="skeleton" style="width:50px;height:16px;border-radius:4px"></div></td>
+                    <td class="col-doc">
+                      <div
+                        class="skeleton"
+                        style="width: 160px; height: 16px; border-radius: 4px"
+                      ></div>
+                    </td>
+                    <td>
+                      <div
+                        class="skeleton"
+                        style="width: 60px; height: 16px; border-radius: 4px"
+                      ></div>
+                    </td>
+                    <td class="col-desc">
+                      <div
+                        class="skeleton"
+                        style="width: 120px; height: 16px; border-radius: 4px"
+                      ></div>
+                    </td>
+                    <td>
+                      <div
+                        class="skeleton"
+                        style="width: 30px; height: 16px; border-radius: 4px"
+                      ></div>
+                    </td>
+                    <td>
+                      <div
+                        class="skeleton"
+                        style="width: 50px; height: 16px; border-radius: 4px"
+                      ></div>
+                    </td>
+                    <td>
+                      <div
+                        class="skeleton"
+                        style="width: 50px; height: 16px; border-radius: 4px"
+                      ></div>
+                    </td>
                     <td class="col-action"></td>
                   </tr>
                 </tbody>
@@ -212,8 +318,18 @@
           <div class="hero-content">
             <div class="detail-title-row">
               <button class="back-btn" title="返回列表" @click="goBackToList">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
                 </svg>
               </button>
               <h1 class="hero-title">{{ currentDoc?.name || '正在加载...' }}</h1>
@@ -221,8 +337,19 @@
             <p class="hero-subtitle">{{ currentDoc?.description || '暂无描述' }}</p>
           </div>
           <button class="delete-action-btn" @click="confirmDelete(currentDoc!)" title="删除文档">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
             </svg>
             删除
           </button>
@@ -267,8 +394,19 @@
             <h2 class="chunk-section-title">文档切片</h2>
             <div class="chunk-toolbar-right">
               <div class="search-box">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="search-icon"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
                 </svg>
                 <input
                   v-model="chunkSearch"
@@ -289,9 +427,23 @@
                 <div v-if="chunk.tags && chunk.tags.length" class="chunk-tags">
                   <span v-for="tag in chunk.tags" :key="tag" class="chunk-tag">{{ tag }}</span>
                 </div>
-                <button class="chunk-copy-btn" title="复制内容" @click="copyChunkContent(chunk.content)">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                <button
+                  class="chunk-copy-btn"
+                  title="复制内容"
+                  @click="copyChunkContent(chunk.content)"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
                   </svg>
                 </button>
               </div>
@@ -309,12 +461,21 @@
           <button class="manage-select-all" @click="toggleSelectAll">
             {{ isAllSelected ? '取消全选' : '全选' }}
           </button>
-          <button
-            class="manage-batch-delete"
-            @click="handleBatchDelete"
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <button class="manage-batch-delete" @click="handleBatchDelete">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 6h18" />
+              <path
+                d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              />
             </svg>
             批量删除
           </button>
@@ -329,17 +490,40 @@
               <div class="modal-header">
                 <h2 class="modal-title">创建知识库</h2>
                 <button class="modal-close" @click="closeUploadModal">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
               <form class="modal-body" @submit.prevent="handleUpload">
                 <div class="form-group">
                   <label class="form-label">知识库名称 <span class="required">*</span></label>
-                  <input v-model="uploadForm.name" type="text" class="form-input" placeholder="请输入知识库名称" required />
+                  <input
+                    v-model="uploadForm.name"
+                    type="text"
+                    class="form-input"
+                    placeholder="请输入知识库名称"
+                    required
+                  />
                 </div>
                 <div class="form-group">
                   <label class="form-label">描述</label>
-                  <textarea v-model="uploadForm.description" class="form-textarea" placeholder="请输入描述（可选）" rows="3"></textarea>
+                  <textarea
+                    v-model="uploadForm.description"
+                    class="form-textarea"
+                    placeholder="请输入描述（可选）"
+                    rows="3"
+                  ></textarea>
                 </div>
                 <div class="form-group">
                   <label class="form-label">选择文件 <span class="required">*</span></label>
@@ -353,33 +537,83 @@
                     @click="triggerFileInput"
                   >
                     <div v-if="!selectedFile" class="upload-placeholder">
-                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="28"
+                        height="28"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                        <path d="M12 12v9" />
+                        <path d="m16 16-4-4-4 4" />
                       </svg>
                       <p>拖拽文件到此处，或点击选择</p>
-                      <span class="upload-hint">支持 PDF, DOC, DOCX, TXT, MD, HTML, XLSX, PPTX</span>
+                      <span class="upload-hint"
+                        >支持 PDF, DOC, DOCX, TXT, MD, HTML, XLSX, PPTX</span
+                      >
                     </div>
                     <div v-else class="file-preview-item">
                       <div class="file-icon-sm">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="18"
+                          height="18"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                          <path d="M14 2v4a2 2 0 0 0 2 2h4" />
                         </svg>
                       </div>
                       <div class="file-info">
                         <div class="file-name">{{ selectedFile.name }}</div>
                         <div class="file-size">{{ formatFileSize(selectedFile.size) }}</div>
                       </div>
-                      <button type="button" class="remove-file-btn" @click.stop="selectedFile = null">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                      <button
+                        type="button"
+                        class="remove-file-btn"
+                        @click.stop="selectedFile = null"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M18 6 6 18" />
+                          <path d="m6 6 12 12" />
+                        </svg>
                       </button>
                     </div>
                   </div>
-                  <input ref="fileInputRef" type="file" accept=".pdf,.doc,.docx,.txt,.md,.html,.xlsx,.pptx" style="display:none" @change="handleFileSelect" />
+                  <input
+                    ref="fileInputRef"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt,.md,.html,.xlsx,.pptx"
+                    style="display: none"
+                    @change="handleFileSelect"
+                  />
                 </div>
               </form>
               <div class="modal-footer">
                 <button type="button" class="btn-cancel" @click="closeUploadModal">取消</button>
-                <button type="button" class="btn-primary" :disabled="!uploadForm.name || !selectedFile || isUploading" @click="handleUpload">
+                <button
+                  type="button"
+                  class="btn-primary"
+                  :disabled="!uploadForm.name || !selectedFile || isUploading"
+                  @click="handleUpload"
+                >
                   {{ isUploading ? '上传中...' : '上传' }}
                 </button>
               </div>
@@ -394,8 +628,19 @@
           <div v-if="confirmVisible" class="modal-overlay" @click.self="confirmVisible = false">
             <div class="confirm-dialog">
               <div class="confirm-icon-wrapper">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
               <div class="confirm-title">{{ confirmTitle }}</div>
@@ -413,14 +658,49 @@
       <Teleport to="body">
         <Transition name="toast-fade">
           <div v-if="toast.visible" class="toast" :class="toast.type">
-            <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            <svg
+              v-if="toast.type === 'success'"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            <svg v-else-if="toast.type === 'error'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            <svg
+              v-else-if="toast.type === 'error'"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
             </svg>
-            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            <svg
+              v-else
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
             {{ toast.message }}
           </div>
@@ -437,12 +717,12 @@ import {
   fetchDocuments,
   uploadDocument,
   getDocument,
-
   deleteDocument as deleteDocApi,
   fetchChunks as fetchChunksApi,
   type KnowledgeDocument,
   type DocumentChunk
 } from '@/api/knowledge'
+import { copyText } from '@/utils/clipboard'
 
 // ── State ──────────────────────────────────────────────────────────
 const documents = ref<KnowledgeDocument[]>([])
@@ -481,8 +761,12 @@ const statusPollers = new Map<number, ReturnType<typeof setInterval>>()
 // ── Computed ───────────────────────────────────────────────────────
 const processingStatuses = ['PENDING', 'PARSING', 'SPLITTING', 'TAGGING', 'EMBEDDING']
 
-const completedCount = computed(() => documents.value.filter((d) => d.status === 'COMPLETED').length)
-const processingCount = computed(() => documents.value.filter((d) => processingStatuses.includes(d.status)).length)
+const completedCount = computed(
+  () => documents.value.filter((d) => d.status === 'COMPLETED').length
+)
+const processingCount = computed(
+  () => documents.value.filter((d) => processingStatuses.includes(d.status)).length
+)
 const failedCount = computed(() => documents.value.filter((d) => d.status === 'FAILED').length)
 const filteredDocs = computed(() => {
   let docs = documents.value
@@ -500,7 +784,8 @@ const filteredDocs = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (q) {
     docs = docs.filter(
-      (d) => (d.name || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q)
+      (d) =>
+        (d.name || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q)
     )
   }
 
@@ -519,7 +804,9 @@ const filteredChunks = computed(() => {
 })
 
 const isAllSelected = computed(() => {
-  return filteredDocs.value.length > 0 && filteredDocs.value.every((d) => selectedIds.value.has(d.id))
+  return (
+    filteredDocs.value.length > 0 && filteredDocs.value.every((d) => selectedIds.value.has(d.id))
+  )
 })
 
 // ── Lifecycle ──────────────────────────────────────────────────────
@@ -672,10 +959,9 @@ function goBackToList() {
 }
 
 async function copyChunkContent(content: string) {
-  try {
-    await navigator.clipboard.writeText(content)
+  if (await copyText(content)) {
     showToast('已复制到剪贴板', 'success')
-  } catch {
+  } else {
     showToast('复制失败', 'error')
   }
 }
@@ -796,10 +1082,17 @@ function getFileTypeLabel(name: string) {
   if (parts.length < 2) return '未知'
   const ext = parts.pop()!.toLowerCase()
   const map: Record<string, string> = {
-    pdf: 'pdf', doc: 'word', docx: 'word',
-    xls: 'excel', xlsx: 'excel', csv: 'csv',
-    ppt: 'ppt', pptx: 'ppt',
-    txt: 'txt', md: 'markdown', html: 'html'
+    pdf: 'pdf',
+    doc: 'word',
+    docx: 'word',
+    xls: 'excel',
+    xlsx: 'excel',
+    csv: 'csv',
+    ppt: 'ppt',
+    pptx: 'ppt',
+    txt: 'txt',
+    md: 'markdown',
+    html: 'html'
   }
   return map[ext] || ext || '未知'
 }
@@ -816,8 +1109,13 @@ function getFileTypeClass(name: string) {
 function formatDateFull(dateStr?: string) {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric', month: 'numeric', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
   })
 }
 
@@ -842,10 +1140,16 @@ function onConfirm() {
   confirmCallback = null
 }
 
-function showToast(message: string, type: 'success' | 'error' | 'info' = 'success', duration = 3000) {
+function showToast(
+  message: string,
+  type: 'success' | 'error' | 'info' = 'success',
+  duration = 3000
+) {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { visible: true, message, type }
-  toastTimer = setTimeout(() => { toast.value.visible = false }, duration)
+  toastTimer = setTimeout(() => {
+    toast.value.visible = false
+  }, duration)
 }
 </script>
 
@@ -865,7 +1169,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   padding: 20px 0 0;
 }
 
-.hero-content { flex: 1; }
+.hero-content {
+  flex: 1;
+}
 
 .hero-title {
   font-family: var(--font-sans);
@@ -955,17 +1261,41 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   box-shadow: 0 4px 16px hsl(158 64% 50% / 0.3);
 }
 
-.filter-btn.active .filter-count { background: hsla(0, 0%, 100%, 0.25); color: #fff; }
-.filter-btn.active .filter-dot { background: #fff; box-shadow: none; }
+.filter-btn.active .filter-count {
+  background: hsla(0, 0%, 100%, 0.25);
+  color: #fff;
+}
+.filter-btn.active .filter-dot {
+  background: #fff;
+  box-shadow: none;
+}
 
-.filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.filter-dot.completed { background: hsl(158, 64%, 45%); }
-.filter-dot.processing { background: hsl(45, 90%, 50%); box-shadow: 0 0 5px hsl(45 90% 50% / 0.4); animation: dot-pulse 2s ease-in-out infinite; }
-.filter-dot.failed { background: hsl(0, 70%, 55%); }
+.filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.filter-dot.completed {
+  background: hsl(158, 64%, 45%);
+}
+.filter-dot.processing {
+  background: hsl(45, 90%, 50%);
+  box-shadow: 0 0 5px hsl(45 90% 50% / 0.4);
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+.filter-dot.failed {
+  background: hsl(0, 70%, 55%);
+}
 
 @keyframes dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .filter-count {
@@ -981,7 +1311,11 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 }
 
 /* ===== Search ===== */
-.search-box { position: relative; display: flex; align-items: center; }
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 
 .search-icon {
   position: absolute;
@@ -1001,7 +1335,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   color: hsl(155, 25%, 18%);
   outline: none;
   transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
-  box-shadow: 0 2px 12px hsl(150 15% 0% / 0.05), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
 }
 
 .search-input:focus {
@@ -1021,7 +1357,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   overflow: hidden;
 }
 
-.table-scroll { overflow-x: auto; }
+.table-scroll {
+  overflow-x: auto;
+}
 
 .data-table {
   width: 100%;
@@ -1054,18 +1392,45 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   cursor: pointer;
 }
 
-.data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: hsl(155, 20%, 98%); }
-.data-table tbody tr.row-selected td { background: hsl(158, 50%, 97%); }
-.data-table tbody tr.row-disabled { opacity: 0.55; }
-.data-table tbody tr.row-skeleton { cursor: default; pointer-events: none; }
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.data-table tbody tr:hover td {
+  background: hsl(155, 20%, 98%);
+}
+.data-table tbody tr.row-selected td {
+  background: hsl(158, 50%, 97%);
+}
+.data-table tbody tr.row-disabled {
+  opacity: 0.55;
+}
+.data-table tbody tr.row-skeleton {
+  cursor: default;
+  pointer-events: none;
+}
 
-.col-check { width: 48px; text-align: center; }
-.col-check .checkbox-mark { margin: 0 auto; }
-.col-doc { min-width: 200px; text-align: left; }
-.col-doc th { text-align: left; }
-.col-desc { min-width: 120px; max-width: 200px; }
-.col-action { width: 72px; text-align: center; }
+.col-check {
+  width: 48px;
+  text-align: center;
+}
+.col-check .checkbox-mark {
+  margin: 0 auto;
+}
+.col-doc {
+  min-width: 200px;
+  text-align: left;
+}
+.col-doc th {
+  text-align: left;
+}
+.col-desc {
+  min-width: 120px;
+  max-width: 200px;
+}
+.col-action {
+  width: 72px;
+  text-align: center;
+}
 
 /* Checkbox */
 .checkbox-mark {
@@ -1106,11 +1471,26 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   flex-shrink: 0;
 }
 
-.doc-icon.file-pdf { background: hsl(0, 80%, 96%); color: hsl(0, 70%, 50%); }
-.doc-icon.file-excel { background: hsl(140, 50%, 94%); color: hsl(140, 60%, 38%); }
-.doc-icon.file-word { background: hsl(215, 60%, 95%); color: hsl(215, 70%, 50%); }
-.doc-icon.file-ppt { background: hsl(15, 80%, 95%); color: hsl(15, 70%, 50%); }
-.doc-icon.file-default { background: hsl(155, 20%, 95%); color: hsl(158, 40%, 45%); }
+.doc-icon.file-pdf {
+  background: hsl(0, 80%, 96%);
+  color: hsl(0, 70%, 50%);
+}
+.doc-icon.file-excel {
+  background: hsl(140, 50%, 94%);
+  color: hsl(140, 60%, 38%);
+}
+.doc-icon.file-word {
+  background: hsl(215, 60%, 95%);
+  color: hsl(215, 70%, 50%);
+}
+.doc-icon.file-ppt {
+  background: hsl(15, 80%, 95%);
+  color: hsl(15, 70%, 50%);
+}
+.doc-icon.file-default {
+  background: hsl(155, 20%, 95%);
+  color: hsl(158, 40%, 45%);
+}
 
 .doc-name {
   font-weight: 600;
@@ -1133,9 +1513,18 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   white-space: nowrap;
 }
 
-.status-badge.status-completed { background: hsl(158, 50%, 93%); color: hsl(158, 64%, 32%); }
-.status-badge.status-processing { background: hsl(45, 90%, 94%); color: hsl(35, 80%, 35%); }
-.status-badge.status-failed { background: hsl(0, 80%, 95%); color: hsl(0, 70%, 45%); }
+.status-badge.status-completed {
+  background: hsl(158, 50%, 93%);
+  color: hsl(158, 64%, 32%);
+}
+.status-badge.status-processing {
+  background: hsl(45, 90%, 94%);
+  color: hsl(35, 80%, 35%);
+}
+.status-badge.status-failed {
+  background: hsl(0, 80%, 95%);
+  color: hsl(0, 70%, 45%);
+}
 
 .status-dot-sm {
   width: 6px;
@@ -1153,11 +1542,22 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Cell styles */
-.cell-secondary { font-size: 13px; color: hsl(155, 12%, 50%); }
-.cell-metric { font-size: 14px; font-weight: 600; color: hsl(155, 25%, 22%); }
+.cell-secondary {
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+}
+.cell-metric {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(155, 25%, 22%);
+}
 .cell-desc {
   max-width: 200px;
   white-space: nowrap;
@@ -1189,14 +1589,23 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 
 /* Skeleton */
 .skeleton {
-  background: linear-gradient(90deg, hsl(150, 15%, 93%) 25%, hsl(150, 15%, 88%) 50%, hsl(150, 15%, 93%) 75%);
+  background: linear-gradient(
+    90deg,
+    hsl(150, 15%, 93%) 25%,
+    hsl(150, 15%, 88%) 50%,
+    hsl(150, 15%, 93%) 75%
+  );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ===== Detail View ===== */
@@ -1205,8 +1614,14 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
 }
 
 @keyframes detailFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .detail-title-row {
@@ -1357,9 +1772,13 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   transition: background 0.15s;
 }
 
-.chunk-item:last-child { border-bottom: none; }
+.chunk-item:last-child {
+  border-bottom: none;
+}
 
-.chunk-item:hover { background: hsl(155, 20%, 98%); }
+.chunk-item:hover {
+  background: hsl(155, 20%, 98%);
+}
 
 .chunk-header {
   display: flex;
@@ -1378,7 +1797,11 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   font-family: var(--font-mono, 'SF Mono', monospace);
 }
 
-.chunk-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.chunk-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 .chunk-tag {
   display: inline-flex;
@@ -1438,7 +1861,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   padding: 120px 20px;
 }
 
-.loading-state.compact { padding: 60px 20px; }
+.loading-state.compact {
+  padding: 60px 20px;
+}
 
 .loading-spinner {
   width: 32px;
@@ -1450,11 +1875,19 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   margin-bottom: 16px;
 }
 
-.loading-text { font-size: 14px; color: var(--text-secondary); }
+.loading-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
 
 /* ===== Empty ===== */
-.empty-state { text-align: center; padding: 80px 20px; }
-.empty-state.compact { padding: 48px 20px; }
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+}
+.empty-state.compact {
+  padding: 48px 20px;
+}
 
 .empty-icon-wrapper {
   display: inline-flex;
@@ -1469,9 +1902,22 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   box-shadow: 0 4px 16px hsl(150 15% 0% / 0.06);
 }
 
-.empty-icon { width: 36px; height: 36px; color: hsl(158, 30%, 65%); }
-.empty-title { font-weight: 650; font-size: 18px; color: hsl(155, 25%, 18%); margin-bottom: 6px; }
-.empty-desc { font-size: 14px; color: hsl(155, 12%, 50%); margin-bottom: 24px; }
+.empty-icon {
+  width: 36px;
+  height: 36px;
+  color: hsl(158, 30%, 65%);
+}
+.empty-title {
+  font-weight: 650;
+  font-size: 18px;
+  color: hsl(155, 25%, 18%);
+  margin-bottom: 6px;
+}
+.empty-desc {
+  font-size: 14px;
+  color: hsl(155, 12%, 50%);
+  margin-bottom: 24px;
+}
 
 .empty-action {
   display: inline-flex;
@@ -1506,11 +1952,17 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.92));
   border: 1px solid hsla(155, 30%, 90%, 0.7);
   border-radius: 20px;
-  box-shadow: 0 12px 40px hsl(150 15% 0% / 0.12), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 12px 40px hsl(150 15% 0% / 0.12),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   z-index: 100;
 }
 
-.manage-count { font-size: 14px; font-weight: 600; color: hsl(155, 25%, 18%); }
+.manage-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(155, 25%, 18%);
+}
 
 .manage-select-all {
   padding: 7px 16px;
@@ -1524,7 +1976,10 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   transition: all 0.2s;
 }
 
-.manage-select-all:hover { border-color: var(--accent); color: var(--accent); }
+.manage-select-all:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 .manage-batch-delete {
   display: flex;
@@ -1542,11 +1997,22 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   box-shadow: 0 2px 8px hsl(0 72% 56% / 0.25);
 }
 
-.manage-batch-delete:hover { background: hsl(0, 72%, 48%); }
+.manage-batch-delete:hover {
+  background: hsl(0, 72%, 48%);
+}
 
-.bar-slide-enter-active, .bar-slide-leave-active { transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
-.bar-slide-enter-from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-.bar-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+.bar-slide-enter-active,
+.bar-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+.bar-slide-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
+.bar-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
 
 /* ===== Modal ===== */
 .modal-overlay {
@@ -1561,8 +2027,14 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   justify-content: center;
 }
 
-.overlay-fade-enter-active, .overlay-fade-leave-active { transition: opacity 0.2s ease; }
-.overlay-fade-enter-from, .overlay-fade-leave-to { opacity: 0; }
+.overlay-fade-enter-active,
+.overlay-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.overlay-fade-enter-from,
+.overlay-fade-leave-to {
+  opacity: 0;
+}
 
 .modal-dialog {
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
@@ -1570,13 +2042,21 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   border-radius: 20px;
   width: 90%;
   max-width: 520px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes dialog-pop {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .modal-header {
@@ -1587,7 +2067,12 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   border-bottom: 1px solid hsl(155, 20%, 93%);
 }
 
-.modal-title { font-size: 18px; font-weight: 700; color: hsl(155, 25%, 18%); margin: 0; }
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+  margin: 0;
+}
 
 .modal-close {
   background: transparent;
@@ -1599,10 +2084,20 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   transition: all 0.2s;
 }
 
-.modal-close:hover { color: hsl(155, 25%, 25%); background: hsl(155, 20%, 94%); }
+.modal-close:hover {
+  color: hsl(155, 25%, 25%);
+  background: hsl(155, 20%, 94%);
+}
 
-.modal-body { padding: 24px; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 0 24px 24px; }
+.modal-body {
+  padding: 24px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
 
 /* Confirm Dialog */
 .confirm-dialog {
@@ -1612,7 +2107,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   padding: 36px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   flex-direction: column;
@@ -1632,12 +2129,28 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   margin-bottom: 16px;
 }
 
-.confirm-title { font-size: 18px; font-weight: 700; color: hsl(155, 25%, 18%); margin-bottom: 8px; }
-.confirm-message { font-size: 14px; color: hsl(155, 12%, 45%); line-height: 1.5; margin-bottom: 24px; }
-.confirm-buttons { display: flex; gap: 12px; width: 100%; }
+.confirm-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+  margin-bottom: 8px;
+}
+.confirm-message {
+  font-size: 14px;
+  color: hsl(155, 12%, 45%);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+.confirm-buttons {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
 
 /* ===== Form ===== */
-.form-group { margin-bottom: 20px; }
+.form-group {
+  margin-bottom: 20px;
+}
 
 .form-label {
   display: block;
@@ -1647,7 +2160,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   margin-bottom: 8px;
 }
 
-.required { color: #ef4444; }
+.required {
+  color: #ef4444;
+}
 
 .form-input,
 .form-textarea {
@@ -1726,7 +2241,10 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   color: hsl(158, 64%, 40%);
 }
 
-.file-info { flex: 1; min-width: 0; }
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .file-name {
   font-size: 14px;
@@ -1737,7 +2255,10 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   text-overflow: ellipsis;
 }
 
-.file-size { font-size: 12px; color: hsl(155, 12%, 50%); }
+.file-size {
+  font-size: 12px;
+  color: hsl(155, 12%, 50%);
+}
 
 .remove-file-btn {
   background: transparent;
@@ -1748,7 +2269,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   border-radius: 4px;
 }
 
-.remove-file-btn:hover { color: #ef4444; }
+.remove-file-btn:hover {
+  color: #ef4444;
+}
 
 /* Buttons */
 .btn-cancel {
@@ -1764,7 +2287,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   transition: all 0.2s;
 }
 
-.btn-cancel:hover { background: hsl(150, 15%, 95%); }
+.btn-cancel:hover {
+  background: hsl(150, 15%, 95%);
+}
 
 .btn-primary {
   flex: 1;
@@ -1780,8 +2305,14 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   box-shadow: 0 2px 10px hsl(158 64% 45% / 0.25);
 }
 
-.btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 16px hsl(158 64% 45% / 0.35);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-danger {
   flex: 1;
@@ -1797,7 +2328,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   box-shadow: 0 2px 8px hsl(0 72% 56% / 0.2);
 }
 
-.btn-danger:hover { background: hsl(0, 72%, 48%); }
+.btn-danger:hover {
+  background: hsl(0, 72%, 48%);
+}
 
 /* ===== Toast ===== */
 .toast {
@@ -1817,43 +2350,98 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'succes
   box-shadow: 0 8px 24px hsl(0 0% 0% / 0.12);
 }
 
-.toast.success { background: hsl(155, 30%, 18%); color: hsl(158, 50%, 85%); }
-.toast.error { background: hsl(0, 80%, 96%); color: hsl(0, 70%, 45%); border: 1px solid hsl(0, 70%, 90%); }
-.toast.info { background: hsl(155, 30%, 18%); color: hsl(158, 50%, 85%); }
+.toast.success {
+  background: hsl(155, 30%, 18%);
+  color: hsl(158, 50%, 85%);
+}
+.toast.error {
+  background: hsl(0, 80%, 96%);
+  color: hsl(0, 70%, 45%);
+  border: 1px solid hsl(0, 70%, 90%);
+}
+.toast.info {
+  background: hsl(155, 30%, 18%);
+  color: hsl(158, 50%, 85%);
+}
 
-.toast-fade-enter-active, .toast-fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.toast-fade-enter-from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-.toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+.toast-fade-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+}
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+}
 
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
-  .detail-info-grid { grid-template-columns: repeat(2, 1fr); }
+  .detail-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
-  .hero-section { flex-direction: column; gap: 16px; }
-  .hero-title { font-size: 28px; }
+  .hero-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .hero-title {
+    font-size: 24px;
+  }
 
-  .toolbar { flex-direction: column; align-items: flex-start; }
-  .filter-bar { gap: 6px; }
-  .filter-btn { padding: 7px 12px; font-size: 12px; }
-  .search-box { width: 100%; }
-  .search-input { width: 100%; }
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .filter-bar {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .search-box {
+    width: 100%;
+  }
+  .search-input {
+    width: 100%;
+  }
 
-  .detail-info-grid { grid-template-columns: 1fr; }
+  .detail-info-grid {
+    grid-template-columns: 1fr;
+  }
 
-  .chunk-toolbar { flex-direction: column; align-items: flex-start; }
-  .chunk-toolbar-right { width: 100%; }
+  .chunk-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .chunk-toolbar-right {
+    width: 100%;
+  }
 
   .manage-bar {
-    left: 16px;
-    right: 16px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-tab-bar-height, 64px) + 8px);
     transform: none;
     width: auto;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 8px;
   }
 
-  .bar-slide-enter-from, .bar-slide-leave-to { transform: translateY(20px); }
+  .bar-slide-enter-from,
+  .bar-slide-leave-to {
+    transform: translateY(20px);
+  }
 }
 </style>

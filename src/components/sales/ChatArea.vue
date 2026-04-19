@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useSalesStore } from '@/stores/sales'
 import { useAutoScroll } from '@/composables/useAutoScroll'
+import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
 import type { Citation } from '@/api/sales'
 import ChatMessage from './ChatMessage.vue'
 import GlobalLoadingStatus from './GlobalLoadingStatus.vue'
@@ -19,16 +20,59 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLElement | null>(null)
 
-const {
-  smartScrollToBottom,
-  onScroll,
-  showScrollButton,
-  handleScrollToBottomClick
-} = useAutoScroll(containerRef)
+const { smartScrollToBottom, onScroll, showScrollButton, handleScrollToBottomClick } =
+  useAutoScroll(containerRef)
+
+// ==================== Typewriter Reveal ====================
+// 对齐 SOP 的 SSE 渲染方案：后端每 ~250ms burst 推送 ~13 字符，直接渲染会被
+// 肉眼感知为掉帧/卡顿。reveal 层由 rAF 驱动以固定 80 cps 搬字，产生连续流动感。
+const contentReveal = useTypewriterReveal()
+const thinkingReveal = useTypewriterReveal()
+
+watch(
+  () => store.streamContent,
+  (next, prev) => {
+    if (!next) {
+      contentReveal.reset()
+      return
+    }
+    if (prev && next.startsWith(prev)) {
+      contentReveal.append(next.slice(prev.length))
+    } else {
+      contentReveal.reset(next)
+    }
+  }
+)
+
+watch(
+  () => store.streamThinkingContent,
+  (next, prev) => {
+    if (!next) {
+      thinkingReveal.reset()
+      return
+    }
+    if (prev && next.startsWith(prev)) {
+      thinkingReveal.append(next.slice(prev.length))
+    } else {
+      thinkingReveal.reset(next)
+    }
+  }
+)
+
+watch(
+  () => store.isLoading,
+  (loading, was) => {
+    if (was && !loading) {
+      contentReveal.flush()
+      thinkingReveal.flush()
+    }
+  }
+)
 
 // Auto-scroll when messages change or streaming content updates (single watcher)
 watch(
-  () => [store.messages.length, store.streamContent, store.streamThinkingContent] as const,
+  () =>
+    [store.messages.length, contentReveal.displayed.value, thinkingReveal.displayed.value] as const,
   () => {
     requestAnimationFrame(() => smartScrollToBottom())
   }
@@ -41,6 +85,11 @@ onMounted(() => {
       containerRef.value.scrollTop = containerRef.value.scrollHeight
     }
   })
+})
+
+onBeforeUnmount(() => {
+  contentReveal.dispose()
+  thinkingReveal.dispose()
 })
 
 const showWelcome = ref(false)
@@ -56,11 +105,7 @@ watch(
 
 <template>
   <div class="chat-wrapper">
-    <div
-      ref="containerRef"
-      class="chat-messages"
-      @scroll="onScroll"
-    >
+    <div ref="containerRef" class="chat-messages" @scroll="onScroll">
       <!-- Welcome screen when no messages -->
       <WelcomeScreen v-if="showWelcome && !store.isLoading" />
 
@@ -80,10 +125,12 @@ watch(
 
           <!-- Streaming message (live) — only show when AI starts generating -->
           <ChatMessage
-            v-if="store.isLoading && (store.streamContent || store.streamThinkingContent)"
+            v-if="
+              store.isLoading && (contentReveal.displayed.value || thinkingReveal.displayed.value)
+            "
             :streaming="true"
-            :stream-content="store.streamContent"
-            :stream-thinking-content="store.streamThinkingContent"
+            :stream-content="contentReveal.displayed.value"
+            :stream-thinking-content="thinkingReveal.displayed.value"
             :stream-citations="store.streamCitations"
             :sales-stage="store.salesStage"
             @show-citations="(c) => emit('showCitations', c)"
@@ -93,7 +140,12 @@ watch(
 
           <!-- Global loading status — hide once AI starts generating -->
           <GlobalLoadingStatus
-            v-if="store.isLoading && store.streamStatus && !store.streamContent && !store.streamThinkingContent"
+            v-if="
+              store.isLoading &&
+              store.streamStatus &&
+              !contentReveal.displayed.value &&
+              !thinkingReveal.displayed.value
+            "
             :status="store.streamStatus"
           />
 
@@ -104,13 +156,10 @@ watch(
           </div>
         </div>
       </template>
-
-      <!-- Scroll to bottom button -->
-      <ScrollToBottomBtn
-        :visible="showScrollButton"
-        @click="handleScrollToBottomClick"
-      />
     </div>
+
+    <!-- Scroll to bottom button (anchored above input) -->
+    <ScrollToBottomBtn :visible="showScrollButton" @click="handleScrollToBottomClick" />
   </div>
 </template>
 
@@ -126,7 +175,9 @@ watch(
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px;
+  /* padding-bottom 从 200 加到 240：输入框缩高后 input-stage ≈ 196 + fade 28 = 224 被遮，
+     240 留 16px 余量让最后一条消息的复制按钮等工具栏不被 input 盖住。 */
+  padding: 20px 32px 240px;
   scroll-behavior: auto;
 }
 
@@ -153,7 +204,7 @@ watch(
   gap: 24px;
   max-width: 800px;
   margin: 0 auto;
-  padding-bottom: 20px;
+  padding-bottom: 0;
 }
 
 .stream-error {

@@ -20,8 +20,19 @@
             :class="{ active: manageMode }"
             @click="toggleManageMode"
           >
-            <svg v-if="!manageMode" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            <svg
+              v-if="!manageMode"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
             {{ manageMode ? '完成' : '管理' }}
           </button>
@@ -69,8 +80,22 @@
         <!-- 空状态 -->
         <div v-if="records.length === 0" class="empty-state">
           <div class="empty-icon-wrapper">
-            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="empty-icon">
-              <rect x="8" y="6" width="32" height="36" rx="4" stroke="currentColor" stroke-width="2" fill="none" />
+            <svg
+              viewBox="0 0 48 48"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              class="empty-icon"
+            >
+              <rect
+                x="8"
+                y="6"
+                width="32"
+                height="36"
+                rx="4"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+              />
               <path d="M16 18H32" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               <path d="M16 26H28" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               <path d="M16 34H24" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -105,7 +130,13 @@
               />
               <span class="checkbox-mark">
                 <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
-                  <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M2.5 6L5 8.5L9.5 3.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </span>
             </label>
@@ -113,10 +144,7 @@
             <!-- 卡片主体 -->
             <div class="card-body">
               <div class="card-top">
-                <span
-                  class="status-indicator"
-                  :class="statusClass(record)"
-                >
+                <span class="status-indicator" :class="statusClass(record)">
                   <span class="status-dot-inner"></span>
                   {{ statusLabel(record) }}
                 </span>
@@ -127,9 +155,20 @@
                   title="删除此记录"
                   @click.stop="handleSingleDelete(record.runId)"
                 >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <path
+                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    ></path>
                   </svg>
                 </button>
               </div>
@@ -137,7 +176,16 @@
               <div class="card-title">{{ record.templateName }}</div>
 
               <div class="card-meta">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10"></circle>
                   <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
@@ -153,10 +201,11 @@
                     :style="{ width: progressPercent(record) + '%' }"
                   ></div>
                 </div>
-                <span class="progress-label">{{ record.completedCount }}/{{ record.totalNodes }} 步</span>
+                <span class="progress-label"
+                  >{{ record.completedCount }}/{{ record.totalNodes }} 步</span
+                >
               </div>
             </div>
-
           </div>
         </div>
       </template>
@@ -173,9 +222,20 @@
             :disabled="selectedIds.size === 0"
             @click="handleBatchDelete"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <path
+                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              ></path>
             </svg>
             批量删除
           </button>
@@ -186,14 +246,19 @@
     <!-- 确认对话框 -->
     <Teleport to="body">
       <Transition name="overlay-fade">
-        <div
-          v-if="confirmVisible"
-          class="confirm-overlay"
-          @click.self="confirmVisible = false"
-        >
+        <div v-if="confirmVisible" class="confirm-overlay" @click.self="confirmVisible = false">
           <div class="confirm-dialog">
             <div class="confirm-icon-wrapper">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -214,11 +279,31 @@
     <Teleport to="body">
       <Transition name="toast-fade">
         <div v-if="toastVisible" class="toast" :class="toastType">
-          <svg v-if="toastType === 'success'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-if="toastType === 'success'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
             <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="15" y1="9" x2="9" y2="15"></line>
             <line x1="9" y1="9" x2="15" y2="15"></line>
@@ -306,7 +391,9 @@ const filterLabel = computed(() => {
 })
 
 const completedCount = computed(() => records.value.filter((r) => r.status === 'succeeded').length)
-const runningCount = computed(() => records.value.filter((r) => r.status !== 'succeeded' && r.status !== 'failed').length)
+const runningCount = computed(
+  () => records.value.filter((r) => r.status !== 'succeeded' && r.status !== 'failed').length
+)
 const failedCount = computed(() => records.value.filter((r) => r.status === 'failed').length)
 
 const isAllSelected = computed(() => {
@@ -401,21 +488,17 @@ const handleSingleDelete = (runId: string) => {
 const handleBatchDelete = () => {
   const ids = [...selectedIds.value]
   if (ids.length === 0) return
-  showConfirm(
-    '批量删除',
-    `确定要删除选中的 ${ids.length} 条记录吗？此操作不可恢复。`,
-    async () => {
-      try {
-        await batchDeleteRuns(ids)
-        const idSet = new Set(ids)
-        records.value = records.value.filter((r) => !idSet.has(r.runId))
-        selectedIds.value = new Set()
-        showToast(`已删除 ${ids.length} 条记录`)
-      } catch (e: any) {
-        showToast(e.message || '批量删除失败', 'error')
-      }
+  showConfirm('批量删除', `确定要删除选中的 ${ids.length} 条记录吗？此操作不可恢复。`, async () => {
+    try {
+      await batchDeleteRuns(ids)
+      const idSet = new Set(ids)
+      records.value = records.value.filter((r) => !idSet.has(r.runId))
+      selectedIds.value = new Set()
+      showToast(`已删除 ${ids.length} 条记录`)
+    } catch (e: any) {
+      showToast(e.message || '批量删除失败', 'error')
     }
-  )
+  })
 }
 
 // --- 加载数据 ---
@@ -508,7 +591,7 @@ onMounted(() => {
   border-color: hsl(158, 40%, 82%);
   color: var(--accent);
   box-shadow:
-    0 8px 30px hsl(155 20% 0% / 0.10),
+    0 8px 30px hsl(155 20% 0% / 0.1),
     0 0 0 1px hsl(158 40% 80% / 0.5);
 }
 
@@ -552,7 +635,7 @@ onMounted(() => {
   border-color: hsl(158, 40%, 82%);
   color: hsl(155, 25%, 30%);
   box-shadow:
-    0 8px 30px hsl(155 20% 0% / 0.10),
+    0 8px 30px hsl(155 20% 0% / 0.1),
     0 0 0 1px hsl(158 40% 80% / 0.5);
 }
 
@@ -595,8 +678,13 @@ onMounted(() => {
 }
 
 @keyframes dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .filter-count {
@@ -638,7 +726,7 @@ onMounted(() => {
   transform: translateY(-3px);
   background: hsla(0, 0%, 100%, 0.88);
   box-shadow:
-    0 8px 30px hsl(155 20% 0% / 0.10),
+    0 8px 30px hsl(155 20% 0% / 0.1),
     0 0 0 1px hsl(158 40% 80% / 0.5);
   border-color: hsl(158, 40%, 82%);
 }
@@ -839,7 +927,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -1010,8 +1100,9 @@ onMounted(() => {
   padding: 32px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18),
-              0 0 0 1px hsl(155 20% 92% / 0.3);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
   animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   flex-direction: column;
@@ -1020,8 +1111,14 @@ onMounted(() => {
 }
 
 @keyframes dialog-pop {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .confirm-icon-wrapper {
@@ -1133,7 +1230,9 @@ onMounted(() => {
 
 .toast-fade-enter-active,
 .toast-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .toast-fade-enter-from {
@@ -1156,29 +1255,32 @@ onMounted(() => {
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
   }
 
   .hero-title {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .filter-bar {
-    gap: 8px;
+    gap: 4px;
+    flex-wrap: wrap;
   }
 
   .filter-btn {
-    padding: 8px 14px;
+    padding: 7px 10px;
     font-size: 12px;
   }
 
   .card-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .manage-bar {
-    left: 16px;
-    right: 16px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-tab-bar-height, 64px) + 8px);
     transform: none;
     width: auto;
   }

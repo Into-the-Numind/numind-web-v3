@@ -140,17 +140,34 @@ const emit = defineEmits<{
 
 @media (max-width: 768px) {
   .main-header {
-    padding: 0 16px;
-    height: 56px;
+    padding: env(safe-area-inset-top, 0px) 12px 0 52px;
+    height: calc(52px + env(safe-area-inset-top, 0px));
+  }
+
+  .header-left {
+    padding-right: 12px;
   }
 
   .session-title {
-    max-width: 140px;
-    font-size: 15px;
+    font-size: 14px;
+  }
+
+  .header-right {
+    gap: 4px;
+  }
+
+  .header-btn {
+    width: 34px;
+    height: 34px;
   }
 
   .mobile-menu-btn {
     display: flex;
+  }
+
+  /* Hide tooltips on mobile */
+  .header-btn::after {
+    display: none;
   }
 }
 </style>

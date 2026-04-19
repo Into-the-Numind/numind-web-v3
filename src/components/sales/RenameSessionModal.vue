@@ -1,7 +1,12 @@
 <template>
   <Teleport to="body">
     <div class="modal-overlay" :class="{ open }">
-      <div class="modal-card modal-card-simple" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
+      <div
+        class="modal-card modal-card-simple"
+        role="dialog"
+        aria-modal="true"
+        @keydown.escape="emit('close')"
+      >
         <div class="modal-header">
           <span class="modal-title">重命名会话</span>
         </div>

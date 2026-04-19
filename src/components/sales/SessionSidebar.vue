@@ -1,5 +1,11 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ 'mobile-open': mobileOpen }">
+    <!-- 返回首页 -->
+    <button type="button" class="nav__back" @click="emit('back')">
+      <ArrowLeft :size="16" aria-hidden="true" />
+      <span>返回首页</span>
+    </button>
+
     <button class="new-chat-btn" @click="emit('newChat')">
       <Plus :size="18" />
       <span>新对话</span>
@@ -42,13 +48,27 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { Plus, MessageSquare, Pin, PinOff, MoreVertical, Edit3, Trash2 } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  Plus,
+  MessageSquare,
+  Pin,
+  PinOff,
+  MoreVertical,
+  Edit3,
+  Trash2
+} from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import type { SalesSession } from '@/api/sales'
+
+defineProps<{
+  mobileOpen?: boolean
+}>()
 
 const store = useSalesStore()
 
 const emit = defineEmits<{
+  back: []
   newChat: []
   rename: [id: number, title: string]
   delete: [id: number]
@@ -96,25 +116,49 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.nav__back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  margin: 0 12px 8px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: hsl(160, 18%, 52%);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+}
+
+.nav__back:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.1);
+}
+
 .sidebar {
   width: var(--sidebar-width, 280px);
   height: 100%;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.5);
+  background: hsla(160, 30%, 96%, 0.65);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid hsla(160, 20%, 88%, 0.5);
   display: flex;
   flex-direction: column;
   z-index: 10;
-  padding-top: 80px;
+  padding-top: 16px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .new-chat-btn {
-  margin: 0 16px 16px;
+  margin: 0 12px 12px;
   padding: 12px;
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md, 10px);
   color: var(--primary);
   font-weight: 600;
@@ -124,7 +168,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-sm);
 }
 
 .new-chat-btn :deep(svg) {
@@ -135,13 +179,13 @@ onBeforeUnmount(() => {
 
 .new-chat-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 167, 105, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .sessions-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .session-item {
@@ -165,14 +209,14 @@ onBeforeUnmount(() => {
 }
 
 .session-item:hover {
-  background: rgba(255, 255, 255, 0.6);
+  background: hsla(160, 45%, 50%, 0.1);
   color: var(--text);
 }
 
 .session-item.active {
-  background: white;
+  background: hsla(160, 50%, 50%, 0.14);
   color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
 }
 
 .pin-indicator {
@@ -276,5 +320,32 @@ onBeforeUnmount(() => {
 
 .session-menu-item.danger:hover {
   background: rgba(239, 68, 68, 0.08);
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 25;
+    background: hsla(160, 30%, 96%, 0.95);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    padding-top: 60px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .session-menu-btn {
+    opacity: 1;
+  }
 }
 </style>

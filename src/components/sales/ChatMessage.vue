@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
-import { Copy, RefreshCw, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
+import { Copy, Check, RefreshCw, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
 import type { SalesMessage, Citation } from '@/api/sales'
 import { submitFeedback as submitFeedbackApi, getFeedback } from '@/api/sales'
 import { useMarkdown } from '@/composables/useMarkdown'
@@ -160,11 +160,16 @@ async function copyMessage() {
 <template>
   <div class="message" :class="[isAssistant ? 'assistant' : isUser ? 'user' : 'system']">
     <div class="message-content">
-      <div v-if="isAssistant && salesStage" class="message-stage">
-        当前阶段：{{ salesStage }}
-      </div>
-      <button v-if="isUser" class="user-copy-btn" :class="{ copied }" aria-label="复制" @click="copyMessage">
-        <Copy :size="14" />
+      <div v-if="isAssistant && salesStage" class="message-stage">当前阶段：{{ salesStage }}</div>
+      <button
+        v-if="isUser"
+        class="user-copy-btn"
+        :class="{ copied }"
+        :aria-label="copied ? '已复制' : '复制'"
+        @click="copyMessage"
+      >
+        <Check v-if="copied" :size="14" />
+        <Copy v-else :size="14" />
       </button>
       <div class="msg-bubble markdown-body" :class="{ 'img-only': hasImagesOnly }">
         <!-- Image grid for user messages -->
@@ -190,10 +195,23 @@ async function copyMessage() {
           <div v-else>{{ displayContent }}</div>
           <!-- AI actions -->
           <div v-if="isAssistant && !streaming" class="ai-actions-container">
-            <button class="ai-action-btn" aria-label="复制" @click="copyMessage" title="复制">
-              <Copy :size="14" />
+            <button
+              class="ai-action-btn"
+              :class="{ copied }"
+              :aria-label="copied ? '已复制' : '复制'"
+              :title="copied ? '已复制' : '复制'"
+              @click="copyMessage"
+            >
+              <Check v-if="copied" :size="14" />
+              <Copy v-else :size="14" />
             </button>
-            <button class="ai-action-btn" aria-label="重新生成" @click="emit('regenerate')" title="重新生成">
+            <span v-if="copied" class="copied-toast">已复制</span>
+            <button
+              class="ai-action-btn"
+              aria-label="重新生成"
+              @click="emit('regenerate')"
+              title="重新生成"
+            >
               <RefreshCw :size="14" />
             </button>
             <button
@@ -296,9 +314,17 @@ async function copyMessage() {
 }
 
 .assistant .msg-bubble {
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
   color: var(--text);
-  border-top-left-radius: 4px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: 100%;
+}
+
+.message.assistant {
+  max-width: 100%;
 }
 
 /* Message image grid */
@@ -328,6 +354,28 @@ async function copyMessage() {
   transform: scale(1.05);
 }
 
+/* ===== Mobile ===== */
+@media (max-width: 768px) {
+  .message {
+    max-width: 92%;
+  }
+
+  .msg-bubble {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    border-radius: 14px;
+  }
+
+  .message-img-grid {
+    grid-template-columns: repeat(2, minmax(45px, 1fr));
+  }
+
+  .message-img-item {
+    width: 50px;
+    height: 42px;
+  }
+}
+
 .msg-bubble.img-only {
   padding: 8px;
 }
@@ -343,11 +391,31 @@ async function copyMessage() {
 /* AI actions */
 .ai-actions-container {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   justify-content: flex-start;
+}
+
+/* 复制成功浮字，2s 后 copied ref 超时自动消失 */
+.copied-toast {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 500;
+  animation: copied-fade 0.2s ease;
+}
+
+@keyframes copied-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .ai-action-btn {
@@ -367,6 +435,12 @@ async function copyMessage() {
 .ai-action-btn:hover {
   color: var(--primary);
   background: rgba(37, 167, 105, 0.08);
+}
+
+/* Copy 成功：保持高亮 2s，跟浮字 "已复制" 同步 */
+.ai-action-btn.copied {
+  color: var(--primary);
+  background: rgba(37, 167, 105, 0.12);
 }
 
 .ai-action-btn.active {
@@ -392,13 +466,21 @@ async function copyMessage() {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
   visibility: hidden;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .user-copy-btn.copied {
+  /* Copy 成功：强制可见 + 绿色 check，2s 后 copied ref 超时自动复位 */
   visibility: visible;
+  opacity: 1;
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
 }
 
 .user-copy-btn::after {
@@ -423,8 +505,51 @@ async function copyMessage() {
 }
 
 /* Markdown body styles */
+.assistant .markdown-body :deep(h1),
+.assistant .markdown-body :deep(h2),
+.assistant .markdown-body :deep(h3),
+.assistant .markdown-body :deep(h4),
+.assistant .markdown-body :deep(h5),
+.assistant .markdown-body :deep(h6) {
+  font-family: var(--font-sans);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.assistant .markdown-body :deep(h1) {
+  font-size: 16px;
+}
+
+.assistant .markdown-body :deep(h2) {
+  font-size: 15px;
+}
+
+.assistant .markdown-body :deep(h3),
+.assistant .markdown-body :deep(h4),
+.assistant .markdown-body :deep(h5),
+.assistant .markdown-body :deep(h6) {
+  font-size: inherit;
+}
+
+.assistant .markdown-body :deep(h1:first-child),
+.assistant .markdown-body :deep(h2:first-child),
+.assistant .markdown-body :deep(h3:first-child),
+.assistant .markdown-body :deep(h4:first-child) {
+  margin-top: 0;
+}
+
 .markdown-body :deep(p) {
   margin-bottom: 0.8em;
+}
+
+/* Markdown 分割线：浏览器默认黑色 inset 太抢眼，改成浅灰（gray-200） */
+.markdown-body :deep(hr) {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 16px 0;
 }
 
 .markdown-body :deep(p:last-child) {

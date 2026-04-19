@@ -90,17 +90,17 @@ onMounted(() => {
 
 const handleLogin = async () => {
   errorMessage.value = ''
-  
+
   if (!form.username.trim() || !form.password) {
     errorMessage.value = '请输入账号和密码'
     return
   }
 
   loading.value = true
-  
+
   try {
     const result = await userStore.login(form.username.trim(), form.password)
-    
+
     if (result.success) {
       const redirect = route.query.redirect as string
       router.push(redirect || '/')
@@ -126,7 +126,7 @@ const handleLogin = async () => {
   background:
     radial-gradient(at 0% 0%, rgba(37, 167, 105, 0.05) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(37, 167, 105, 0.03) 0px, transparent 50%),
-    linear-gradient(165deg, #F7F8FB 0%, #FFFFFF 50%, #F5F7FA 100%);
+    linear-gradient(165deg, #f7f8fb 0%, #ffffff 50%, #f5f7fa 100%);
   background-attachment: fixed;
   background-size: cover;
 }
@@ -295,7 +295,7 @@ const handleLogin = async () => {
   .login-title {
     font-size: 24px;
   }
-  
+
   .login-logo {
     width: 200px;
     height: 80px;

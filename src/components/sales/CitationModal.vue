@@ -20,12 +20,13 @@ function onOverlayClick(e: MouseEvent) {
 
 <template>
   <Teleport to="body">
-    <div
-      class="modal-overlay"
-      :class="{ open: props.open }"
-      @click="onOverlayClick"
-    >
-      <div class="modal-card citation-modal-card" role="dialog" aria-modal="true" @keydown.escape="emit('close')">
+    <div class="modal-overlay" :class="{ open: props.open }" @click="onOverlayClick">
+      <div
+        class="modal-card citation-modal-card"
+        role="dialog"
+        aria-modal="true"
+        @keydown.escape="emit('close')"
+      >
         <div class="modal-header">
           <div class="citation-modal-title">
             <BookOpen :size="20" />

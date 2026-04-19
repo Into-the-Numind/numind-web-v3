@@ -21,11 +21,16 @@ watch(
 
 <template>
   <div class="thinking-container" :class="{ collapsed, finished }">
-    <div class="thinking-header" @click="collapsed = !collapsed">
-      <div class="thinking-title">
-        <span>{{ finished ? '思考完成' : '思考中...' }}</span>
-      </div>
-      <ChevronDown :size="14" class="thinking-icon" />
+    <div
+      class="thinking-header"
+      role="button"
+      tabindex="0"
+      :aria-expanded="!collapsed"
+      @click="collapsed = !collapsed"
+      @keydown.enter.prevent="collapsed = !collapsed"
+    >
+      <ChevronDown :size="14" class="thinking-icon" aria-hidden="true" />
+      <span>{{ finished ? '思考过程' : '思考中...' }}</span>
     </div>
     <div class="thinking-content" v-html="render(content)"></div>
   </div>
@@ -33,64 +38,78 @@ watch(
 
 <style scoped>
 .thinking-container {
-  margin-bottom: 16px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  background-color: rgba(0, 0, 0, 0.02);
+  margin-bottom: 12px;
 }
 
 .thinking-header {
-  padding: 8px 16px;
-  background-color: rgba(0, 0, 0, 0.03);
-  cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 0.85rem;
+  gap: 6px;
+  font-size: 13px;
   color: var(--text-muted);
+  cursor: pointer;
   user-select: none;
+  padding: 2px 0;
 }
 
 .thinking-header:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.thinking-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  color: var(--text-secondary, var(--text));
 }
 
 .thinking-icon {
+  width: 14px;
+  height: 14px;
   transition: transform 0.3s;
-  transform: rotate(180deg);
-}
-
-.thinking-container.collapsed .thinking-icon {
   transform: rotate(0deg);
 }
 
+.thinking-container:not(.collapsed) .thinking-icon {
+  transform: rotate(180deg);
+}
+
 .thinking-content {
-  padding: 12px 16px;
-  font-size: 0.85rem;
+  margin-top: 6px;
+  font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  border-top: 1px dashed rgba(0, 0, 0, 0.05);
-  transition: max-height 0.3s ease-out;
+  line-height: 1.7;
+  transition:
+    max-height 0.3s ease-out,
+    margin-top 0.3s ease-out,
+    opacity 0.2s ease-out;
   max-height: 4000px;
-  overflow-y: auto;
+  overflow: hidden;
+  opacity: 0.9;
 }
 
 .thinking-container.collapsed .thinking-content {
   max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  border-top-color: transparent;
+  margin-top: 0;
+  opacity: 0;
 }
 
-.thinking-container.finished .thinking-icon {
-  color: var(--primary);
+.thinking-content :deep(p) {
+  margin: 0 0 6px;
+}
+
+.thinking-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.thinking-content :deep(ul),
+.thinking-content :deep(ol) {
+  margin: 0 0 6px;
+  padding-left: 20px;
+}
+
+.thinking-content :deep(li) {
+  margin-bottom: 2px;
+}
+
+.thinking-content :deep(*) {
+  color: inherit !important;
+}
+
+.thinking-content :deep(strong) {
+  font-weight: 600;
 }
 </style>

@@ -168,12 +168,12 @@ request.interceptors.response.use(
       }
       return Promise.reject(new Error('API响应格式异常，请检查代理配置'))
     }
-    
+
     // 如果响应成功，直接返回数据
     if (res.code === 200 || res.code === 0) {
       return res as any
     }
-    
+
     // 业务错误
     const errorMessage = res.message || res.msg || '请求失败'
     return Promise.reject(new Error(errorMessage))
@@ -187,7 +187,7 @@ request.interceptors.response.use(
         return retryPromise
       }
     }
-    
+
     // 处理不同状态码
     if (response) {
       switch (response.status) {
@@ -199,11 +199,45 @@ request.interceptors.response.use(
             window.location.href = '/login'
           }
           return Promise.reject(new Error('登录已过期，请重新登录'))
-          
+
+        case 402: {
+          // 积分不足（credits-system 专用状态码）— spec §4.2.2
+          //
+          // 后端在 `CheckAndEstimate` / `Reserve` / `ChatStream` 等处返回 402 +
+          // body `{ code: 'Credits.Insufficient', message, reason }`。前端派发
+          // `insufficient-credits` 事件，`App.vue` 监听并打开 `InsufficientCreditsDialog`。
+          //
+          // detail 采用结构化 payload（`{ message, reason }`）而不是裸 string，
+          // 让 dialog 可以展示原因分支（如 "legacy_tier 当月次数用尽"）。
+          //
+          // 注意：仅当 body.code === 'Credits.Insufficient' 时命中此分支；
+          // 其它 402（如网关级 Payment Required）fallthrough 到 default。
+          const payload402 = response.data
+          if (payload402 && payload402.code === 'Credits.Insufficient') {
+            const detail = {
+              message: payload402.message || '积分不足',
+              reason: payload402.reason
+            }
+            window.dispatchEvent(new CustomEvent('insufficient-credits', { detail }))
+            return Promise.reject(payload402)
+          }
+          const message402 =
+            response.data?.message || response.data?.msg || `请求失败 (${response.status})`
+          return Promise.reject(new Error(message402))
+        }
+
         case 403: {
           // 区分 token 过期（后端可能返回 403）和真正的权限不足
           const msg403 = response.data?.message || response.data?.msg || ''
-          const isAuthExpired = !getToken() || msg403.includes('token') || msg403.includes('过期') || msg403.includes('expired')
+          // 额度不足检测：先于其他 403 处理派发事件
+          if (msg403.includes('额度不足')) {
+            window.dispatchEvent(new CustomEvent('insufficient-credits', { detail: msg403 }))
+          }
+          const isAuthExpired =
+            !getToken() ||
+            msg403.includes('token') ||
+            msg403.includes('过期') ||
+            msg403.includes('expired')
           if (isAuthExpired) {
             clearAuth()
             if (!window.location.pathname.includes('/login')) {
@@ -213,30 +247,33 @@ request.interceptors.response.use(
           }
           return Promise.reject(new Error(msg403 || '没有权限访问该资源'))
         }
-          
-        case 404:
-          return Promise.reject(new Error('请求的资源不存在'))
-          
+
+        case 404: {
+          const msg404 = response.data?.message || response.data?.msg
+          return Promise.reject(new Error(msg404 || '请求的资源不存在'))
+        }
+
         case 500:
           return Promise.reject(new Error('服务器内部错误'))
-          
+
         default: {
-          const message = response.data?.message || response.data?.msg || `请求失败 (${response.status})`
+          const message =
+            response.data?.message || response.data?.msg || `请求失败 (${response.status})`
           return Promise.reject(new Error(message))
         }
       }
     }
-    
+
     // 网络错误
     if (error.message?.includes('Network Error') || error.message?.includes('ECONNREFUSED')) {
       return Promise.reject(new Error('网络连接失败，请检查网络'))
     }
-    
+
     // 超时
     if (error.message?.includes('timeout')) {
       return Promise.reject(new Error('请求超时，请稍后重试'))
     }
-    
+
     return Promise.reject(new Error(error.message || '请求失败'))
   }
 )

@@ -16,7 +16,7 @@ import Sidebar from './AppSidebar.vue'
   width: 100vw;
   height: 100vh;
   display: flex;
-  background: #F0F1F5;
+  background: #f0f1f5;
   padding: 0;
   gap: 0;
   overflow: hidden;
@@ -35,9 +35,9 @@ import Sidebar from './AppSidebar.vue'
 .main-panel {
   flex: 1;
   position: relative;
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
-  border-radius: 22px 0 0 22px;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
+  border-radius: 0;
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.03),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
@@ -50,12 +50,16 @@ import Sidebar from './AppSidebar.vue'
 @media (max-width: 768px) {
   .app-shell {
     flex-direction: column;
-    padding: 8px;
+    padding: 0;
   }
 
   .main-panel {
-    border-radius: 18px;
-    padding: 20px 16px;
+    border-radius: 0;
+    border: none;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px
+      calc(var(--mobile-tab-bar-height, 64px) + 16px);
+    box-shadow: none;
+    height: 100dvh;
   }
 }
 </style>

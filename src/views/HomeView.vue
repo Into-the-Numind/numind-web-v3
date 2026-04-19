@@ -18,9 +18,9 @@
         </div>
       </div>
 
-      <!-- SOP 工作流 -->
+      <!-- AI 工作流 -->
       <div class="workspace-section">
-        <div class="section-label">SOP 工作流</div>
+        <div class="section-label">AI 工作流</div>
         <div class="feature-cards">
           <button
             v-for="(workflow, index) in sopWorkflows"
@@ -38,15 +38,55 @@
             <div class="card-right">
               <div class="feature-card-icon" :class="'icon-variant-' + (index % 3)">
                 <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-                  <path d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                  <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                  <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
-                  <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                  <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+                  <rect
+                    x="4"
+                    y="6"
+                    width="10"
+                    height="10"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M22 11H26"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <circle
+                    cx="7"
+                    cy="25"
+                    r="3"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M10 25H14"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <rect
+                    x="14"
+                    y="22"
+                    width="10"
+                    height="6"
+                    rx="1"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
                 </svg>
               </div>
-              <div class="feature-card-label">SOP 工作流</div>
+              <div class="feature-card-label">AI 工作流</div>
             </div>
           </button>
         </div>
@@ -68,9 +108,29 @@
             :disabled="launchingWorkflowKey === workflow.key"
             @click="handleWorkflowClick(workflow)"
           >
-            <svg v-if="!hasSalesPermission" class="lock-badge" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <svg
+              v-if="!hasSalesPermission"
+              class="lock-badge"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="5"
+                y="11"
+                width="14"
+                height="10"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+              />
+              <path
+                d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
             <div class="card-left">
               <div class="feature-card-title">{{ workflow.title }}</div>
@@ -79,9 +139,68 @@
             <div class="card-right">
               <div class="feature-card-icon" :class="'icon-variant-' + ((index + 1) % 3)">
                 <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="16" cy="10" r="4" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                  <path d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M20 10L24 6M24 6L28 10M24 6V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle
+                    cx="16"
+                    cy="10"
+                    r="4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M20 10L24 6M24 6L28 10M24 6V14"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-label">AI 智能体</div>
+            </div>
+          </button>
+
+          <button
+            v-for="bot in chatbots"
+            :key="`chatbot-${bot.id}`"
+            type="button"
+            class="feature-card"
+            @click="router.push(`/chatbot/${bot.id}`)"
+          >
+            <div class="card-left">
+              <div class="feature-card-title">{{ bot.name }}</div>
+              <div class="feature-card-desc">{{ bot.description || '智能对话助手' }}</div>
+            </div>
+            <div class="card-right">
+              <div class="feature-card-icon icon-variant-1">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle
+                    cx="16"
+                    cy="10"
+                    r="4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M20 10L24 6M24 6L28 10M24 6V14"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </div>
               <div class="feature-card-label">AI 智能体</div>
@@ -89,33 +208,6 @@
           </button>
         </div>
       </div>
-
-      <!-- 即将上线 -->
-      <div class="workspace-section">
-        <div class="section-label">即将上线</div>
-        <div class="feature-cards">
-          <div v-for="workflow in comingSoonWorkflows" :key="workflow.title" class="feature-card disabled">
-            <div class="card-left">
-              <div class="feature-card-title">{{ workflow.title }}</div>
-              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
-            </div>
-            <div class="card-right">
-              <div class="feature-card-icon">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="4" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-                  <path d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                  <path d="M22 11H26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                  <circle cx="7" cy="25" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
-                  <path d="M10 25H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                  <rect x="14" y="22" width="10" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
-                </svg>
-              </div>
-              <div class="feature-card-label">即将上线</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </template>
 
     <!-- 权限不足模态框 -->
@@ -126,11 +218,30 @@
         @click.self="showPermissionModal = false"
       >
         <div class="permission-dialog">
-          <svg class="permission-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="14" y="20" width="20" height="18" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
-            <path d="M18 20V14C18 10.6863 20.6863 8 24 8C27.3137 8 30 10.6863 30 14V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="24" cy="30" r="2" fill="currentColor"/>
-            <path d="M24 32V34" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <svg
+            class="permission-icon"
+            viewBox="0 0 48 48"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              x="14"
+              y="20"
+              width="20"
+              height="18"
+              rx="3"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+            />
+            <path
+              d="M18 20V14C18 10.6863 20.6863 8 24 8C27.3137 8 30 10.6863 30 14V20"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <circle cx="24" cy="30" r="2" fill="currentColor" />
+            <path d="M24 32V34" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
           <div class="permission-title">没有运行权限</div>
           <div class="permission-desc">{{ permissionMessage }}</div>
@@ -146,8 +257,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '@/api/request'
 import { checkSalesPermission } from '@/api/sales'
+import { listVisibleChatbots } from '@/api/chatbot'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import { useUserStore } from '@/stores/user'
+import type { ChatbotConfig } from '@/types/config'
 
 interface SopTemplate {
   ID?: number
@@ -174,6 +287,7 @@ const pageLoading = ref(true)
 const showPermissionModal = ref(false)
 const hasSalesPermission = ref(true)
 const permissionMessage = ref('')
+const chatbots = ref<ChatbotConfig[]>([])
 
 const displayName = computed(() => userStore.nickname || userStore.username || '用户')
 
@@ -290,49 +404,21 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
   }
 }
 
+const fetchChatbots = async () => {
+  try {
+    const res = await listVisibleChatbots()
+    chatbots.value = ((res as any)?.data as ChatbotConfig[]) ?? []
+  } catch (error) {
+    console.error('获取智能体列表失败:', error)
+    chatbots.value = []
+  }
+}
+
 onMounted(async () => {
   void fetchTemplates()
+  void fetchChatbots()
   hasSalesPermission.value = await checkSalesPermission()
 })
-
-const comingSoonWorkflows = [
-  {
-    title: 'AI生成剪辑脚本',
-    subtitle: '一键生成脚本，视频剪辑快人一步'
-  },
-  {
-    title: 'AI销售成交指导',
-    subtitle: '专业话术引导，搞定最终成交'
-  },
-  {
-    title: 'AI朋友圈：晒学员战绩',
-    subtitle: '花式晒好评，用口碑刺激成交'
-  },
-  {
-    title: 'AI文稿创作：营销选题口播稿',
-    subtitle: '打造置顶广告牌，精准捕捞成交'
-  },
-  {
-    title: 'AI文稿创作：人设选题口播稿',
-    subtitle: '用经历引共鸣，吸引同频客户'
-  },
-  {
-    title: 'AI文稿创作：案例选题口播稿',
-    subtitle: '拆解成功案例，让客户看见你的专业'
-  },
-  {
-    title: 'AI找选题',
-    subtitle: '挖掘跨行爆款，直接对标拿来即用'
-  },
-  {
-    title: 'AI生成图文笔记',
-    subtitle: '告别制作痛苦，一键生成获客图文'
-  },
-  {
-    title: 'AI私域发售全案策划',
-    subtitle: '全套发售SOP，引爆批量收钱'
-  }
-]
 </script>
 
 <style scoped>
@@ -354,7 +440,7 @@ const comingSoonWorkflows = [
   font-family: var(--font-sans);
   font-size: 36px;
   font-weight: 700;
-  color: #1A1D26;
+  color: #1a1d26;
   line-height: 1.3;
   letter-spacing: -0.02em;
   margin: 0;
@@ -364,7 +450,6 @@ const comingSoonWorkflows = [
   color: hsl(160, 55%, 44%);
   font-weight: 500;
 }
-
 
 /* ===== Section ===== */
 .workspace-section {
@@ -376,7 +461,7 @@ const comingSoonWorkflows = [
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
-  color: #8B90A0;
+  color: #8b90a0;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 16px;
@@ -400,8 +485,8 @@ const comingSoonWorkflows = [
   padding: 20px 20px 20px 22px;
   min-height: 0;
   gap: 16px;
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
   border-radius: 20px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   cursor: pointer;
@@ -412,7 +497,7 @@ const comingSoonWorkflows = [
 
 .feature-card:hover {
   transform: translateY(-3px);
-  background: #FFFFFF;
+  background: #ffffff;
   box-shadow:
     0 8px 28px rgba(0, 0, 0, 0.08),
     0 0 0 1px hsl(158 40% 80% / 0.5);
@@ -424,12 +509,6 @@ const comingSoonWorkflows = [
   pointer-events: none;
 }
 
-.feature-card.disabled {
-  opacity: 0.5;
-  pointer-events: none;
-  cursor: default;
-}
-
 .feature-card.no-permission {
   opacity: 0.5;
   filter: grayscale(0.35);
@@ -439,8 +518,8 @@ const comingSoonWorkflows = [
   transform: none;
   cursor: not-allowed;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  background: #FAFBFC;
-  border-color: #E8E9EE;
+  background: #fafbfc;
+  border-color: #e8e9ee;
 }
 
 /* Card layout */
@@ -487,21 +566,21 @@ const comingSoonWorkflows = [
   right: 14px;
   width: 16px;
   height: 16px;
-  color: #8B90A0;
+  color: #8b90a0;
   opacity: 0.7;
 }
 
 .feature-card-title {
   font-size: 17px;
   font-weight: 650;
-  color: #1E2130;
+  color: #1e2130;
   margin-bottom: 8px;
   line-height: 1.3;
 }
 
 .feature-card-desc {
   font-size: 13.5px;
-  color: #6B7085;
+  color: #6b7085;
   line-height: 1.55;
   flex: 1;
 }
@@ -519,7 +598,7 @@ const comingSoonWorkflows = [
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #EEEFF3;
+  border: 3px solid #eeeff3;
   border-top-color: hsl(160, 75%, 42%);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -527,7 +606,9 @@ const comingSoonWorkflows = [
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -547,8 +628,8 @@ const comingSoonWorkflows = [
 }
 
 .permission-dialog {
-  background: #FFFFFF;
-  border: 1px solid #E8E9EE;
+  background: #ffffff;
+  border: 1px solid #e8e9ee;
   border-radius: 20px;
   padding: 36px;
   width: 90%;
@@ -562,8 +643,14 @@ const comingSoonWorkflows = [
 }
 
 @keyframes dialog-pop {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .permission-icon {
@@ -576,13 +663,13 @@ const comingSoonWorkflows = [
 .permission-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1E2130;
+  color: #1e2130;
   margin-bottom: 8px;
 }
 
 .permission-desc {
   font-size: 14px;
-  color: #6B7085;
+  color: #6b7085;
   line-height: 1.5;
   margin-bottom: 24px;
 }
@@ -616,16 +703,34 @@ const comingSoonWorkflows = [
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
+    padding: 12px 0 0;
   }
 
   .hero-title {
-    font-size: 28px;
+    font-size: 24px;
   }
 
+  .workspace-section {
+    margin-bottom: 28px;
+  }
 
   .feature-cards {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .feature-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .feature-card-title {
+    font-size: 15px;
+  }
+
+  .feature-card-desc {
+    font-size: 13px;
   }
 }
 </style>
