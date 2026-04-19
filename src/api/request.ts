@@ -227,18 +227,19 @@ request.interceptors.response.use(
         }
 
         case 403: {
-          // 区分 token 过期（后端可能返回 403）和真正的权限不足
+          // 区分 token/auth 失败和业务权限不足（积分、会员等级等）
           const msg403 = response.data?.message || response.data?.msg || ''
+          const code403 = response.data?.code || ''
           // 额度不足检测：先于其他 403 处理派发事件
-          if (msg403.includes('额度不足')) {
+          if (msg403.includes('额度不足') || msg403.includes('积分不足')) {
             window.dispatchEvent(new CustomEvent('insufficient-credits', { detail: msg403 }))
           }
-          const isAuthExpired =
-            !getToken() ||
-            msg403.includes('token') ||
-            msg403.includes('过期') ||
-            msg403.includes('expired')
-          if (isAuthExpired) {
+          // 仅当本地 token 已丢失，或后端明确返回 token 相关错误码时才踢登录。
+          // 业务消息中的"过期"（如"会员已过期"）不应触发退出登录。
+          const isTokenMissing = !getToken()
+          const isTokenError =
+            String(code403).includes('Token') || String(code403).includes('token')
+          if (isTokenMissing || isTokenError) {
             clearAuth()
             if (!window.location.pathname.includes('/login')) {
               window.location.href = '/login'
