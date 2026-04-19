@@ -322,7 +322,7 @@
                         <button
                           class="action-menu-item"
                           role="menuitem"
-                          @click="handleMenuGrantMembership()"
+                          @click="handleMenuGrantMembership(user)"
                         >
                           <svg
                             viewBox="0 0 24 24"
@@ -747,6 +747,129 @@
         </Transition>
       </Teleport>
 
+      <!-- ========== Grant Membership Modal (B2B2C 帮开通，不走支付) ========== -->
+      <Teleport to="body">
+        <Transition name="overlay-fade">
+          <div v-if="showGrantModal" class="modal-overlay" @click.self="closeGrantModal">
+            <div class="modal-dialog tier-dialog">
+              <div class="modal-header">
+                <h2 class="modal-title">帮开通会员</h2>
+                <button class="modal-close" @click="closeGrantModal">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div class="modal-body">
+                <div class="perm-user">
+                  <div class="perm-avatar">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="24"
+                      height="24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="perm-name">
+                      {{ grantTargetUser?.nickname || grantTargetUser?.username || '用户' }}
+                    </div>
+                    <div class="perm-meta">本次开通不扣款，费用按月汇总后对公结算</div>
+                  </div>
+                </div>
+
+                <div class="upgrade-options">
+                  <div
+                    class="upgrade-card"
+                    :class="{ selected: grantForm.productType === 'trial' }"
+                    @click="grantForm.productType = 'trial'"
+                  >
+                    <div
+                      class="upgrade-radio"
+                      :class="{ active: grantForm.productType === 'trial' }"
+                    ></div>
+                    <div class="upgrade-info">
+                      <div class="upgrade-header">
+                        <span class="upgrade-name trial">体验会员</span>
+                      </div>
+                      <div class="upgrade-desc">200 额度 · 有效期 3 天</div>
+                      <div class="upgrade-note">适合首次体验</div>
+                    </div>
+                  </div>
+                  <div
+                    class="upgrade-card"
+                    :class="{ selected: grantForm.productType === 'monthly' }"
+                    @click="grantForm.productType = 'monthly'"
+                  >
+                    <div
+                      class="upgrade-radio"
+                      :class="{ active: grantForm.productType === 'monthly' }"
+                    ></div>
+                    <div class="upgrade-info">
+                      <div class="upgrade-header">
+                        <span class="upgrade-name premium">高级会员</span>
+                      </div>
+                      <div class="upgrade-desc">每月 2000 额度 · 按月续期</div>
+                      <div class="upgrade-note">适合日常使用</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="grantForm.productType === 'monthly'" class="form-group">
+                  <label class="form-label">开通时长</label>
+                  <select v-model="grantForm.months" class="form-input form-select">
+                    <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">备注（可选）</label>
+                  <input
+                    v-model="grantForm.reason"
+                    class="form-input"
+                    type="text"
+                    maxlength="500"
+                    placeholder="例如：季度预算调整、客户升级等"
+                  />
+                </div>
+
+                <p v-if="grantError" class="form-error" style="margin-top: 8px">
+                  {{ grantError }}
+                </p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn-cancel" @click="closeGrantModal">取消</button>
+                <button
+                  type="button"
+                  class="btn-primary"
+                  :disabled="grantLoading"
+                  @click="submitGrant"
+                >
+                  {{ grantLoading ? '提交中...' : '确认开通' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- ========== Toast ========== -->
       <Teleport to="body">
         <Transition name="toast-fade">
@@ -805,7 +928,6 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import {
   fetchStatistics,
@@ -824,8 +946,7 @@ import {
   type SubUser,
   type TemplateItem
 } from '@/api/customers'
-
-const router = useRouter()
+import { grantChildMembership } from '@/api/parent'
 
 // ── State ──────────────────────────────────────────────────────────
 const statistics = reactive({
@@ -1372,12 +1493,66 @@ function handleMenuPermission(user: SubUser) {
   openMenuId.value = null
   openPermissionModal(user)
 }
-// ── Grant Membership (B2B2C) ─────────────────────────────────────
-// C 端不可自购会员（credits-system Q1），父账户通过 /parent/children-membership
-// 路径帮子账户开通。此处只负责关闭当前页的 action 菜单并跳转。
-function handleMenuGrantMembership() {
+// ── Grant Membership (B2B2C 帮开通，不走支付) ───────────────────────
+// C 端不可自购会员（credits-system Q1），父账户在此直接选择 trial/monthly 开通。
+// 后端走 POST /v1/users/children/:id/grant-membership，credit_package
+// grant_source='b2b_grant'，按月对公结算，当场不扣款。
+const showGrantModal = ref(false)
+const grantTargetUser = ref<SubUser | null>(null)
+const grantForm = reactive({
+  productType: 'trial' as 'trial' | 'monthly',
+  months: 1,
+  reason: ''
+})
+const grantLoading = ref(false)
+const grantError = ref('')
+
+function handleMenuGrantMembership(user: SubUser) {
   openMenuId.value = null
-  router.push('/parent/children-membership')
+  grantTargetUser.value = user
+  grantForm.productType = 'trial'
+  grantForm.months = 1
+  grantForm.reason = ''
+  grantError.value = ''
+  showGrantModal.value = true
+}
+
+function closeGrantModal() {
+  if (grantLoading.value) return
+  showGrantModal.value = false
+  grantTargetUser.value = null
+}
+
+async function submitGrant() {
+  if (!grantTargetUser.value) return
+  const childId = grantTargetUser.value.user_id ?? grantTargetUser.value.id
+  if (!childId) return
+
+  grantLoading.value = true
+  grantError.value = ''
+  try {
+    const payload: { product_type: 'trial' | 'monthly'; months?: number; reason: string } = {
+      product_type: grantForm.productType,
+      reason: grantForm.reason.trim()
+    }
+    if (grantForm.productType === 'monthly') {
+      payload.months = grantForm.months
+    }
+    await grantChildMembership(childId, payload)
+    const label =
+      grantForm.productType === 'trial' ? '体验会员（3 天）' : `${grantForm.months} 个月高级会员`
+    showToast(
+      `已为 ${grantTargetUser.value.nickname || grantTargetUser.value.username} 开通${label}`,
+      'success'
+    )
+    showGrantModal.value = false
+    grantTargetUser.value = null
+    await loadSubUsers()
+  } catch (e: unknown) {
+    grantError.value = e instanceof Error ? e.message : '开通失败，请重试'
+  } finally {
+    grantLoading.value = false
+  }
 }
 </script>
 

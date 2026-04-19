@@ -78,16 +78,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/parent/children-membership',
-    name: 'child-membership-grant',
-    component: () => import('@/views/parent/ChildMembershipGrantView.vue'),
-    meta: {
-      title: '子账户会员管理',
-      requiresAuth: true,
-      requiresParent: true
-    }
-  },
-  {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),

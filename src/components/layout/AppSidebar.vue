@@ -202,11 +202,6 @@ const menuItems = computed(() => {
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
-    items.push({
-      path: '/parent/children-membership',
-      title: '子账户会员',
-      icon: 'membership'
-    })
   }
 
   items.push({ path: '/settings', title: '设置', icon: 'settings' })

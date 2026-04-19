@@ -248,8 +248,10 @@ request.interceptors.response.use(
           return Promise.reject(new Error(msg403 || '没有权限访问该资源'))
         }
 
-        case 404:
-          return Promise.reject(new Error('请求的资源不存在'))
+        case 404: {
+          const msg404 = response.data?.message || response.data?.msg
+          return Promise.reject(new Error(msg404 || '请求的资源不存在'))
+        }
 
         case 500:
           return Promise.reject(new Error('服务器内部错误'))
