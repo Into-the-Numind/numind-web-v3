@@ -791,7 +791,6 @@
                     <div class="perm-name">
                       {{ grantTargetUser?.nickname || grantTargetUser?.username || '用户' }}
                     </div>
-                    <div class="perm-meta">本次开通不扣款，费用按月汇总后对公结算</div>
                   </div>
                 </div>
 
@@ -837,17 +836,6 @@
                   <select v-model="grantForm.months" class="form-input form-select">
                     <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
                   </select>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">备注（可选）</label>
-                  <input
-                    v-model="grantForm.reason"
-                    class="form-input"
-                    type="text"
-                    maxlength="500"
-                    placeholder="例如：季度预算调整、客户升级等"
-                  />
                 </div>
 
                 <p v-if="grantError" class="form-error" style="margin-top: 8px">
