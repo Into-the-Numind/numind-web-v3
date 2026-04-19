@@ -312,6 +312,9 @@ function handleBoosterPurchase(): void {
 async function handleBoosterPaid(): Promise<void> {
   try {
     await creditsStore.fetchBalance()
+  } catch (err) {
+    // 余额刷新失败不影响扣费（后端已确认），但界面积分会暂不一致，记录便于排查
+    console.warn('[handleBoosterPaid] fetchBalance failed, balance may be stale:', err)
   } finally {
     notifications.success('加量包购买成功！600 积分已到账，有效期 90 天')
   }
