@@ -57,7 +57,11 @@ onBeforeUnmount(() => {
       <ChevronDown :size="14" class="chevron" />
 
       <!-- Dropdown -->
-      <div v-show="isOpen" class="model-dropdown" :class="{ 'drop-up': feature === 'chatbot' }">
+      <div
+        v-show="isOpen"
+        class="model-dropdown"
+        :class="{ 'drop-up': feature === 'chatbot', 'align-right': feature === 'sop' }"
+      >
         <div
           v-for="model in store.getModels(props.feature)"
           :key="model.model_key"
@@ -177,6 +181,11 @@ onBeforeUnmount(() => {
 .model-dropdown.drop-up {
   top: auto;
   bottom: calc(100% + 8px);
+}
+
+.model-dropdown.align-right {
+  left: auto;
+  right: 0;
 }
 
 .model-option {
