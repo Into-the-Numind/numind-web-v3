@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
-import { Copy, RefreshCw, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
+import { Copy, Check, RefreshCw, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
 import type { SalesMessage, Citation } from '@/api/sales'
 import { submitFeedback as submitFeedbackApi, getFeedback } from '@/api/sales'
 import { useMarkdown } from '@/composables/useMarkdown'
@@ -165,10 +165,11 @@ async function copyMessage() {
         v-if="isUser"
         class="user-copy-btn"
         :class="{ copied }"
-        aria-label="复制"
+        :aria-label="copied ? '已复制' : '复制'"
         @click="copyMessage"
       >
-        <Copy :size="14" />
+        <Check v-if="copied" :size="14" />
+        <Copy v-else :size="14" />
       </button>
       <div class="msg-bubble markdown-body" :class="{ 'img-only': hasImagesOnly }">
         <!-- Image grid for user messages -->
@@ -194,9 +195,17 @@ async function copyMessage() {
           <div v-else>{{ displayContent }}</div>
           <!-- AI actions -->
           <div v-if="isAssistant && !streaming" class="ai-actions-container">
-            <button class="ai-action-btn" aria-label="复制" @click="copyMessage" title="复制">
-              <Copy :size="14" />
+            <button
+              class="ai-action-btn"
+              :class="{ copied }"
+              :aria-label="copied ? '已复制' : '复制'"
+              :title="copied ? '已复制' : '复制'"
+              @click="copyMessage"
+            >
+              <Check v-if="copied" :size="14" />
+              <Copy v-else :size="14" />
             </button>
+            <span v-if="copied" class="copied-toast">已复制</span>
             <button
               class="ai-action-btn"
               aria-label="重新生成"
@@ -382,11 +391,31 @@ async function copyMessage() {
 /* AI actions */
 .ai-actions-container {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   justify-content: flex-start;
+}
+
+/* 复制成功浮字，2s 后 copied ref 超时自动消失 */
+.copied-toast {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 500;
+  animation: copied-fade 0.2s ease;
+}
+
+@keyframes copied-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .ai-action-btn {
@@ -406,6 +435,12 @@ async function copyMessage() {
 .ai-action-btn:hover {
   color: var(--primary);
   background: rgba(37, 167, 105, 0.08);
+}
+
+/* Copy 成功：保持高亮 2s，跟浮字 "已复制" 同步 */
+.ai-action-btn.copied {
+  color: var(--primary);
+  background: rgba(37, 167, 105, 0.12);
 }
 
 .ai-action-btn.active {
@@ -440,7 +475,12 @@ async function copyMessage() {
 }
 
 .user-copy-btn.copied {
+  /* Copy 成功：强制可见 + 绿色 check，2s 后 copied ref 超时自动复位 */
   visibility: visible;
+  opacity: 1;
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
 }
 
 .user-copy-btn::after {
