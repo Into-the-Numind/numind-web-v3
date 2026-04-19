@@ -37,7 +37,7 @@
           <button type="button" class="pqm-close" aria-label="关闭" @click="handleClose">×</button>
         </header>
 
-        <div class="pqm-state-debug" data-testid="pqm-state">状态：{{ state }}</div>
+        <div v-if="IS_DEV" class="pqm-state-debug" data-testid="pqm-state">状态：{{ state }}</div>
 
         <div class="pqm-tabs">
           <button
@@ -112,6 +112,9 @@ const emit = defineEmits<{
 const POLL_INTERVAL_MS = 2000
 const PAYMENT_TIMEOUT_SECS = 300 // 前端 5 分钟上限，短于后端 30 分钟过期，提前兜底
 const MAX_POLL_FAILURES = 3
+const BOOSTER_MONTHS = 0 // 加量包无月份概念，显式传 0 避免裸魔数
+const PAID_CLOSE_DELAY_MS = 250 // paid → 弹窗关闭的动画时间（Task 3 配合动画）
+const IS_DEV = import.meta.env.DEV
 
 // --- User store ---
 const userStore = useUserStore()
@@ -127,6 +130,7 @@ const errorMsg = ref<string>('')
 // --- Timer / 去重 flag ---
 let pollTimer: number | null = null
 let countdownTimer: number | null = null
+let paidCloseTimer: number | null = null // paid → close 的延迟 timer，cleanup 必须清理避免 unmounted emit
 let isPolling = false
 
 // --- Countdown formatter ---
@@ -155,9 +159,17 @@ function clearCountdownTimer(): void {
   }
 }
 
+function clearPaidCloseTimer(): void {
+  if (paidCloseTimer !== null) {
+    window.clearTimeout(paidCloseTimer)
+    paidCloseTimer = null
+  }
+}
+
 function clearAllTimers(): void {
   clearPollTimer()
   clearCountdownTimer()
+  clearPaidCloseTimer()
 }
 
 /**
@@ -194,11 +206,14 @@ function transitionTo(next: State): void {
       startPolling()
       break
     case 'paid':
-      // Task 3 会加 250ms 成功动画；骨架：emit 成功事件 + 延迟关闭
+      // Task 3 会加 PAID_CLOSE_DELAY_MS 成功动画；骨架：emit 成功事件 + 延迟关闭
+      // timer handle 登记以便 cleanup 时清理（unmount 期间不得 emit）
       emit('paid')
-      window.setTimeout(() => {
+      clearPaidCloseTimer()
+      paidCloseTimer = window.setTimeout(() => {
+        paidCloseTimer = null
         emit('update:open', false)
-      }, 250)
+      }, PAID_CLOSE_DELAY_MS)
       break
     case 'expired':
     case 'error':
@@ -218,9 +233,17 @@ function transitionTo(next: State): void {
  * 网络错误 → errorMsg + transitionTo('error')
  */
 async function createBoosterOrder(channel: PayChannel): Promise<void> {
-  const userId = userStore.userInfo?.id
-  if (userId === undefined || userId === null || userId === '') {
+  const rawUserId = userStore.userInfo?.id
+  if (rawUserId === undefined || rawUserId === null || rawUserId === '') {
     errorMsg.value = '未登录，请重新登录后重试'
+    transitionTo('error')
+    return
+  }
+
+  // localStorage 反序列化可能把数字变字符串；后端强 int 校验，这里归一化
+  const userId = typeof rawUserId === 'string' ? Number(rawUserId) : rawUserId
+  if (!Number.isFinite(userId) || userId <= 0) {
+    errorMsg.value = '账号信息异常，请重新登录'
     transitionTo('error')
     return
   }
@@ -229,7 +252,7 @@ async function createBoosterOrder(channel: PayChannel): Promise<void> {
     const res = await createOrder({
       user_id: userId,
       product_type: 'booster',
-      months: 0,
+      months: BOOSTER_MONTHS,
       pay_channel: channel
     })
 
@@ -330,7 +353,11 @@ function resetForReorder(): void {
   countdown.value = 0
   pollFailureCount.value = 0
   errorMsg.value = ''
-  state.value = 'idle' // 复位到 idle（非 transition，无资源清理）
+  // 直接写 state.value 是 transitionTo 规约的唯一审计豁免点：
+  // 此函数总是紧接 transitionTo('creating') 被调用（见 startFlow/handleRetry/handleReorder），
+  // 且 clearAllTimers() 已经把旧 state 的资源清干净。不走 transitionTo 是为了避免
+  // "idle→idle (no-op)" 或 "error→idle" 这种无意义 transition 在未来新增 state hook 时被误触发。
+  state.value = 'idle'
 }
 
 /** 打开弹窗：重置状态 + 开始下单流程。 */
