@@ -274,7 +274,8 @@ test.describe('Path 3: 非会员购买 booster 被拒（灰态 + 403）', () => 
     // UI state: booster card in 'free' state (greyed, CTA "升级会员后可购买")
     await expect(page.locator(sel.boosterCardFree)).toBeVisible()
     await expect(page.locator(sel.boosterDisabled)).toBeVisible()
-    await expect(page.locator(sel.boosterCta)).toContainText('升级会员后可购买')
+    // Q1.5 B2B2C 改动后文案：C 端不可自购会员，引导联系管理员/父账户
+    await expect(page.locator(sel.boosterCta)).toContainText('请联系管理员开通会员')
 
     // Click should route to /settings (no purchase attempt) — stay on /settings
     await clickBooster(page)
