@@ -102,8 +102,8 @@
                     v-if="qrDataUrl"
                     :src="qrDataUrl"
                     alt="付款二维码"
-                    width="256"
-                    height="256"
+                    width="232"
+                    height="232"
                     class="pqm-qr-image"
                   />
                   <div v-else class="pqm-qr-placeholder" aria-label="二维码渲染中">
@@ -502,8 +502,10 @@ function handleReorder(): void {
 }
 
 /**
- * Tab 切换：直接更新 activeTab；watcher 处理重下单副作用。
- * creating 期间禁用（模板已做 disabled 防御；这里二次保险避免 edge case）。
+ * Tab 切换：**契约 — 此函数只允许改 activeTab，禁止直接操控 state / order / timer**。
+ * 状态迁移由下方 `watch(activeTab)` 统一处理（单一副作用入口）。
+ * 维护提醒：未来新增切换逻辑必须放 watcher，不要在这里加，否则双路副作用会难以追踪。
+ * creating 期间禁用：模板已做 disabled 防御；这里二次保险避免 programmatic 调用绕过。
  */
 function handleTabSwitch(channel: PayChannel): void {
   if (state.value === 'creating') return
@@ -529,21 +531,32 @@ function handleOpenAlipay(): void {
 /**
  * QR 渲染：code_url 或 activeTab 变化时刷新 qrDataUrl。
  * 仅在微信 tab + 有 code_url 时渲染；支付宝 tab 不显示 QR。
+ *
+ * Race guard：快速切 tab 时旧的 `toDataURL` 可能在新的之后 resolve。
+ * 用 qrGenId 递增版本号，回写 qrDataUrl 前校验本次请求仍是最新的（否则丢弃）。
  */
+let qrGenId = 0
 watch(
   () => [order.value?.code_url, activeTab.value] as const,
   async ([url, tab]) => {
+    const myId = ++qrGenId
     if (url && tab === 'wechat') {
       try {
-        qrDataUrl.value = await QRCode.toDataURL(url, {
+        const dataUrl = await QRCode.toDataURL(url, {
           width: 256,
           margin: 2,
           color: { dark: '#000000', light: '#ffffff' }
         })
+        // 响应回来时可能已被更新的 watcher 覆盖 — 仅最新请求可回写
+        if (myId === qrGenId) {
+          qrDataUrl.value = dataUrl
+        }
       } catch {
         // QR 渲染失败是纯本地错误（无网络），忽略即可：qrDataUrl 保持为空字符串
         // 用户会看到 placeholder spinner；真实的支付链路错误走 createOrder/poll 路径
-        qrDataUrl.value = ''
+        if (myId === qrGenId) {
+          qrDataUrl.value = ''
+        }
       }
     } else {
       qrDataUrl.value = ''
@@ -784,16 +797,17 @@ onBeforeUnmount(() => {
 }
 
 .pqm-status-icon--success {
-  color: var(--color-primary, hsl(160, 72%, 40%));
+  /* 先尝试语义 token，再回退到 brand token，最后字面量 —— project token drift 修复点 */
+  color: var(--color-success, var(--color-primary, #10b981));
   animation: pqm-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pqm-status-icon--warning {
-  color: hsl(40, 90%, 50%);
+  color: var(--color-warning, #f59e0b);
 }
 
 .pqm-status-icon--error {
-  color: hsl(0, 72%, 51%);
+  color: var(--color-danger, #ef4444);
 }
 
 @keyframes pqm-pop-in {
