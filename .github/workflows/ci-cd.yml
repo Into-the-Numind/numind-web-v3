@@ -142,28 +142,34 @@ jobs:
           username: root
           password: ${{ secrets.DEV_SERVER_PASSWORD }}
           script: |
-            echo "🚀 部署到 Dev 环境..."
-            
-            # 强制清理可能卡住的容器
+            set -e
+            IMAGE="${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}"
+            echo "🚀 部署到 Dev 环境... ($IMAGE)"
+
+            # 1) 先拉镜像，失败则中止（旧容器不动）
+            docker pull "$IMAGE"
+
+            # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3-dev 2>/dev/null || true
             docker rm -f numind-web-v3-dev 2>/dev/null || true
-            sleep 2
-            
-            # 用 commit SHA tag 拉取，避免 DockerHub CDN 缓存延迟
-            docker pull ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
 
-            # 启动新容器
+            # 3) 启动新容器
             docker run -d \
               --name numind-web-v3-dev \
               --network numind-network \
               -p 9200:80 \
               -e API_PROXY_PASS="http://numind-server-dev:9091/" \
               --restart unless-stopped \
-              ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
+              "$IMAGE"
 
+            # 4) 健康检查
             sleep 3
-            docker ps | grep numind-web-v3-dev || echo "容器启动失败"
-            echo "✅ Dev 部署完成"
+            if docker ps | grep -q numind-web-v3-dev; then
+              echo "✅ Dev 部署完成"
+            else
+              echo "❌ 容器启动失败" >&2
+              exit 1
+            fi
 
   # =====================================================
   # 部署到 QA 环境 (49.233.219.254)
@@ -181,28 +187,34 @@ jobs:
           username: root
           password: ${{ secrets.DEV_SERVER_PASSWORD }}
           script: |
-            echo "🚀 部署到 QA 环境..."
-            
-            # 强制清理可能卡住的容器
+            set -e
+            IMAGE="${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}"
+            echo "🚀 部署到 QA 环境... ($IMAGE)"
+
+            # 1) 先拉镜像，失败则中止（旧容器不动）
+            docker pull "$IMAGE"
+
+            # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3-qa 2>/dev/null || true
             docker rm -f numind-web-v3-qa 2>/dev/null || true
-            sleep 2
-            
-            # 用 commit SHA tag 拉取，避免 DockerHub CDN 缓存延迟
-            docker pull ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
 
-            # 启动新容器
+            # 3) 启动新容器
             docker run -d \
               --name numind-web-v3-qa \
               --network numind-network \
               -p 9201:80 \
               -e API_PROXY_PASS="http://numind-server-qa:9091/" \
               --restart unless-stopped \
-              ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
+              "$IMAGE"
 
+            # 4) 健康检查
             sleep 3
-            docker ps | grep numind-web-v3-qa || echo "容器启动失败"
-            echo "✅ QA 部署完成"
+            if docker ps | grep -q numind-web-v3-qa; then
+              echo "✅ QA 部署完成"
+            else
+              echo "❌ 容器启动失败" >&2
+              exit 1
+            fi
 
   # =====================================================
   # 部署到 Prod 环境 (129.28.125.51)
@@ -220,28 +232,34 @@ jobs:
           username: root
           password: ${{ secrets.PROD_SERVER_PASSWORD }}
           script: |
-            echo "🚀 部署到 Prod 环境..."
-            
-            # 强制清理可能卡住的容器
+            set -e
+            IMAGE="${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}"
+            echo "🚀 部署到 Prod 环境... ($IMAGE)"
+
+            # 1) 先拉镜像，失败则中止（旧容器不动）
+            docker pull "$IMAGE"
+
+            # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3 2>/dev/null || true
             docker rm -f numind-web-v3 2>/dev/null || true
-            sleep 2
 
-            # 用 commit SHA tag 拉取，避免 DockerHub CDN 缓存延迟
-            docker pull ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
-
-            # 启动新容器
+            # 3) 启动新容器
             docker run -d \
               --name numind-web-v3 \
               --network numind-network \
               -p 9202:80 \
               -e API_PROXY_PASS="http://numind-server-prod:9091/" \
               --restart unless-stopped \
-              ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
-            
+              "$IMAGE"
+
+            # 4) 健康检查
             sleep 3
-            docker ps | grep numind-web-v3 || echo "容器启动失败"
-            echo "✅ Prod 部署完成"
+            if docker ps | grep -q numind-web-v3; then
+              echo "✅ Prod 部署完成"
+            else
+              echo "❌ 容器启动失败" >&2
+              exit 1
+            fi
 
   # =====================================================
   # 部署到 Staging 环境 (110.42.221.25)
@@ -260,27 +278,30 @@ jobs:
           username: root
           password: ${{ secrets.STAGING_SERVER_PASSWORD }}
           script: |
-            echo "🚀 部署到 Staging 环境..."
+            set -e
+            IMAGE="${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}"
+            echo "🚀 部署到 Staging 环境... ($IMAGE)"
 
-            # 强制清理可能卡住的容器
+            # 1) 先拉镜像，失败则中止（旧容器不动）
+            docker pull "$IMAGE"
+
+            # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3-staging 2>/dev/null || true
             docker rm -f numind-web-v3-staging 2>/dev/null || true
-            sleep 2
 
-            # 用 commit SHA tag 拉取，避免 DockerHub CDN 缓存延迟
-            docker pull ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
-
-            # 启动新容器（host 网络模式，Nginx 监听 80，后端在同一台服务器 9091）
+            # 3) 启动新容器（host 网络模式）
             docker run -d \
               --name numind-web-v3-staging \
               --network host \
               -e API_PROXY_PASS="http://localhost:9091/" \
               --restart unless-stopped \
-              ${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}
+              "$IMAGE"
 
+            # 4) 健康检查
             sleep 3
-            docker ps | grep numind-web-v3-staging || echo "容器启动失败"
-
-            # 健康检查
-            curl -sf http://localhost:80/health && echo "✅ 健康检查通过" || echo "⚠️ 健康检查失败"
-            echo "✅ Staging 部署完成"
+            if docker ps | grep -q numind-web-v3-staging; then
+              curl -sf http://localhost:80/health && echo "✅ Staging 部署完成" || echo "⚠️ 容器运行但健康检查失败"
+            else
+              echo "❌ 容器启动失败" >&2
+              exit 1
+            fi
