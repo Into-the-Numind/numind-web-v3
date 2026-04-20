@@ -2798,8 +2798,6 @@ async function submitGrant() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 .perm-item {
