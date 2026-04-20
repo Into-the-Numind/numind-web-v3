@@ -8,6 +8,19 @@ export const listVisibleChatbots = () => {
   return request.get<{ data: { list: ChatbotConfig[] } }>('/v1/chatbot/list')
 }
 
+// 检查当前用户是否有运行指定 chatbot 的权限（用于首页点击前预检）
+// mirror SOP 的 /v1/sop/templates/:id/check-permission
+export const checkChatbotPermission = async (chatbotId: number): Promise<boolean> => {
+  try {
+    const res = await request.get(`/v1/chatbot/${chatbotId}/check-permission`)
+    const permission = (res as { data?: { has_permission?: boolean } })?.data?.has_permission
+    return permission === true
+  } catch (error) {
+    console.error(`检查智能体 ${chatbotId} 权限失败:`, error)
+    return false
+  }
+}
+
 // ==================== Session APIs ====================
 
 export const createChatbotSession = (chatbotId: number) => {

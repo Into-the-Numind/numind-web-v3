@@ -171,7 +171,9 @@
             :key="`chatbot-${bot.id}`"
             type="button"
             class="feature-card"
-            @click="router.push(`/chatbot/${bot.id}`)"
+            :class="{ loading: launchingWorkflowKey === `chatbot-${bot.id}` }"
+            :disabled="launchingWorkflowKey === `chatbot-${bot.id}`"
+            @click="handleChatbotClick(bot)"
           >
             <div class="card-left">
               <div class="feature-card-title">{{ bot.name }}</div>
@@ -257,7 +259,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '@/api/request'
 import { checkSalesPermission } from '@/api/sales'
-import { listVisibleChatbots } from '@/api/chatbot'
+import { listVisibleChatbots, checkChatbotPermission } from '@/api/chatbot'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import { useUserStore } from '@/stores/user'
 import type { ChatbotConfig } from '@/types/config'
@@ -399,6 +401,26 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
       path: '/sop/run',
       query: { templateId: String(workflow.templateId) }
     })
+  } finally {
+    launchingWorkflowKey.value = null
+  }
+}
+
+const handleChatbotClick = async (bot: ChatbotConfig) => {
+  const key = `chatbot-${bot.id}`
+  if (launchingWorkflowKey.value) {
+    return
+  }
+  launchingWorkflowKey.value = key
+
+  try {
+    const hasPermission = await checkChatbotPermission(bot.id)
+    if (!hasPermission) {
+      permissionMessage.value = '未开通该智能体的运行权限，请联系管理员'
+      showPermissionModal.value = true
+      return
+    }
+    await router.push(`/chatbot/${bot.id}`)
   } finally {
     launchingWorkflowKey.value = null
   }
