@@ -9,7 +9,7 @@ import { test, expect, type Page, type Route } from '@playwright/test'
  *
  * Coverage:
  *   1. Parent appears in customer list (first row)
- *   2. Parent can self-grant trial via action menu → "帮开通会员"
+ *   2. Parent can self-grant trial via action menu → "开通会员"
  *   3. Granting to a sub-user still works (regression)
  *
  * We mock the grant POST so state is deterministic — the real dev
@@ -57,7 +57,7 @@ async function openGrantModalForRow(page: Page, rowIndex: number) {
   await expect(row).toBeVisible({ timeout: 15_000 })
   await row.locator(sel.actionTrigger).click()
   await expect(row.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
-  await row.locator(sel.actionMenuItem, { hasText: '帮开通会员' }).click()
+  await row.locator(sel.actionMenuItem, { hasText: '开通会员' }).click()
   await expect(page.locator(sel.grantModal)).toBeVisible({ timeout: 3_000 })
 }
 
@@ -97,7 +97,7 @@ test.describe('Parent Self-Grant — List rendering', () => {
     const firstRow = rows.first()
     await firstRow.locator(sel.actionTrigger).click()
     await expect(firstRow.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
-    await expect(firstRow.locator(sel.actionMenuItem, { hasText: '帮开通会员' })).toBeVisible()
+    await expect(firstRow.locator(sel.actionMenuItem, { hasText: '开通会员' })).toBeVisible()
   })
 })
 
@@ -112,7 +112,7 @@ test.describe('Parent Self-Grant — Trial self-grant', () => {
 
     // 第一行 = 父自己（task #2 保证）
     await openGrantModalForRow(page, 0)
-    await expect(page.locator(sel.grantTitle)).toHaveText('帮开通会员')
+    await expect(page.locator(sel.grantTitle)).toHaveText('开通会员')
 
     // Select trial
     await page.locator(sel.trialCard).click()

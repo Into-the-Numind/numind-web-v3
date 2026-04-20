@@ -3,7 +3,7 @@ import { test, expect, type Page, type Route } from '@playwright/test'
 /**
  * Grant Membership Modal E2E — credits-system Q2 gap-fill UX revision
  *
- * Tests the inline "帮开通会员" modal that replaces the old navigate-to-
+ * Tests the inline "开通会员" modal that replaces the old navigate-to-
  * separate-page flow (/parent/children-membership). Covers:
  *
  *   1. Opens modal from action dropdown
@@ -69,13 +69,13 @@ async function goToCustomers(page: Page) {
   )
 }
 
-/** Open action menu for first sub-user row and click "帮开通会员". */
+/** Open action menu for first sub-user row and click "开通会员". */
 async function openGrantModalForFirstRow(page: Page) {
   const firstRow = page.locator(sel.tableRow).first()
   await expect(firstRow).toBeVisible({ timeout: 15_000 })
   await firstRow.locator(sel.actionTrigger).click()
   await expect(firstRow.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
-  await firstRow.locator(sel.actionMenuItem, { hasText: '帮开通会员' }).click()
+  await firstRow.locator(sel.actionMenuItem, { hasText: '开通会员' }).click()
   await expect(page.locator(sel.grantModal)).toBeVisible({ timeout: 3_000 })
 }
 
@@ -104,11 +104,11 @@ async function mockGrantOnce(page: Page, status: number, body: Record<string, un
 // ══════════════════════════════════════════════════════════════════
 
 test.describe('Grant Membership — Modal basics', () => {
-  test('action menu item "帮开通会员" opens the inline modal', async ({ page }) => {
+  test('action menu item "开通会员" opens the inline modal', async ({ page }) => {
     await goToCustomers(page)
     await openGrantModalForFirstRow(page)
 
-    await expect(page.locator(sel.grantTitle)).toHaveText('帮开通会员')
+    await expect(page.locator(sel.grantTitle)).toHaveText('开通会员')
     await expect(page.locator(sel.targetName)).toBeVisible()
     await expect(page.locator(sel.targetMeta)).toContainText('本次开通不扣款')
     // Two product cards: trial + monthly

@@ -2,7 +2,7 @@
  * 父账户帮子账户开通会员 API（credits-system Q2 / gap-fill UX revision）
  *
  * B2B2C 模式下，C 端不能自购会员。父账户在"客户管理"页通过 action 菜单的
- * "帮开通会员"弹窗调用此接口——开通完全免费，费用按月对公结算，不走支付流程。
+ * "开通会员"弹窗调用此接口——开通完全免费，费用按月对公结算，不走支付流程。
  *
  * 后端路由：POST /v1/users/children/:child_id/grant-membership
  */

@@ -130,7 +130,7 @@
               v-model="searchQuery"
               type="text"
               class="search-input"
-              placeholder="搜索昵称或手机号..."
+              placeholder="搜索ID、昵称或用户名…"
               @input="handleSearch"
             />
           </div>
@@ -338,7 +338,7 @@
                             <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
                             <path d="M12 18V6" />
                           </svg>
-                          帮开通会员
+                          开通会员
                         </button>
                       </div>
                     </div>
@@ -590,46 +590,10 @@
                   <div class="loading-spinner"></div>
                 </div>
 
-                <!-- Feature Permissions -->
-                <div v-if="!permLoading" class="perm-group">
-                  <div class="perm-group-title"><span>功能权限</span></div>
-                  <div class="perm-list">
-                    <div
-                      class="perm-item"
-                      :class="{ checked: featurePermissions['sales_agent'] }"
-                      @click="
-                        featurePermissions['sales_agent'] = !featurePermissions['sales_agent']
-                      "
-                    >
-                      <span
-                        class="checkbox-mark"
-                        :class="{ checked: featurePermissions['sales_agent'] }"
-                      >
-                        <svg
-                          v-if="featurePermissions['sales_agent']"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          width="12"
-                          height="12"
-                        >
-                          <path
-                            d="M2.5 6L5 8.5L9.5 3.5"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          />
-                        </svg>
-                      </span>
-                      <span class="perm-item-label">销售智能体</span>
-                    </div>
-                  </div>
-                </div>
-
                 <!-- Template Permissions -->
                 <div v-if="!permLoading" class="perm-group">
                   <div class="perm-group-title">
-                    <span>可用模板</span>
+                    <span>SOP</span>
                     <span class="perm-badge">{{ allTemplates.length }}</span>
                     <button type="button" class="perm-toggle-all" @click="togglePermSelectAll">
                       {{ isPermAllSelected ? '取消全选' : '全选' }}
@@ -671,8 +635,8 @@
                 <!-- Chatbot Permissions -->
                 <div v-if="!permLoading" class="perm-group">
                   <div class="perm-group-title">
-                    <span>可用智能体</span>
-                    <span class="perm-badge">{{ allChatbots.length }}</span>
+                    <span>智能体</span>
+                    <span class="perm-badge">{{ allChatbots.length + 1 }}</span>
                     <button
                       type="button"
                       class="perm-toggle-all"
@@ -681,14 +645,38 @@
                       {{ isPermChatbotAllSelected ? '取消全选' : '全选' }}
                     </button>
                   </div>
-                  <div v-if="allChatbots.length === 0" class="perm-empty-hint">
-                    您还没有发布智能体。<router-link
-                      to="/config/chatbots"
-                      @click="closePermissionModal"
-                      >去管理智能体</router-link
+                  <div class="perm-list">
+                    <!-- 销售智能体（功能权限） -->
+                    <div
+                      class="perm-item"
+                      :class="{ checked: featurePermissions['sales_agent'] }"
+                      @click="
+                        featurePermissions['sales_agent'] = !featurePermissions['sales_agent']
+                      "
                     >
-                  </div>
-                  <div v-else class="perm-list">
+                      <span
+                        class="checkbox-mark"
+                        :class="{ checked: featurePermissions['sales_agent'] }"
+                      >
+                        <svg
+                          v-if="featurePermissions['sales_agent']"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          width="12"
+                          height="12"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <span class="perm-item-label">销售智能体</span>
+                    </div>
+                    <!-- 用户自建智能体 -->
                     <div
                       v-for="bot in allChatbots"
                       :key="bot.id"
@@ -806,7 +794,7 @@
           <div v-if="showGrantModal" class="modal-overlay" @click.self="closeGrantModal">
             <div class="modal-dialog tier-dialog">
               <div class="modal-header">
-                <h2 class="modal-title">帮开通会员</h2>
+                <h2 class="modal-title">开通会员</h2>
                 <button class="modal-close" @click="closeGrantModal">
                   <svg
                     viewBox="0 0 24 24"
@@ -1063,9 +1051,10 @@ const filteredUsers = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (q) {
     users = users.filter((u) => {
+      const id = String(u.id || '').toLowerCase()
       const nickname = (u.nickname || '').toLowerCase()
-      const phone = (u.phone || '').toLowerCase()
-      return nickname.includes(q) || phone.includes(q)
+      const username = (u.username || '').toLowerCase()
+      return id.includes(q) || nickname.includes(q) || username.includes(q)
     })
   }
   return users
@@ -1092,7 +1081,7 @@ const isPermAllSelected = computed(() => {
 
 const isPermChatbotAllSelected = computed(() => {
   return (
-    allChatbots.value.length > 0 &&
+    featurePermissions['sales_agent'] &&
     allChatbots.value.every((c) => !!permChatbotSelectedIds[String(c.id)])
   )
 })
@@ -1434,8 +1423,10 @@ function togglePermChatbot(id: string) {
 
 function togglePermChatbotSelectAll() {
   if (isPermChatbotAllSelected.value) {
+    featurePermissions['sales_agent'] = false
     allChatbots.value.forEach((c) => delete permChatbotSelectedIds[String(c.id)])
   } else {
+    featurePermissions['sales_agent'] = true
     allChatbots.value.forEach((c) => {
       permChatbotSelectedIds[String(c.id)] = true
     })
