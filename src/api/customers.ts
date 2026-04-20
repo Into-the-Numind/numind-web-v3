@@ -154,7 +154,15 @@ export const revokeFeatures = (
 }
 
 // 获取父账号所有已发布 chatbot（复用既有 C 端列表接口）
-export const fetchAllChatbots = (): Promise<ApiResponse<any>> => {
+// /v1/chatbot/list 实际响应形状可能是 { list: ChatbotItem[], total } 或 { chatbots: ChatbotItem[] } 或直接 ChatbotItem[]
+// 定义 union type 反映多态性，避免 any；消费端做 defensive narrowing
+export const fetchAllChatbots = (): Promise<
+  ApiResponse<
+    | { list: ChatbotItem[]; total?: number }
+    | { chatbots: ChatbotItem[]; total?: number }
+    | ChatbotItem[]
+  >
+> => {
   return request.get('/v1/chatbot/list')
 }
 

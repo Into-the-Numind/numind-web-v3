@@ -682,7 +682,9 @@
                     </button>
                   </div>
                   <div v-if="allChatbots.length === 0" class="perm-empty-hint">
-                    您还没有发布智能体。<router-link to="/config/chatbots"
+                    您还没有发布智能体。<router-link
+                      to="/config/chatbots"
+                      @click="closePermissionModal"
                       >去管理智能体</router-link
                     >
                   </div>
@@ -1453,9 +1455,6 @@ async function savePermissions() {
     featurePermOriginal.value.forEach((key) => {
       if (!featurePermissions[key]) featuresToRevoke.push(key)
     })
-    if (featuresToGrant.length > 0) await grantFeatures(userId, featuresToGrant)
-    if (featuresToRevoke.length > 0) await revokeFeatures(userId, featuresToRevoke)
-
     const toGrant: string[] = []
     const toRevoke: string[] = []
     Object.keys(permSelectedIds).forEach((id) => {
@@ -1487,7 +1486,10 @@ async function savePermissions() {
       return
     }
 
+    // 所有 6 类 grant/revoke 请求统一并发执行，单一 Promise.all 边界统一部分失败的错误处理
     await Promise.all([
+      featuresToGrant.length > 0 ? grantFeatures(userId, featuresToGrant) : Promise.resolve(),
+      featuresToRevoke.length > 0 ? revokeFeatures(userId, featuresToRevoke) : Promise.resolve(),
       toGrant.length > 0 ? grantTemplates(userId, toGrant.map(Number)) : Promise.resolve(),
       toRevoke.length > 0 ? revokeTemplates(userId, toRevoke.map(Number)) : Promise.resolve(),
       toGrantChatbots.length > 0
