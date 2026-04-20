@@ -32,6 +32,14 @@ export interface TemplateItem {
   [key: string]: any
 }
 
+export interface ChatbotItem {
+  id: number | string
+  name: string
+  description?: string
+  status?: string
+  [key: string]: any
+}
+
 export interface RegisterSubUserParams {
   username: string
   password: string
@@ -143,4 +151,52 @@ export const revokeFeatures = (
   return request.delete(`/v1/customers/sub-users/${userId}/features`, {
     data: { features }
   })
+}
+
+// 获取父账号所有已发布 chatbot（复用既有 C 端列表接口）
+export const fetchAllChatbots = (): Promise<ApiResponse<any>> => {
+  return request.get('/v1/chatbot/list')
+}
+
+// 获取子用户已授权 chatbot —— 响应 { chatbots: [{id,name,...}], total }
+export const fetchUserChatbots = (
+  userId: number | string
+): Promise<ApiResponse<{ chatbots: ChatbotItem[]; total: number }>> => {
+  return request.get(`/v1/customers/sub-users/${userId}/chatbots`)
+}
+
+// 授予 chatbot 权限
+export const grantChatbots = (
+  userId: number | string,
+  chatbotIds: (number | string)[]
+): Promise<ApiResponse<any>> => {
+  return request.post(`/v1/customers/sub-users/${userId}/chatbots`, {
+    chatbot_ids: chatbotIds
+  })
+}
+
+// 撤销 chatbot 权限
+export const revokeChatbots = (
+  userId: number | string,
+  chatbotIds: (number | string)[]
+): Promise<ApiResponse<any>> => {
+  return request.delete(`/v1/customers/sub-users/${userId}/chatbots`, {
+    data: { chatbot_ids: chatbotIds }
+  })
+}
+
+// 批量授权 chatbot
+export const batchGrantChatbots = (data: {
+  user_ids: (number | string)[]
+  chatbot_ids: (number | string)[]
+}): Promise<ApiResponse<any>> => {
+  return request.post('/v1/customers/batch/grant-chatbots', data)
+}
+
+// 批量撤销 chatbot
+export const batchRevokeChatbots = (data: {
+  user_ids: (number | string)[]
+  chatbot_ids: (number | string)[]
+}): Promise<ApiResponse<any>> => {
+  return request.post('/v1/customers/batch/revoke-chatbots', data)
 }

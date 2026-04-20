@@ -667,6 +667,57 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- Chatbot Permissions -->
+                <div v-if="!permLoading" class="perm-group">
+                  <div class="perm-group-title">
+                    <span>可用智能体</span>
+                    <span class="perm-badge">{{ allChatbots.length }}</span>
+                    <button
+                      type="button"
+                      class="perm-toggle-all"
+                      @click="togglePermChatbotSelectAll"
+                    >
+                      {{ isPermChatbotAllSelected ? '取消全选' : '全选' }}
+                    </button>
+                  </div>
+                  <div v-if="allChatbots.length === 0" class="perm-empty-hint">
+                    您还没有发布智能体。<router-link to="/config/chatbots"
+                      >去管理智能体</router-link
+                    >
+                  </div>
+                  <div v-else class="perm-list">
+                    <div
+                      v-for="bot in allChatbots"
+                      :key="bot.id"
+                      class="perm-item"
+                      :class="{ checked: permChatbotSelectedIds[String(bot.id)] }"
+                      @click="togglePermChatbot(String(bot.id))"
+                    >
+                      <span
+                        class="checkbox-mark"
+                        :class="{ checked: permChatbotSelectedIds[String(bot.id)] }"
+                      >
+                        <svg
+                          v-if="permChatbotSelectedIds[String(bot.id)]"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          width="12"
+                          height="12"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <span class="perm-item-label">{{ bot.name }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn-cancel" @click="closePermissionModal">取消</button>
@@ -931,8 +982,13 @@ import {
   fetchUserFeatures,
   grantFeatures,
   revokeFeatures,
+  fetchAllChatbots,
+  fetchUserChatbots,
+  grantChatbots,
+  revokeChatbots,
   type SubUser,
-  type TemplateItem
+  type TemplateItem,
+  type ChatbotItem
 } from '@/api/customers'
 import { grantChildMembership } from '@/api/parent'
 
@@ -946,6 +1002,7 @@ const statistics = reactive({
 
 const allSubUsers = ref<SubUser[]>([])
 const allTemplates = ref<TemplateItem[]>([])
+const allChatbots = ref<ChatbotItem[]>([])
 const isLoading = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -978,6 +1035,10 @@ const permLoading = ref(false)
 const permSaving = ref(false)
 const permSelectedIds = reactive<Record<string, boolean>>({})
 const permOriginalIds = ref<Set<string>>(new Set())
+
+// Chatbot permission
+const permChatbotSelectedIds = reactive<Record<string, boolean>>({})
+const permChatbotOriginalIds = ref<Set<string>>(new Set())
 
 // Feature permission
 const featurePermissions = reactive<Record<string, boolean>>({})
@@ -1024,6 +1085,13 @@ const isPermAllSelected = computed(() => {
   return (
     allTemplates.value.length > 0 &&
     allTemplates.value.every((t) => !!permSelectedIds[String(t.id)])
+  )
+})
+
+const isPermChatbotAllSelected = computed(() => {
+  return (
+    allChatbots.value.length > 0 &&
+    allChatbots.value.every((c) => !!permChatbotSelectedIds[String(c.id)])
   )
 })
 
@@ -1094,7 +1162,7 @@ onMounted(async () => {
   document.addEventListener('click', handleGlobalClick)
   isLoading.value = true
   try {
-    await Promise.all([loadStatistics(), loadSubUsers(), loadAllTemplates()])
+    await Promise.all([loadStatistics(), loadSubUsers(), loadAllTemplates(), loadAllChatbots()])
   } finally {
     isLoading.value = false
   }
@@ -1139,6 +1207,19 @@ async function loadAllTemplates() {
     }
   } catch (e) {
     console.error('加载模板列表失败:', e)
+  }
+}
+
+async function loadAllChatbots() {
+  try {
+    const res = await fetchAllChatbots()
+    if (res.code === 200 || res.code === 0) {
+      const cd = res.data as any
+      const raw: any[] = Array.isArray(cd) ? cd : cd?.list || cd?.chatbots || []
+      allChatbots.value = raw.map((c) => ({ ...c, id: c.id ?? c.ID, name: c.name || '' }))
+    }
+  } catch (e) {
+    console.error('加载智能体列表失败:', e)
   }
 }
 
@@ -1256,16 +1337,22 @@ async function openPermissionModal(user: SubUser) {
   showPermModal.value = true
   permLoading.value = true
   Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
+  Object.keys(permChatbotSelectedIds).forEach((k) => delete permChatbotSelectedIds[k])
   permOriginalIds.value = new Set()
+  permChatbotOriginalIds.value = new Set()
   const userId = user.user_id ?? user.id
   try {
-    const [templateRes, featureRes] = await Promise.all([
+    const [templateRes, featureRes, chatbotRes] = await Promise.all([
       fetchUserTemplates(userId).catch((e) => {
         console.error('加载授权模板失败:', e)
         return null
       }),
       fetchUserFeatures(userId).catch((e) => {
         console.error('加载功能权限失败:', e)
+        return null
+      }),
+      fetchUserChatbots(userId).catch((e) => {
+        console.error('加载授权智能体失败:', e)
         return null
       })
     ])
@@ -1289,6 +1376,17 @@ async function openPermissionModal(user: SubUser) {
         })
       }
     }
+    if (chatbotRes && (chatbotRes.code === 200 || chatbotRes.code === 0)) {
+      const d = chatbotRes.data as Record<string, unknown> | unknown[]
+      const rawChatbots = (
+        Array.isArray(d) ? d : (d as Record<string, unknown>)?.chatbots || []
+      ) as Array<Record<string, unknown>>
+      rawChatbots.forEach((c) => {
+        const id = String(c.id ?? c.ID)
+        permChatbotSelectedIds[id] = true
+        permChatbotOriginalIds.value.add(id)
+      })
+    }
   } finally {
     permLoading.value = false
   }
@@ -1300,8 +1398,10 @@ function closePermissionModal() {
   permLoading.value = false
   permSaving.value = false
   Object.keys(permSelectedIds).forEach((k) => delete permSelectedIds[k])
+  Object.keys(permChatbotSelectedIds).forEach((k) => delete permChatbotSelectedIds[k])
   Object.keys(featurePermissions).forEach((k) => delete featurePermissions[k])
   featurePermOriginal.value = new Set()
+  permChatbotOriginalIds.value = new Set()
 }
 
 function togglePermTemplate(id: string) {
@@ -1318,6 +1418,24 @@ function togglePermSelectAll() {
   } else {
     allTemplates.value.forEach((t) => {
       permSelectedIds[String(t.id)] = true
+    })
+  }
+}
+
+function togglePermChatbot(id: string) {
+  if (permChatbotSelectedIds[id]) {
+    delete permChatbotSelectedIds[id]
+  } else {
+    permChatbotSelectedIds[id] = true
+  }
+}
+
+function togglePermChatbotSelectAll() {
+  if (isPermChatbotAllSelected.value) {
+    allChatbots.value.forEach((c) => delete permChatbotSelectedIds[String(c.id)])
+  } else {
+    allChatbots.value.forEach((c) => {
+      permChatbotSelectedIds[String(c.id)] = true
     })
   }
 }
@@ -1347,18 +1465,39 @@ async function savePermissions() {
       if (!permSelectedIds[id]) toRevoke.push(id)
     })
 
+    const toGrantChatbots: string[] = []
+    const toRevokeChatbots: string[] = []
+    Object.keys(permChatbotSelectedIds).forEach((id) => {
+      if (!permChatbotOriginalIds.value.has(id)) toGrantChatbots.push(id)
+    })
+    permChatbotOriginalIds.value.forEach((id) => {
+      if (!permChatbotSelectedIds[id]) toRevokeChatbots.push(id)
+    })
+
     if (
       toGrant.length === 0 &&
       toRevoke.length === 0 &&
       featuresToGrant.length === 0 &&
-      featuresToRevoke.length === 0
+      featuresToRevoke.length === 0 &&
+      toGrantChatbots.length === 0 &&
+      toRevokeChatbots.length === 0
     ) {
       showToast('没有变更', 'info')
       closePermissionModal()
       return
     }
-    if (toGrant.length > 0) await grantTemplates(userId, toGrant.map(Number))
-    if (toRevoke.length > 0) await revokeTemplates(userId, toRevoke.map(Number))
+
+    await Promise.all([
+      toGrant.length > 0 ? grantTemplates(userId, toGrant.map(Number)) : Promise.resolve(),
+      toRevoke.length > 0 ? revokeTemplates(userId, toRevoke.map(Number)) : Promise.resolve(),
+      toGrantChatbots.length > 0
+        ? grantChatbots(userId, toGrantChatbots.map(Number))
+        : Promise.resolve(),
+      toRevokeChatbots.length > 0
+        ? revokeChatbots(userId, toRevokeChatbots.map(Number))
+        : Promise.resolve()
+    ])
+
     showToast('权限已更新', 'success')
     closePermissionModal()
     await loadSubUsers()
@@ -2682,6 +2821,19 @@ async function submitGrant() {
 .perm-item-label {
   font-size: 14px;
   color: hsl(155, 12%, 20%);
+}
+
+.perm-empty-hint {
+  padding: 12px;
+  border: 1px dashed hsl(155, 20%, 88%);
+  border-radius: 12px;
+  background: hsl(155, 20%, 98%);
+  color: hsl(155, 12%, 45%);
+  font-size: 13px;
+}
+.perm-empty-hint a {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 /* ===== Tier Upgrade Modal ===== */
