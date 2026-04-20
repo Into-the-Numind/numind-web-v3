@@ -115,9 +115,9 @@ export const updateSubUserTier = (
   return request.put(`/v1/customers/sub-users/${userId}/tier`, data)
 }
 
-// 获取所有可用模板
+// 获取所有可用模板（权限弹窗一次性拉全量，显式传 limit=500 避免默认分页截断）
 export const fetchAllTemplates = (): Promise<ApiResponse<TemplateItem[]>> => {
-  return request.get('/v1/sop/templates')
+  return request.get('/v1/sop/templates', { params: { limit: 500 } })
 }
 
 // 获取子用户功能权限
