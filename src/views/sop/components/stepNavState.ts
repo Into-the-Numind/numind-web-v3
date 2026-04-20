@@ -49,7 +49,8 @@ export function computeStepState(
 
   // ---------- 1) disabled ----------
   // spec 附录 B: explicitly inaccessible node from server
-  if (node && accessibility[node.id] === false) return 'disabled'
+  // 但已完成的节点（含 bookmark auto-apply）始终可查看，不受 accessibility 限制
+  if (node && accessibility[node.id] === false && !completedIds.has(node.id)) return 'disabled'
   if (!isTrailingChat && index > currentStep) return 'disabled'
   if (isTrailingChat && currentStep < nodes.length + 1) return 'disabled'
 
