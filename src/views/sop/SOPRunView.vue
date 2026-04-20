@@ -217,8 +217,20 @@ async function initialize() {
     } else {
       store.enterDraftMode(templateId.value)
       draft.enterDraftMode(templateId.value)
-      store.setActiveStep(1)
-      store.setViewingStep(1)
+
+      if (bookmarks.bookmarks.value.length > 0) {
+        // 有保存记录 → 提前创建 run，后端自动应用书签
+        // ensureRun 内部：创建 run → auto-apply → loadRun 填充 completedNodeIds
+        // → setActiveStep 跳转到第一个未完成步骤
+        await ensureRun()
+      }
+
+      // ensureRun 成功 auto-apply 时已设置步骤位置（completedNodeIds 非空）；
+      // 无书签 / auto-apply 未生效 / ensureRun 失败 → 从 step 1 开始
+      if (store.completedNodeIds.size === 0) {
+        store.setActiveStep(1)
+        store.setViewingStep(1)
+      }
     }
 
     // F11 P1-2 恢复：从 sessionStorage 还原上次停留的步骤。

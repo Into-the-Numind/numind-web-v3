@@ -121,7 +121,7 @@ describe('OutputCard', () => {
       })
       const star = wrapper.find('[data-testid="bookmark-toggle"]')
       expect(star.classes()).toContain('is-active')
-      expect(star.text()).toContain('已收藏')
+      expect(star.text()).toContain('已保存')
     })
 
     it('emits toggle-bookmark on ⭐ click', async () => {

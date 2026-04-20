@@ -60,13 +60,13 @@
         type="button"
         class="tiny-btn tiny-btn--star"
         :class="{ 'is-active': hasBookmark }"
-        :title="hasBookmark ? '已收藏 · 点击移除书签' : '保存为书签'"
+        :title="hasBookmark ? '已保存 · 点击移除' : '保存生成记录'"
         data-testid="bookmark-toggle"
         @click="handleToggleBookmark"
       >
         <Star v-if="!hasBookmark" :size="13" aria-hidden="true" />
         <Star v-else :size="13" fill="currentColor" aria-hidden="true" />
-        <span>{{ hasBookmark ? '已收藏' : '收藏' }}</span>
+        <span>{{ hasBookmark ? '已保存' : '保存生成记录' }}</span>
       </button>
     </div>
 

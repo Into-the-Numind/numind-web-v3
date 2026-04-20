@@ -501,7 +501,18 @@ export const useSopRunStore = defineStore('sopRun', () => {
    */
   function advanceCurrentStep(): void {
     if (currentStep.value >= totalSteps.value) return
-    currentStep.value += 1
+    // 跳过已有保存记录（bookmark 已应用 / 已完成）的步骤，
+    // 直接跳到下一个未完成的步骤
+    let next = currentStep.value + 1
+    while (
+      next < totalSteps.value &&
+      nodes.value[next - 1] &&
+      completedNodeIds.value.has(nodes.value[next - 1].id)
+    ) {
+      next++
+    }
+    // next 最多等于 totalSteps（最后一步，即使已完成也要停下来让用户看到"完成"按钮）
+    currentStep.value = next
     viewingStep.value = currentStep.value
   }
 
