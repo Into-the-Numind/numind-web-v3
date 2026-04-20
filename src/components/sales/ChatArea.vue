@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useSalesStore } from '@/stores/sales'
-import { useAutoScroll } from '@/composables/useAutoScroll'
+import { useScrollFollow } from '@/composables/useScrollFollow'
 import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
 import type { Citation } from '@/api/sales'
 import ChatMessage from './ChatMessage.vue'
@@ -20,8 +20,7 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLElement | null>(null)
 
-const { smartScrollToBottom, onScroll, showScrollButton, handleScrollToBottomClick } =
-  useAutoScroll(containerRef)
+const scrollFollow = useScrollFollow()
 
 // ==================== Typewriter Reveal ====================
 // 对齐 SOP 的 SSE 渲染方案：后端每 ~250ms burst 推送 ~13 字符，直接渲染会被
@@ -35,6 +34,10 @@ watch(
     if (!next) {
       contentReveal.reset()
       return
+    }
+    // 第一个 content token 到达 → thinking 阶段结束，立即 flush thinking typewriter
+    if (!prev && next) {
+      thinkingReveal.flush()
     }
     if (prev && next.startsWith(prev)) {
       contentReveal.append(next.slice(prev.length))
@@ -74,23 +77,42 @@ watch(
   () =>
     [store.messages.length, contentReveal.displayed.value, thinkingReveal.displayed.value] as const,
   () => {
-    requestAnimationFrame(() => smartScrollToBottom())
+    if (containerRef.value) {
+      nextTick(() => scrollFollow.checkAndScroll(containerRef.value!))
+    }
   }
 )
+
+// Install scroll follow when container ref is available
+watch(containerRef, (el) => {
+  scrollFollow.uninstall()
+  if (el) scrollFollow.install(el)
+})
 
 // Scroll to bottom on mount
 onMounted(() => {
   nextTick(() => {
     if (containerRef.value) {
-      containerRef.value.scrollTop = containerRef.value.scrollHeight
+      scrollFollow.resume(containerRef.value)
     }
   })
 })
 
 onBeforeUnmount(() => {
+  scrollFollow.uninstall()
   contentReveal.dispose()
   thinkingReveal.dispose()
 })
+
+// 切换会话时重置 scroll follow 状态
+watch(
+  () => store.currentSessionId,
+  () => {
+    nextTick(() => {
+      if (containerRef.value) scrollFollow.resume(containerRef.value)
+    })
+  }
+)
 
 const showWelcome = ref(false)
 
@@ -105,7 +127,7 @@ watch(
 
 <template>
   <div class="chat-wrapper">
-    <div ref="containerRef" class="chat-messages" @scroll="onScroll">
+    <div ref="containerRef" class="chat-messages">
       <!-- Welcome screen when no messages -->
       <WelcomeScreen v-if="showWelcome && !store.isLoading" />
 
@@ -159,7 +181,10 @@ watch(
     </div>
 
     <!-- Scroll to bottom button (anchored above input) -->
-    <ScrollToBottomBtn :visible="showScrollButton" @click="handleScrollToBottomClick" />
+    <ScrollToBottomBtn
+      :visible="scrollFollow.isInterrupted.value"
+      @click="scrollFollow.resume(containerRef!)"
+    />
   </div>
 </template>
 

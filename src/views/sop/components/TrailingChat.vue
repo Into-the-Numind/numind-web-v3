@@ -103,7 +103,7 @@ import ChatComposer from './ChatComposer.vue'
 import { listRunChatMessages, type RunChatMessageItem } from '@/api/sop'
 import type { SopChatMessageMeta } from '@/views/sop/types'
 import { useNotificationsStore } from '@/stores/notifications'
-import { useScrollFollow } from '@/views/sop/composables/useScrollFollow'
+import { useScrollFollow } from '@/composables/useScrollFollow'
 import { copyText } from '@/utils/clipboard'
 
 interface Props {

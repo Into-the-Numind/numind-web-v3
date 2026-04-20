@@ -18,7 +18,7 @@ import {
 } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
 import { useLLMModelStore } from '@/stores/llmModel'
-import { useAutoScroll } from '@/composables/useAutoScroll'
+import { useScrollFollow } from '@/composables/useScrollFollow'
 import { useMarkdown } from '@/composables/useMarkdown'
 import { useDocUpload } from '@/composables/useDocUpload'
 import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
@@ -79,6 +79,11 @@ watch(
       contentReveal.reset()
       return
     }
+    // 第一个 content token 到达 → thinking 阶段结束，立即 flush thinking typewriter
+    // 避免 thinking 和 content 同时蹦字
+    if (!prev && next) {
+      thinkingReveal.flush()
+    }
     if (prev && next.startsWith(prev)) {
       contentReveal.append(next.slice(prev.length))
     } else {
@@ -112,15 +117,28 @@ watch(
   }
 )
 
-// ==================== Auto Scroll ====================
-const { smartScrollToBottom, onScroll, showScrollButton, handleScrollToBottomClick } =
-  useAutoScroll(chatContainerRef)
+// ==================== Scroll Follow (状态机) ====================
+const scrollFollow = useScrollFollow()
+
+// chatContainerRef 在 pageLoading=false 后才存在（v-else），用 watcher 安装
+watch(chatContainerRef, (el) => {
+  scrollFollow.uninstall()
+  if (el) scrollFollow.install(el)
+})
+
+// 思考完成：content 阶段已开始（后端已发 token 事件）
+const thinkingFinished = computed(() => {
+  if (store.streaming) return !!store.streamContent
+  return true
+})
 
 watch(
   () =>
     [store.messages.length, contentReveal.displayed.value, thinkingReveal.displayed.value] as const,
   () => {
-    requestAnimationFrame(() => smartScrollToBottom())
+    if (chatContainerRef.value) {
+      nextTick(() => scrollFollow.checkAndScroll(chatContainerRef.value!))
+    }
   }
 )
 
@@ -152,7 +170,7 @@ async function switchToSession(session: (typeof store.sessions)[0]) {
   sidebarOpen.value = false
   nextTick(() => {
     if (chatContainerRef.value) {
-      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight
+      scrollFollow.resume(chatContainerRef.value)
     }
     textareaRef.value?.focus()
   })
@@ -343,13 +361,14 @@ onMounted(async () => {
 
   nextTick(() => {
     if (chatContainerRef.value) {
-      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight
+      scrollFollow.resume(chatContainerRef.value)
     }
     textareaRef.value?.focus()
   })
 })
 
 onBeforeUnmount(() => {
+  scrollFollow.uninstall()
   document.body.classList.remove('chatbot-chat-route')
   contentReveal.dispose()
   thinkingReveal.dispose()
@@ -430,7 +449,7 @@ onBeforeUnmount(() => {
 
         <!-- Chat Messages -->
         <div class="chat-wrapper">
-          <div ref="chatContainerRef" class="chat-messages" @scroll="onScroll">
+          <div ref="chatContainerRef" class="chat-messages">
             <!-- Messages Loading -->
             <div v-if="store.messagesLoading" class="messages-loading">
               <div class="loading-spinner small" />
@@ -527,7 +546,7 @@ onBeforeUnmount(() => {
                     <ThinkingBlock
                       v-if="thinkingReveal.displayed.value"
                       :content="thinkingReveal.displayed.value"
-                      :finished="false"
+                      :finished="thinkingFinished"
                     />
                     <div
                       v-if="contentReveal.displayed.value"
@@ -560,9 +579,9 @@ onBeforeUnmount(() => {
 
           <!-- Scroll to bottom button (anchored above input, outside scroll area) -->
           <button
-            v-if="showScrollButton"
+            v-if="scrollFollow.isInterrupted.value"
             class="scroll-to-bottom-btn"
-            @click="handleScrollToBottomClick"
+            @click="scrollFollow.resume(chatContainerRef!)"
           >
             <svg
               width="16"
