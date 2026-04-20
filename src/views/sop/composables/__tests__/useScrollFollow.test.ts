@@ -15,7 +15,7 @@
  *   11. Interrupted 状态下的 wheel 不抖动（忽略）
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useScrollFollow } from '../useScrollFollow'
+import { useScrollFollow } from '@/composables/useScrollFollow'
 
 /**
  * 创建一个 mock 滚动容器。

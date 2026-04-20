@@ -71,7 +71,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ChevronDown } from 'lucide-vue-next'
 import { renderMarkdown } from '@/utils/markdown'
-import { useScrollFollow } from '@/views/sop/composables/useScrollFollow'
+import { useScrollFollow } from '@/composables/useScrollFollow'
 
 interface Props {
   thinking?: string | null
