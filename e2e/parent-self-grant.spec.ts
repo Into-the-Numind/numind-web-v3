@@ -127,7 +127,8 @@ test.describe('Parent Self-Grant — Trial self-grant', () => {
     // 本 case 因 mock 了 grant API 后端不实际写入，列表刷新后的会员状态断言
     // 无法在 E2E mock 下可靠验证。会员状态持久化的端到端验证由后端 TDD
     // （TestGrantMembership_SelfGrant_Trial_Success 等 task 1 的单测）覆盖。
-    // 此处仅断言 submitGrant 成功路径触发了 loadSubUsers()（刷新动作本身）。
+    // 此处做一个弱断言：submit 成功后列表仍然渲染（即 loadSubUsers() 已触发）。
+    await expect(page.locator(sel.tableRow).first()).toBeVisible({ timeout: 5_000 })
   })
 })
 
@@ -137,11 +138,14 @@ test.describe('Parent Self-Grant — Trial self-grant', () => {
 
 test.describe('Parent Self-Grant — Sub-user regression', () => {
   test('granting monthly to a sub-user (second row) still works', async ({ page }) => {
-    await mockGrantSuccess(page)
+    // 先加载页面，再决定是否 skip，最后才挂载 mock，
+    // 避免 skip 时 route handler 已挂载污染后续 test 的 page context。
     await goToCustomers(page)
 
     const rowCount = await page.locator(sel.tableRow).count()
     test.skip(rowCount < 2, 'Need at least 1 sub-user for this regression test')
+
+    await mockGrantSuccess(page)
 
     // 第二行 = 第一个子账户
     await openGrantModalForRow(page, 1)
