@@ -427,6 +427,10 @@ const fetchTemplates = async () => {
       })
     }
 
+    // Sort unlocked (hasPermission=true) before locked (hasPermission=false);
+    // stable within each group preserves backend order (e.g. publish time).
+    workflows.sort((a, b) => Number(b.hasPermission) - Number(a.hasPermission))
+
     templateWorkflows.value = workflows
   } catch (error) {
     console.error('获取SOP模板失败:', error)
@@ -497,7 +501,11 @@ const handleChatbotClick = async (bot: ChatbotConfig) => {
 const fetchChatbots = async () => {
   try {
     const res = await listVisibleChatbots()
-    chatbots.value = ((res as any)?.data as ChatbotConfig[]) ?? []
+    const list = ((res as any)?.data as ChatbotConfig[]) ?? []
+    // Sort unlocked (has_permission=true OR undefined) before locked (false);
+    // stable within each group preserves backend order. Matches SOP ordering.
+    list.sort((a, b) => Number(b.has_permission ?? true) - Number(a.has_permission ?? true))
+    chatbots.value = list
   } catch (error) {
     console.error('获取智能体列表失败:', error)
     chatbots.value = []
@@ -576,7 +584,9 @@ onMounted(async () => {
   min-height: 0;
   gap: 16px;
   background: #ffffff;
-  border: 1px solid #e8e9ee;
+  /* Default: green border to match hover color, signalling "runnable".
+     Denied cards override back to neutral gray below. */
+  border: 1px solid hsl(158, 50%, 78%);
   border-radius: 20px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   cursor: pointer;
@@ -601,8 +611,10 @@ onMounted(async () => {
 
 /* Denied cards render with normal colors + lock badge top-right.
    Only signal is the lock icon; cursor hints the click will be blocked.
+   Border reverts to neutral gray to further distinguish from runnable cards.
    No opacity/grayscale — per 2026-04-21 homeview-locked-cards D5. */
 .feature-card.no-permission {
+  border-color: #e8e9ee;
   cursor: not-allowed;
 }
 
