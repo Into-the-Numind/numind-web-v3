@@ -117,7 +117,28 @@ export function useSSEStream() {
     })
 
     if (!response.ok) {
-      handlers.onError?.(`HTTP ${response.status}: ${response.statusText}`)
+      // 非 2xx：优先解析后端 JSON body 拿到真实 message，避免向用户展示裸 "HTTP 403:"。
+      // 对 402 / 含"积分|额度|充值"的 403，与 axios interceptor 行为对齐派发
+      // `insufficient-credits` 事件，让 App.vue 打开 InsufficientCreditsDialog。
+      let message = ''
+      let code = ''
+      try {
+        const body = await response.json()
+        message = body?.message || body?.msg || ''
+        code = body?.code || ''
+      } catch {
+        // body 非 JSON（如 nginx 错误页、空 body），保持 message 为空。
+      }
+
+      const insufficientCredits =
+        response.status === 402 || (response.status === 403 && /积分|额度|充值/.test(message))
+
+      if (insufficientCredits) {
+        const detail = { message: message || '积分不足', reason: code }
+        window.dispatchEvent(new CustomEvent('insufficient-credits', { detail }))
+      }
+
+      handlers.onError?.(message || `请求失败 (HTTP ${response.status})`)
       return
     }
 
