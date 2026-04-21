@@ -40,6 +40,14 @@ export interface ChatbotConfig {
   knowledge_base_count?: number
   created_at: string
   updated_at: string
+  /**
+   * Whether the current user can run this chatbot.
+   * Backend sends this on list endpoints used by HomeView for UI gating.
+   * Undefined → fallback to `true` (old backend compat; user clicks then
+   * checkChatbotPermission will catch it). Click-time gate is still
+   * enforced by /check-permission + CreateSession + ChatStream middleware.
+   */
+  has_permission?: boolean
 }
 
 export interface ChatbotDetail extends ChatbotConfig {
