@@ -27,10 +27,37 @@
             :key="workflow.key"
             type="button"
             class="feature-card"
-            :class="{ loading: launchingWorkflowKey === workflow.key }"
+            :class="{
+              loading: launchingWorkflowKey === workflow.key,
+              'no-permission': !workflow.hasPermission
+            }"
             :disabled="launchingWorkflowKey === workflow.key"
             @click="handleWorkflowClick(workflow)"
           >
+            <svg
+              v-if="!workflow.hasPermission"
+              class="lock-badge"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="5"
+                y="11"
+                width="14"
+                height="10"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+              />
+              <path
+                d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+            </svg>
             <div class="card-left">
               <div class="feature-card-title">{{ workflow.title }}</div>
               <div class="feature-card-desc">{{ workflow.subtitle }}</div>
@@ -103,13 +130,13 @@
             class="feature-card"
             :class="{
               loading: launchingWorkflowKey === workflow.key,
-              'no-permission': !hasSalesPermission
+              'no-permission': !workflow.hasPermission
             }"
             :disabled="launchingWorkflowKey === workflow.key"
             @click="handleWorkflowClick(workflow)"
           >
             <svg
-              v-if="!hasSalesPermission"
+              v-if="!workflow.hasPermission"
               class="lock-badge"
               viewBox="0 0 24 24"
               fill="none"
@@ -171,10 +198,37 @@
             :key="`chatbot-${bot.id}`"
             type="button"
             class="feature-card"
-            :class="{ loading: launchingWorkflowKey === `chatbot-${bot.id}` }"
+            :class="{
+              loading: launchingWorkflowKey === `chatbot-${bot.id}`,
+              'no-permission': (bot.has_permission ?? true) === false
+            }"
             :disabled="launchingWorkflowKey === `chatbot-${bot.id}`"
             @click="handleChatbotClick(bot)"
           >
+            <svg
+              v-if="(bot.has_permission ?? true) === false"
+              class="lock-badge"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="5"
+                y="11"
+                width="14"
+                height="10"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+              />
+              <path
+                d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+            </svg>
             <div class="card-left">
               <div class="feature-card-title">{{ bot.name }}</div>
               <div class="feature-card-desc">{{ bot.description || '智能对话助手' }}</div>
@@ -270,6 +324,12 @@ interface SopTemplate {
   Id?: number
   name?: string
   description?: string
+  /**
+   * Backend tells us whether current user can run this template.
+   * Undefined → assume true (old backend compat; click-time
+   * checkTemplatePermission still enforces gate).
+   */
+  has_permission?: boolean
 }
 
 interface OnlineWorkflow {
@@ -278,6 +338,8 @@ interface OnlineWorkflow {
   title: string
   subtitle: string
   templateId?: number
+  /** Mirror of template.has_permission / chatbot.has_permission for UI lock badge. */
+  hasPermission: boolean
 }
 
 const router = useRouter()
@@ -302,15 +364,17 @@ const greeting = computed(() => {
   return '晚上好'
 })
 
-const salesWorkflow: OnlineWorkflow = {
-  key: 'agent-sales',
-  type: 'agent',
-  title: '销售智能体',
-  subtitle: 'AI驱动的智能销售助手'
-}
-
 const sopWorkflows = computed<OnlineWorkflow[]>(() => templateWorkflows.value)
-const agentWorkflows = computed<OnlineWorkflow[]>(() => [salesWorkflow])
+// agentWorkflows 用 computed 以便 hasSalesPermission 变化时自动重新计算 salesWorkflow.hasPermission
+const agentWorkflows = computed<OnlineWorkflow[]>(() => [
+  {
+    key: 'agent-sales',
+    type: 'agent',
+    title: '销售智能体',
+    subtitle: 'AI驱动的智能销售助手',
+    hasPermission: hasSalesPermission.value
+  }
+])
 
 const getTemplateId = (template: SopTemplate): number | null => {
   const rawId = template.ID ?? template.id ?? template.Id
@@ -355,7 +419,11 @@ const fetchTemplates = async () => {
         type: 'sop',
         title: template.name || '未命名SOP',
         subtitle: template.description || '',
-        templateId
+        templateId,
+        // fallback true when backend doesn't send field yet (old API) — click-time
+        // checkTemplatePermission still enforces gate so a missed lock won't let
+        // a denied user actually run.
+        hasPermission: template.has_permission ?? true
       })
     }
 
@@ -531,17 +599,16 @@ onMounted(async () => {
   pointer-events: none;
 }
 
+/* Denied cards render with normal colors + lock badge top-right.
+   Only signal is the lock icon; cursor hints the click will be blocked.
+   No opacity/grayscale — per 2026-04-21 homeview-locked-cards D5. */
 .feature-card.no-permission {
-  opacity: 0.5;
-  filter: grayscale(0.35);
+  cursor: not-allowed;
 }
 
 .feature-card.no-permission:hover {
   transform: none;
-  cursor: not-allowed;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  background: #fafbfc;
-  border-color: #e8e9ee;
 }
 
 /* Card layout */
