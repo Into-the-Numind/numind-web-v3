@@ -119,24 +119,24 @@
         </div>
       </div>
 
-      <!-- AI 智能体 -->
+      <!-- AI 智能体 (销售智能体 + chatbot 统一排序，unlocked 在前) -->
       <div class="workspace-section">
         <div class="section-label">AI 智能体</div>
         <div class="feature-cards">
           <button
-            v-for="(workflow, index) in agentWorkflows"
-            :key="workflow.key"
+            v-for="card in agentCards"
+            :key="card.key"
             type="button"
             class="feature-card"
             :class="{
-              loading: launchingWorkflowKey === workflow.key,
-              'no-permission': !workflow.hasPermission
+              loading: launchingWorkflowKey === card.key,
+              'no-permission': !card.hasPermission
             }"
-            :disabled="launchingWorkflowKey === workflow.key"
-            @click="handleWorkflowClick(workflow)"
+            :disabled="launchingWorkflowKey === card.key"
+            @click="handleAgentCardClick(card)"
           >
             <svg
-              v-if="!workflow.hasPermission"
+              v-if="!card.hasPermission"
               class="lock-badge"
               viewBox="0 0 24 24"
               fill="none"
@@ -160,78 +160,8 @@
               />
             </svg>
             <div class="card-left">
-              <div class="feature-card-title">{{ workflow.title }}</div>
-              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
-            </div>
-            <div class="card-right">
-              <div class="feature-card-icon" :class="'icon-variant-' + ((index + 1) % 3)">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle
-                    cx="16"
-                    cy="10"
-                    r="4"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                  <path
-                    d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M20 10L24 6M24 6L28 10M24 6V14"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </div>
-              <div class="feature-card-label">AI 智能体</div>
-            </div>
-          </button>
-
-          <button
-            v-for="bot in chatbots"
-            :key="`chatbot-${bot.id}`"
-            type="button"
-            class="feature-card"
-            :class="{
-              loading: launchingWorkflowKey === `chatbot-${bot.id}`,
-              'no-permission': (bot.has_permission ?? true) === false
-            }"
-            :disabled="launchingWorkflowKey === `chatbot-${bot.id}`"
-            @click="handleChatbotClick(bot)"
-          >
-            <svg
-              v-if="(bot.has_permission ?? true) === false"
-              class="lock-badge"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect
-                x="5"
-                y="11"
-                width="14"
-                height="10"
-                rx="2"
-                stroke="currentColor"
-                stroke-width="1.5"
-                fill="none"
-              />
-              <path
-                d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              />
-            </svg>
-            <div class="card-left">
-              <div class="feature-card-title">{{ bot.name }}</div>
-              <div class="feature-card-desc">{{ bot.description || '智能对话助手' }}</div>
+              <div class="feature-card-title">{{ card.title }}</div>
+              <div class="feature-card-desc">{{ card.subtitle }}</div>
             </div>
             <div class="card-right">
               <div class="feature-card-icon icon-variant-1">
@@ -334,12 +264,22 @@ interface SopTemplate {
 
 interface OnlineWorkflow {
   key: string
-  type: 'agent' | 'sop'
+  type: 'sop'
   title: string
   subtitle: string
   templateId?: number
-  /** Mirror of template.has_permission / chatbot.has_permission for UI lock badge. */
+  /** Mirror of template.has_permission for UI lock badge. */
   hasPermission: boolean
+}
+
+interface AgentCard {
+  key: string
+  type: 'sales' | 'chatbot'
+  title: string
+  subtitle: string
+  hasPermission: boolean
+  /** Original ChatbotConfig kept so the click handler can route by id. */
+  chatbot?: ChatbotConfig
 }
 
 const router = useRouter()
@@ -365,16 +305,31 @@ const greeting = computed(() => {
 })
 
 const sopWorkflows = computed<OnlineWorkflow[]>(() => templateWorkflows.value)
-// agentWorkflows 用 computed 以便 hasSalesPermission 变化时自动重新计算 salesWorkflow.hasPermission
-const agentWorkflows = computed<OnlineWorkflow[]>(() => [
-  {
-    key: 'agent-sales',
-    type: 'agent',
-    title: '销售智能体',
-    subtitle: 'AI驱动的智能销售助手',
-    hasPermission: hasSalesPermission.value
-  }
-])
+
+// agentCards 合并"销售智能体"和普通 chatbot 成同构数组，一起按 hasPermission 排序
+// （销售智能体本质上也是一种 chatbot，不应永远占位 index 0）。
+// Stable sort 保留组内原始顺序：sales 先于 chatbot（初始），chatbots 内部按后端返回顺序。
+const agentCards = computed<AgentCard[]>(() => {
+  const all: AgentCard[] = [
+    {
+      key: 'agent-sales',
+      type: 'sales',
+      title: '销售智能体',
+      subtitle: 'AI驱动的智能销售助手',
+      hasPermission: hasSalesPermission.value
+    },
+    ...chatbots.value.map<AgentCard>((bot) => ({
+      key: `chatbot-${bot.id}`,
+      type: 'chatbot',
+      title: bot.name,
+      subtitle: bot.description || '智能对话助手',
+      hasPermission: bot.has_permission ?? true,
+      chatbot: bot
+    }))
+  ]
+  all.sort((a, b) => Number(b.hasPermission) - Number(a.hasPermission))
+  return all
+})
 
 const getTemplateId = (template: SopTemplate): number | null => {
   const rawId = template.ID ?? template.id ?? template.Id
@@ -448,16 +403,6 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
   launchingWorkflowKey.value = workflow.key
 
   try {
-    if (workflow.type === 'agent') {
-      if (!hasSalesPermission.value) {
-        permissionMessage.value = '未开通销售智能体权限，请联系管理员'
-        showPermissionModal.value = true
-        return
-      }
-      await router.push('/sales')
-      return
-    }
-
     if (!workflow.templateId) {
       return
     }
@@ -478,21 +423,37 @@ const handleWorkflowClick = async (workflow: OnlineWorkflow) => {
   }
 }
 
-const handleChatbotClick = async (bot: ChatbotConfig) => {
-  const key = `chatbot-${bot.id}`
+// handleAgentCardClick 统一处理"销售智能体"和 chatbot 卡片的点击：
+// - sales: 复用 hasSalesPermission 即时判定，跳 /sales
+// - chatbot: 点击时再查 checkChatbotPermission（race-guard，防父账号在列表加载后撤权）
+const handleAgentCardClick = async (card: AgentCard) => {
   if (launchingWorkflowKey.value) {
     return
   }
-  launchingWorkflowKey.value = key
+  launchingWorkflowKey.value = card.key
 
   try {
-    const hasPermission = await checkChatbotPermission(bot.id)
+    if (card.type === 'sales') {
+      if (!hasSalesPermission.value) {
+        permissionMessage.value = '未开通销售智能体权限，请联系管理员'
+        showPermissionModal.value = true
+        return
+      }
+      await router.push('/sales')
+      return
+    }
+
+    // chatbot path
+    if (!card.chatbot) {
+      return
+    }
+    const hasPermission = await checkChatbotPermission(card.chatbot.id)
     if (!hasPermission) {
       permissionMessage.value = '未开通该智能体的运行权限，请联系管理员'
       showPermissionModal.value = true
       return
     }
-    await router.push(`/chatbot/${bot.id}`)
+    await router.push(`/chatbot/${card.chatbot.id}`)
   } finally {
     launchingWorkflowKey.value = null
   }
@@ -501,11 +462,9 @@ const handleChatbotClick = async (bot: ChatbotConfig) => {
 const fetchChatbots = async () => {
   try {
     const res = await listVisibleChatbots()
-    const list = ((res as any)?.data as ChatbotConfig[]) ?? []
-    // Sort unlocked (has_permission=true OR undefined) before locked (false);
-    // stable within each group preserves backend order. Matches SOP ordering.
-    list.sort((a, b) => Number(b.has_permission ?? true) - Number(a.has_permission ?? true))
-    chatbots.value = list
+    // No sort here — agentCards computed does the unified sort (sales + chatbots
+    // together by hasPermission desc), so sales-agent can interleave correctly.
+    chatbots.value = ((res as any)?.data as ChatbotConfig[]) ?? []
   } catch (error) {
     console.error('获取智能体列表失败:', error)
     chatbots.value = []
