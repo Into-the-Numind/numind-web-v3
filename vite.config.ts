@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
       // 兼容性兜底：生成 legacy bundle + 按 .browserslistrc 注入 core-js polyfills。
       // 现代浏览器加载 type="module" 的 modern bundle，老浏览器自动 fallback 到 nomodule 版。
       // targets 读 .browserslistrc（单一真理源）。
+      //
+      // modernPolyfills: true — 对 modern bundle 也按 browserslist 注入 core-js polyfills，
+      //   修复 "支持 ES modules 但缺少新 API" 的场景（如 Safari 14 支持 ESM 但缺 Array.prototype.at）。
+      //   依赖 .browserslistrc 中的 iOS>=12 / Safari>=12 — 若调高这两个下限，应评估是否仍需此参数。
+      // renderLegacyChunks: true — 默认值，显式列出表达意图。
       legacy({
         modernPolyfills: true,
         renderLegacyChunks: true

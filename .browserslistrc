@@ -3,16 +3,21 @@
 # 所有前端构建工具（Vite / PostCSS / Autoprefixer / @vitejs/plugin-legacy）
 # 都会读取此文件来决定编译目标、polyfill 注入范围、CSS 前缀等。
 #
-# 修改前请同步 DESIGN.md 中的"浏览器支持矩阵"章节。
+# ⚠️ 修改前必须同步 DESIGN.md §9 浏览器支持矩阵。
+# ⚠️ 本文件的 iOS >= 12 / Safari >= 12 是 vite.config.ts 中
+#    `modernPolyfills: true` 能正确填补 Array.prototype.at() 等 ES2022 API 的
+#    前提 — 如果调高最低版本请评估是否仍需 modernPolyfills。
 
+# defaults 已涵盖 > 0.5% 全球使用率 + 各桌面浏览器最近 2 个版本 + not dead，
+# 无需再手动重复 "last 2 Chrome/Firefox/Edge/Safari versions"。
 defaults
 not IE 11
-not dead
+
+# defaults 默认只包含 iOS 最近 2 个版本；显式下沉到 iOS 12 覆盖老 iPhone。
 iOS >= 12
 Safari >= 12
+
+# defaults 默认只包含 Android 最新版本；显式下沉到 Android 7 覆盖国内中低端机。
+# 微信 X5 / TBS 内核 Chromium 化后，由 ChromeAndroid 覆盖。
 ChromeAndroid >= 80
 Android >= 7
-last 2 Chrome versions
-last 2 Firefox versions
-last 2 Edge versions
-last 2 Safari versions
