@@ -79,12 +79,17 @@ async function goToCustomers(page: Page) {
 
 /**
  * Mock the feature grant/revoke API endpoints so the test doesn't
- * actually write to the backend.
+ * actually write to the backend. Returns a counter object the caller
+ * can inspect to assert POST (grant) / DELETE (revoke) were actually
+ * fired — load-bearing for AS-1 / AS-2 in isolation from toast UI.
  */
-async function mockFeaturesApi(page: Page) {
-  await page.route('**/v1/customers/sub-users/*/features', async (route: Route) => {
+function mockFeaturesApi(page: Page) {
+  const counts = { post: 0, del: 0 }
+  void page.route('**/v1/customers/sub-users/*/features', async (route: Route) => {
     const method = route.request().method()
-    if (method !== 'POST' && method !== 'DELETE') {
+    if (method === 'POST') counts.post++
+    else if (method === 'DELETE') counts.del++
+    else {
       await route.fallback()
       return
     }
@@ -98,6 +103,7 @@ async function mockFeaturesApi(page: Page) {
       })
     })
   })
+  return counts
 }
 
 /**
@@ -123,7 +129,7 @@ async function mockCheckPermission(page: Page, hasPermission: boolean) {
 
 test.describe('Sales Agent Child Permission', () => {
   test('E1+E3: parent can toggle sales_agent ON and OFF for sub-user', async ({ page }) => {
-    await mockFeaturesApi(page)
+    const apiCounts = mockFeaturesApi(page)
     await goToCustomers(page)
 
     // Find a sub-user row (second row if parent is first; fallback: first row).
@@ -136,46 +142,57 @@ test.describe('Sales Agent Child Permission', () => {
     const row = rows.first()
     await expect(row).toBeVisible({ timeout: 15_000 })
 
-    // Open action menu
-    await row.locator(sel.actionTrigger).click()
-    await expect(row.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
+    await test.step('E1: toggle ON → fires POST features', async () => {
+      // Open action menu
+      await row.locator(sel.actionTrigger).click()
+      await expect(row.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
 
-    // Click "管理权限" (verified: CustomersView.vue line 320)
-    await row.locator(sel.actionMenuItem, { hasText: '管理权限' }).click()
-    await expect(page.locator(sel.permModal)).toBeVisible({ timeout: 3_000 })
+      // Click "管理权限" (verified: CustomersView.vue line 320)
+      await row.locator(sel.actionMenuItem, { hasText: '管理权限' }).click()
+      await expect(page.locator(sel.permModal)).toBeVisible({ timeout: 3_000 })
 
-    // Locate the sales agent perm-item
-    const salesItem = page.locator(sel.salesAgentPermItem)
-    await expect(salesItem).toBeVisible({ timeout: 5_000 })
+      // Locate the sales agent perm-item
+      const salesItem = page.locator(sel.salesAgentPermItem)
+      await expect(salesItem).toBeVisible({ timeout: 5_000 })
 
-    // Toggle ON: if not already checked, click to check
-    const isCheckedBefore = await salesItem.evaluate((el) => el.classList.contains('checked'))
-    if (!isCheckedBefore) {
-      await salesItem.click()
-    }
-    await expect(salesItem).toHaveClass(/checked/, { timeout: 2_000 })
+      // Toggle ON: if not already checked, click to check
+      const isCheckedBefore = await salesItem.evaluate((el) => el.classList.contains('checked'))
+      if (!isCheckedBefore) {
+        await salesItem.click()
+      }
+      await expect(salesItem).toHaveClass(/checked/, { timeout: 2_000 })
 
-    // Submit — expect "权限已更新" toast (CustomersView.vue line 1494)
-    await page.locator(sel.submitBtn).click()
-    await expect(page.locator(sel.toast)).toContainText('权限已更新', { timeout: 5_000 })
-    await expect(page.locator(sel.permModal)).not.toBeVisible({ timeout: 3_000 })
+      // Submit — expect "权限已更新" toast (CustomersView.vue line 1494)
+      await page.locator(sel.submitBtn).click()
+      await expect(page.locator(sel.toast)).toContainText('权限已更新', { timeout: 5_000 })
+      await expect(page.locator(sel.permModal)).not.toBeVisible({ timeout: 3_000 })
 
-    // E3: Re-open modal and toggle OFF
-    await row.locator(sel.actionTrigger).click()
-    await expect(row.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
-    await row.locator(sel.actionMenuItem, { hasText: '管理权限' }).click()
-    await expect(page.locator(sel.permModal)).toBeVisible({ timeout: 3_000 })
+      // AS-1 load-bearing: grant API must have been hit with POST
+      expect(apiCounts.post).toBeGreaterThan(0)
+    })
 
-    const salesItemAgain = page.locator(sel.salesAgentPermItem)
-    const isCheckedAfter = await salesItemAgain.evaluate((el) => el.classList.contains('checked'))
-    if (isCheckedAfter) {
-      await salesItemAgain.click()
-    }
-    await expect(salesItemAgain).not.toHaveClass(/checked/, { timeout: 2_000 })
+    await test.step('E3: toggle OFF → fires DELETE features', async () => {
+      const beforeDel = apiCounts.del
 
-    await page.locator(sel.submitBtn).click()
-    await expect(page.locator(sel.toast)).toContainText('权限已更新', { timeout: 5_000 })
-    await expect(page.locator(sel.permModal)).not.toBeVisible({ timeout: 3_000 })
+      await row.locator(sel.actionTrigger).click()
+      await expect(row.locator(sel.actionMenu)).toBeVisible({ timeout: 3_000 })
+      await row.locator(sel.actionMenuItem, { hasText: '管理权限' }).click()
+      await expect(page.locator(sel.permModal)).toBeVisible({ timeout: 3_000 })
+
+      const salesItemAgain = page.locator(sel.salesAgentPermItem)
+      const isCheckedAfter = await salesItemAgain.evaluate((el) => el.classList.contains('checked'))
+      if (isCheckedAfter) {
+        await salesItemAgain.click()
+      }
+      await expect(salesItemAgain).not.toHaveClass(/checked/, { timeout: 2_000 })
+
+      await page.locator(sel.submitBtn).click()
+      await expect(page.locator(sel.toast)).toContainText('权限已更新', { timeout: 5_000 })
+      await expect(page.locator(sel.permModal)).not.toBeVisible({ timeout: 3_000 })
+
+      // AS-2 load-bearing: revoke API must have been hit with DELETE
+      expect(apiCounts.del).toBeGreaterThan(beforeDel)
+    })
   })
 
   // ════════════════════════════════════════════════════════════════
@@ -185,7 +202,10 @@ test.describe('Sales Agent Child Permission', () => {
   test('E2: check-permission returns true → sub-user can enter sales page', async ({ page }) => {
     await mockCheckPermission(page, true)
 
-    // Mock sessions list and knowledge docs so SalesView doesn't crash loading
+    // Known blind spot: sessions/knowledge-documents mocks below exist to keep
+    // SalesView from crashing during the E2 page-load (we stub empty lists).
+    // They do NOT verify the real call chain is correct; E2's load-bearing
+    // signal is ONLY that the sales-view renders when check-permission=true.
     await page.route('**/v1/sales-rag/sessions', async (route: Route) => {
       if (route.request().method() !== 'GET') {
         await route.fallback()
@@ -224,7 +244,9 @@ test.describe('Sales Agent Child Permission', () => {
   }) => {
     await mockCheckPermission(page, false)
 
-    // Also mock SOP templates so HomeView loads cleanly
+    // Known blind spot: sop/templates mock below keeps HomeView from crashing
+    // during load. It does NOT verify SOP call chain; E4's load-bearing signal
+    // is ONLY the denied-modal rendering when check-permission=false.
     await page.route('**/v1/sop/templates', async (route: Route) => {
       await route.fulfill({
         status: 200,
