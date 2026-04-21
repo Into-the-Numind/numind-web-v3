@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import legacy from '@vitejs/plugin-legacy'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -12,7 +13,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: normalizedBase,
-    plugins: [vue()],
+    plugins: [
+      vue(),
+      // 老浏览器（Safari<15.4 / iOS 15.3- / 老 WeChat X5 / 老 Android WebView）
+      // 兼容性兜底：生成 legacy bundle + 按 .browserslistrc 注入 core-js polyfills。
+      // 现代浏览器加载 type="module" 的 modern bundle，老浏览器自动 fallback 到 nomodule 版。
+      // targets 读 .browserslistrc（单一真理源）。
+      legacy({
+        modernPolyfills: true,
+        renderLegacyChunks: true
+      })
+    ],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))

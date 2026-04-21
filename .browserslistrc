@@ -1,0 +1,18 @@
+# 莫小派 (Numind) 用户端浏览器支持矩阵
+# 这是产品决策（不是技术选择）：定义我们愿意为哪些用户设备付出构建/测试成本。
+# 所有前端构建工具（Vite / PostCSS / Autoprefixer / @vitejs/plugin-legacy）
+# 都会读取此文件来决定编译目标、polyfill 注入范围、CSS 前缀等。
+#
+# 修改前请同步 DESIGN.md 中的"浏览器支持矩阵"章节。
+
+defaults
+not IE 11
+not dead
+iOS >= 12
+Safari >= 12
+ChromeAndroid >= 80
+Android >= 7
+last 2 Chrome versions
+last 2 Firefox versions
+last 2 Edge versions
+last 2 Safari versions
