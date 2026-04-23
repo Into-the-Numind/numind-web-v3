@@ -181,6 +181,41 @@ describe('useSSEStream', () => {
     expect(onError.mock.calls[0][0]).toContain('500')
   })
 
+  it('流异常终止（TCP FIN 但无 event:done）：触发 onError 而非静默卡死', async () => {
+    // Latent bug 场景：proxy idle timeout / nginx reload / 移动网络 NAT 断连。
+    // reader.read() 返回 {done:true} 但流中从未出现 event:done。
+    // 修复前：while 循环退出 + 函数正常 return → onDone 和 onError 都不触发
+    //   → SOPRunView.executeNode 的 onDone/onError 回调都不跑
+    //   → UI 永远停在 streaming 态。
+    // 修复后：在 while 循环后、catch 前检测 doneFired，未触发则调 onError。
+    mockFetchWithSSE([
+      'event: thinking\ndata: "思考片段"\n\n',
+      'data: "已到达的部分内容"\n\n'
+      // 没有 event: done — 流直接关闭（模拟 TCP FIN）
+    ])
+
+    const onThinking = vi.fn()
+    const onMessage = vi.fn()
+    const onDone = vi.fn()
+    const onError = vi.fn()
+
+    const { streamPost } = useSSEStream()
+    await streamPost(
+      '/fake-url',
+      { method: 'POST', body: '' },
+      { onThinking, onMessage, onDone, onError }
+    )
+
+    // 已到达的 chunk 应正常分发
+    expect(onThinking).toHaveBeenCalledWith('思考片段')
+    expect(onMessage).toHaveBeenCalledWith('已到达的部分内容')
+    // 没有 event: done 到达 → onDone 不该触发
+    expect(onDone).not.toHaveBeenCalled()
+    // 关键：onError 必须触发，让上层决定如何兜底（静默恢复 / 报错 / 重试）
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError.mock.calls[0][0]).toContain('中断')
+  })
+
   it('Authorization header 携带 localStorage token', async () => {
     mockFetchWithSSE(['event: done\ndata: {"status":"completed"}\n\n'])
     localStorage.setItem('token', 'my-jwt-token')

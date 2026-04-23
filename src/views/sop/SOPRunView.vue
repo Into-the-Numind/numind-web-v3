@@ -475,11 +475,30 @@ async function executeNode(nodeId: number, text: string) {
         // 执行完成后保留在当前步骤（viewingStepStatus → 'done-current'），
         // 由用户手动点"下一步"按钮 (handlePrimary → advanceCurrentStep) 前进
       },
-      onError: (msg) => {
-        // 保存已积累的部分内容，防止网络中断时丢失（后端也会保存已生成内容）
+      onError: async (msg) => {
+        // 先 flush + 备份 partials（refresh 后 state 可能被改写）
         store.flushStreaming()
         const partialThinking = store.streamingThinking
         const partialContent = store.streamingContent
+
+        // 智能恢复：SSE 流异常终止（useSSEStream 在 reader.read 返回 {done:true}
+        // 但未收 event:done 时会触发 onError）的绝大多数情形下，后端其实已经
+        // 完成 LLM 调用并 persist 了完整结果。先拉后端 nodeRun 看状态，
+        // 如果 succeeded 且有 output 就静默恢复，不要用错误 toast 吓用户。
+        try {
+          await store.refreshNodeRun(nodeId)
+          const refreshed = store.nodeRuns[nodeId]
+          if (refreshed && refreshed.status === 'succeeded' && refreshed.output) {
+            store.markNodeComplete(nodeId)
+            store.clearStreamingState()
+            notifications.info('连接中断，已从服务端恢复结果')
+            return
+          }
+        } catch {
+          // refresh 失败（网络或鉴权异常）降级到原失败路径
+        }
+
+        // 后端也没有成功结果——真失败，保存 partial 作为 failed nodeRun 让用户能看到
         if (partialThinking || partialContent) {
           store.setNodeRun(nodeId, {
             id: 0,
