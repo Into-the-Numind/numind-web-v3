@@ -483,19 +483,15 @@ async function executeNode(nodeId: number, text: string) {
 
         // 智能恢复：SSE 流异常终止（useSSEStream 在 reader.read 返回 {done:true}
         // 但未收 event:done 时会触发 onError）的绝大多数情形下，后端其实已经
-        // 完成 LLM 调用并 persist 了完整结果。先拉后端 nodeRun 看状态，
-        // 如果 succeeded 且有 output 就静默恢复，不要用错误 toast 吓用户。
-        try {
-          await store.refreshNodeRun(nodeId)
-          const refreshed = store.nodeRuns[nodeId]
-          if (refreshed && refreshed.status === 'succeeded' && refreshed.output) {
-            store.markNodeComplete(nodeId)
-            store.clearStreamingState()
-            notifications.info('连接中断，已从服务端恢复结果')
-            return
-          }
-        } catch {
-          // refresh 失败（网络或鉴权异常）降级到原失败路径
+        // 完成 LLM 调用并 persist 了完整结果。拉 completed_nodes 列表，如果
+        // 目标 node 在其中且 output 非空 → 说明后端已成功，静默恢复即可，
+        // 不要用错误 toast 吓用户。
+        const recovered = await store.recoverNodeRunFromServer(nodeId)
+        if (recovered) {
+          store.markNodeComplete(nodeId)
+          store.clearStreamingState()
+          notifications.info('连接中断，已从服务端恢复结果')
+          return
         }
 
         // 后端也没有成功结果——真失败，保存 partial 作为 failed nodeRun 让用户能看到
