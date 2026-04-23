@@ -549,6 +549,51 @@ export const useSopRunStore = defineStore('sopRun', () => {
   }
 
   /**
+   * 从服务端拉取完整 nodeRun 数据作为 SSE 异常终止的兜底。
+   *
+   * 与 refreshNodeRun 的区别：refreshNodeRun 只补 meta 三字段（model_name /
+   * latency_ms / total_tokens），**要求 nodeRuns[nodeId] 已存在**——用于 onDone
+   * 正常路径在 setNodeRun 之后补齐。
+   *
+   * 本函数在 SSE 异常终止场景下使用：前端 nodeRuns 里没有对应条目（因为
+   * setNodeRun 没被跑过），需要**完整从 completed_nodes 构造** SopNodeRun，包含
+   * status='succeeded' + output + thinking + meta。
+   *
+   * @returns true 表示后端已 persist，可作为"静默恢复"；false 表示后端也没
+   *   完成，调用方应走错误路径。
+   */
+  async function recoverNodeRunFromServer(nodeId: number): Promise<boolean> {
+    if (!currentRun.value) return false
+    try {
+      const { fetchRunStatusDetail } = await import('@/api/sop')
+      const detail = await fetchRunStatusDetail(currentRun.value.id)
+      const info = detail.completed_nodes?.find((n) => n.node_id === nodeId)
+      if (!info || !info.output) return false
+      nodeRuns.value = {
+        ...nodeRuns.value,
+        [nodeId]: {
+          id: info.node_run_id,
+          run_id: currentRun.value.id,
+          node_id: nodeId,
+          status: 'succeeded',
+          input: info.input ?? '',
+          output: info.output,
+          thinking: info.thinking ?? '',
+          model_name: info.model_name ?? '',
+          latency_ms: info.latency_ms ?? 0,
+          total_tokens: info.total_tokens ?? 0,
+          started_at: null,
+          finished_at: null
+        }
+      }
+      return true
+    } catch (err) {
+      console.warn('[sopRun] recoverNodeRunFromServer failed:', (err as Error)?.message)
+      return false
+    }
+  }
+
+  /**
    * 重置 store（切换 run / 离开页面时调用）。
    *
    * 已经实现：清空所有 state。
@@ -620,6 +665,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
     returnToCurrentTask,
     advanceCurrentStep,
     refreshNodeRun,
+    recoverNodeRunFromServer,
     reset
   }
 })
