@@ -89,6 +89,8 @@ export function useSSEStream() {
   const abortController = ref<AbortController | null>(null)
   /** 幂等保护：done 可能被发送两次，onDone handler 只触发一次 */
   const doneFired = ref(false)
+  /** 追踪 event:error 是否已触发。和 doneFired 一起用于判定"异常终止"兜底逻辑 */
+  const errorFired = ref(false)
 
   /**
    * 发起 SSE POST 请求并流式解析响应。
@@ -104,6 +106,7 @@ export function useSSEStream() {
   ): Promise<void> {
     abortController.value = new AbortController()
     doneFired.value = false
+    errorFired.value = false
 
     const response = await fetch(url, {
       ...init,
@@ -174,6 +177,16 @@ export function useSSEStream() {
         const evt = parseEventBlock(buffer)
         if (evt) dispatchEvent(evt, handlers)
       }
+      // Stream 已结束（reader.read 返回 {done: true}）但从未收到 event:done 和 event:error。
+      // 触发场景：proxy idle timeout / nginx reload / 移动网络 NAT 丢连接 / 任何让 TCP
+      // 正常 FIN 但后端尚未发送终止事件的情形。不抛异常走 catch，必须在这里显式
+      // 触发 onError，否则调用方（SOPRunView.executeNode 等）的 onDone/onError 回调
+      // 都不跑 → UI 永远停在 streaming 态，即使后端已 persist 完整结果到 DB。
+      // 如果 error event 已发（errorFired=true），则对应的 onError 已通知过上层，
+      // 不要重复 fire。
+      if (!doneFired.value && !errorFired.value) {
+        handlers.onError?.('连接在响应完成前中断，请刷新或重试')
+      }
     } catch (err) {
       // AbortController 触发的中止不应视为错误
       if ((err as Error).name === 'AbortError') {
@@ -238,6 +251,7 @@ export function useSSEStream() {
           break
         }
         case 'error': {
+          errorFired.value = true
           const errMsg = JSON.parse(evt.data) as string
           handlers.onError?.(errMsg)
           break
