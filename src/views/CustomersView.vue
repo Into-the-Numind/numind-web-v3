@@ -92,24 +92,6 @@
               体验会员
               <span class="filter-count">{{ trialCount }}</span>
             </button>
-            <button
-              class="filter-btn"
-              :class="{ active: activeFilter === 'standard' }"
-              @click="setFilter('standard')"
-            >
-              <span class="filter-dot standard"></span>
-              普通会员
-              <span class="filter-count">{{ standardCount }}</span>
-            </button>
-            <button
-              class="filter-btn"
-              :class="{ active: activeFilter === 'premium' }"
-              @click="setFilter('premium')"
-            >
-              <span class="filter-dot premium"></span>
-              高级会员
-              <span class="filter-count">{{ premiumCount }}</span>
-            </button>
           </div>
           <div class="search-box">
             <svg
@@ -998,7 +980,8 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 20
 const selectedIds = reactive(new Set<number | string>())
-const activeFilter = ref<'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premium'>('all')
+type CustomerFilter = 'all' | 'free' | 'pro' | 'trial'
+const activeFilter = ref<CustomerFilter>('all')
 
 // Register
 type TierValue = 'free' | 'trial' | 'standard' | 'premium'
@@ -1095,13 +1078,6 @@ const proCount = computed(
 const trialCount = computed(
   () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'trial').length
 )
-const standardCount = computed(
-  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'standard').length
-)
-const premiumCount = computed(
-  () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'premium').length
-)
-
 // eslint-disable-next-line no-useless-escape
 const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,18}$/
 
@@ -1222,7 +1198,7 @@ function handleSearch() {
   }, 300)
 }
 
-function setFilter(f: 'all' | 'free' | 'pro' | 'trial' | 'standard' | 'premium') {
+function setFilter(f: CustomerFilter) {
   activeFilter.value = f
   currentPage.value = 1
 }
@@ -1842,14 +1818,6 @@ async function submitGrant() {
 .filter-dot.trial {
   background: hsl(217, 71%, 53%);
 }
-.filter-dot.standard {
-  background: hsl(158, 64%, 45%);
-}
-.filter-dot.premium {
-  background: hsl(45, 90%, 50%);
-  box-shadow: 0 0 5px hsl(45 90% 50% / 0.4);
-}
-
 .filter-count {
   padding: 1px 7px;
   border-radius: 6px;
