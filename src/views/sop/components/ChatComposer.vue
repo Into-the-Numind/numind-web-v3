@@ -22,19 +22,36 @@
 <template>
   <div class="composer">
     <div class="composer__container" :class="{ 'composer__container--focus': isFocused }">
-      <textarea
-        ref="textareaRef"
-        v-model="text"
-        class="composer__input"
-        :placeholder="placeholder"
-        :disabled="isInputDisabled"
-        @keydown="handleKeydown"
-        @compositionstart="isComposing = true"
-        @compositionend="isComposing = false"
-        @input="autoResize"
-        @focus="isFocused = true"
-        @blur="isFocused = false"
-      />
+      <div class="composer__body">
+        <textarea
+          ref="textareaRef"
+          v-model="text"
+          class="composer__input"
+          :placeholder="placeholder"
+          :disabled="isInputDisabled"
+          @keydown="handleKeydown"
+          @compositionstart="isComposing = true"
+          @compositionend="isComposing = false"
+          @input="autoResize"
+          @focus="isFocused = true"
+          @blur="isFocused = false"
+        />
+        <!-- 字数计数器 -->
+        <div
+          v-if="text.length > 0"
+          class="composer__budget"
+          :class="{
+            'composer__budget--warning': inputBudget.state === 'warning',
+            'composer__budget--error': inputBudget.state === 'error'
+          }"
+          aria-live="polite"
+        >
+          <span class="composer__budget-label">{{ inputBudget.label }}</span>
+          <span v-if="inputBudget.state === 'error'" class="composer__budget-hint">
+            输入超过 40000 字，系统可能需要压缩上下文
+          </span>
+        </div>
+      </div>
       <button v-if="streaming" class="composer__stop-btn" title="停止" @click="handleStop">
         <Square :size="14" />
       </button>
@@ -54,6 +71,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, watch } from 'vue'
 import { ArrowUp, Square } from 'lucide-vue-next'
+import { getInputBudgetState } from '@/utils/inputBudget'
 
 interface Props {
   disabled?: boolean
@@ -80,6 +98,8 @@ const isFocused = ref(false)
 const isComposing = ref(false)
 
 const canSend = computed(() => text.value.trim().length > 0 && !props.streaming && !props.disabled)
+
+const inputBudget = computed(() => getInputBudgetState(text.value))
 
 function autoResize() {
   const el = textareaRef.value
@@ -178,9 +198,16 @@ defineExpose({ text, textareaRef })
   border-color: var(--accent);
 }
 
-.composer__input {
+/* Wraps textarea + budget counter; grows to fill horizontal space */
+.composer__body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.composer__input {
+  width: 100%;
   border: none;
   background: transparent;
   padding: 8px 0;
@@ -252,5 +279,34 @@ defineExpose({ text, textareaRef })
 
 .composer__stop-btn:hover {
   background: rgba(239, 68, 68, 0.15);
+}
+
+/* ===== Budget counter ===== */
+.composer__budget {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.composer__budget--warning {
+  color: #d97706;
+}
+
+.composer__budget--error {
+  color: #dc2626;
+}
+
+.composer__budget-label {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.composer__budget-hint {
+  font-size: 11px;
 }
 </style>
