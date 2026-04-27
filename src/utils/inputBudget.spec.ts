@@ -40,10 +40,10 @@ describe('getInputBudgetState', () => {
     expect(getInputBudgetState('test').limit).toBe(INPUT_CHARACTER_LIMIT)
   })
 
-  it('counts emoji as 2 codepoints (surrogate pairs)', () => {
-    // '😀' is U+1F600, outside BMP — represented as surrogate pair in UTF-16
-    // Array.from correctly yields 1 element per emoji codepoint
-    // Note: some emoji sequences (family emoji with ZWJ) count as multiple codepoints
+  it('counts emoji as 1 codepoint (Array.from splits correctly)', () => {
+    // '😀' is U+1F600, outside BMP — represented as surrogate pair in UTF-16,
+    // but Array.from iterates by Unicode codepoint, yielding exactly 1 element.
+    // Note: some emoji sequences (family emoji with ZWJ) count as multiple codepoints.
     const singleEmoji = '😀'
     expect(getInputBudgetState(singleEmoji).count).toBe(1)
   })

@@ -294,11 +294,11 @@ defineExpose({ text, textareaRef })
 }
 
 .composer__budget--warning {
-  color: #d97706;
+  color: var(--color-warning, #d97706);
 }
 
 .composer__budget--error {
-  color: #dc2626;
+  color: var(--color-danger, #dc2626);
 }
 
 .composer__budget-label {

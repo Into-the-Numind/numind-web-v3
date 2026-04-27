@@ -591,14 +591,15 @@ onUnmounted(() => {
   color: var(--text-muted);
   user-select: none;
   max-width: 200px;
+  font-variant-numeric: tabular-nums;
 }
 
 .input-budget--warning {
-  color: #d97706;
+  color: var(--color-warning, #d97706);
 }
 
 .input-budget--error {
-  color: #dc2626;
+  color: var(--color-danger, #dc2626);
 }
 
 .input-budget-hint {
