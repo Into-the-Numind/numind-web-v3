@@ -4,6 +4,7 @@ import { ArrowUp, Image, Maximize2, Minimize2 } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import ImagePreviewStrip from './ImagePreviewStrip.vue'
 import KbTagStrip from './KbTagStrip.vue'
+import { getInputBudgetState } from '@/utils/inputBudget'
 
 const store = useSalesStore()
 
@@ -24,6 +25,8 @@ const canSend = computed(() => {
   const allImagesReady = store.images.every((img) => img.status === 'success')
   return !store.isLoading && (hasText || (hasImages && allImagesReady))
 })
+
+const inputBudget = computed(() => getInputBudgetState(store.draftText))
 
 const modeClass = computed(() => {
   return store.chatMode === 'sales' ? 'sales-mode' : 'free-mode'
@@ -243,6 +246,21 @@ onUnmounted(() => {
             <Image :size="16" />
             <span>图片</span>
           </button>
+        </div>
+        <!-- 字数计数器 -->
+        <div
+          v-if="store.draftText.length > 0"
+          class="input-budget"
+          :class="{
+            'input-budget--warning': inputBudget.state === 'warning',
+            'input-budget--error': inputBudget.state === 'error'
+          }"
+          aria-live="polite"
+        >
+          <span>{{ inputBudget.label }}</span>
+          <span v-if="inputBudget.state === 'error'" class="input-budget-hint">
+            输入超过 40000 字，系统可能需要压缩上下文
+          </span>
         </div>
         <div class="toolbar-right">
           <button class="send-btn" :disabled="!canSend" @click="handleSend">
@@ -563,6 +581,31 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
+/* ===== Input budget counter ===== */
+.input-budget {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+  max-width: 200px;
+  font-variant-numeric: tabular-nums;
+}
+
+.input-budget--warning {
+  color: var(--color-warning, #d97706);
+}
+
+.input-budget--error {
+  color: var(--color-danger, #dc2626);
+}
+
+.input-budget-hint {
+  font-size: 11px;
+}
+
 @media (max-width: 768px) {
   .input-stage {
     padding: 8px 16px 16px;
@@ -582,6 +625,11 @@ onUnmounted(() => {
   }
 
   .image-upload-btn span {
+    display: none;
+  }
+
+  /* On mobile, hide budget hint text — keep only the label to save space */
+  .input-budget-hint {
     display: none;
   }
 }

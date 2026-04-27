@@ -25,6 +25,7 @@ import { useTypewriterReveal } from '@/composables/useTypewriterReveal'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import ModelSelector from '@/components/common/ModelSelector.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import { getInputBudgetState } from '@/utils/inputBudget'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,6 +56,8 @@ const canSend = computed(() => {
   // P0: 阻止在任何文件仍在解析中时发送——避免竞态导致上传中的文件被静默丢弃
   return (hasText || hasSuccessfulUploads) && !store.streaming && !docUpload.isUploading.value
 })
+
+const inputBudget = computed(() => getInputBudgetState(draftText.value))
 
 // P1: 含解析失败的文件时，发送前弹确认对话框
 // ConfirmModal 是模态阻塞的，期间 items 不会被修改，因此直接从
@@ -667,6 +670,21 @@ onBeforeUnmount(() => {
                   <Paperclip :size="18" />
                 </button>
                 <ModelSelector feature="chatbot" />
+              </div>
+              <!-- 字数计数器 -->
+              <div
+                v-if="draftText.length > 0"
+                class="input-budget"
+                :class="{
+                  'input-budget--warning': inputBudget.state === 'warning',
+                  'input-budget--error': inputBudget.state === 'error'
+                }"
+                aria-live="polite"
+              >
+                <span>{{ inputBudget.label }}</span>
+                <span v-if="inputBudget.state === 'error'" class="input-budget-hint">
+                  输入超过 40000 字，系统可能需要压缩上下文
+                </span>
               </div>
               <div class="toolbar-right">
                 <button
@@ -1850,6 +1868,31 @@ body.chatbot-chat-route #app {
   padding: 4px 0;
 }
 
+/* ===== Input budget counter ===== */
+.input-budget {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+  max-width: 200px;
+  font-variant-numeric: tabular-nums;
+}
+
+.input-budget--warning {
+  color: var(--color-warning, #d97706);
+}
+
+.input-budget--error {
+  color: var(--color-danger, #dc2626);
+}
+
+.input-budget-hint {
+  font-size: 11px;
+}
+
 /* ===== Mobile ===== */
 @media (max-width: 768px) {
   .sidebar {
@@ -1894,6 +1937,10 @@ body.chatbot-chat-route #app {
   .input-floating-container {
     border-radius: 16px;
     padding: 12px;
+  }
+
+  .input-budget-hint {
+    display: none;
   }
 }
 </style>

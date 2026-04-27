@@ -67,6 +67,21 @@
       <div v-if="isDragOver" class="step-input-drag-hint" aria-hidden="true">
         <span>释放以上传文件</span>
       </div>
+
+      <!-- 字数计数器 -->
+      <div
+        class="step-input-budget"
+        :class="{
+          'step-input-budget--warning': inputBudget.state === 'warning',
+          'step-input-budget--error': inputBudget.state === 'error'
+        }"
+        aria-live="polite"
+      >
+        <span class="step-input-budget-label">{{ inputBudget.label }}</span>
+        <span v-if="inputBudget.state === 'error'" class="step-input-budget-hint">
+          输入超过 40000 字，系统可能需要压缩上下文
+        </span>
+      </div>
     </div>
 
     <!-- 已上传文件的 chip 预览 -->
@@ -143,6 +158,7 @@ import {
   HelpCircle
 } from 'lucide-vue-next'
 import { useFileUpload } from '@/views/sop/composables/useFileUpload'
+import { getInputBudgetState } from '@/utils/inputBudget'
 
 interface Props {
   modelValue: string
@@ -190,6 +206,11 @@ const acceptString = '.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.pdf,.txt,.md,.docx,.
 const effectivePlaceholder = computed(() =>
   isDragOver.value ? '释放以上传文件' : props.placeholder
 )
+
+/**
+ * 字数预算计算（live counter）
+ */
+const inputBudget = computed(() => getInputBudgetState(props.modelValue))
 
 /**
  * textarea 输入 → 通过 v-model 回传父组件
@@ -510,5 +531,35 @@ defineExpose({
 .step-input-uploading-hint {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+}
+
+/* ==================== 字数计数器 ==================== */
+
+.step-input-budget {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.step-input-budget--warning {
+  color: var(--color-warning, #d97706);
+}
+
+.step-input-budget--error {
+  color: var(--color-danger, #dc2626);
+}
+
+.step-input-budget-label {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.step-input-budget-hint {
+  font-size: var(--text-xs);
 }
 </style>
