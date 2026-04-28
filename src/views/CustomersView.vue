@@ -1152,13 +1152,28 @@ async function loadStatistics() {
 }
 
 async function loadSubUsers() {
+  // 后端 ListSubUsers controller 把 limit 静默 clamp 到 100；父账号实际可能拥有 100+
+  // 子账号（如某 B2B 父账号 121 子用户），单次请求会丢最旧的子账号。这里循环按 100/页
+  // 拉取直到 total 拿完，前端拼接成完整列表。
+  const PAGE = 100
+  const SAFETY_OFFSET_CAP = 5000
   try {
-    const res = await fetchSubUsers(0, 1000)
-    if (res.code === 200 || res.code === 0) {
+    const all: SubUser[] = []
+    let offset = 0
+    let knownTotal = Infinity
+    while (offset < knownTotal && offset <= SAFETY_OFFSET_CAP) {
+      const res = await fetchSubUsers(offset, PAGE)
+      if (res.code !== 200 && res.code !== 0) break
       const d = res.data as any
-      allSubUsers.value = Array.isArray(d) ? d : d?.sub_users || []
-      statistics.total_runs = allSubUsers.value.reduce((sum, u) => sum + (u.total_sop_runs || 0), 0)
+      const batch: SubUser[] = Array.isArray(d) ? d : d?.sub_users || []
+      all.push(...batch)
+      // total 由后端 ListSubUsersResponse 返回；空响应或返回不足一页都终止
+      knownTotal = typeof d?.total === 'number' ? d.total : all.length
+      if (batch.length < PAGE) break
+      offset += PAGE
     }
+    allSubUsers.value = all
+    statistics.total_runs = all.reduce((sum, u) => sum + (u.total_sop_runs || 0), 0)
   } catch (e) {
     console.error('加载子用户列表失败:', e)
   }
