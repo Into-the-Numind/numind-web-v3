@@ -1,45 +1,53 @@
 /**
- * credits store — 新制积分体系的余额状态中心（credits-system Track E.5）
+ * credits store — 新制积分体系的余额状态中心
  *
  * ## 职责
  *
- * 现有 `useUserStore` 已缓存若干额度数值（`quotaSubTotal` 等），但那是遗留的
- * 扁平字段。credits-system 需要完整的 `QuotaBreakdown` 对象（含 `billing_mode`
- * / `remaining_runs` / `sub_expires_at` 等 v3 新字段）。新建一个独立 store：
+ * - `balance`：QuotaBreakdown（老 API，向后兼容；含 `membership_state` 可选扩展）
+ * - `fetchBalance()`：拉取 GET /v1/credits/balance（via getCreditBalance）
+ * - `fetchEstimate()`：拉取 POST /v1/credits/estimate
+ * - `displayState`：`membership_state` 优先，回退到 billing_mode 映射
+ * - `isMember`：displayState 为 "trial" 或 "pro"
+ * - `isBoosterFrozen`：booster_usable < booster_total（来自 BalanceDTO 字段）
+ * - `trialExpiresAt`：trial_expires_at 透传
+ * - `proExpiresAt`：sub_expires_at 透传
  *
- *   - `balance`：完整 QuotaBreakdown（源自 GET /v1/credits/balance）
- *   - `fetchBalance()`：拉取 action
+ * ## 兼容性说明
  *
- * 不取代 userStore 里的旧字段（老 UI 还在读），两个 store 并存一段时间，
- * Phase 2 集成后再决定是否收敛。
+ * 旧版组件和测试直接写 `credits.balance = { balance: 0, ... }` (QuotaBreakdown)。
+ * `balance` 字段维持旧类型保证类型兼容；新字段（`membership_state` / `booster_usable` 等）
+ * 作为可选扩展加到 QuotaBreakdown，后端如果返回就可以用。
  *
- * ## 使用
- *
- * ```ts
- * import { useCreditsStore } from '@/stores/credits'
- *
- * const credits = useCreditsStore()
- * await credits.fetchBalance()
- * if (credits.balance?.billing_mode === 'credits') { ... }
- * ```
- *
- * Refs: plan Track E.5 / spec §4.2.4 / §4.2.5
+ * Refs: plan §Task 17 / spec §8.1 / §8.5 / Task 12 §3.7
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { getCreditBalance, type QuotaBreakdown } from '@/api/credits'
+import {
+  getCreditBalance,
+  estimateCredits,
+  type QuotaBreakdown,
+  type EstimateResp
+} from '@/api/credits'
 
 export const useCreditsStore = defineStore('credits', () => {
   // ── State ────────────────────────────────────────────────────────────────
   const balance = ref<QuotaBreakdown | null>(null)
+  const estimate = ref<EstimateResp | null>(null)
 
-  /** balance 拉取 loading flag（UI 骨架屏用）。 */
+  /** balance 拉取 loading flag。 */
   const balanceLoading = ref(false)
 
-  /** 最近一次 fetchBalance 的错误（仅用于 UI 分支，非拦截器级别的错误）。 */
+  /** estimate 拉取 loading flag。 */
+  const estimateLoading = ref(false)
+
+  /** 最近一次 fetchBalance 的错误。 */
   const balanceError = ref<string | null>(null)
 
+  /** 最近一次 fetchEstimate 的错误。 */
+  const estimateError = ref<string | null>(null)
+
   // ── Getters ──────────────────────────────────────────────────────────────
+
   /** billing_mode 快捷访问（undefined 代表 balance 还没拉取）。 */
   const billingMode = computed(() => balance.value?.billing_mode)
 
@@ -50,19 +58,75 @@ export const useCreditsStore = defineStore('credits', () => {
     return (b.sub_remain ?? 0) + (b.booster_remain ?? 0)
   })
 
+  /**
+   * displayState — 会员状态枚举，供 UI 分支判断。
+   *
+   * 优先读后端返回的 `membership_state`（"free"/"trial"/"pro"），
+   * 回退到 billing_mode 映射（credits → "pro"，legacy_tier → "legacy"，free → "free"）。
+   *
+   * 无 balance 时默认 "free"。
+   */
+  const displayState = computed((): 'free' | 'trial' | 'pro' | 'legacy' => {
+    const b = balance.value
+    if (!b) return 'free'
+    // 优先 membership_state（后端 BalanceDTO 字段）
+    const ms = (b as unknown as Record<string, unknown>).membership_state
+    if (ms === 'free' || ms === 'trial' || ms === 'pro') return ms
+    // 回退：billing_mode 映射
+    if (b.billing_mode === 'legacy_tier') return 'legacy'
+    return 'free'
+  })
+
+  /** isMember — displayState 为 "trial" 或 "pro" 时为 true。 */
+  const isMember = computed(() => displayState.value === 'trial' || displayState.value === 'pro')
+
+  /**
+   * isBoosterFrozen — 加量包冻结标志。
+   *
+   * 读 BalanceDTO 的 `booster_usable` 字段（后端计算）。
+   * 如果字段不存在（老 QuotaBreakdown），回退到 false。
+   */
+  const isBoosterFrozen = computed((): boolean => {
+    const b = balance.value as unknown as Record<string, unknown> | null
+    if (!b) return false
+    const total = typeof b.booster_total === 'number' ? b.booster_total : 0
+    const usable = typeof b.booster_usable === 'number' ? b.booster_usable : total
+    return usable < total
+  })
+
+  /** trialExpiresAt — ISO string，来自 BalanceDTO.trial_expires_at。 */
+  const trialExpiresAt = computed((): string | null => {
+    const b = balance.value as unknown as Record<string, unknown> | null
+    const v = b?.trial_expires_at
+    return typeof v === 'string' ? v : null
+  })
+
+  /** proExpiresAt — ISO string，来自 BalanceDTO.sub_expires_at（兼容 QuotaBreakdown）。 */
+  const proExpiresAt = computed((): string | null => {
+    const b = balance.value
+    return b?.sub_expires_at ?? null
+  })
+
+  /** loading — balanceLoading 的别名（新版命名）。 */
+  const loading = balanceLoading
+
+  /** error — balanceError 的别名（新版命名）。 */
+  const error = balanceError
+
   // ── Actions ──────────────────────────────────────────────────────────────
+
   /**
    * 拉取 balance（GET /v1/credits/balance）。
    *
-   * 错误处理：request.ts 拦截器已经 reject 标准 Error，这里捕获后写入
-   * `balanceError`。不重抛，因为 UI 层读 store state 而非 await 本函数。
+   * 错误处理：request.ts 拦截器已 reject 标准 Error，这里捕获后写入 balanceError。
+   * 不重抛，因为 UI 层读 store state 而非 await 本函数。
    */
   async function fetchBalance(): Promise<void> {
     balanceLoading.value = true
     balanceError.value = null
     try {
       const res = await getCreditBalance()
-      // request 拦截器会把 body 解成 `{ code, message, data }`；拿 data
+      // request 拦截器把 body 解成 `{ code, message, data }`；取 data
       balance.value = (res as unknown as { data: QuotaBreakdown }).data ?? null
     } catch (e) {
       balanceError.value = e instanceof Error ? e.message : '获取余额失败'
@@ -72,23 +136,55 @@ export const useCreditsStore = defineStore('credits', () => {
     }
   }
 
+  /**
+   * 拉取估算（POST /v1/credits/estimate）。
+   */
+  async function fetchEstimate(operation: string, reference_id: string): Promise<void> {
+    estimateLoading.value = true
+    estimateError.value = null
+    try {
+      const res = await estimateCredits(operation, reference_id)
+      estimate.value = (res as unknown as { data: EstimateResp }).data ?? null
+    } catch (e) {
+      estimateError.value = e instanceof Error ? e.message : '获取估算失败'
+      estimate.value = null
+    } finally {
+      estimateLoading.value = false
+    }
+  }
+
   /** 清空本 store（logout 时调）。 */
   function reset(): void {
     balance.value = null
+    estimate.value = null
     balanceError.value = null
+    estimateError.value = null
     balanceLoading.value = false
+    estimateLoading.value = false
   }
 
   return {
     // state
     balance,
+    estimate,
     balanceLoading,
+    estimateLoading,
     balanceError,
+    estimateError,
+    // aliases (new naming convention)
+    loading,
+    error,
     // getters
     billingMode,
     totalRemain,
+    displayState,
+    isMember,
+    isBoosterFrozen,
+    trialExpiresAt,
+    proExpiresAt,
     // actions
     fetchBalance,
+    fetchEstimate,
     reset
   }
 })

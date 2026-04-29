@@ -48,3 +48,33 @@ export function grantChildMembership(
 ): Promise<ApiResponse<GrantMembershipResp>> {
   return request.post(`/v1/users/children/${childId}/grant-membership`, req)
 }
+
+/**
+ * GrantResponse — POST /v1/users/children/:child_id/grant-membership 响应（Task 10 实际实现）
+ */
+export interface GrantResponse {
+  child_user_id: number
+  product_type: string // "trial" or "monthly"
+  event_id: number
+  event_type: string // "trial_granted" / "sub_granted" / "sub_renewed"
+  expires_at: string
+  months?: number
+}
+
+/**
+ * 父账户为指定子账户开通会员（带幂等 Key）。
+ *
+ * 使用 generateIdempotencyKey() 生成 key，防止网络重试造成重复开通。
+ *
+ * @param childId        子账户用户 ID
+ * @param body           产品类型 + 月数
+ * @param idempotencyKey RFC 4122 v4 UUID（来自 generateIdempotencyKey()）
+ */
+export const grantMembership = (
+  childId: number,
+  body: { product_type: 'trial' | 'monthly'; months?: number },
+  idempotencyKey: string
+): Promise<ApiResponse<GrantResponse>> =>
+  request.post(`/v1/users/children/${childId}/grant-membership`, body, {
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
