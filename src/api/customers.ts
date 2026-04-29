@@ -8,8 +8,21 @@ export interface CustomerStatistics {
   total_runs: number
 }
 
+/**
+ * 子账户 membership_state（credits 模式下的会员状态详情）。
+ * 来自 GET /v1/users/children 响应，隐私边界：不含 booster 字段。
+ */
+export interface MembershipState {
+  has_active_trial: boolean
+  has_active_subscription: boolean
+  trial_expires_at?: string | null
+  subscription_expires_at?: string | null
+}
+
 export interface SubUser {
   id: number | string
+  /** 后端 ListSubUsers 返回的 user_id 字段（与 id 二选一）。 */
+  user_id?: number | string
   username: string
   nickname?: string
   phone?: string
@@ -19,9 +32,16 @@ export interface SubUser {
   credit_expires?: string
   remaining_sop_runs?: number
   template_count?: number
+  authorized_templates?: number
   total_sop_runs?: number
   monthly_sop_runs?: number
   created_at?: string
+  /** credits 模式下的会员状态（含试用 + Pro 订阅双轨）。 */
+  membership_state?: MembershipState | null
+  /** 该账户是否已使用过体验包（true → 体验 tab 置灰）。 */
+  has_used_trial?: boolean
+  /** credits 模式下当前周期剩余积分。 */
+  cycle_remaining?: number
   [key: string]: any
 }
 
