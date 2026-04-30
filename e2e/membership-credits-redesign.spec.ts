@@ -131,6 +131,12 @@ const sel = {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function loginAs(page: Page, username: string, password: string): Promise<void> {
+  // Navigate to app root first (ensures we're on the origin, not about:blank),
+  // then clear localStorage so the auth guard doesn't redirect away from /login.
+  // Tests in the 'e2e' project inherit storageState from auth.setup, which makes the
+  // router redirect authenticated users to / when they try to visit /login.
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
   await page.goto('/login')
   await expect(page.locator(sel.loginButton)).toBeVisible({ timeout: 15_000 })
   await page.locator(sel.usernameInput).fill(username)
