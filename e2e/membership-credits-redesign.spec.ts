@@ -889,7 +889,7 @@ test.describe('Path 6: 并发续费幂等性矩阵', () => {
     page
   }) => {
     // Shared mutable state: tracks how many distinct grant events were recorded
-    let grantEvents: Array<{ idempotency_key: string; months: number }> = []
+    const grantEvents: Array<{ idempotency_key: string; months: number }> = []
 
     // expires_at starts 1 month from now, accumulates +1 month per distinct key
     let currentMonths = 1

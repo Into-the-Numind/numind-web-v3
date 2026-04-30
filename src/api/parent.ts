@@ -10,6 +10,26 @@ import request from './request'
 import type { ApiResponse } from './request'
 
 /**
+ * 子账户信息（父账户视角，listChildren 响应元素）。
+ */
+export interface ChildUser {
+  id: number
+  username: string
+  user_tier: string
+  tier_expires?: string | null
+  billing_mode?: string
+}
+
+/**
+ * 获取当前父账户下所有子账户列表。
+ *
+ * 后端路由：GET /v1/users/children
+ */
+export function listChildren(): Promise<ApiResponse<ChildUser[]>> {
+  return request.get('/v1/users/children')
+}
+
+/**
  * 帮子账户开通会员的请求体。
  *
  * - `product_type='trial'`：体验会员，固定 3 天有效期，不使用 months
