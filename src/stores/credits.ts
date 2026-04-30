@@ -70,8 +70,17 @@ export const useCreditsStore = defineStore('credits', () => {
     const b = balance.value
     if (!b) return 'free'
     // 优先 membership_state（后端 BalanceDTO 字段）
+    // 支持两种格式：
+    //   旧格式：membership_state = 'free' | 'trial' | 'pro'（字符串）
+    //   BalanceDTO 格式：membership_state = { has_active_trial, has_active_subscription, ... }
     const ms = (b as unknown as Record<string, unknown>).membership_state
     if (ms === 'free' || ms === 'trial' || ms === 'pro') return ms
+    if (ms && typeof ms === 'object') {
+      const mso = ms as Record<string, unknown>
+      if (mso.has_active_trial === true) return 'trial'
+      if (mso.has_active_subscription === true) return 'pro'
+      return 'free'
+    }
     // 回退：billing_mode 映射
     if (b.billing_mode === 'legacy_tier') return 'legacy'
     return 'free'

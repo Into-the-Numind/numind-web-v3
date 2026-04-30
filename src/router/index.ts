@@ -138,6 +138,15 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/credits',
+    name: 'credits',
+    component: () => import('@/views/CreditsView.vue'),
+    meta: {
+      title: '我的积分',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/chatbot/:id',
     name: 'chatbot-chat',
     component: () => import('@/views/chatbot/ChatbotChat.vue'),
