@@ -10,6 +10,26 @@ import request from './request'
 import type { ApiResponse } from './request'
 
 /**
+ * 子账户信息（父账户视角，listChildren 响应元素）。
+ */
+export interface ChildUser {
+  id: number
+  username: string
+  user_tier: string
+  tier_expires?: string | null
+  billing_mode?: string
+}
+
+/**
+ * 获取当前父账户下所有子账户列表。
+ *
+ * 后端路由：GET /v1/users/children
+ */
+export function listChildren(): Promise<ApiResponse<ChildUser[]>> {
+  return request.get('/v1/users/children')
+}
+
+/**
  * 帮子账户开通会员的请求体。
  *
  * - `product_type='trial'`：体验会员，固定 3 天有效期，不使用 months
@@ -48,3 +68,33 @@ export function grantChildMembership(
 ): Promise<ApiResponse<GrantMembershipResp>> {
   return request.post(`/v1/users/children/${childId}/grant-membership`, req)
 }
+
+/**
+ * GrantResponse — POST /v1/users/children/:child_id/grant-membership 响应（Task 10 实际实现）
+ */
+export interface GrantResponse {
+  child_user_id: number
+  product_type: string // "trial" or "monthly"
+  event_id: number
+  event_type: string // "trial_granted" / "sub_granted" / "sub_renewed"
+  expires_at: string
+  months?: number
+}
+
+/**
+ * 父账户为指定子账户开通会员（带幂等 Key）。
+ *
+ * 使用 generateIdempotencyKey() 生成 key，防止网络重试造成重复开通。
+ *
+ * @param childId        子账户用户 ID
+ * @param body           产品类型 + 月数
+ * @param idempotencyKey RFC 4122 v4 UUID（来自 generateIdempotencyKey()）
+ */
+export const grantMembership = (
+  childId: number,
+  body: { product_type: 'trial' | 'monthly'; months?: number },
+  idempotencyKey: string
+): Promise<ApiResponse<GrantResponse>> =>
+  request.post(`/v1/users/children/${childId}/grant-membership`, body, {
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })

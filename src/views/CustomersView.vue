@@ -771,115 +771,15 @@
       </Teleport>
 
       <!-- ========== Grant Membership Modal (B2B2C 帮开通，不走支付) ========== -->
-      <Teleport to="body">
-        <Transition name="overlay-fade">
-          <div v-if="showGrantModal" class="modal-overlay" @click.self="closeGrantModal">
-            <div class="modal-dialog tier-dialog">
-              <div class="modal-header">
-                <h2 class="modal-title">开通会员</h2>
-                <button class="modal-close" @click="closeGrantModal">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div class="modal-body">
-                <div class="perm-user">
-                  <div class="perm-avatar">
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="24"
-                      height="24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="perm-name">
-                      {{ grantTargetUser?.nickname || grantTargetUser?.username || '用户' }}
-                    </div>
-                  </div>
-                </div>
-
-                <div class="upgrade-options">
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: grantForm.productType === 'trial' }"
-                    @click="grantForm.productType = 'trial'"
-                  >
-                    <div
-                      class="upgrade-radio"
-                      :class="{ active: grantForm.productType === 'trial' }"
-                    ></div>
-                    <div class="upgrade-info">
-                      <div class="upgrade-header">
-                        <span class="upgrade-name trial">体验会员</span>
-                      </div>
-                      <div class="upgrade-desc">200 额度 · 有效期 3 天</div>
-                      <div class="upgrade-note">适合首次体验</div>
-                    </div>
-                  </div>
-                  <div
-                    class="upgrade-card"
-                    :class="{ selected: grantForm.productType === 'monthly' }"
-                    @click="grantForm.productType = 'monthly'"
-                  >
-                    <div
-                      class="upgrade-radio"
-                      :class="{ active: grantForm.productType === 'monthly' }"
-                    ></div>
-                    <div class="upgrade-info">
-                      <div class="upgrade-header">
-                        <span class="upgrade-name premium">高级会员</span>
-                      </div>
-                      <div class="upgrade-desc">每月 2000 额度 · 按月续期</div>
-                      <div class="upgrade-note">适合日常使用</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="grantForm.productType === 'monthly'" class="form-group">
-                  <label class="form-label">开通时长</label>
-                  <select v-model="grantForm.months" class="form-input form-select">
-                    <option v-for="m in 12" :key="m" :value="m">{{ m }} 个月</option>
-                  </select>
-                </div>
-
-                <p v-if="grantError" class="form-error" style="margin-top: 8px">
-                  {{ grantError }}
-                </p>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn-cancel" @click="closeGrantModal">取消</button>
-                <button
-                  type="button"
-                  class="btn-primary"
-                  :disabled="grantLoading"
-                  @click="submitGrant"
-                >
-                  {{ grantLoading ? '提交中...' : '确认开通' }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
+      <!-- 使用独立组件 GrantMembershipModal，支持 membership_state 双轨 + idempotency key -->
+      <GrantMembershipModal
+        v-if="grantTargetUser"
+        v-model:open="showGrantModal"
+        :child-id="Number(grantTargetUser.user_id ?? grantTargetUser.id)"
+        :child-name="grantTargetUser.nickname || grantTargetUser.username || '用户'"
+        :has-used-trial="grantTargetUser.has_used_trial ?? false"
+        @success="handleGrantSuccess"
+      />
 
       <!-- ========== Toast ========== -->
       <Teleport to="body">
@@ -940,6 +840,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import GrantMembershipModal from '@/components/GrantMembershipModal.vue'
 import {
   fetchStatistics,
   fetchSubUsers,
@@ -962,7 +863,8 @@ import {
   type TemplateItem,
   type ChatbotItem
 } from '@/api/customers'
-import { grantChildMembership } from '@/api/parent'
+import type { GrantResponse } from '@/api/parent'
+import { formatDate } from '@/utils/datetime'
 
 // ── State ──────────────────────────────────────────────────────────
 const statistics = reactive({
@@ -1527,40 +1429,93 @@ async function executeBatchAction() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * renderMembershipBadge — 4-state membership display (spec §8.3.2).
+ *
+ * State priority:
+ *   1. membership_state present → use it (credits mode)
+ *   2. fallback to legacy user_tier field
+ *
+ * 4 states:
+ *   - free: no trial, no sub
+ *   - trial: trial active only
+ *   - trial+pro (purple dual): trial + sub both active
+ *   - pro: sub active only
+ */
+function renderMembershipBadge(user: SubUser): { label: string; color: string } {
+  const ms = user.membership_state
+  if (ms != null) {
+    const hasTrial = ms.has_active_trial ?? false
+    const hasSub = ms.has_active_subscription ?? false
+    if (!hasTrial && !hasSub) return { label: '免费用户', color: 'gray' }
+    if (hasTrial && !hasSub) {
+      return {
+        label: `试用中（${formatDate(ms.trial_expires_at)} 到期）`,
+        color: 'blue'
+      }
+    }
+    if (hasTrial && hasSub) {
+      return {
+        label: `试用中 + Pro 已开通（试用 ${formatDate(ms.trial_expires_at)} / Pro ${formatDate(ms.subscription_expires_at)}）`,
+        color: 'purple'
+      }
+    }
+    // !hasTrial && hasSub
+    return {
+      label: `Pro 会员（${formatDate(ms.subscription_expires_at)} 到期）`,
+      color: 'gold'
+    }
+  }
+
+  // Legacy fallback: use user_tier
+  const tier = getActualTier(user)
+  if (tier === 'premium') return { label: '高级会员', color: 'gold' }
+  if (tier === 'standard') return { label: '普通会员', color: 'blue' }
+  if (tier === 'trial') return { label: '体验会员', color: 'blue' }
+  if ((user.credit_balance ?? 0) > 0) return { label: 'Pro', color: 'gold' }
+  return { label: '免费用户', color: 'gray' }
+}
+
 function getActualTier(user: SubUser): string {
   const tier = user.user_tier || 'free'
   const isExpired = user.tier_expires && new Date(user.tier_expires) < new Date()
   return isExpired || tier === 'free' ? 'free' : tier
 }
 
-// 统一会员状态：free / pro / trial / standard / premium
+// 统一会员状态用于 filter tabs：free / pro / trial
 function getMemberStatus(user: SubUser): string {
+  const ms = user.membership_state
+  if (ms != null) {
+    const hasTrial = ms.has_active_trial ?? false
+    const hasSub = ms.has_active_subscription ?? false
+    if (hasSub) return 'pro'
+    if (hasTrial) return 'trial'
+    return 'free'
+  }
+  // Legacy fallback
   const tier = getActualTier(user)
   if (tier === 'free' && (user.credit_balance ?? 0) > 0) return 'pro'
   return tier
 }
 
 function isOldMember(user: SubUser): boolean {
+  // Only legacy users without membership_state use old tier logic
+  if (user.membership_state != null) return false
   const tier = getActualTier(user)
   return tier === 'standard' || tier === 'premium'
 }
 
 function getStatusClass(user: SubUser) {
-  const tier = getActualTier(user)
-  if (tier === 'premium') return 'tier-premium'
-  if (tier === 'standard') return 'tier-standard'
-  if (tier === 'trial') return 'tier-trial'
-  if (tier === 'free' && (user.credit_balance ?? 0) > 0) return 'tier-pro'
+  const badge = renderMembershipBadge(user)
+  if (badge.color === 'purple') return 'tier-purple'
+  if (badge.color === 'gold') return 'tier-pro'
+  if (badge.color === 'blue') return 'tier-trial'
   return 'tier-free'
 }
 
 function getStatusLabel(user: SubUser) {
-  const tier = getActualTier(user)
-  if (tier === 'premium') return '高级会员'
-  if (tier === 'standard') return '普通会员'
-  if (tier === 'trial') return '体验会员'
-  if (tier === 'free' && (user.credit_balance ?? 0) > 0) return 'Pro'
-  return 'Free'
+  return renderMembershipBadge(user).label
 }
 
 function getQuotaDisplay(user: SubUser): string {
@@ -1569,7 +1524,7 @@ function getQuotaDisplay(user: SubUser): string {
     if (tier === 'premium') return '无限次'
     return `${user.remaining_sop_runs ?? 0}次/月`
   }
-  const balance = user.credit_balance ?? 0
+  const balance = user.credit_balance ?? user.cycle_remaining ?? 0
   return balance > 0 ? String(balance) : '—'
 }
 
@@ -1577,11 +1532,15 @@ function getExpiryDisplay(user: SubUser): string {
   if (isOldMember(user)) {
     return user.tier_expires ? formatDate(user.tier_expires) : '—'
   }
+  // For credits mode, prefer subscription expiry; fall back to credit_expires
+  const ms = user.membership_state
+  if (ms?.has_active_subscription && ms.subscription_expires_at) {
+    return formatDate(ms.subscription_expires_at)
+  }
+  if (ms?.has_active_trial && ms.trial_expires_at) {
+    return formatDate(ms.trial_expires_at)
+  }
   return user.credit_expires ? formatDate(user.credit_expires) : '—'
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
 function showToast(
@@ -1608,62 +1567,22 @@ function handleMenuPermission(user: SubUser) {
 // C 端不可自购会员（credits-system Q1），父账户在此直接选择 trial/monthly 开通。
 // 后端走 POST /v1/users/children/:id/grant-membership，credit_package
 // grant_source='b2b_grant'，按月对公结算，当场不扣款。
+// 弹窗已拆分为独立组件 GrantMembershipModal，此处只保留触发逻辑。
 const showGrantModal = ref(false)
 const grantTargetUser = ref<SubUser | null>(null)
-const grantForm = reactive({
-  productType: 'trial' as 'trial' | 'monthly',
-  months: 1,
-  reason: ''
-})
-const grantLoading = ref(false)
-const grantError = ref('')
 
 function handleMenuGrantMembership(user: SubUser) {
   openMenuId.value = null
   grantTargetUser.value = user
-  grantForm.productType = 'trial'
-  grantForm.months = 1
-  grantForm.reason = ''
-  grantError.value = ''
   showGrantModal.value = true
 }
 
-function closeGrantModal() {
-  if (grantLoading.value) return
+function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
+  const msg = resp._toastMsg ?? '已成功开通会员'
+  showToast(msg, 'success')
   showGrantModal.value = false
   grantTargetUser.value = null
-}
-
-async function submitGrant() {
-  if (!grantTargetUser.value) return
-  const childId = grantTargetUser.value.user_id ?? grantTargetUser.value.id
-  if (!childId) return
-
-  grantLoading.value = true
-  grantError.value = ''
-  try {
-    const payload: { product_type: 'trial' | 'monthly'; months?: number; reason: string } = {
-      product_type: grantForm.productType,
-      reason: grantForm.reason.trim()
-    }
-    if (grantForm.productType === 'monthly') {
-      payload.months = grantForm.months
-    }
-    await grantChildMembership(childId, payload)
-    const label =
-      grantForm.productType === 'trial' ? '体验会员（3 天）' : `${grantForm.months} 个月高级会员`
-    showToast(
-      `已为 ${grantTargetUser.value.nickname || grantTargetUser.value.username} 开通${label}`,
-      'success'
-    )
-    showGrantModal.value = false
-    grantTargetUser.value = null
-    await loadSubUsers()
-  } catch (e: unknown) {
-    grantError.value = e instanceof Error ? e.message : '开通失败，请重试'
-  } finally {
-    grantLoading.value = false
-  }
+  loadSubUsers()
 }
 </script>
 
@@ -2030,6 +1949,11 @@ async function submitGrant() {
 .tier-premium {
   background: hsl(45, 90%, 94%);
   color: hsl(35, 80%, 35%);
+}
+/* 双标（trial + sub 同时在期）紫色 */
+.tier-purple {
+  background: hsl(270, 70%, 95%);
+  color: hsl(270, 60%, 40%);
 }
 
 .cell-secondary,

@@ -1,0 +1,263 @@
+/**
+ * GrantMembershipModal 单元测试 (Plan §Task 20)
+ *
+ * 覆盖 5 个 case：
+ *   T1: hasUsedTrial=true → trial tab 内容置灰 + 提交按钮禁用
+ *   T2: Pro tab 月数选择更新显示价格
+ *   T3: 提交 trial 时带 Idempotency-Key header（UUID 格式）
+ *   T4: event_type=trial_granted → 正确 toast 文案 via emit 'success'
+ *   T5: event_type=sub_granted/sub_renewed → 正确 toast 文案
+ *
+ * 注意：组件使用 <Teleport to="body">，需要 attachTo: document.body，
+ * 并通过 document.querySelector 查找 teleport 内元素。
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+
+// --- Mocks ---
+vi.mock('@/api/parent', () => ({
+  grantMembership: vi.fn()
+}))
+
+vi.mock('@/utils/idempotency', () => ({
+  generateIdempotencyKey: vi.fn(() => 'mock-uuid-1234-5678-abcd-efgh')
+}))
+
+vi.mock('@/utils/datetime', () => ({
+  formatDate: vi.fn((iso: string | null | undefined) => {
+    if (!iso) return '—'
+    return iso.slice(0, 10) // simplified for tests
+  })
+}))
+
+import GrantMembershipModal from '../GrantMembershipModal.vue'
+import { grantMembership } from '@/api/parent'
+import { generateIdempotencyKey } from '@/utils/idempotency'
+
+const grantMock = grantMembership as unknown as ReturnType<typeof vi.fn>
+const keyMock = generateIdempotencyKey as unknown as ReturnType<typeof vi.fn>
+
+/** Helper: mount modal with Teleport support */
+function mountModal(props: {
+  open: boolean
+  childId: number
+  childName: string
+  hasUsedTrial: boolean
+}) {
+  return mount(GrantMembershipModal, {
+    props,
+    attachTo: document.body
+  })
+}
+
+function makeGrantResp(eventType: string, expiresAt = '2026-07-29T23:59:59Z', months = 3) {
+  return {
+    data: {
+      child_user_id: 42,
+      product_type: eventType === 'trial_granted' ? 'trial' : 'monthly',
+      event_id: 1,
+      event_type: eventType,
+      expires_at: expiresAt,
+      months
+    }
+  }
+}
+
+describe('GrantMembershipModal', () => {
+  beforeEach(() => {
+    grantMock.mockReset()
+    keyMock.mockReturnValue('mock-uuid-1234-5678-abcd-efgh')
+  })
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  // T1: hasUsedTrial=true → trial tab 置灰 + 提交禁用
+  it('T1: hasUsedTrial=true grays trial tab content and disables submit button', async () => {
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '张三',
+      hasUsedTrial: true
+    })
+    await wrapper.vm.$nextTick()
+
+    // Warning banner visible
+    const warning = document.querySelector('[data-testid="trial-used-warning"]')
+    expect(warning).not.toBeNull()
+    expect(warning!.textContent).toContain('已使用过体验包')
+
+    // Tab content should have .disabled class
+    const tabContent = document.querySelector('.grant-tab-content')
+    expect(tabContent!.classList.contains('disabled')).toBe(true)
+
+    // Submit button should be disabled
+    const submitBtn = document.querySelector(
+      '[data-testid="grant-submit-btn"]'
+    ) as HTMLButtonElement
+    expect(submitBtn).not.toBeNull()
+    expect(submitBtn.disabled).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  // T2: Pro tab 月数选择更新价格
+  it('T2: switching to Pro tab and selecting months updates displayed price', async () => {
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '李四',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    // Click Pro tab
+    const proTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
+    proTab.click()
+    await wrapper.vm.$nextTick()
+
+    // Click 3 month button
+    const btn3 = document.querySelector('[data-testid="month-btn-3"]') as HTMLButtonElement
+    expect(btn3).not.toBeNull()
+    btn3.click()
+    await wrapper.vm.$nextTick()
+
+    // Expect button to be active
+    expect(btn3.classList.contains('active')).toBe(true)
+
+    // Expect price to reflect 3 months
+    // The price text is computed: "3 个月 × ¥99 = ¥297"
+    const bodyText = document.body.textContent ?? ''
+    expect(bodyText).toContain('297')
+
+    wrapper.unmount()
+  })
+
+  // T3: 提交时带 Idempotency-Key UUID
+  it('T3: submit sends grantMembership with idempotency key UUID', async () => {
+    grantMock.mockResolvedValue(makeGrantResp('trial_granted'))
+
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '王五',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    // Submit (trial tab is default)
+    const submitBtn = document.querySelector(
+      '[data-testid="grant-submit-btn"]'
+    ) as HTMLButtonElement
+    submitBtn.click()
+    await flushPromises()
+
+    expect(grantMock).toHaveBeenCalledOnce()
+    const [childId, body, idempotencyKey] = grantMock.mock.calls[0]
+    expect(childId).toBe(42)
+    expect(body.product_type).toBe('trial')
+    expect(typeof idempotencyKey).toBe('string')
+    // UUID format: 8-4-4-4-12
+    expect(idempotencyKey).toBe('mock-uuid-1234-5678-abcd-efgh')
+
+    wrapper.unmount()
+  })
+
+  // T4: event_type=trial_granted → emit 'success' with correct _toastMsg
+  it('T4: trial_granted emits success with correct toast message', async () => {
+    grantMock.mockResolvedValue(makeGrantResp('trial_granted'))
+
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '赵六',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    const submitBtn = document.querySelector(
+      '[data-testid="grant-submit-btn"]'
+    ) as HTMLButtonElement
+    submitBtn.click()
+    await flushPromises()
+
+    const successEmits = wrapper.emitted('success')
+    expect(successEmits).toBeTruthy()
+    expect(successEmits!.length).toBeGreaterThan(0)
+    const emittedResp = (successEmits![0] as [Record<string, unknown>])[0]
+    expect((emittedResp as { _toastMsg: string })._toastMsg).toContain('赵六')
+    expect((emittedResp as { _toastMsg: string })._toastMsg).toContain('体验包')
+    expect((emittedResp as { _toastMsg: string })._toastMsg).toContain('3 天有效期')
+
+    wrapper.unmount()
+  })
+
+  // T5: event_type=sub_granted and sub_renewed → correct toast messages
+  it('T5: sub_granted emits success with correct toast including expiry date', async () => {
+    grantMock.mockResolvedValue(makeGrantResp('sub_granted', '2026-10-29T23:59:59Z', 3))
+
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '钱七',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    // Switch to Pro tab
+    const proTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
+    proTab.click()
+    await wrapper.vm.$nextTick()
+
+    const submitBtn = document.querySelector(
+      '[data-testid="grant-submit-btn"]'
+    ) as HTMLButtonElement
+    submitBtn.click()
+    await flushPromises()
+
+    const successEmits = wrapper.emitted('success')
+    expect(successEmits).toBeTruthy()
+    const emittedResp = (successEmits![0] as [Record<string, unknown>])[0]
+    const toastMsg = (emittedResp as { _toastMsg: string })._toastMsg
+    expect(toastMsg).toContain('钱七')
+    expect(toastMsg).toContain('Pro')
+    // formatDate is mocked to return ISO slice, so should contain '2026-10-29'
+    expect(toastMsg).toContain('2026-10-29')
+
+    wrapper.unmount()
+  })
+
+  it('T5b: sub_renewed emits correct toast message', async () => {
+    grantMock.mockResolvedValue(makeGrantResp('sub_renewed', '2027-01-29T23:59:59Z', 6))
+
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '孙八',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    // Switch to Pro tab
+    const proTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
+    proTab.click()
+    await wrapper.vm.$nextTick()
+
+    const submitBtn = document.querySelector(
+      '[data-testid="grant-submit-btn"]'
+    ) as HTMLButtonElement
+    submitBtn.click()
+    await flushPromises()
+
+    const successEmits = wrapper.emitted('success')
+    expect(successEmits).toBeTruthy()
+    const emittedResp = (successEmits![0] as [Record<string, unknown>])[0]
+    const toastMsg = (emittedResp as { _toastMsg: string })._toastMsg
+    expect(toastMsg).toContain('孙八')
+    expect(toastMsg).toContain('续费')
+    expect(toastMsg).toContain('2027-01-29')
+
+    wrapper.unmount()
+  })
+})

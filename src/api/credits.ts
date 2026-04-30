@@ -17,6 +17,39 @@ export interface QuotaBreakdown {
   booster_earliest_expires_at?: string // 最早过期 booster
 }
 
+/**
+ * BalanceDTO — GET /v1/credits/balance 后端实际响应（Task 12 §3.7）
+ *
+ * `membership_state` 是后端已计算的字符串枚举（"free" / "trial" / "pro"），
+ * 直接消费；无需前端二次推断。
+ */
+export interface BalanceDTO {
+  trial_remaining: number
+  cycle_remaining: number
+  cycle_end?: string // ISO 8601 with TZ
+  booster_total: number
+  booster_usable: number // 冻结时 = 0；解冻时 = booster_total
+  membership_state: 'free' | 'trial' | 'pro'
+  sub_expires_at?: string
+  trial_expires_at?: string
+}
+
+export interface OrderResponse {
+  order_id: number
+  out_trade_no: string
+  status: string
+  pay_params: unknown
+}
+
+export interface OrderStatus {
+  order_id: number
+  status: string // pending / paid / failed / cancelled
+  paid_at?: string
+  amount_cents: number
+  product_type: string // "booster"
+  quantity?: number // months 字段也叫 quantity（spec §5.10）
+}
+
 export interface EstimateResp {
   total_estimated_credits: number // SOP 整单估算（N 个 node 之和）
   first_node_estimate?: number // 首 node 估算
@@ -62,3 +95,36 @@ export function listPackages(params: {
 }) {
   return request.get<ListPackagesResp>('/v1/credits/packages', { params })
 }
+
+/**
+ * GET /v1/credits/balance → BalanceDTO（Task 12 §3.7 实际 schema）
+ *
+ * 新版取余额接口，使用 BalanceDTO 取代旧的 QuotaBreakdown。
+ * 旧版 getCreditBalance() 保留供遗留代码使用。
+ */
+export const getBalance = () => request.get<BalanceDTO>('/v1/credits/balance')
+
+/**
+ * POST /v1/orders — 创建 booster 加量包订单
+ *
+ * @param params  订单参数
+ * @param idempotencyKey  RFC 4122 v4 UUID（来自 generateIdempotencyKey()）
+ */
+export const placeOrder = (
+  params: {
+    user_id: number
+    product_type: 'booster'
+    quantity: number
+    pay_channel: 'wechat' | 'alipay'
+  },
+  idempotencyKey: string
+) =>
+  request.post<OrderResponse>('/v1/orders', params, {
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
+
+/**
+ * GET /v1/orders/:id/status — 查询订单状态（轮询用）
+ */
+export const getOrderStatus = (orderId: number) =>
+  request.get<OrderStatus>(`/v1/orders/${orderId}/status`)
