@@ -2,6 +2,20 @@ import request from './request'
 import type { ApiResponse } from './request'
 
 /**
+ * 前端共享类型: 可见范围 v-model 值 (VisibilityScopeCard / 编辑页 store).
+ *
+ * 注意字段命名差异:
+ *   - 后端 API JSON: snake_case (restricted, sub_user_ids) — 见 VisibilityState / VisibilityUpdatePayload
+ *   - 前端组件 prop: camelCase (restricted, subUserIDs) — 见 VisibilityValue
+ *
+ * 编辑页 store 在 load 时做 snake → camel 映射, save 时做 camel → snake 映射.
+ */
+export interface VisibilityValue {
+  restricted: boolean
+  subUserIDs: number[]
+}
+
+/**
  * SOP / 智能体可见范围权限 API 层（sop-chatbot-visibility-scope）。
  *
  * 两层 gate 串行 (后端 spec §4.2):
