@@ -87,6 +87,14 @@ export interface ChatbotSession {
   title: string
   status: string
   message_count: number
+  /**
+   * 置顶时间（RFC3339 字符串）。三种取值含义：
+   * - `undefined` — 字段未返回（旧后端响应，向后兼容）
+   * - `null`      — 未置顶
+   * - `string`    — 置顶时间戳（用于置顶组内倒序排序）
+   *
+   * Feature: chatbot-session-rename-pin (S4 Task 5)
+   */
   pinned_at?: string | null
   created_at: string
   updated_at: string
