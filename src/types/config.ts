@@ -87,6 +87,7 @@ export interface ChatbotSession {
   title: string
   status: string
   message_count: number
+  pinned_at?: string | null
   created_at: string
   updated_at: string
 }

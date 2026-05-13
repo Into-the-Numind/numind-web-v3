@@ -29,11 +29,19 @@ export const createChatbotSession = (chatbotId: number) => {
   })
 }
 
-export const listChatbotSessions = (offset = 0, limit = 20) => {
+export const listChatbotSessions = (offset = 0, limit = 20, chatbotId?: number) => {
+  const params: Record<string, number> = { offset, limit }
+  if (chatbotId) params.chatbot_id = chatbotId
   return request.get<{ data: { list: ChatbotSession[]; total: number } }>('/v1/chatbot/sessions', {
-    params: { offset, limit }
+    params
   })
 }
+
+export const renameChatbotSession = (id: number, title: string) =>
+  request.put<{ data: ChatbotSession }>(`/v1/chatbot/sessions/${id}/rename`, { title })
+
+export const pinChatbotSession = (id: number, pinned: boolean) =>
+  request.put<{ data: ChatbotSession }>(`/v1/chatbot/sessions/${id}/pin`, { pinned })
 
 export const deleteChatbotSession = (id: number) => {
   return request.delete(`/v1/chatbot/sessions/${id}`)
