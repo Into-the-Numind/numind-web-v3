@@ -75,13 +75,13 @@
               </label>
 
               <ul class="user-list">
-                <li v-for="u in filteredUsers" :key="u.id" class="user-row">
+                <li v-for="u in filteredUsers" :key="subUserID(u)" class="user-row">
                   <label>
                     <input
                       type="checkbox"
-                      :value="Number(u.id)"
-                      :checked="draft.includes(Number(u.id))"
-                      @change="toggleOne(Number(u.id))"
+                      :value="subUserID(u)"
+                      :checked="draft.includes(subUserID(u))"
+                      @change="toggleOne(subUserID(u))"
                     />
                     <span class="nickname">{{ u.nickname || u.username || '未命名' }}</span>
                     <span v-if="u.phone" class="phone">{{ maskPhone(u.phone) }}</span>
@@ -157,16 +157,22 @@ const filteredUsers = computed(() => {
   )
 })
 
+// SubUser 接口 id 和 user_id 二选一: 后端 GET /v1/customers/sub-users 返 user_id,
+// 其他 endpoint 可能返 id. 取较为可靠的一个并转 number.
+function subUserID(u: SubUser): number {
+  return Number(u.user_id ?? u.id)
+}
+
 const allFilteredSelected = computed(
   () =>
     filteredUsers.value.length > 0 &&
-    filteredUsers.value.every((u) => draft.value.includes(Number(u.id)))
+    filteredUsers.value.every((u) => draft.value.includes(subUserID(u)))
 )
 
 const someFilteredSelected = computed(
   () =>
     !allFilteredSelected.value &&
-    filteredUsers.value.some((u) => draft.value.includes(Number(u.id)))
+    filteredUsers.value.some((u) => draft.value.includes(subUserID(u)))
 )
 
 // actions
@@ -175,7 +181,21 @@ async function loadSubUsers() {
   errorMsg.value = ''
   try {
     const res = await fetchSubUsers(0, 500)
-    subUsers.value = res.data || []
+    // 后端 GET /v1/customers/sub-users 返 { total, sub_users: SubUser[] }, 而非
+    // customers.ts 类型声明的 SubUser[]. 这里防御性兼容两种 shape: 优先 sub_users
+    // 字段, 退化到把 data 当 array.
+    const data = res.data as unknown
+    if (Array.isArray(data)) {
+      subUsers.value = data as SubUser[]
+    } else if (
+      data &&
+      typeof data === 'object' &&
+      Array.isArray((data as { sub_users?: SubUser[] }).sub_users)
+    ) {
+      subUsers.value = (data as { sub_users: SubUser[] }).sub_users
+    } else {
+      subUsers.value = []
+    }
   } catch (err) {
     errorMsg.value = err instanceof Error ? err.message : '加载子用户失败'
   } finally {
@@ -193,7 +213,7 @@ function toggleOne(id: number) {
 }
 
 function toggleAll() {
-  const filteredIDs = filteredUsers.value.map((u) => Number(u.id))
+  const filteredIDs = filteredUsers.value.map((u) => subUserID(u))
   if (allFilteredSelected.value) {
     // 取消勾选当前 filter 显示的全部
     draft.value = draft.value.filter((id) => !filteredIDs.includes(id))
