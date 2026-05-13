@@ -19,19 +19,6 @@
       <div class="content-center">
         <div class="page-header">
           <h2 class="page-title">{{ isCreate ? '新建SOP模板' : '编辑SOP模板' }}</h2>
-          <div class="header-actions">
-            <AppButton variant="secondary" size="sm" @click="router.push('/config/sop-templates')">
-              取消
-            </AppButton>
-            <AppButton
-              :loading="saving"
-              :disabled="!isFormValid || saving"
-              size="sm"
-              @click="handleSave"
-            >
-              {{ saving ? '保存中...' : '保存' }}
-            </AppButton>
-          </div>
         </div>
 
         <!-- 基本信息卡片 -->
@@ -172,6 +159,20 @@
               </div>
             </template>
           </div>
+        </div>
+
+        <div class="page-footer">
+          <AppButton variant="secondary" size="sm" @click="router.push('/config/sop-templates')">
+            取消
+          </AppButton>
+          <AppButton
+            :loading="saving"
+            :disabled="!isFormValid || saving"
+            size="sm"
+            @click="handleSave"
+          >
+            {{ saving ? '保存中...' : '保存' }}
+          </AppButton>
         </div>
       </div>
     </template>
@@ -530,9 +531,13 @@ onBeforeRouteLeave(() => {
   margin-bottom: 24px;
 }
 
-.header-actions {
+.page-footer {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
 }
 
 .back-link {
