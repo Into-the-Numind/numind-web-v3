@@ -50,8 +50,8 @@ export interface VisibilityUpdatePayload {
 // ============================================================
 
 /** GET /v1/sop/templates/:id/visibility — 读取 SOP 可见范围配置（仅父账户）。 */
-export function getSopVisibility(id: number) {
-  return request.get<ApiResponse<VisibilityState>>(`/v1/sop/templates/${id}/visibility`)
+export const getSopVisibility = (id: number): Promise<ApiResponse<VisibilityState>> => {
+  return request.get(`/v1/sop/templates/${id}/visibility`)
 }
 
 /**
@@ -64,8 +64,11 @@ export function getSopVisibility(id: number) {
  *   - 422 InvalidParameter.CrossParentSubUser: 提交了不属于 caller 的子用户 ID
  *   - 422 InvalidParameter.SubUserNotFound: 子用户 ID 不存在
  */
-export function putSopVisibility(id: number, body: VisibilityUpdatePayload) {
-  return request.put<ApiResponse<null>>(`/v1/sop/templates/${id}/visibility`, body)
+export const putSopVisibility = (
+  id: number,
+  body: VisibilityUpdatePayload
+): Promise<ApiResponse<null>> => {
+  return request.put(`/v1/sop/templates/${id}/visibility`, body)
 }
 
 // ============================================================
@@ -73,8 +76,8 @@ export function putSopVisibility(id: number, body: VisibilityUpdatePayload) {
 // ============================================================
 
 /** GET /v1/chatbot/:id/visibility — 读取智能体可见范围配置（仅父账户）。 */
-export function getChatbotVisibility(id: number) {
-  return request.get<ApiResponse<VisibilityState>>(`/v1/chatbot/${id}/visibility`)
+export const getChatbotVisibility = (id: number): Promise<ApiResponse<VisibilityState>> => {
+  return request.get(`/v1/chatbot/${id}/visibility`)
 }
 
 /**
@@ -82,6 +85,9 @@ export function getChatbotVisibility(id: number) {
  *
  * 错误码透传（结构同 putSopVisibility, 仅 404 改为 ResourceNotFound.ChatbotNotFound）。
  */
-export function putChatbotVisibility(id: number, body: VisibilityUpdatePayload) {
-  return request.put<ApiResponse<null>>(`/v1/chatbot/${id}/visibility`, body)
+export const putChatbotVisibility = (
+  id: number,
+  body: VisibilityUpdatePayload
+): Promise<ApiResponse<null>> => {
+  return request.put(`/v1/chatbot/${id}/visibility`, body)
 }

@@ -161,6 +161,18 @@
           </div>
         </div>
 
+        <!-- 可见范围权限 (sop-chatbot-visibility-scope) -->
+        <div class="visibility-section">
+          <VisibilityScopeCard
+            v-model="visibilityValue"
+            entity-type="sop"
+            :loading="visibilityLoading"
+            :dirty="visibilityDirty"
+            :disabled="saving"
+            @retry="retryVisibility"
+          />
+        </div>
+
         <div class="page-footer">
           <AppButton variant="secondary" @click="router.push('/config/sop-templates')">
             取消
@@ -191,6 +203,8 @@ import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import VisibilityScopeCard from '@/components/VisibilityScopeCard.vue'
+import { getSopVisibility, putSopVisibility, type VisibilityValue } from '@/api/visibility'
 
 interface LocalNode {
   localId: number
@@ -228,6 +242,22 @@ const errors = reactive({
 })
 
 const nodes = ref<LocalNode[]>([])
+
+// Visibility 可见范围状态 (sop-chatbot-visibility-scope)
+// 两层 gate 串行: visibility 过滤 → run-permission. 此处只管 visibility 配置.
+const visibilityValue = ref<VisibilityValue>({ restricted: false, subUserIDs: [] })
+const visibilityLoaded = ref(false)
+const visibilityLoading = ref(false)
+const visibilityOriginal = ref<VisibilityValue>({ restricted: false, subUserIDs: [] })
+const visibilityDirty = ref(false)
+
+function visibilityChanged(): boolean {
+  if (visibilityValue.value.restricted !== visibilityOriginal.value.restricted) return true
+  const a = [...visibilityValue.value.subUserIDs].sort()
+  const b = [...visibilityOriginal.value.subUserIDs].sort()
+  if (a.length !== b.length) return true
+  return a.some((v, i) => v !== b[i])
+}
 
 function validateName() {
   errors.name = form.name.trim() ? '' : '模板名称不能为空'
@@ -348,6 +378,57 @@ async function loadDetail() {
   }
 }
 
+// 加载 visibility 配置 (仅 edit 模式; create 模式 visibility 默认 false/[]).
+async function loadVisibility() {
+  if (isCreate.value) {
+    visibilityLoaded.value = true
+    return
+  }
+  visibilityLoading.value = true
+  try {
+    const res = await getSopVisibility(editId.value)
+    const data = res.data
+    const next: VisibilityValue = {
+      restricted: !!data.restricted,
+      subUserIDs: Array.isArray(data.sub_user_ids) ? data.sub_user_ids : []
+    }
+    visibilityValue.value = next
+    visibilityOriginal.value = { restricted: next.restricted, subUserIDs: [...next.subUserIDs] }
+    visibilityLoaded.value = true
+    visibilityDirty.value = false
+  } catch {
+    // 静默失败: 卡片仍渲染默认值, 用户保存时会再次尝试 PUT
+    visibilityLoaded.value = true
+  } finally {
+    visibilityLoading.value = false
+  }
+}
+
+// 单独保存 visibility (用于重试入口 + handleSave 第二阶段).
+// 成功后更新 original/dirty 状态; 失败 throw 上抛.
+async function saveVisibility(templateId: number): Promise<void> {
+  await putSopVisibility(templateId, {
+    restricted: visibilityValue.value.restricted,
+    sub_user_ids: visibilityValue.value.restricted ? visibilityValue.value.subUserIDs : undefined
+  })
+  visibilityOriginal.value = {
+    restricted: visibilityValue.value.restricted,
+    subUserIDs: [...visibilityValue.value.subUserIDs]
+  }
+  visibilityDirty.value = false
+}
+
+async function retryVisibility() {
+  if (isCreate.value || !visibilityLoaded.value) return
+  try {
+    await saveVisibility(editId.value)
+    notifications.success('可见范围已保存')
+  } catch {
+    visibilityDirty.value = true
+    notifications.error('可见范围保存失败，请重试')
+  }
+}
+
 async function handleSave() {
   validateName()
   if (errors.name) return
@@ -438,6 +519,20 @@ async function handleSave() {
         sort: n.sort
       }))
     })
+
+    // 第二阶段: 可见范围保存 (visibility 独立端点, 错误隔离不回滚模板)
+    // 触发条件: visibility 配置发生变化 OR 之前保存失败遗留 dirty=true
+    if (visibilityLoaded.value && (visibilityChanged() || visibilityDirty.value)) {
+      try {
+        await saveVisibility(templateId)
+      } catch {
+        // 模板已保存, visibility 失败 → 标记 dirty 留页面让用户重试, 不跳转
+        visibilityDirty.value = true
+        notifications.error('模板已保存, 但可见范围更新失败. 请检查后重试')
+        return
+      }
+    }
+
     notifications.success(isCreate.value ? 'SOP模板已创建' : '已保存')
     router.push('/config/sop-templates')
   } catch {
@@ -447,8 +542,9 @@ async function handleSave() {
   }
 }
 
-onMounted(() => {
-  loadDetail()
+onMounted(async () => {
+  await loadDetail()
+  await loadVisibility()
   if (isCreate.value) {
     initialFormState.value = JSON.stringify({
       ...form,
@@ -473,6 +569,10 @@ onBeforeRouteLeave(() => {
 <style scoped>
 .sop-edit {
   width: 100%;
+}
+
+.visibility-section {
+  margin-top: 24px;
 }
 
 .content-center {
