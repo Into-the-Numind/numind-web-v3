@@ -46,6 +46,12 @@
         </button>
       </form>
     </div>
+
+    <footer class="login-footer">
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+        蜀ICP备2025149402号
+      </a>
+    </footer>
   </div>
 </template>
 
@@ -118,17 +124,39 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 20px 20px 64px;
   background:
     radial-gradient(at 0% 0%, rgba(37, 167, 105, 0.05) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(37, 167, 105, 0.03) 0px, transparent 50%),
     linear-gradient(165deg, #f7f8fb 0%, #ffffff 50%, #f5f7fa 100%);
   background-attachment: fixed;
   background-size: cover;
+}
+
+.login-footer {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.login-footer a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.login-footer a:hover {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
 }
 
 .login-container {
