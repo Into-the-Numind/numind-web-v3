@@ -149,8 +149,12 @@
       </div>
     </div>
 
-    <!-- 加量包支付弹窗（booster-payment-ui T4） -->
-    <PaymentQRModal v-model:open="showPaymentModal" @paid="handleBoosterPaid" />
+    <!-- 加量包购买弹窗（含 1/5/10 快捷选份 + 自定义数量；membership-credits-redesign） -->
+    <BoosterPurchaseDialog
+      v-model:open="purchaseDialogOpen"
+      :user-id="currentUserId"
+      @success="handleBoosterPaid"
+    />
 
     <!-- Logout Confirm Dialog -->
     <Teleport to="body">
@@ -178,7 +182,7 @@ import { getUserInfo } from '@/api/auth'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
 import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
-import PaymentQRModal from '@/components/credit/PaymentQRModal.vue'
+import BoosterPurchaseDialog from '@/components/BoosterPurchaseDialog.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -192,8 +196,14 @@ const loading = ref(true)
 // Confirm dialog
 const confirmVisible = ref(false)
 
-// 加量包支付弹窗（booster-payment-ui T4：BoosterPurchaseCard 点击 → 打开弹窗）
-const showPaymentModal = ref(false)
+// 加量包购买弹窗（BoosterPurchaseCard 点击 → 打开多份数购买 Dialog）
+const purchaseDialogOpen = ref(false)
+
+// 受益人 user_id（自购场景 = 当前登录用户）。Dialog 要求 number 类型，缺失时降级 0。
+const currentUserId = computed((): number => {
+  const id = userStore.userInfo?.id
+  return typeof id === 'number' ? id : parseInt(String(id ?? '0'), 10)
+})
 
 // Computed: tier
 const tier = computed(() => {
@@ -296,18 +306,21 @@ const doLogout = () => {
 
 /**
  * BoosterPurchaseCard 触发 purchase 事件（credits 模式会员点击"立即购买"）。
- * 打开 PaymentQRModal 进入下单 → 轮询 → 成功回调的完整流程。
+ * 打开 BoosterPurchaseDialog，让用户选份数（1/5/10/自定义）后下单 + 轮询。
  */
 function handleBoosterPurchase(): void {
-  showPaymentModal.value = true
+  purchaseDialogOpen.value = true
 }
 
 /**
- * PaymentQRModal 支付成功回调。
+ * BoosterPurchaseDialog 支付成功回调。
  *
  * 后端回调已确认支付成功，前端仅需刷新余额 + 通知用户。
  * 用 finally 确保即使 fetchBalance 失败（网络抖动等），成功 toast 依然显示，
  * 用户可手动刷新页面获取最新余额，避免"钱扣了但看不到积分"的困惑。
+ *
+ * 文案故意不写具体积分数：多份购买时积分 = 600 × quantity，
+ * Dialog 不通过 emit 透出 quantity，因此用通用文案；用户可在卡片余额处自查。
  */
 async function handleBoosterPaid(): Promise<void> {
   try {
@@ -316,7 +329,7 @@ async function handleBoosterPaid(): Promise<void> {
     // 余额刷新失败不影响扣费（后端已确认），但界面积分会暂不一致，记录便于排查
     console.warn('[handleBoosterPaid] fetchBalance failed, balance may be stale:', err)
   } finally {
-    notifications.success('加量包购买成功！600 积分已到账，有效期 90 天')
+    notifications.success('加量包购买成功！积分已到账，有效期 90 天')
   }
 }
 
