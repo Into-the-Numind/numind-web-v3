@@ -37,4 +37,27 @@ describe('generateIdempotencyKey', () => {
       expect(['8', '9', 'a', 'b']).toContain(key[19].toLowerCase())
     }
   })
+
+  it('falls back to crypto.getRandomValues when crypto.randomUUID is undefined (HTTP/non-secure context)', () => {
+    // Simulate insecure context: crypto.randomUUID is not a function. This is
+    // the exact state of dev (http://49.233.219.254:9200) and any intranet HTTP
+    // origin where Web Crypto's secure-context-only APIs vanish.
+    const originalRandomUUID = crypto.randomUUID
+    try {
+      // @ts-expect-error — intentionally clobbering for the test
+      crypto.randomUUID = undefined
+
+      const key = generateIdempotencyKey()
+      expect(typeof key).toBe('string')
+      expect(key).toMatch(UUID_V4_RE)
+      expect(key[14]).toBe('4')
+      expect(['8', '9', 'a', 'b']).toContain(key[19].toLowerCase())
+
+      // Fallback must still produce distinct values
+      const keys = new Set(Array.from({ length: 10 }, () => generateIdempotencyKey()))
+      expect(keys.size).toBe(10)
+    } finally {
+      crypto.randomUUID = originalRandomUUID
+    }
+  })
 })
