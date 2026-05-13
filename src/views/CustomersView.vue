@@ -1449,23 +1449,12 @@ function renderMembershipBadge(user: SubUser): { label: string; color: string } 
     const hasTrial = ms.has_active_trial ?? false
     const hasSub = ms.has_active_subscription ?? false
     if (!hasTrial && !hasSub) return { label: '免费用户', color: 'gray' }
-    if (hasTrial && !hasSub) {
-      return {
-        label: `试用中（${formatDate(ms.trial_expires_at)} 到期）`,
-        color: 'blue'
-      }
-    }
-    if (hasTrial && hasSub) {
-      return {
-        label: `试用中 + Pro 已开通（试用 ${formatDate(ms.trial_expires_at)} / Pro ${formatDate(ms.subscription_expires_at)}）`,
-        color: 'purple'
-      }
-    }
+    // Label 只显示状态，不嵌入到期日期 — 旁边有专门的"到期时间"列承担日期展示，
+    // 避免同一行同一行视觉冗余 + label 过长导致表格列宽不可控。
+    if (hasTrial && !hasSub) return { label: '试用中', color: 'blue' }
+    if (hasTrial && hasSub) return { label: '试用中 + Pro', color: 'purple' }
     // !hasTrial && hasSub
-    return {
-      label: `Pro 会员（${formatDate(ms.subscription_expires_at)} 到期）`,
-      color: 'gold'
-    }
+    return { label: 'Pro 会员', color: 'gold' }
   }
 
   // Legacy fallback: use user_tier
