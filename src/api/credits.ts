@@ -34,11 +34,26 @@ export interface BalanceDTO {
   trial_expires_at?: string
 }
 
+/**
+ * OrderResponse — POST /v1/orders 后端实际返回（model.Order JSON 序列化）。
+ *
+ * 字段名按 GORM JSON tag 对齐（非 spec 旧定义）：主键叫 `id` 而不是 `order_id`；
+ * wechat 支付的扫码 URL 叫 `code_url`；alipay 不通过此字段，走单独 endpoint。
+ */
 export interface OrderResponse {
-  order_id: number
-  out_trade_no: string
-  status: string
-  pay_params: unknown
+  id: number
+  order_no: string
+  user_id: number
+  payer_id: number
+  product_type: 'booster'
+  quantity: number
+  amount: number // 单位：分
+  pay_channel: 'wechat' | 'alipay'
+  pay_status: 'pending' | 'paid' | 'failed' | 'cancelled' | 'expired'
+  code_url?: string // wechat 扫码 URL（pay_channel='wechat' 时存在）
+  expired_at: string
+  created_at: string
+  updated_at: string
 }
 
 export interface OrderStatus {

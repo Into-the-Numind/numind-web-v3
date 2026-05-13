@@ -89,7 +89,10 @@
             </div>
 
             <!-- Status messages after submit -->
-            <div v-if="submitStatus === 'processing'" class="bpd-status bpd-status--info">
+            <div
+              v-if="submitStatus === 'processing' && !qrDataUrl"
+              class="bpd-status bpd-status--info"
+            >
               <svg
                 class="bpd-spinner"
                 viewBox="0 0 24 24"
@@ -107,8 +110,22 @@
                   stroke-dasharray="31.4 31.4"
                 />
               </svg>
-              正在处理订单...
+              正在创建订单...
             </div>
+
+            <!-- 二维码区（订单创建成功且拿到 wechat code_url 后渲染） -->
+            <div v-else-if="submitStatus === 'processing' && qrDataUrl" class="bpd-qr-area">
+              <img
+                :src="qrDataUrl"
+                alt="付款二维码"
+                width="232"
+                height="232"
+                class="bpd-qr-image"
+              />
+              <p class="bpd-qr-hint">打开微信扫一扫完成支付</p>
+              <p class="bpd-qr-sub-hint">支付成功后页面会自动刷新积分</p>
+            </div>
+
             <div v-else-if="submitStatus === 'timeout'" class="bpd-status bpd-status--warning">
               订单处理中，请稍候查看积分余额
             </div>
@@ -141,6 +158,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, watch } from 'vue'
+import QRCode from 'qrcode'
 import { placeOrder, getOrderStatus } from '@/api/credits'
 import { generateIdempotencyKey } from '@/utils/idempotency'
 import { useCreditsStore } from '@/stores/credits'
@@ -186,6 +204,12 @@ const submitStatus = ref<'idle' | 'processing' | 'timeout' | 'failed'>('idle')
 
 /** 失败时的错误信息 */
 const failureMessage = ref<string>('')
+
+/** 微信扫码 URL（来自 placeOrder 响应的 code_url 字段）。 */
+const codeUrl = ref<string>('')
+
+/** 渲染后的二维码 data URL（QRCode.toDataURL 结果）。 */
+const qrDataUrl = ref<string>('')
 
 /** 轮询 timer handle */
 let pollTimer: number | null = null
@@ -250,13 +274,15 @@ function validateQuantity() {
   quantityError.value = null
 }
 
-/** 清理轮询 timer */
+/** 清理轮询 timer + QR 状态。 */
 function clearPoll() {
   if (pollTimer !== null) {
     window.clearInterval(pollTimer)
     pollTimer = null
   }
   pollCount = 0
+  codeUrl.value = ''
+  qrDataUrl.value = ''
 }
 
 /** 重置提交状态 */
@@ -264,6 +290,35 @@ function resetStatus() {
   submitStatus.value = 'idle'
   failureMessage.value = ''
 }
+
+/**
+ * 渲染微信扫码二维码：codeUrl 一旦写入就用 QRCode.toDataURL 转成 data URL。
+ * Race guard：快速重试时旧的 toDataURL 可能在新的之后 resolve；用 qrGenId 递增
+ * 版本号，只有最新一次的结果才回写到 qrDataUrl。
+ */
+let qrGenId = 0
+watch(codeUrl, async (url) => {
+  if (!url) {
+    qrDataUrl.value = ''
+    return
+  }
+  qrGenId += 1
+  const myId = qrGenId
+  try {
+    const dataUrl = await QRCode.toDataURL(url, {
+      width: 256,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+    if (myId === qrGenId) {
+      qrDataUrl.value = dataUrl
+    }
+  } catch {
+    if (myId === qrGenId) {
+      qrDataUrl.value = ''
+    }
+  }
+})
 
 /** 关闭弹窗（取消 / overlay 点击 / ESC） */
 function handleCancel() {
@@ -304,8 +359,14 @@ async function handleSubmit() {
       idempotencyKey
     )
 
-    // 拦截器保证 code===0 才到这里
-    const orderId = (orderRes as unknown as { data: { order_id: number } }).data.order_id
+    // 拦截器保证 code===0 才到这里。后端返 model.Order JSON，字段名按 GORM tag
+    // 走（`id` 而不是 spec 旧定义的 `order_id`；`code_url` 是 wechat 扫码链接）。
+    const order = (orderRes as unknown as { data: { id: number; code_url?: string } }).data
+    const orderId = order.id
+
+    // 渲染微信扫码二维码（watch codeUrl → QRCode.toDataURL → qrDataUrl）。
+    // 若后端未返 code_url（异常情况），仍然继续轮询，模板会显示 spinner。
+    codeUrl.value = order.code_url ?? ''
 
     // 启动轮询
     pollCount = 0
@@ -613,6 +674,37 @@ onBeforeUnmount(() => {
   background: hsl(0 60% 95%);
   color: var(--color-danger, #ef4444);
   flex-wrap: wrap;
+}
+
+/* QR 扫码区（wechat code_url 渲染后显示） */
+.bpd-qr-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+  padding: var(--space-md, 12px) 0;
+}
+
+.bpd-qr-image {
+  display: block;
+  width: 232px;
+  height: 232px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-md, 10px);
+  background: #ffffff;
+}
+
+.bpd-qr-hint {
+  margin: 0;
+  font-size: var(--text-sm, 14px);
+  color: var(--color-text, #1f2937);
+  font-weight: 500;
+}
+
+.bpd-qr-sub-hint {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--color-text-muted, #6b7280);
 }
 
 .bpd-retry-btn {
