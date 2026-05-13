@@ -16,7 +16,19 @@
   Mockup 引用：01-active-and-history.html 行 733-785 / 850-900
 -->
 <template>
-  <aside class="nav" data-testid="sop-step-nav">
+  <aside class="nav" :class="{ 'nav--mobile-open': mobileOpen }" data-testid="sop-step-nav">
+    <!-- 移动端关闭按钮：≤768px 显示，仅抽屉态使用 -->
+    <button
+      type="button"
+      class="nav__mobile-close"
+      title="关闭步骤导航"
+      aria-label="关闭步骤导航"
+      data-testid="sop-step-nav-mobile-close"
+      @click="emit('closeMobile')"
+    >
+      <X :size="20" aria-hidden="true" />
+    </button>
+
     <!-- 返回首页按钮 -->
     <button type="button" class="nav__back" @click="emit('back')">
       <ArrowLeft :size="16" aria-hidden="true" />
@@ -49,7 +61,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, X } from 'lucide-vue-next'
 import StepNavItem from './StepNavItem.vue'
 import { computeStepState, type StepNavItemState } from './stepNavState'
 import type { SopNodePublic } from '@/views/sop/types'
@@ -62,17 +74,21 @@ interface Props {
   trailingChatEnabled?: boolean
   streamingNodeId?: number | null
   accessibility?: Record<number, boolean>
+  /** 移动端抽屉是否展开。≤768px 时控制 transform 滑入/滑出。 */
+  mobileOpen?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   trailingChatEnabled: false,
   streamingNodeId: null,
-  accessibility: () => ({})
+  accessibility: () => ({}),
+  mobileOpen: false
 })
 
 const emit = defineEmits<{
   (e: 'navigate', step: number): void
   (e: 'back'): void
+  (e: 'closeMobile'): void
 }>()
 
 interface ItemVm {
@@ -129,6 +145,8 @@ const trailingItem = computed<ItemVm | null>(() => {
 function handleItemClick(step: number): void {
   // StepNavItem 内部已守 disabled，这里信任 emit。
   emit('navigate', step)
+  // 移动端：选中步骤后自动关抽屉，保持移动端"选完就走"的预期
+  if (props.mobileOpen) emit('closeMobile')
 }
 </script>
 
@@ -186,5 +204,76 @@ function handleItemClick(step: number): void {
 }
 .nav__group-label:not(:first-child) {
   padding-top: 18px;
+}
+
+/* 桌面端隐藏移动端关闭按钮 */
+.nav__mobile-close {
+  display: none;
+}
+
+/* ==================== 移动端：抽屉化 ==================== */
+@media (max-width: 768px) {
+  .nav {
+    /* 抽屉：脱离文档流 + 固定定位 + 默认左移 100% 隐藏 */
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    /* 280px 比桌面 264px 略宽，给指尖更舒服的命中区 */
+    width: 280px;
+    max-width: 86vw;
+    height: 100vh;
+    height: 100dvh;
+    /* iOS Safari 100vh 包括地址栏 → 用 dvh 取最接近 visible viewport 的高度，
+       老 Safari (<15.4) 不支持 dvh 自然回退到上一行的 100vh 兜底 */
+    transform: translateX(-100%);
+    transition:
+      transform 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 0.28s ease;
+    z-index: 100;
+    border-right: 1px solid hsla(160, 20%, 88%, 0.5);
+    /* 抽屉态背景必须实底（关闭时也可能 transition 中可见），避免与正文穿透 */
+    background: hsla(160, 30%, 96%, 0.98);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    /* 抽屉内部独立滚动 + iOS 弹性 */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* 抽屉态字体略大，触控易点 */
+    padding: var(--space-md) 12px calc(var(--space-2xl) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .nav--mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 0 24px hsl(160 10% 0% / 0.18);
+  }
+
+  .nav__mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 触摸目标：44pt */
+    width: 44px;
+    height: 44px;
+    align-self: flex-end;
+    margin-bottom: var(--space-xs);
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: hsl(160, 18%, 35%);
+    cursor: pointer;
+    transition: background 200ms ease;
+  }
+
+  .nav__mobile-close:hover,
+  .nav__mobile-close:active {
+    background: hsla(160, 45%, 50%, 0.12);
+  }
+
+  .nav__back {
+    /* 移动端：稍微加大点击区域 */
+    padding: 14px 16px;
+    font-size: 15px;
+  }
 }
 </style>
