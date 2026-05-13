@@ -15,6 +15,18 @@
 -->
 <template>
   <header class="header">
+    <!-- 移动端汉堡按钮：≤768px 显示，负责唤起 StepNav 抽屉 -->
+    <button
+      type="button"
+      class="icon-btn icon-btn--mobile-only"
+      title="打开步骤导航"
+      aria-label="打开步骤导航"
+      data-testid="topbar-mobile-nav-toggle"
+      @click="emit('toggleNav')"
+    >
+      <Menu :size="20" aria-hidden="true" />
+    </button>
+
     <h1 class="header__title" data-testid="topbar-title">{{ templateName }}</h1>
 
     <div class="header__right">
@@ -34,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { History } from 'lucide-vue-next'
+import { History, Menu } from 'lucide-vue-next'
 import ModelSelector from '@/components/common/ModelSelector.vue'
 
 interface Props {
@@ -46,6 +58,7 @@ defineProps<Props>()
 const emit = defineEmits<{
   (e: 'back'): void
   (e: 'openHistory'): void
+  (e: 'toggleNav'): void
 }>()
 </script>
 
@@ -100,5 +113,36 @@ const emit = defineEmits<{
 .icon-btn:hover {
   background: var(--surface-hover);
   color: var(--text);
+}
+
+/* 桌面端隐藏移动端专属按钮（汉堡）。移动端断点下覆盖。 */
+.icon-btn--mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .header {
+    /* 移动端：缩减外边距，让汉堡按钮和标题贴边 */
+    padding: 0 var(--space-md);
+    gap: var(--space-md);
+  }
+
+  .header__title {
+    /* 移动端：略缩字号，留更多横向空间给右侧控件 */
+    font-size: 15px;
+  }
+
+  .icon-btn--mobile-only {
+    display: inline-flex;
+    /* iOS HIG 44pt / Android 48dp 触摸目标 */
+    width: 44px;
+    height: 44px;
+    margin-left: calc(var(--space-md) * -1);
+  }
+
+  .icon-btn--mobile-only svg {
+    width: 22px;
+    height: 22px;
+  }
 }
 </style>

@@ -372,4 +372,28 @@ defineExpose({
 .sop-fade-leave-to {
   opacity: 0;
 }
+
+/* ==================== 移动端：≤768px ==================== */
+@media (max-width: 768px) {
+  .sop-step-view {
+    /* 桌面 40px → 移动 24px，让 header / card / action 三段更紧凑 */
+    gap: 24px;
+  }
+
+  .step-header__title {
+    /* 桌面 28px → 移动 22px，避免长标题占满整屏垂直空间 */
+    font-size: 22px;
+    margin-bottom: 4px;
+    /* h2 在 SopStepView 原 CSS 里是 display:flex；移动端窄宽下让标题可以换行 */
+    flex-wrap: wrap;
+    /* 防极长无空格 token（如英文 URL / 模板编号）撑破容器 */
+    overflow-wrap: anywhere;
+  }
+
+  .step-header__desc {
+    font-size: 14px;
+    /* 移除桌面 max-width:720px 限制（移动端容器本就窄） */
+    max-width: 100%;
+  }
+}
 </style>

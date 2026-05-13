@@ -136,4 +136,17 @@ defineEmits<{
   overflow: hidden;
   align-items: stretch;
 }
+
+/* ==================== 移动端：≤768px ==================== */
+@media (max-width: 768px) {
+  .canvas {
+    /* 桌面 40px / 56px / 48px → 移动 20px / 16px / 24px，把 ~70% 横向边距还给内容 */
+    padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+  }
+
+  /* trailing chat 模式：移动端用 dvh 适配 iOS 地址栏 */
+  .canvas:has(> [data-testid='trailing-chat']) {
+    height: calc(100dvh - 56px);
+  }
+}
 </style>

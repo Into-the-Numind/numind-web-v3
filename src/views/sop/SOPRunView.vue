@@ -57,8 +57,19 @@
         :accessibility="store.nodeAccessibility"
         :trailing-chat-enabled="store.trailingChatEnabled"
         :streaming-node-id="store.streamingNodeId"
+        :mobile-open="mobileNavOpen"
         @navigate="handleNavigate"
         @back="handleBackHome"
+        @close-mobile="closeMobileNav"
+      />
+
+      <!-- 移动端遮罩：仅 ≤768px + 抽屉展开时显示，点击关闭 -->
+      <div
+        v-if="mobileNavOpen"
+        class="mobile-nav-backdrop"
+        data-testid="sop-mobile-nav-backdrop"
+        aria-hidden="true"
+        @click="closeMobileNav"
       />
 
       <div class="right-area">
@@ -66,6 +77,7 @@
           :template-name="store.template?.name || ''"
           @back="handleBackHome"
           @open-history="showHistory = true"
+          @toggle-nav="toggleMobileNav"
         />
 
         <StepCanvas
@@ -159,6 +171,28 @@ const showHistory = ref(false)
 const showRegenConfirm = ref(false)
 const regenConfirmMessage = ref<string>('重新生成会抹除当前 AI 输出，是否继续？')
 const pendingRegenerateText = ref<string>('')
+/** 移动端 StepNav 抽屉是否展开。仅 ≤768px 视口有视觉影响（CSS 控制）。 */
+const mobileNavOpen = ref(false)
+
+function toggleMobileNav() {
+  mobileNavOpen.value = !mobileNavOpen.value
+}
+function closeMobileNav() {
+  mobileNavOpen.value = false
+}
+
+// 抽屉展开时锁 body 滚动（避免抽屉滚到底后透到正文）+ ESC 关闭
+watch(mobileNavOpen, (open) => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
+function handleEscKey(e: KeyboardEvent) {
+  if (e.key === 'Escape' && mobileNavOpen.value) {
+    e.stopPropagation()
+    closeMobileNav()
+  }
+}
 
 // ===== Trailing chat 流式状态 =====
 const chatStreaming = ref(false)
@@ -662,6 +696,10 @@ onMounted(async () => {
   if (!llmStore.isThinkingEnabled('sop')) {
     await llmStore.savePreference('sop', modelKey, true)
   }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('keydown', handleEscKey)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -670,6 +708,11 @@ onBeforeUnmount(() => {
   }
   sseStream.abort()
   store.reset()
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('keydown', handleEscKey)
+    // 兜底：组件卸载时强制清掉可能残留的 body lock
+    document.body.style.overflow = ''
+  }
 })
 </script>
 
@@ -867,6 +910,49 @@ onBeforeUnmount(() => {
   }
   40% {
     transform: scale(1);
+  }
+}
+
+/* ==================== 移动端：≤768px 适配 ==================== */
+/* 桌面端默认隐藏移动端遮罩（mobile-only） */
+.mobile-nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sop-run-view-v2 {
+    /* StepNav 移动端 position:fixed 已脱离文档流，根容器自然单列 — 但显式声明以提高可读性 */
+    flex-direction: column;
+    /* 兜底防横向滚动：抽屉滑出时 transform 不应触发 viewport horizontal scroll */
+    overflow-x: hidden;
+  }
+
+  .right-area {
+    /* StepNav 脱离文档流后，right-area 自动 100% */
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* 抽屉打开时的半透明遮罩。点击关抽屉。 */
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: hsl(160 10% 0% / 0.42);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    /* 比 StepNav(z:100) 低一级，但比正文高 */
+    z-index: 90;
+    animation: mobile-nav-backdrop-in 0.2s ease;
+  }
+
+  @keyframes mobile-nav-backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 </style>
