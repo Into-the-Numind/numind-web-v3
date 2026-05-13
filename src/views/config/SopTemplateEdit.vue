@@ -162,15 +162,10 @@
         </div>
 
         <div class="page-footer">
-          <AppButton variant="secondary" size="sm" @click="router.push('/config/sop-templates')">
+          <AppButton variant="secondary" @click="router.push('/config/sop-templates')">
             取消
           </AppButton>
-          <AppButton
-            :loading="saving"
-            :disabled="!isFormValid || saving"
-            size="sm"
-            @click="handleSave"
-          >
+          <AppButton :loading="saving" :disabled="!isFormValid || saving" @click="handleSave">
             {{ saving ? '保存中...' : '保存' }}
           </AppButton>
         </div>
