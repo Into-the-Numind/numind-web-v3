@@ -55,6 +55,7 @@
                 class="bpd-quick-btn"
                 :class="{ active: quantity === q && !customMode }"
                 :data-testid="`quick-btn-${q}`"
+                :disabled="quantityLocked"
                 @click="selectQuick(q)"
               >
                 {{ q }}
@@ -72,6 +73,7 @@
                 class="bpd-input"
                 :class="{ error: quantityError }"
                 placeholder="输入数量"
+                :disabled="quantityLocked"
                 @input="onInput"
                 @blur="validateQuantity"
               />
@@ -238,6 +240,20 @@ const canSubmit = computed<boolean>(() => {
     Number.isInteger(quantity.value) &&
     submitStatus.value !== 'processing'
   )
+})
+
+/**
+ * 数量是否被锁定（不允许改）。
+ *
+ * 一旦用户点击"立即购买"，订单与 QR 已经创建在后端，对应的支付金额已经固定。
+ * 此时如果允许改数量，前端总价会动但二维码金额不会变，用户扫码付的是老金额却
+ * 看到新数字——明显不一致。锁定数量直到用户取消或成功/失败重置。
+ *
+ * processing/timeout/failed 三态都锁（timeout/failed 时也不能改：用户应该用"重试"
+ * 按钮触发 resetStatus → idle 才能再选数量）。
+ */
+const quantityLocked = computed<boolean>(() => {
+  return submitStatus.value !== 'idle'
 })
 
 // ── Methods ───────────────────────────────────────────────────────────────
@@ -572,6 +588,21 @@ onBeforeUnmount(() => {
   background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
   border-color: var(--color-primary, hsl(160, 72%, 40%));
   color: var(--color-primary, hsl(160, 72%, 40%));
+}
+
+/* 数量按钮 + input 在订单生成后锁定 — 视觉灰禁防误改 */
+.bpd-quick-btn:disabled,
+.bpd-input:disabled {
+  background: var(--color-surface-muted, #f7f7f9);
+  color: var(--color-text-muted, #8b90a0);
+  border-color: var(--color-border, #e2e4ea);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.bpd-quick-btn:disabled:hover {
+  background: var(--color-surface-muted, #f7f7f9);
+  border-color: var(--color-border, #e2e4ea);
 }
 
 /* ============================================================
