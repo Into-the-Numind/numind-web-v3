@@ -7,7 +7,9 @@ import {
   listChatbotSessions,
   deleteChatbotSession,
   listChatbotMessages,
-  sendChatbotMessageStream
+  sendChatbotMessageStream,
+  renameChatbotSession,
+  pinChatbotSession
 } from '@/api/chatbot'
 import { useLLMModelStore } from '@/stores/llmModel'
 
@@ -19,6 +21,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
   const sessions = ref<ChatbotSession[]>([])
   const sessionsTotal = ref(0)
   const currentSession = ref<ChatbotSession | null>(null)
+  const currentChatbotId = ref<number | null>(null)
   const messages = ref<ChatbotMessage[]>([])
   const messagesLoading = ref(false)
   const streaming = ref(false)
@@ -44,9 +47,9 @@ export const useChatbotStore = defineStore('chatbot', () => {
 
   // ==================== Session Actions ====================
 
-  async function fetchSessions(offset = 0, limit = 20) {
+  async function fetchSessions(chatbotId: number, offset = 0, limit = 20) {
     try {
-      const res = await listChatbotSessions(offset, limit)
+      const res = await listChatbotSessions(offset, limit, chatbotId)
       const data = (res as any)?.data as { list: ChatbotSession[]; total: number } | undefined
       sessions.value = data?.list ?? []
       sessionsTotal.value = data?.total ?? 0
@@ -60,7 +63,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
       const res = await createChatbotSession(chatbotId)
       const session = (res as any)?.data as ChatbotSession | undefined
       if (session) {
-        await fetchSessions()
+        await fetchSessions(chatbotId)
         currentSession.value = session
         await fetchMessages(session.id)
         return session
@@ -79,7 +82,9 @@ export const useChatbotStore = defineStore('chatbot', () => {
         currentSession.value = null
         messages.value = []
       }
-      await fetchSessions()
+      // currentChatbotId.value ?? 0: fallback to 0 should not happen in normal
+      // flow (currentChatbotId is set before any session is created/deleted)
+      await fetchSessions(currentChatbotId.value ?? 0)
       return true
     } catch (e) {
       console.error('[chatbot] deleteSession failed:', e)
@@ -206,8 +211,56 @@ export const useChatbotStore = defineStore('chatbot', () => {
       sseAbortController.value = null
 
       // Refresh sessions to update sidebar
-      await fetchSessions()
+      // currentChatbotId.value ?? 0: fallback to 0 should not happen in normal
+      // flow (currentChatbotId is set before sendMessage is ever called)
+      await fetchSessions(currentChatbotId.value ?? 0)
     }
+  }
+
+  // ==================== Rename / Pin ====================
+
+  async function renameSession(id: number, title: string): Promise<boolean> {
+    try {
+      await renameChatbotSession(id, title)
+      // pessimistic UI: API 成功后才更新本地 title
+      const s = sessions.value.find((x) => x.id === id)
+      if (s) s.title = title
+      return true
+    } catch (e) {
+      console.error('[chatbot] renameSession failed:', e)
+      return false
+    }
+  }
+
+  async function togglePin(
+    id: number,
+    currentPinnedAt: string | null | undefined
+  ): Promise<boolean> {
+    const newPinned = !currentPinnedAt
+    try {
+      const res = await pinChatbotSession(id, newPinned)
+      const newPinnedAt = (res as any)?.data?.pinned_at as string | null
+      // pessimistic UI: API 成功后才更新本地 + 重排
+      const s = sessions.value.find((x) => x.id === id)
+      if (s) s.pinned_at = newPinnedAt
+      sortSessionsLocally()
+      return true
+    } catch (e) {
+      console.error('[chatbot] togglePin failed:', e)
+      return false
+    }
+  }
+
+  function sortSessionsLocally() {
+    sessions.value.sort((a, b) => {
+      const aPinned = !!a.pinned_at
+      const bPinned = !!b.pinned_at
+      if (aPinned !== bPinned) return aPinned ? -1 : 1
+      if (aPinned) {
+        return new Date(b.pinned_at!).getTime() - new Date(a.pinned_at!).getTime()
+      }
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    })
   }
 
   function cancelStream() {
@@ -238,6 +291,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
     sessions,
     sessionsTotal,
     currentSession,
+    currentChatbotId,
     messages,
     messagesLoading,
     streaming,
@@ -254,6 +308,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
     switchSession,
     fetchMessages,
     sendMessage,
+    renameSession,
+    togglePin,
     cancelStream,
     cleanup
   }

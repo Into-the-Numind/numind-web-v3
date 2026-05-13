@@ -344,8 +344,11 @@ onMounted(async () => {
     await llmStore.savePreference('chatbot', modelKey, true)
   }
 
-  // Fetch all sessions, then filter for this chatbot
-  await store.fetchSessions()
+  // Set currentChatbotId before any session operations that may need it
+  store.currentChatbotId = chatbotId.value
+
+  // Fetch sessions for this chatbot
+  await store.fetchSessions(chatbotId.value)
 
   const sessions = store.sessions.filter((s) => s.chatbot_id === chatbotId.value)
 
