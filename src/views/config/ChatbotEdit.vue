@@ -15,7 +15,7 @@
       <button class="back-link" @click="router.push('/config/chatbots')">&larr; 返回列表</button>
 
       <div class="content-center">
-        <h2 class="page-title">{{ isCreate ? '新建智能体' : '编辑智能体' }}</h2>
+        <h2 class="page-title">{{ paramId === 'new' ? '新建智能体' : '编辑智能体' }}</h2>
 
         <form class="edit-form" @submit.prevent="handleSubmit">
           <!-- 名称 -->
@@ -94,6 +94,18 @@
             </div>
           </div>
 
+          <!-- 可见范围权限 (sop-chatbot-visibility-scope) -->
+          <div class="visibility-section">
+            <VisibilityScopeCard
+              v-model="visibilityValue"
+              entity-type="chatbot"
+              :loading="visibilityLoading"
+              :dirty="visibilityDirty"
+              :disabled="saving"
+              @retry="retryVisibility"
+            />
+          </div>
+
           <!-- 提交 -->
           <div class="form-actions">
             <AppButton variant="secondary" type="button" @click="router.push('/config/chatbots')">
@@ -116,6 +128,8 @@ import { useConfigStore } from '@/stores/config'
 import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import VisibilityScopeCard from '@/components/VisibilityScopeCard.vue'
+import { getChatbotVisibility, putChatbotVisibility, type VisibilityValue } from '@/api/visibility'
 import type { KnowledgeBase } from '@/types/config'
 
 const route = useRoute()
@@ -124,8 +138,9 @@ const store = useConfigStore()
 const notifications = useNotificationsStore()
 
 const paramId = route.params.id as string
-const isCreate = paramId === 'new'
-const editId = isCreate ? 0 : Number(paramId)
+// isCreate / editId 设为 ref 以支持 create 成功后状态转换 (visibility 保存需要 ID).
+const isCreate = ref(paramId === 'new')
+const editId = ref(isCreate.value ? 0 : Number(paramId))
 
 const loading = ref(false)
 const loadError = ref('')
@@ -175,12 +190,74 @@ function toggleKb(id: number) {
   selectedKbIds.value = s
 }
 
+// Visibility 可见范围状态 (sop-chatbot-visibility-scope)
+const visibilityValue = ref<VisibilityValue>({ restricted: false, subUserIDs: [] })
+const visibilityLoaded = ref(false)
+const visibilityLoading = ref(false)
+const visibilityOriginal = ref<VisibilityValue>({ restricted: false, subUserIDs: [] })
+const visibilityDirty = ref(false)
+
+function visibilityChanged(): boolean {
+  if (visibilityValue.value.restricted !== visibilityOriginal.value.restricted) return true
+  const a = [...visibilityValue.value.subUserIDs].sort()
+  const b = [...visibilityOriginal.value.subUserIDs].sort()
+  if (a.length !== b.length) return true
+  return a.some((v, i) => v !== b[i])
+}
+
+async function loadVisibility() {
+  if (isCreate.value) {
+    visibilityLoaded.value = true
+    return
+  }
+  visibilityLoading.value = true
+  try {
+    const res = await getChatbotVisibility(editId.value)
+    const data = res.data
+    const next: VisibilityValue = {
+      restricted: !!data.restricted,
+      subUserIDs: Array.isArray(data.sub_user_ids) ? data.sub_user_ids : []
+    }
+    visibilityValue.value = next
+    visibilityOriginal.value = { restricted: next.restricted, subUserIDs: [...next.subUserIDs] }
+    visibilityLoaded.value = true
+    visibilityDirty.value = false
+  } catch {
+    visibilityLoaded.value = true
+  } finally {
+    visibilityLoading.value = false
+  }
+}
+
+async function saveVisibility(chatbotID: number): Promise<void> {
+  await putChatbotVisibility(chatbotID, {
+    restricted: visibilityValue.value.restricted,
+    sub_user_ids: visibilityValue.value.restricted ? visibilityValue.value.subUserIDs : undefined
+  })
+  visibilityOriginal.value = {
+    restricted: visibilityValue.value.restricted,
+    subUserIDs: [...visibilityValue.value.subUserIDs]
+  }
+  visibilityDirty.value = false
+}
+
+async function retryVisibility() {
+  if (isCreate.value || !visibilityLoaded.value) return
+  try {
+    await saveVisibility(editId.value)
+    notifications.success('可见范围已保存')
+  } catch {
+    visibilityDirty.value = true
+    notifications.error('可见范围保存失败，请重试')
+  }
+}
+
 async function loadDetail() {
-  if (isCreate) return
+  if (isCreate.value) return
   loading.value = true
   loadError.value = ''
   try {
-    const detail = await store.fetchChatbotDetail(editId)
+    const detail = await store.fetchChatbotDetail(editId.value)
     if (!detail) {
       loadError.value = '智能体不存在'
       return
@@ -227,18 +304,40 @@ async function handleSubmit() {
       greeting_message: form.greeting_enabled ? form.greeting_message.trim() : ''
     }
 
-    let ok: boolean
-    if (isCreate) {
-      ok = await store.addChatbot(payload)
+    let chatbotID = editId.value
+    let savedOk = false
+    const wasCreate = isCreate.value
+
+    if (isCreate.value) {
+      const created = await store.addChatbot(payload)
+      if (!created) return
+      chatbotID = created.id
+      editId.value = chatbotID
+      isCreate.value = false
+      // 切换到 edit 模式 URL, 避免后续操作 (如 visibility 重试) 再走 create 路径
+      router.replace(`/config/chatbots/${chatbotID}/edit`)
+      savedOk = true
     } else {
-      ok = await store.editChatbot(editId, payload)
+      savedOk = await store.editChatbot(editId.value, payload)
     }
 
-    if (ok) {
-      initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
-      notifications.success(isCreate ? '智能体已创建' : '已保存')
-      router.push('/config/chatbots')
+    if (!savedOk) return
+
+    initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
+
+    // 第二阶段: 可见范围保存 (visibility 独立端点, 错误隔离不回滚主体)
+    if (visibilityLoaded.value && (visibilityChanged() || visibilityDirty.value)) {
+      try {
+        await saveVisibility(chatbotID)
+      } catch {
+        visibilityDirty.value = true
+        notifications.error('智能体已保存, 但可见范围更新失败. 请检查后重试')
+        return
+      }
     }
+
+    notifications.success(wasCreate ? '智能体已创建' : '已保存')
+    router.push('/config/chatbots')
   } catch {
     notifications.error('保存失败，请重试')
   } finally {
@@ -246,10 +345,11 @@ async function handleSubmit() {
   }
 }
 
-onMounted(() => {
-  loadDetail()
+onMounted(async () => {
+  await loadDetail()
+  await loadVisibility()
   loadKbs()
-  if (isCreate) {
+  if (isCreate.value) {
     initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
   }
 })
@@ -471,6 +571,12 @@ onBeforeRouteLeave(() => {
 .kb-name {
   font-size: 0.875rem;
   color: var(--text);
+}
+
+/* ── Visibility Section ── */
+
+.visibility-section {
+  margin-top: 8px;
 }
 
 /* ── Form Actions ── */

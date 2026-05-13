@@ -175,12 +175,16 @@ export const useConfigStore = defineStore('config', () => {
     greeting_message?: string
   }) {
     try {
-      await apiCreateChatbot(data)
+      // 返回创建的 chatbot (含 id), 供调用方做后续操作 (如 visibility 配置).
+      // 失败仍返 null, 既有 truthy 检查 (`if (ok) {...}`) 向后兼容.
+      // request.ts 拦截器实际返 ApiResponse body, axios TS 推断为 AxiosResponse 偏严;
+      // 这里 cast unknown 后再窄化为运行时实际形状.
+      const res = (await apiCreateChatbot(data)) as unknown as { data?: ChatbotConfig } | undefined
       await fetchChatbots()
-      return true
+      return res?.data ?? null
     } catch (e) {
       console.error('[config] addChatbot failed:', e)
-      return false
+      return null
     }
   }
 
