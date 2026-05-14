@@ -253,8 +253,10 @@ export const useChatbotStore = defineStore('chatbot', () => {
 
   function sortSessionsLocally() {
     sessions.value.sort((a, b) => {
-      const aPinned = !!a.pinned_at
-      const bPinned = !!b.pinned_at
+      // 用 != null 同时覆盖 null/undefined（避免 !!"" 误判空字符串为未置顶）
+      // 与后端 SQL `pinned_at IS NULL` 的语义对齐
+      const aPinned = a.pinned_at != null
+      const bPinned = b.pinned_at != null
       if (aPinned !== bPinned) return aPinned ? -1 : 1
       if (aPinned) {
         return new Date(b.pinned_at!).getTime() - new Date(a.pinned_at!).getTime()
@@ -278,6 +280,9 @@ export const useChatbotStore = defineStore('chatbot', () => {
     sessions.value = []
     messages.value = []
     visibleChatbots.value = []
+    // 重置 currentChatbotId 避免跨 chatbot 切换时短暂泄漏上一个 ID
+    // (T6 reviewer P1: deleteSession/sendMessage fallback 时拿到旧 ID 的风险)
+    currentChatbotId.value = null
     streaming.value = false
     streamContent.value = ''
     streamThinkingContent.value = ''
