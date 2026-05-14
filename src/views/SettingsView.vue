@@ -251,6 +251,7 @@ const tierLabel = computed(() => {
   const t = tier.value
   if (t === 'premium' || t === 'vip') return '高级会员'
   if (t === 'standard') return '普通会员'
+  if (t === 'pro') return 'Pro 会员'
   if (t === 'trial') return '体验会员'
   if (t === 'free' && userStore.creditBalance > 0) return 'Pro'
   return 'Free'
@@ -264,17 +265,16 @@ const displayId = computed(
 
 // Computed: expiry
 const expiryText = computed(() => {
-  // 老会员用 tier_expires
+  // tier_expires 后端对老会员返回 user.tier_expires，对 credits-mode 会员返回 sub_expires_at 或 trial_expires_at
   const tierExpiry =
     userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
-  if (isOldMember.value && tierExpiry) {
+  const t = tier.value
+  const shouldShowExpiry = isOldMember.value || t === 'pro' || t === 'trial'
+  if (shouldShowExpiry && tierExpiry) {
     const d = new Date(tierExpiry)
     if (d.getFullYear() > 2090) return '永久有效'
     return d.toLocaleDateString('zh-CN')
   }
-  // 新用户用 credit_expires (需要后端返回)
-  // 目前设置页 getUserInfo 不返回 credit_expires，暂用 '—'
-  if (!isOldMember.value && userStore.creditBalance > 0) return '—'
   return '—'
 })
 
