@@ -17,6 +17,7 @@ import {
   Check
 } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useScrollFollow } from '@/composables/useScrollFollow'
 import { useMarkdown } from '@/composables/useMarkdown'
@@ -30,6 +31,7 @@ import { getInputBudgetState } from '@/utils/inputBudget'
 const route = useRoute()
 const router = useRouter()
 const store = useChatbotStore()
+const notifications = useNotificationsStore()
 const { render } = useMarkdown()
 
 // ==================== State ====================
@@ -197,19 +199,22 @@ async function onTogglePinClick(session: ChatbotSession) {
   closeMenu()
   const ok = await store.togglePin(session.id, session.pinned_at)
   if (!ok) {
-    console.error('[chatbot] togglePin failed')
+    notifications.error('操作失败，请稍后重试')
   }
 }
 
 async function confirmRename() {
   if (!renameTargetSession.value) return
   const newTitle = renameInputValue.value.trim()
-  if (!newTitle) return
+  if (!newTitle) {
+    notifications.warning('标题不能为空')
+    return
+  }
   const ok = await store.renameSession(renameTargetSession.value.id, newTitle)
   if (ok) {
     closeRenameModal()
   } else {
-    console.error('[chatbot] renameSession failed')
+    notifications.error('重命名失败，请稍后重试')
   }
 }
 
