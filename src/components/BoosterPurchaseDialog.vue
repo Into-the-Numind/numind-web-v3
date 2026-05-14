@@ -38,9 +38,7 @@
           <div class="bpd-info-chip">
             <span class="bpd-info-highlight">¥29.9 / 份</span>
             <span class="bpd-info-sep" aria-hidden="true">·</span>
-            <span>600 积分 / 份</span>
-            <span class="bpd-info-sep" aria-hidden="true">·</span>
-            <span>90 天有效</span>
+            <span>600 积分</span>
           </div>
 
           <!-- Body -->
@@ -70,6 +68,7 @@
                 v-model.number="rawInput"
                 type="number"
                 min="1"
+                max="10000"
                 class="bpd-input"
                 :class="{ error: quantityError }"
                 placeholder="输入数量"
