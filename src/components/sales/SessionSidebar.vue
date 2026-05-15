@@ -25,7 +25,11 @@
         <span v-if="session.isPinned" class="session-pinned-indicator" title="已置顶">📌</span>
         <span class="session-title">{{ session.title }}</span>
         <div class="session-menu-container">
-          <button class="session-menu-btn" @click.stop="toggleMenu(session.id)">
+          <button
+            class="session-menu-btn"
+            aria-label="更多操作"
+            @click.stop="toggleMenu(session.id)"
+          >
             <MoreVertical :size="16" />
           </button>
           <div class="session-menu-dropdown" :class="{ show: openMenuId === session.id }">

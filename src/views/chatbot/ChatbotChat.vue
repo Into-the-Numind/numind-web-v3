@@ -498,10 +498,10 @@ function handleDocClick(e: MouseEvent) {
             @click="switchToSession(session)"
           >
             <MessageSquare class="session-icon" :size="16" />
-            <span class="session-title">{{ session.title || '新对话' }}</span>
             <span v-if="session.pinned_at != null" class="session-pinned-indicator" title="已置顶"
               >📌</span
             >
+            <span class="session-title">{{ session.title || '新对话' }}</span>
             <div class="session-menu-container">
               <button
                 class="session-menu-btn"
@@ -512,18 +512,18 @@ function handleDocClick(e: MouseEvent) {
               </button>
 
               <div
-                v-if="openMenuSessionId === session.id"
                 class="session-menu-dropdown"
+                :class="{ show: openMenuSessionId === session.id }"
                 @click.stop
               >
-                <button class="session-menu-item" @click.stop="onRenameClick(session)">
-                  <Edit3 :size="14" />
-                  <span>重命名</span>
-                </button>
                 <button class="session-menu-item" @click.stop="onTogglePinClick(session)">
                   <PinOff v-if="session.pinned_at != null" :size="14" />
                   <Pin v-else :size="14" />
                   <span>{{ session.pinned_at != null ? '取消置顶' : '置顶' }}</span>
+                </button>
+                <button class="session-menu-item" @click.stop="onRenameClick(session)">
+                  <Edit3 :size="14" />
+                  <span>重命名</span>
                 </button>
                 <button class="session-menu-item danger" @click.stop="onDeleteClick(session.id)">
                   <Trash2 :size="14" />
@@ -1114,6 +1114,21 @@ body.chatbot-chat-route #app {
   min-width: 140px;
   z-index: 100;
   overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    visibility 150ms ease;
+}
+
+.session-menu-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .session-menu-item {
