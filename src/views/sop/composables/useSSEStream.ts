@@ -52,6 +52,8 @@
  */
 import { ref } from 'vue'
 
+import { friendlyErrorMessage } from '@/utils/errorMessage'
+
 export interface SSEDoneMeta {
   status: string
   /** ExecuteNodeStream 的第二次 done 会带此字段（uploaded 文件 ID 列表） */
@@ -136,12 +138,15 @@ export function useSSEStream() {
       const insufficientCredits =
         response.status === 402 || (response.status === 403 && /积分|额度|充值/.test(message))
 
+      // 友好化：阻断后端漏 errtranslate 时裸 Go error 进 UI (B+A 双保险的 A)
+      const friendly = friendlyErrorMessage(message, code)
+
       if (insufficientCredits) {
-        const detail = { message: message || '积分不足', reason: code }
+        const detail = { message: friendly || '积分不足', reason: code }
         window.dispatchEvent(new CustomEvent('insufficient-credits', { detail }))
       }
 
-      handlers.onError?.(message || `请求失败 (HTTP ${response.status})`)
+      handlers.onError?.(friendly || `请求失败 (HTTP ${response.status})`)
       return
     }
 
@@ -253,7 +258,9 @@ export function useSSEStream() {
         case 'error': {
           errorFired.value = true
           const errMsg = JSON.parse(evt.data) as string
-          handlers.onError?.(errMsg)
+          // 兜底关键词匹配：后端 errtranslate.FriendlyForSSE 已在源头转友好文案，
+          // 这里 friendlyErrorMessage 是 belt-and-suspenders，挡住任何漏网的 Go 调用栈
+          handlers.onError?.(friendlyErrorMessage(errMsg) || errMsg)
           break
         }
         default:

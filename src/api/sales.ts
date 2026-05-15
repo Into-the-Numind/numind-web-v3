@@ -1,5 +1,6 @@
 import request from './request'
 import { getToken, clearAuth } from './request'
+import { friendlyErrorMessage } from '@/utils/errorMessage'
 
 // ==================== Types ====================
 
@@ -381,7 +382,14 @@ export const parseSseChunk = (chunk: string): SalesChatEvent | null => {
   try {
     const parsed = JSON.parse(raw)
     const type = typeof parsed?.type === 'string' ? parsed.type : 'token'
-    return { type: type as SalesChatEventType, data: parsed?.data }
+    let data = parsed?.data
+    // type='error' 帧的 data 为字符串文案。兜底关键词匹配后端 errtranslate 漏网鱼
+    // (B+A 双保险的 A)；后端已经在 errtranslate.FriendlyForSSE 写了友好文案，
+    // 这里仅作防御性覆盖。
+    if (type === 'error' && typeof data === 'string') {
+      data = friendlyErrorMessage(data) || data
+    }
+    return { type: type as SalesChatEventType, data }
   } catch {
     return { type: 'token', data: raw }
   }
@@ -488,9 +496,11 @@ export const fetchSSE = async (
     }
 
     let message = `请求失败 (${response.status})`
+    let code: string | number | undefined
     try {
       const body = await response.json()
       message = body?.message || body?.msg || message
+      code = body?.code
     } catch {
       try {
         const text = await response.text()
@@ -499,7 +509,8 @@ export const fetchSSE = async (
         /* ignore */
       }
     }
-    throw new Error(message)
+    // 兜底关键词覆盖：阻断后端漏 errtranslate 时 Go 调用栈进入 UI (B+A 双保险的 A)
+    throw new Error(friendlyErrorMessage(message, code) || message)
   }
 
   return response
