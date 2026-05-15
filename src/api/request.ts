@@ -1,5 +1,7 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
 
+import { friendlyErrorMessage } from '@/utils/errorMessage'
+
 // API 响应类型
 export interface ApiResponse<T = any> {
   code: number
@@ -174,8 +176,8 @@ request.interceptors.response.use(
       return res as any
     }
 
-    // 业务错误
-    const errorMessage = res.message || res.msg || '请求失败'
+    // 业务错误 — friendlyErrorMessage 兜底防御 Go 调用栈泄漏 (B+A 双保险的 A)
+    const errorMessage = friendlyErrorMessage(res.message || res.msg, res.code) || '请求失败'
     return Promise.reject(new Error(errorMessage))
   },
   (error) => {
@@ -215,14 +217,19 @@ request.interceptors.response.use(
           const payload402 = response.data
           if (payload402 && payload402.code === 'Credits.Insufficient') {
             const detail = {
-              message: payload402.message || '积分不足',
+              message: friendlyErrorMessage(payload402.message, payload402.code) || '积分不足',
               reason: payload402.reason
             }
             window.dispatchEvent(new CustomEvent('insufficient-credits', { detail }))
             return Promise.reject(payload402)
           }
+          // 兜底：HTTP 402 但 body.code 不是字符串（当前后端 Response.Code 始终是 int 1）
+          // — 走 friendlyErrorMessage 关键词兜底，挡住 "credit: insufficient balance" 这类裸文案
           const message402 =
-            response.data?.message || response.data?.msg || `请求失败 (${response.status})`
+            friendlyErrorMessage(
+              response.data?.message || response.data?.msg,
+              response.data?.code
+            ) || `请求失败 (${response.status})`
           return Promise.reject(new Error(message402))
         }
 
@@ -246,21 +253,29 @@ request.interceptors.response.use(
             }
             return Promise.reject(new Error('登录已过期，请重新登录'))
           }
-          return Promise.reject(new Error(msg403 || '没有权限访问该资源'))
+          return Promise.reject(
+            new Error(friendlyErrorMessage(msg403, code403) || '没有权限访问该资源')
+          )
         }
 
         case 404: {
           const msg404 = response.data?.message || response.data?.msg
-          return Promise.reject(new Error(msg404 || '请求的资源不存在'))
+          return Promise.reject(
+            new Error(friendlyErrorMessage(msg404, response.data?.code) || '请求的资源不存在')
+          )
         }
 
-        case 500:
-          return Promise.reject(new Error('服务器内部错误'))
+        case 500: {
+          // 500 通常携带后端 Go 错误链 — 通过 friendlyErrorMessage 兜底关键词覆盖
+          const raw500 = response.data?.message || response.data?.msg
+          const friendly500 = friendlyErrorMessage(raw500, response.data?.code)
+          return Promise.reject(new Error(friendly500 || '服务器内部错误'))
+        }
 
         default: {
-          const message =
-            response.data?.message || response.data?.msg || `请求失败 (${response.status})`
-          return Promise.reject(new Error(message))
+          const rawDefault = response.data?.message || response.data?.msg
+          const friendlyDefault = friendlyErrorMessage(rawDefault, response.data?.code)
+          return Promise.reject(new Error(friendlyDefault || `请求失败 (${response.status})`))
         }
       }
     }
