@@ -526,10 +526,6 @@ export const fetchSSE = async (
         }
         throw new Error('登录已过期，请重新登录')
       }
-      // 业务 403：积分不足/额度不足关键词命中时派发 InsufficientCreditsDialog 事件
-      if (message.includes('额度不足') || message.includes('积分不足')) {
-        window.dispatchEvent(new CustomEvent('insufficient-credits', { detail: message }))
-      }
       throw new Error(friendlyErrorMessage(message, code) || message || '没有权限访问该资源')
     }
 
