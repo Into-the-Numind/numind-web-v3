@@ -156,11 +156,17 @@ jobs:
               "$IMAGE"
 
             # 4) 健康检查
-            sleep 3
-            if docker ps | grep -q numind-web-v3-dev; then
+            READY=false
+            for i in $(seq 1 10); do
+              docker ps | grep -q numind-web-v3-dev && { READY=true; break; }
+              sleep 2
+            done
+
+            if [ "$READY" = true ]; then
               echo "✅ Dev 部署完成"
             else
-              echo "❌ 容器启动失败" >&2
+              echo "❌ 容器启动失败 (20s 超时)" >&2
+              docker logs --tail 10 numind-web-v3-dev || true
               exit 1
             fi
 
@@ -203,11 +209,17 @@ jobs:
               "$IMAGE"
 
             # 4) 健康检查
-            sleep 3
-            if docker ps | grep -q numind-web-v3-qa; then
+            READY=false
+            for i in $(seq 1 10); do
+              docker ps | grep -q numind-web-v3-qa && { READY=true; break; }
+              sleep 2
+            done
+
+            if [ "$READY" = true ]; then
               echo "✅ QA 部署完成"
             else
-              echo "❌ 容器启动失败" >&2
+              echo "❌ 容器启动失败 (20s 超时)" >&2
+              docker logs --tail 10 numind-web-v3-qa || true
               exit 1
             fi
 
@@ -250,11 +262,17 @@ jobs:
               "$IMAGE"
 
             # 4) 健康检查
-            sleep 3
-            if docker ps | grep -q numind-web-v3; then
+            READY=false
+            for i in $(seq 1 10); do
+              docker ps | grep -q numind-web-v3 && { READY=true; break; }
+              sleep 2
+            done
+
+            if [ "$READY" = true ]; then
               echo "✅ Prod 部署完成"
             else
-              echo "❌ 容器启动失败" >&2
+              echo "❌ 容器启动失败 (20s 超时)" >&2
+              docker logs --tail 10 numind-web-v3 || true
               exit 1
             fi
 
