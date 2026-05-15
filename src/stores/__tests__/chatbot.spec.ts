@@ -1,0 +1,221 @@
+/**
+ * chatbot store 单元测试 (T6)
+ *
+ * 覆盖范围：
+ *   1. renameSession — API 成功/失败时的 pessimistic UI 行为
+ *   2. togglePin — pin / unpin + sortSessionsLocally 排序验证
+ *   3. sortSessionsLocally — 全置顶 / 全非置顶 / 混合三种情形
+ *   4. fetchSessions — chatbotId 参数透传至 API
+ *
+ * 对应 plan T6 验收条件 §3
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useChatbotStore } from '../chatbot'
+import type { ChatbotSession } from '@/types/config'
+
+// ==================== Mock @/api/chatbot ====================
+
+vi.mock('@/api/chatbot', () => ({
+  listVisibleChatbots: vi.fn(),
+  createChatbotSession: vi.fn(),
+  listChatbotSessions: vi.fn(),
+  deleteChatbotSession: vi.fn(),
+  listChatbotMessages: vi.fn(),
+  sendChatbotMessageStream: vi.fn(),
+  renameChatbotSession: vi.fn(),
+  pinChatbotSession: vi.fn()
+}))
+
+import { listChatbotSessions, renameChatbotSession, pinChatbotSession } from '@/api/chatbot'
+
+// ==================== Fixtures ====================
+
+function makeSession(overrides: Partial<ChatbotSession> = {}): ChatbotSession {
+  return {
+    id: 1,
+    user_id: 10,
+    chatbot_id: 42,
+    title: 'Test Session',
+    status: 'active',
+    message_count: 0,
+    pinned_at: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides
+  }
+}
+
+// ==================== Setup ====================
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+  vi.clearAllMocks()
+})
+
+// ==================== renameSession ====================
+
+describe('renameSession', () => {
+  it('API 成功后本地 title 更新（pessimistic 验证）', async () => {
+    vi.mocked(renameChatbotSession).mockResolvedValueOnce({
+      data: makeSession({ title: 'New Title' })
+    } as any)
+
+    const store = useChatbotStore()
+    store.sessions.push(makeSession({ id: 5, title: 'Old Title' }))
+
+    const result = await store.renameSession(5, 'New Title')
+
+    expect(result).toBe(true)
+    expect(store.sessions.find((s) => s.id === 5)?.title).toBe('New Title')
+    expect(renameChatbotSession).toHaveBeenCalledWith(5, 'New Title')
+  })
+
+  it('API 失败时本地 title 不更新（pessimistic）', async () => {
+    vi.mocked(renameChatbotSession).mockRejectedValueOnce(new Error('network error'))
+
+    const store = useChatbotStore()
+    store.sessions.push(makeSession({ id: 5, title: 'Old Title' }))
+
+    const result = await store.renameSession(5, 'New Title')
+
+    expect(result).toBe(false)
+    expect(store.sessions.find((s) => s.id === 5)?.title).toBe('Old Title')
+  })
+})
+
+// ==================== togglePin ====================
+
+describe('togglePin', () => {
+  it('pin 后本地 pinned_at 写入 + 排序后置顶组在前', async () => {
+    const pinnedAt = '2026-05-14T10:00:00Z'
+    vi.mocked(pinChatbotSession).mockResolvedValueOnce({ data: { pinned_at: pinnedAt } } as any)
+
+    const store = useChatbotStore()
+    // Two sessions; session 5 will be pinned
+    store.sessions.push(
+      makeSession({ id: 5, title: 'To Pin', pinned_at: null, updated_at: '2026-01-02T00:00:00Z' }),
+      makeSession({ id: 6, title: 'Normal', pinned_at: null, updated_at: '2026-01-01T00:00:00Z' })
+    )
+
+    const result = await store.togglePin(5, null)
+
+    expect(result).toBe(true)
+    expect(store.sessions.find((s) => s.id === 5)?.pinned_at).toBe(pinnedAt)
+    expect(pinChatbotSession).toHaveBeenCalledWith(5, true)
+    // After sort, pinned session should be first
+    expect(store.sessions[0].id).toBe(5)
+  })
+
+  it('unpin 后本地 pinned_at 清空 + 排序后回到 updated_at 序列', async () => {
+    vi.mocked(pinChatbotSession).mockResolvedValueOnce({ data: { pinned_at: null } } as any)
+
+    const store = useChatbotStore()
+    const pinnedAt = '2026-05-14T10:00:00Z'
+    store.sessions.push(
+      makeSession({
+        id: 5,
+        title: 'Pinned',
+        pinned_at: pinnedAt,
+        updated_at: '2026-01-01T00:00:00Z'
+      }),
+      makeSession({ id: 6, title: 'Normal', pinned_at: null, updated_at: '2026-01-02T00:00:00Z' })
+    )
+
+    const result = await store.togglePin(5, pinnedAt)
+
+    expect(result).toBe(true)
+    expect(store.sessions.find((s) => s.id === 5)?.pinned_at).toBeNull()
+    expect(pinChatbotSession).toHaveBeenCalledWith(5, false)
+    // After sort, session 6 (newer updated_at) should be first
+    expect(store.sessions[0].id).toBe(6)
+  })
+})
+
+// ==================== sortSessionsLocally ====================
+
+describe('sortSessionsLocally (via togglePin)', () => {
+  // We test sortSessionsLocally indirectly through the store by directly
+  // manipulating sessions and calling togglePin with a successful mock.
+
+  it('全置顶按 pinned_at DESC（最新置顶排前）', async () => {
+    vi.mocked(pinChatbotSession).mockResolvedValueOnce({
+      data: { pinned_at: '2026-05-14T12:00:00Z' }
+    } as any)
+
+    const store = useChatbotStore()
+    // Both already pinned; we trigger togglePin on one to call sortSessionsLocally
+    store.sessions.push(
+      makeSession({ id: 1, pinned_at: '2026-05-10T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }),
+      makeSession({ id: 2, pinned_at: '2026-05-12T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }),
+      makeSession({ id: 3, pinned_at: null, updated_at: '2026-01-01T00:00:00Z' })
+    )
+
+    // Unpin id=3 (null → pin) to trigger sort; give it the latest pinned_at
+    await store.togglePin(3, null)
+
+    // All pinned; expect sorted by pinned_at DESC: 3 (2026-05-14) > 2 (2026-05-12) > 1 (2026-05-10)
+    const ids = store.sessions.map((s) => s.id)
+    expect(ids).toEqual([3, 2, 1])
+  })
+
+  it('全非置顶按 updated_at DESC', async () => {
+    vi.mocked(pinChatbotSession).mockResolvedValueOnce({ data: { pinned_at: null } } as any)
+
+    const store = useChatbotStore()
+    store.sessions.push(
+      makeSession({ id: 1, pinned_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }),
+      makeSession({ id: 2, pinned_at: null, updated_at: '2026-01-03T00:00:00Z' }),
+      makeSession({ id: 3, pinned_at: null, updated_at: '2026-01-02T00:00:00Z' })
+    )
+
+    // Unpin id=1 (pinned → null) to trigger sort
+    await store.togglePin(1, '2026-01-01T00:00:00Z')
+
+    // All unpinned; expect sorted by updated_at DESC: 2 > 3 > 1
+    const ids = store.sessions.map((s) => s.id)
+    expect(ids).toEqual([2, 3, 1])
+  })
+
+  it('混合 — 置顶组在前，各组内部正确排序', async () => {
+    vi.mocked(pinChatbotSession).mockResolvedValueOnce({
+      data: { pinned_at: '2026-05-14T08:00:00Z' }
+    } as any)
+
+    const store = useChatbotStore()
+    store.sessions.push(
+      makeSession({
+        id: 10,
+        pinned_at: '2026-05-13T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z'
+      }),
+      makeSession({ id: 20, pinned_at: null, updated_at: '2026-01-04T00:00:00Z' }),
+      makeSession({ id: 30, pinned_at: null, updated_at: '2026-01-03T00:00:00Z' }),
+      makeSession({ id: 40, pinned_at: null, updated_at: '2026-01-02T00:00:00Z' })
+    )
+
+    // Pin id=40 (null → pinned) with pinned_at=2026-05-14 (newer than id=10)
+    await store.togglePin(40, null)
+
+    // Expected: pinned group first (id=40 > id=10 by pinned_at), then unpinned by updated_at (id=20 > id=30)
+    const ids = store.sessions.map((s) => s.id)
+    expect(ids).toEqual([40, 10, 20, 30])
+  })
+})
+
+// ==================== fetchSessions ====================
+
+describe('fetchSessions', () => {
+  it('携带 chatbot_id 参数调用 API', async () => {
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ chatbot_id: 99 })], total: 1 }
+    } as any)
+
+    const store = useChatbotStore()
+    await store.fetchSessions(99)
+
+    expect(listChatbotSessions).toHaveBeenCalledWith(0, 20, 99)
+    expect(store.sessions).toHaveLength(1)
+    expect(store.sessionsTotal).toBe(1)
+  })
+})

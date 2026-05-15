@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import type { ChatbotSession } from '@/types/config'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft,
   Plus,
-  Trash2,
   MessageSquare,
   ArrowUp,
   Send,
@@ -17,6 +17,7 @@ import {
   Check
 } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useScrollFollow } from '@/composables/useScrollFollow'
 import { useMarkdown } from '@/composables/useMarkdown'
@@ -30,6 +31,7 @@ import { getInputBudgetState } from '@/utils/inputBudget'
 const route = useRoute()
 const router = useRouter()
 const store = useChatbotStore()
+const notifications = useNotificationsStore()
 const { render } = useMarkdown()
 
 // ==================== State ====================
@@ -44,6 +46,13 @@ const pageLoading = ref(true)
 const deleteConfirmId = ref<number | null>(null)
 const isDragging = ref(false)
 const docUpload = useDocUpload()
+
+// ==================== Session Menu & Rename State ====================
+const openMenuSessionId = ref<number | null>(null)
+const renameModalOpen = ref(false)
+const renameInputRef = ref<HTMLInputElement | null>(null)
+const renameInputValue = ref('')
+const renameTargetSession = ref<ChatbotSession | null>(null)
 
 // ==================== Computed ====================
 const chatbotSessions = computed(() =>
@@ -155,6 +164,65 @@ function autoResize() {
 
 watch(draftText, () => nextTick(autoResize))
 
+// chatbotId watcher — sync store + re-fetch sessions when navigating between chatbots
+watch(chatbotId, async (newId) => {
+  store.currentChatbotId = newId
+  await store.fetchSessions(newId)
+})
+
+// ==================== Session Menu & Rename Functions ====================
+function openMenu(id: number) {
+  openMenuSessionId.value = openMenuSessionId.value === id ? null : id
+}
+
+function closeMenu() {
+  openMenuSessionId.value = null
+}
+
+function closeRenameModal() {
+  renameModalOpen.value = false
+  renameTargetSession.value = null
+  renameInputValue.value = ''
+}
+
+async function onRenameClick(session: ChatbotSession) {
+  closeMenu()
+  renameTargetSession.value = session
+  renameInputValue.value = session.title || ''
+  renameModalOpen.value = true
+  await nextTick()
+  renameInputRef.value?.focus()
+  renameInputRef.value?.select()
+}
+
+async function onTogglePinClick(session: ChatbotSession) {
+  closeMenu()
+  const ok = await store.togglePin(session.id, session.pinned_at)
+  if (!ok) {
+    notifications.error('操作失败，请稍后重试')
+  }
+}
+
+async function confirmRename() {
+  if (!renameTargetSession.value) return
+  const newTitle = renameInputValue.value.trim()
+  if (!newTitle) {
+    notifications.warning('标题不能为空')
+    return
+  }
+  const ok = await store.renameSession(renameTargetSession.value.id, newTitle)
+  if (ok) {
+    closeRenameModal()
+  } else {
+    notifications.error('重命名失败，请稍后重试')
+  }
+}
+
+function onDeleteClick(id: number) {
+  closeMenu()
+  deleteConfirmId.value = id
+}
+
 // ==================== Actions ====================
 function goHome() {
   router.push('/')
@@ -177,10 +245,6 @@ async function switchToSession(session: (typeof store.sessions)[0]) {
     }
     textareaRef.value?.focus()
   })
-}
-
-function confirmDelete(id: number) {
-  deleteConfirmId.value = id
 }
 
 async function doDelete(id: number) {
@@ -344,8 +408,11 @@ onMounted(async () => {
     await llmStore.savePreference('chatbot', modelKey, true)
   }
 
-  // Fetch all sessions, then filter for this chatbot
-  await store.fetchSessions()
+  // Set currentChatbotId before any session operations that may need it
+  store.currentChatbotId = chatbotId.value
+
+  // Fetch sessions for this chatbot
+  await store.fetchSessions(chatbotId.value)
 
   const sessions = store.sessions.filter((s) => s.chatbot_id === chatbotId.value)
 
@@ -368,6 +435,9 @@ onMounted(async () => {
     }
     textareaRef.value?.focus()
   })
+
+  // Close dropdown menu when clicking outside
+  document.addEventListener('click', handleDocClick)
 })
 
 onBeforeUnmount(() => {
@@ -378,7 +448,15 @@ onBeforeUnmount(() => {
   copyTimers.forEach((t) => clearTimeout(t))
   copyTimers.clear()
   store.cleanup()
+  document.removeEventListener('click', handleDocClick)
 })
+
+function handleDocClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.session-dropdown') && !target.closest('.session-more-btn')) {
+    closeMenu()
+  }
+}
 </script>
 
 <template>
@@ -407,18 +485,38 @@ onBeforeUnmount(() => {
             v-for="session in chatbotSessions"
             :key="session.id"
             class="session-item"
-            :class="{ active: store.currentSession?.id === session.id }"
+            :class="{
+              'session-item--active': session.id === store.currentSession?.id,
+              'session-item--pinned': session.pinned_at != null,
+              active: session.id === store.currentSession?.id
+            }"
             @click="switchToSession(session)"
           >
-            <MessageSquare :size="16" />
+            <MessageSquare class="session-icon" :size="16" />
             <span class="session-title">{{ session.title || '新对话' }}</span>
-            <button
-              class="session-delete-btn"
-              title="删除会话"
-              @click.stop="confirmDelete(session.id)"
+            <span v-if="session.pinned_at != null" class="session-pinned-indicator" title="已置顶"
+              >📌</span
             >
-              <Trash2 :size="14" />
+            <button
+              class="session-more-btn"
+              @click.stop="openMenu(session.id)"
+              aria-label="更多操作"
+            >
+              ⋯
             </button>
+
+            <div v-if="openMenuSessionId === session.id" class="session-dropdown" @click.stop>
+              <button class="dropdown-item" @click.stop="onRenameClick(session)">重命名</button>
+              <button class="dropdown-item" @click.stop="onTogglePinClick(session)">
+                {{ session.pinned_at != null ? '取消置顶' : '置顶' }}
+              </button>
+              <button
+                class="dropdown-item dropdown-item--danger"
+                @click.stop="onDeleteClick(session.id)"
+              >
+                删除
+              </button>
+            </div>
           </div>
           <div v-if="chatbotSessions.length === 0" class="sessions-empty">暂无对话</div>
         </div>
@@ -733,6 +831,37 @@ onBeforeUnmount(() => {
       cancel-text="取消"
       @confirm="onConfirmSend"
     />
+
+    <!-- 改名弹窗（inline, 复用 sales-modal.css 视觉）-->
+    <Teleport to="body">
+      <div class="modal-overlay" :class="{ open: renameModalOpen }">
+        <div
+          class="modal-card modal-card-simple"
+          role="dialog"
+          aria-modal="true"
+          @keydown.escape="closeRenameModal"
+        >
+          <div class="modal-header">
+            <span class="modal-title">重命名对话</span>
+          </div>
+          <div class="modal-body-simple">
+            <input
+              ref="renameInputRef"
+              v-model="renameInputValue"
+              type="text"
+              maxlength="200"
+              class="form-input"
+              placeholder="对话名称"
+              @keydown.enter="confirmRename"
+            />
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" @click="closeRenameModal">取消</button>
+            <button class="btn-primary" @click="confirmRename"><span>保存</span></button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -759,6 +888,8 @@ body.chatbot-chat-route #app {
 </style>
 
 <style scoped>
+@import '@/assets/styles/sales-modal.css';
+
 .chatbot-view {
   width: 100%;
   height: 100%;
@@ -886,6 +1017,7 @@ body.chatbot-chat-route #app {
 }
 
 .session-item {
+  position: relative;
   padding: 12px;
   margin-bottom: 4px;
   border-radius: 10px;
@@ -903,10 +1035,19 @@ body.chatbot-chat-route #app {
   color: var(--text);
 }
 
+.session-item:hover .session-more-btn {
+  opacity: 1;
+}
+
 .session-item.active {
   background: hsla(160, 50%, 50%, 0.14);
   color: var(--primary);
   font-weight: 600;
+}
+
+.session-item--pinned {
+  border-left: 2px solid var(--primary);
+  padding-left: 10px;
 }
 
 .session-title {
@@ -919,28 +1060,70 @@ body.chatbot-chat-route #app {
   min-width: 0;
 }
 
-.session-delete-btn {
-  flex-shrink: 0;
-  background: transparent;
+.session-more-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
   border: none;
-  color: var(--text-muted);
-  opacity: 0;
-  padding: 4px;
+  background: transparent;
   cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 150ms;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
-.session-item:hover .session-delete-btn {
-  opacity: 1;
+.session-more-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
 }
 
-.session-delete-btn:hover {
+.session-dropdown {
+  position: absolute;
+  right: 8px;
+  top: calc(100% + 4px);
+  z-index: 100;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dropdown-item:hover {
+  background: var(--surface-hover);
+}
+
+.dropdown-item--danger {
   color: #dc2626;
-  background: rgba(220, 38, 38, 0.08);
+}
+
+.session-pinned-indicator {
+  font-size: 12px;
+  margin-left: 2px;
+  flex-shrink: 0;
 }
 
 /* ===== Sidebar Overlay (Mobile) ===== */
