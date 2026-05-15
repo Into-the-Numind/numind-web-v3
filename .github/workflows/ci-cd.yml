@@ -6,7 +6,6 @@ on:
       - main
       - develop
       - release
-      - feature/sales-agent-vue3-migration
     tags:
       - 'v*'
     paths-ignore:
@@ -52,9 +51,6 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Build
-        run: npm run build
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -91,11 +87,6 @@ jobs:
             IMAGE_TAG="develop"
             echo "environment=dev" >> $GITHUB_OUTPUT
             echo "::notice::🚀 开发环境构建: develop"
-          elif [ "${{ github.ref_name }}" = "feature/sales-agent-vue3-migration" ]; then
-            # staging 分支 → Staging 环境
-            IMAGE_TAG="staging"
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "::notice::🚀 Staging环境构建: staging"
           else
             # main 或其他分支
             IMAGE_TAG="latest"
@@ -147,7 +138,9 @@ jobs:
             echo "🚀 部署到 Dev 环境... ($IMAGE)"
 
             # 1) 先拉镜像，失败则中止（旧容器不动）
-            docker pull "$IMAGE"
+            docker pull "$IMAGE" \
+              || { echo "⚠️ Pull retry 1/2 (15s)..."; sleep 15; docker pull "$IMAGE"; } \
+              || { echo "⚠️ Pull retry 2/2 (30s)..."; sleep 30; docker pull "$IMAGE"; }
 
             # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3-dev 2>/dev/null || true
@@ -192,7 +185,9 @@ jobs:
             echo "🚀 部署到 QA 环境... ($IMAGE)"
 
             # 1) 先拉镜像，失败则中止（旧容器不动）
-            docker pull "$IMAGE"
+            docker pull "$IMAGE" \
+              || { echo "⚠️ Pull retry 1/2 (15s)..."; sleep 15; docker pull "$IMAGE"; } \
+              || { echo "⚠️ Pull retry 2/2 (30s)..."; sleep 30; docker pull "$IMAGE"; }
 
             # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3-qa 2>/dev/null || true
@@ -237,7 +232,9 @@ jobs:
             echo "🚀 部署到 Prod 环境... ($IMAGE)"
 
             # 1) 先拉镜像，失败则中止（旧容器不动）
-            docker pull "$IMAGE"
+            docker pull "$IMAGE" \
+              || { echo "⚠️ Pull retry 1/2 (15s)..."; sleep 15; docker pull "$IMAGE"; } \
+              || { echo "⚠️ Pull retry 2/2 (30s)..."; sleep 30; docker pull "$IMAGE"; }
 
             # 2) 镜像就绪后才替换容器
             docker stop numind-web-v3 2>/dev/null || true
@@ -261,47 +258,3 @@ jobs:
               exit 1
             fi
 
-  # =====================================================
-  # 部署到 Staging 环境 (110.42.221.25)
-  # 验证 feature/sales-agent-vue3-migration 分支
-  # =====================================================
-  deploy_staging:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/feature/sales-agent-vue3-migration'
-    environment: staging
-    steps:
-      - name: Deploy to Staging Server (110.42.221.25)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: root
-          password: ${{ secrets.STAGING_SERVER_PASSWORD }}
-          script: |
-            set -e
-            IMAGE="${{ env.IMAGE_NAME }}:${{ needs.build.outputs.short_sha }}"
-            echo "🚀 部署到 Staging 环境... ($IMAGE)"
-
-            # 1) 先拉镜像，失败则中止（旧容器不动）
-            docker pull "$IMAGE"
-
-            # 2) 镜像就绪后才替换容器
-            docker stop numind-web-v3-staging 2>/dev/null || true
-            docker rm -f numind-web-v3-staging 2>/dev/null || true
-
-            # 3) 启动新容器（host 网络模式）
-            docker run -d \
-              --name numind-web-v3-staging \
-              --network host \
-              -e API_PROXY_PASS="http://localhost:9091/" \
-              --restart unless-stopped \
-              "$IMAGE"
-
-            # 4) 健康检查
-            sleep 3
-            if docker ps | grep -q numind-web-v3-staging; then
-              curl -sf http://localhost:80/health && echo "✅ Staging 部署完成" || echo "⚠️ 容器运行但健康检查失败"
-            else
-              echo "❌ 容器启动失败" >&2
-              exit 1
-            fi
