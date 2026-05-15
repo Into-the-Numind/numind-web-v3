@@ -486,8 +486,8 @@ export const fetchSSE = async (
   })
 
   if (!response.ok) {
-    // Handle 401/403 like axios interceptor does
-    if (response.status === 401 || response.status === 403) {
+    // 401: token 真的失效 → 强制登出（与 axios interceptor 行为一致）
+    if (response.status === 401) {
       clearAuth()
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login'
@@ -495,6 +495,7 @@ export const fetchSSE = async (
       throw new Error('登录已过期，请重新登录')
     }
 
+    // 解析 body 以便后续判断
     let message = `请求失败 (${response.status})`
     let code: string | number | undefined
     try {
@@ -509,6 +510,29 @@ export const fetchSSE = async (
         /* ignore */
       }
     }
+
+    // 403: 必须区分 token 失败 vs 业务权限（积分不足 / 会员等级不够等）。
+    // 仅当 token 真的丢失或后端明确返回 token 类错误码时才登出 —— 业务 403
+    // (errno.ErrForbidden.SetMessage(...))不能登出，否则积分不足的用户发送
+    // salesrag 消息时会被强制踢出（pre-2026-05-15 重大 bug）。逻辑与
+    // src/api/request.ts:229 的 axios 403 拦截器对齐。
+    if (response.status === 403) {
+      const isTokenMissing = !getToken()
+      const isTokenError = String(code).includes('Token') || String(code).includes('token')
+      if (isTokenMissing || isTokenError) {
+        clearAuth()
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
+        throw new Error('登录已过期，请重新登录')
+      }
+      // 业务 403：积分不足/额度不足关键词命中时派发 InsufficientCreditsDialog 事件
+      if (message.includes('额度不足') || message.includes('积分不足')) {
+        window.dispatchEvent(new CustomEvent('insufficient-credits', { detail: message }))
+      }
+      throw new Error(friendlyErrorMessage(message, code) || message || '没有权限访问该资源')
+    }
+
     // 兜底关键词覆盖：阻断后端漏 errtranslate 时 Go 调用栈进入 UI (B+A 双保险的 A)
     throw new Error(friendlyErrorMessage(message, code) || message)
   }
