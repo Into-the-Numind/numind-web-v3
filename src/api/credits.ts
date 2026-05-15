@@ -76,22 +76,9 @@ export interface EstimateResp {
   coefficient_id: number
 }
 
-export interface CreditPackageItem {
-  id: number
-  type: string // trial/subscription/booster
-  total_credits: number
-  remain_credits: number
-  activated_at: string
-  expires_at: string
-  status: string // active/expired/revoked
-  order_id?: number
-  created_at: string
-}
-
-export interface ListPackagesResp {
-  list: CreditPackageItem[]
-  total: number
-}
+// T9: CreditPackageItem / ListPackagesResp / listPackages deleted —
+// /v1/credits/packages route removed from backend in T9 (had 0 frontend callers
+// even before deletion; credit_package table will be DROPped in T11).
 
 export function getCreditBalance() {
   return request.get<QuotaBreakdown>('/v1/credits/balance')
@@ -99,16 +86,6 @@ export function getCreditBalance() {
 
 export function estimateCredits(operation: string, reference_id: string) {
   return request.post<EstimateResp>('/v1/credits/estimate', { operation, reference_id })
-}
-
-export function listPackages(params: {
-  page?: number
-  page_size?: number
-  status?: string
-  type?: string
-  sort?: string
-}) {
-  return request.get<ListPackagesResp>('/v1/credits/packages', { params })
 }
 
 /**

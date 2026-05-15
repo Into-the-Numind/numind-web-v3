@@ -4,7 +4,9 @@
  * Provides fixture responses for:
  *   - GET  /v1/credits/balance   → {@link QuotaBreakdown}（含 v3 新增字段 billing_mode 等）
  *   - POST /v1/credits/estimate  → {@link EstimateResp}
- *   - GET  /v1/credits/packages  → {@link ListPackagesResp}
+ *
+ * Note: GET /v1/credits/packages was deleted in T9 (credits-system-cleanup
+ * plan extension). Mock removed below.
  *
  * ## 为什么存在
  *
@@ -30,7 +32,7 @@
  * spec §2.11.1（QuotaBreakdown）+ §4.2.1（TS 类型）+ §4.3（estimate 聚合口径）
  */
 import { http, HttpResponse } from 'msw'
-import type { QuotaBreakdown, EstimateResp, ListPackagesResp } from '@/api/credits'
+import type { QuotaBreakdown, EstimateResp } from '@/api/credits'
 
 /** 统一的成功 envelope（对齐 `request.ts` 的 `{ code, message, data }` 解包）。 */
 function ok<T>(data: T) {
@@ -62,14 +64,7 @@ export const defaultEstimate: EstimateResp = {
   coefficient_id: 1
 }
 
-/** 默认 packages fixture — 空列表（避免强耦合后端语义）。 */
-export const defaultPackages: ListPackagesResp = {
-  list: [],
-  total: 0
-}
-
 export const handlers = [
   http.get('*/v1/credits/balance', () => ok(defaultBalance)),
-  http.post('*/v1/credits/estimate', () => ok(defaultEstimate)),
-  http.get('*/v1/credits/packages', () => ok(defaultPackages))
+  http.post('*/v1/credits/estimate', () => ok(defaultEstimate))
 ]

@@ -21,7 +21,6 @@ vi.mock('@/api/credits', () => ({
   getOrderStatus: vi.fn(),
   getCreditBalance: vi.fn(),
   estimateCredits: vi.fn(),
-  listPackages: vi.fn(),
   getBalance: vi.fn()
 }))
 
