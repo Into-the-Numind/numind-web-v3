@@ -498,9 +498,6 @@ function handleDocClick(e: MouseEvent) {
             @click="switchToSession(session)"
           >
             <MessageSquare class="session-icon" :size="16" />
-            <span v-if="session.pinned_at != null" class="session-pinned-indicator" title="已置顶"
-              >📌</span
-            >
             <span class="session-title">{{ session.title || '新对话' }}</span>
             <div class="session-menu-container">
               <button
@@ -1162,12 +1159,6 @@ body.chatbot-chat-route #app {
 
 .session-menu-item.danger:hover {
   background: rgba(239, 68, 68, 0.08);
-}
-
-.session-pinned-indicator {
-  font-size: 12px;
-  margin-left: 2px;
-  flex-shrink: 0;
 }
 
 /* ===== Sidebar Overlay (Mobile) ===== */

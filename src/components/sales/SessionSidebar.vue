@@ -22,7 +22,6 @@
         @click="store.switchSession(session.id)"
       >
         <MessageSquare :size="16" />
-        <span v-if="session.isPinned" class="session-pinned-indicator" title="已置顶">📌</span>
         <span class="session-title">{{ session.title }}</span>
         <div class="session-menu-container">
           <button
@@ -229,12 +228,6 @@ onBeforeUnmount(() => {
 .session-item--pinned {
   border-left: 2px solid var(--primary);
   padding-left: 10px;
-}
-
-.session-pinned-indicator {
-  font-size: 12px;
-  margin-left: 2px;
-  flex-shrink: 0;
 }
 
 .session-title {
