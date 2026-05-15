@@ -437,7 +437,10 @@ async function ensureRun(): Promise<number | null> {
     })
     return created.id
   } catch (err) {
-    notifications.error(`创建 run 失败：${(err as Error).message}`)
+    // 用 warning（橙色 ⚠）替代 error（红色 ✕）：积分不足是预期内业务事件，不是
+    // 系统崩溃；视觉重量过重会引起用户焦虑。去掉「创建 run 失败：」前缀，让用户
+    // 直接聚焦补救动作（充值积分）而不是失败动作。
+    notifications.warning((err as Error).message || '创建运行记录失败')
     return null
   }
 }
