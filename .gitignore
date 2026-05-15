@@ -36,3 +36,6 @@ e2e/.auth/
 test-results/
 playwright-report/
 .gstack/
+
+# Local working scratch directories / one-off ad-hoc files (not part of repo)
+_work_*

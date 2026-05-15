@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.gitignore
+*.md
+.env*
+.vscode
+.github
+e2e
+playwright-report
+test-results
+playwright.config.ts
+Dockerfile
+.dockerignore
