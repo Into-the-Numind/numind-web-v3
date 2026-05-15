@@ -12,6 +12,7 @@ import {
   pinChatbotSession
 } from '@/api/chatbot'
 import { useLLMModelStore } from '@/stores/llmModel'
+import { useNotificationsStore } from '@/stores/notifications'
 
 let nextLocalId = -1
 
@@ -150,6 +151,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
     let thinking = ''
 
     const llmStore = useLLMModelStore()
+    const notifications = useNotificationsStore()
     const selectedModelKey = llmStore.getSelectedModelKey('chatbot')
     const thinkingEnabled = llmStore.isThinkingEnabled('chatbot')
 
@@ -174,7 +176,11 @@ export const useChatbotStore = defineStore('chatbot', () => {
             case 'done':
               break
             case 'error':
+              // 统一错误呈现：toast warning（橙色 ⚠），与 SOP / 创建 run 失败一致。
+              // streamError 状态保留以便 finally 清理逻辑识别异常路径，但不再渲染为
+              // 内联红色气泡（用户反馈：像 AI 回复气泡、不统一）。
               streamError.value = String(event.data || '未知错误')
+              notifications.warning(streamError.value)
               break
           }
         },
@@ -186,6 +192,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
       if (e instanceof Error && e.name !== 'AbortError') {
         console.error('[chatbot] sendMessage SSE error:', e)
         streamError.value = e.message || '请求失败'
+        notifications.warning(streamError.value)
       }
     } finally {
       // Append AI message from accumulated stream
