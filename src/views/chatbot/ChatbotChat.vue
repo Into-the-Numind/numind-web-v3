@@ -681,10 +681,12 @@ function handleDocClick(e: MouseEvent) {
                   </div>
                 </div>
 
-                <!-- Stream error -->
-                <div v-if="store.streamError && !store.streaming" class="stream-error">
-                  <span>{{ store.streamError }}</span>
-                </div>
+                <!--
+                  Stream error 已迁移到全局 toast (notifications.warning) 以与 SOP /
+                  salesrag 保持一致 — 见 stores/chatbot.ts SSE 'error' 分支。原内联
+                  红色气泡因视觉上像 AI 回复消息、缺乏统一性被移除。streamError 状态
+                  在 store 内仍保留供 finally 清理逻辑使用。
+                -->
               </div>
             </template>
           </div>
@@ -1714,20 +1716,6 @@ body.chatbot-chat-route #app {
     transform: translateY(-4px);
     opacity: 1;
   }
-}
-
-.stream-error {
-  align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(239, 68, 68, 0.08);
-  color: #dc2626;
-  padding: 10px 16px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  border: 1px solid rgba(239, 68, 68, 0.15);
-  max-width: 85%;
 }
 
 /* ===== Scroll to Bottom ===== */

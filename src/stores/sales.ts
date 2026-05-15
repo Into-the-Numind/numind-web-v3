@@ -31,6 +31,7 @@ import {
   fetchOpinionTracks,
   normalizeVerdictData
 } from '@/api/sales'
+import { useNotificationsStore } from '@/stores/notifications'
 
 // Monotonically decreasing counter for local-only temporary IDs (negative to avoid server ID collisions)
 let nextLocalId = -1
@@ -335,6 +336,7 @@ export const useSalesStore = defineStore('sales', () => {
     if (isLoading.value) return
     if (!currentSessionId.value) return
 
+    const notifications = useNotificationsStore()
     const sessionIdAtStart = currentSessionId.value
 
     // For regeneration: use passed-in images; otherwise extract from upload buffer
@@ -452,8 +454,12 @@ export const useSalesStore = defineStore('sales', () => {
               break
             case 'error':
               if (onSameSession) {
+                // 统一错误呈现：toast warning（橙色 ⚠），与 SOP / chatbot 一致。
+                // streamError 状态保留以兼容 preservedError finally 重置逻辑
+                // (2026-04-19 incident，见 line 482 注释)，但不再渲染为内联红色气泡。
                 streamError.value = String(event.data || '未知错误')
                 streamFinished.value = true
+                notifications.warning(streamError.value)
               }
               break
           }
@@ -465,6 +471,7 @@ export const useSalesStore = defineStore('sales', () => {
         console.error('[sales] sendMessage SSE error:', e)
         if (currentSessionId.value === sessionIdAtStart) {
           streamError.value = e.message || '请求失败'
+          notifications.warning(streamError.value)
         }
       }
       if (currentSessionId.value === sessionIdAtStart) {
