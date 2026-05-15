@@ -14,7 +14,12 @@ import {
   FileText,
   Loader2,
   Copy,
-  Check
+  Check,
+  MoreVertical,
+  Pin,
+  PinOff,
+  Edit3,
+  Trash2
 } from 'lucide-vue-next'
 import { useChatbotStore } from '@/stores/chatbot'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -453,7 +458,7 @@ onBeforeUnmount(() => {
 
 function handleDocClick(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('.session-dropdown') && !target.closest('.session-more-btn')) {
+  if (!target.closest('.session-menu-dropdown') && !target.closest('.session-menu-btn')) {
     closeMenu()
   }
 }
@@ -497,25 +502,34 @@ function handleDocClick(e: MouseEvent) {
             <span v-if="session.pinned_at != null" class="session-pinned-indicator" title="已置顶"
               >📌</span
             >
-            <button
-              class="session-more-btn"
-              @click.stop="openMenu(session.id)"
-              aria-label="更多操作"
-            >
-              ⋯
-            </button>
-
-            <div v-if="openMenuSessionId === session.id" class="session-dropdown" @click.stop>
-              <button class="dropdown-item" @click.stop="onRenameClick(session)">重命名</button>
-              <button class="dropdown-item" @click.stop="onTogglePinClick(session)">
-                {{ session.pinned_at != null ? '取消置顶' : '置顶' }}
-              </button>
+            <div class="session-menu-container">
               <button
-                class="dropdown-item dropdown-item--danger"
-                @click.stop="onDeleteClick(session.id)"
+                class="session-menu-btn"
+                @click.stop="openMenu(session.id)"
+                aria-label="更多操作"
               >
-                删除
+                <MoreVertical :size="16" />
               </button>
+
+              <div
+                v-if="openMenuSessionId === session.id"
+                class="session-menu-dropdown"
+                @click.stop
+              >
+                <button class="session-menu-item" @click.stop="onRenameClick(session)">
+                  <Edit3 :size="14" />
+                  <span>重命名</span>
+                </button>
+                <button class="session-menu-item" @click.stop="onTogglePinClick(session)">
+                  <PinOff v-if="session.pinned_at != null" :size="14" />
+                  <Pin v-else :size="14" />
+                  <span>{{ session.pinned_at != null ? '取消置顶' : '置顶' }}</span>
+                </button>
+                <button class="session-menu-item danger" @click.stop="onDeleteClick(session.id)">
+                  <Trash2 :size="14" />
+                  <span>删除</span>
+                </button>
+              </div>
             </div>
           </div>
           <div v-if="chatbotSessions.length === 0" class="sessions-empty">暂无对话</div>
@@ -1035,7 +1049,7 @@ body.chatbot-chat-route #app {
   color: var(--text);
 }
 
-.session-item:hover .session-more-btn {
+.session-item:hover .session-menu-btn {
   opacity: 1;
 }
 
@@ -1060,64 +1074,79 @@ body.chatbot-chat-route #app {
   min-width: 0;
 }
 
-.session-more-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 22px;
-  height: 22px;
-  border: none;
+.session-menu-container {
+  margin-left: auto;
+  position: relative;
+}
+
+.session-menu-btn {
   background: transparent;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 150ms;
+  border: none;
   color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1;
+  opacity: 0;
+  padding: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  flex-shrink: 0;
 }
 
-.session-more-btn:hover {
-  color: var(--text);
-  background: var(--surface-hover);
+.session-menu-btn :deep(svg) {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
 }
 
-.session-dropdown {
+.session-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.session-menu-dropdown {
   position: absolute;
-  right: 8px;
+  right: 0;
   top: calc(100% + 4px);
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 140px;
   z-index: 100;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: var(--shadow-md);
-  min-width: 120px;
-  padding: 4px 0;
+  overflow: hidden;
 }
 
-.dropdown-item {
-  display: block;
+.session-menu-item {
   width: 100%;
-  text-align: left;
-  padding: 8px 12px;
-  border: none;
+  padding: 10px 14px;
   background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
-  font-size: 14px;
+  transition: all 0.15s;
   color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
 }
 
-.dropdown-item:hover {
-  background: var(--surface-hover);
+.session-menu-item :deep(svg) {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
 }
 
-.dropdown-item--danger {
-  color: #dc2626;
+.session-menu-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.session-menu-item.danger {
+  color: #ef4444;
+}
+
+.session-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .session-pinned-indicator {
