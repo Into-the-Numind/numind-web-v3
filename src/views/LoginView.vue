@@ -48,7 +48,11 @@
     </div>
 
     <footer class="login-footer">
-      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+      <a
+        href="https://beian.miit.gov.cn/#/Integrated/recordQuery"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         蜀ICP备2025149402号
       </a>
     </footer>
