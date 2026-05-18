@@ -24,7 +24,7 @@
  *     │ - migrateLocalStorageKeys: draft_<tid> → <runId>
  *     │ - currentRunId 赋值
  *     │
- *     │ 节点执行成功 → biz 层 IncrementSopRunCount
+ *     │ 节点执行成功（draft cleanup 由 beacon 在组件卸载时触发）
  *     ↓
  * [running / succeeded]
  *     │ 组件卸载 / 路由切换

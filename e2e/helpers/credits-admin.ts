@@ -23,7 +23,7 @@ import type { Page, Route } from '@playwright/test'
 
 // ── Types mirroring the real API (keep in sync with src/api/credits.ts) ──
 
-export type BillingMode = 'credits' | 'legacy_tier'
+export type BillingMode = 'credits'
 export type UserTier = 'free' | 'trial' | 'standard' | 'premium'
 export type ProductType = 'trial' | 'monthly' | 'yearly' | 'booster'
 
@@ -34,8 +34,6 @@ export interface QuotaFixture {
   sub_remain: number
   booster_total: number
   booster_remain: number
-  remaining_runs?: number | null
-  monthly_limit?: number | null
   sub_expires_at?: string
   booster_earliest_expires_at?: string
 }
@@ -102,8 +100,6 @@ export function createDefaultFixture(): CreditsFixture {
       sub_remain: 0,
       booster_total: 0,
       booster_remain: 0,
-      remaining_runs: 0,
-      monthly_limit: null,
       sub_expires_at: undefined,
       booster_earliest_expires_at: undefined
     },
@@ -126,8 +122,7 @@ export class CreditsAdminHandle {
   constructor(public fixture: CreditsFixture) {}
 
   /**
-   * forceTier — set `user.user_tier` and tier_expires. Also syncs monthly
-   * allotments for legacy_tier path (Path 4).
+   * forceTier — set `user.user_tier` and tier_expires.
    */
   forceTier(
     tier: UserTier,
@@ -149,27 +144,10 @@ export class CreditsAdminHandle {
 
   /**
    * switchBillingMode — set `billing_mode` on the QuotaBreakdown returned by
-   * GET /v1/credits/balance. Legacy vs credits is a server-side flag; UI reads
-   * it to decide which card state to render.
+   * GET /v1/credits/balance. Only 'credits' remains after T4 schema drop.
    */
   switchBillingMode(mode: BillingMode): void {
     this.fixture.quota.billing_mode = mode
-    if (mode === 'legacy_tier') {
-      // legacy users see remaining_runs + monthly_limit, not sub/booster
-      const tier = this.fixture.user.user_tier
-      this.fixture.quota.monthly_limit =
-        tier === 'premium' ? null : tier === 'standard' ? 20 : tier === 'trial' ? 10 : 0
-      const limit = this.fixture.quota.monthly_limit ?? 0
-      this.fixture.quota.remaining_runs =
-        this.fixture.quota.monthly_limit === null
-          ? null
-          : Math.max(limit - this.fixture.user.monthly_sop_runs, 0)
-      // zero out credits-path fields so UI branches cleanly
-      this.fixture.quota.sub_total = 0
-      this.fixture.quota.sub_remain = 0
-      this.fixture.quota.booster_total = 0
-      this.fixture.quota.booster_remain = 0
-    }
   }
 
   /**
@@ -339,24 +317,6 @@ export async function installCreditsMocks(page: Page, fixture: CreditsFixture): 
   // POST /v1/credits/estimate
   await page.route(/\/v1\/credits\/estimate$/, async (route: Route) => {
     if (route.request().method() !== 'POST') return route.fallback()
-    // legacy_tier → skip_deduction=true
-    if (fixture.quota.billing_mode === 'legacy_tier') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          code: 0,
-          message: 'ok',
-          data: {
-            ...fixture.estimate,
-            skip_deduction: true,
-            total_estimated_credits: 0,
-            balance: fixture.quota
-          }
-        })
-      })
-      return
-    }
     const sufficient =
       fixture.estimate.total_estimated_credits <=
       fixture.quota.sub_remain + fixture.quota.booster_remain
