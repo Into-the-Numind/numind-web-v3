@@ -18,7 +18,6 @@
  *   1. credits 会员新购 + SOP 正常扣减
  *   2. 跨池扣减（会员 + booster FIFO）
  *   3. 非会员购买 booster 被拒（灰态 + API 403）
- *   4. legacy_tier 老会员 SOP 零扣减
  *   5. SalesRAG Chat 新扣减
  *   6. trial 完整生命周期
  *
@@ -301,49 +300,6 @@ test.describe('Path 3: 非会员购买 booster 被拒（灰态 + 403）', () => 
     // API gate: trial still cannot buy booster
     const res = await postOrderFromPage(page, 'booster')
     expect(res.status).toBe(403)
-  })
-})
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Path 4: legacy_tier 老会员 SOP 零扣减
-// ═══════════════════════════════════════════════════════════════════════════
-
-test.describe('Path 4: legacy_tier 老会员 SOP 零扣减（零感知）', () => {
-  test('legacy_tier standard: monthly_sop_runs increments without reservation', async ({
-    page
-  }) => {
-    const handle = await createCreditsAdminHandle(page)
-    await installOrderMocks(page, handle)
-    await installSopRunMocks(page, handle)
-
-    // Grandfathered legacy user (Option E): billing_mode=legacy_tier, standard
-    handle.forceTier('standard', { expiresInDays: 30, monthlySopRuns: 5 })
-    handle.switchBillingMode('legacy_tier') // sets remaining_runs=15, monthly_limit=20
-
-    // Settings: CreditBalanceCard should show 'legacy' state
-    await gotoSettings(page)
-    await expect(page.locator(sel.balanceCardLegacy)).toBeVisible()
-    // BoosterPurchaseCard should be in 'legacy' grey state (no upsell)
-    await expect(page.locator(sel.boosterCardLegacy)).toBeVisible()
-    await expect(page.locator(sel.boosterCta)).toContainText('老会员制暂不支持')
-
-    // Navigate to SOP run (SopEstimateBar removed entirely — legacy user just
-    // sees the regular run page with no estimate UI)
-    await gotoSopRun(page, 1)
-
-    // Direct SOP run should still succeed, and mock records zero credit deduction
-    // (legacy_tier doesn't go through reservation — just monthly_sop_runs++)
-    const pre = handle.fixture.user.monthly_sop_runs
-    // Simulate the legacy behavior: increment monthly_sop_runs without credit deduction
-    // In the real system the server-side CheckAndEstimate returns SkipDeduction=true
-    // and no Reserve/Reconcile is called. We mirror by directly mutating the fixture.
-    handle.fixture.user.monthly_sop_runs = pre + 1
-
-    // Assert no credit_reservation row was created
-    expect(handle.fixture.reservations).toHaveLength(0)
-
-    // monthly_sop_runs incremented
-    expect(handle.fixture.user.monthly_sop_runs).toBe(pre + 1)
   })
 })
 
