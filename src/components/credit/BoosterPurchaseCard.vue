@@ -31,20 +31,19 @@
 
 <script setup lang="ts">
 /**
- * BoosterPurchaseCard — 4 状态加量包购买卡（credits-system Track E.4，Q2 改造）
+ * BoosterPurchaseCard — 3 状态加量包购买卡（credits-system Track E.4，Q2 改造）
  *
- * ## 四态交互矩阵
+ * ## 三态交互矩阵
  *
  * | cardState  | 条件                                    | 点击行为              | CTA 文案             |
  * |------------|-----------------------------------------|-----------------------|----------------------|
- * | `credits`  | tier standard/premium + billing=credits | 触发 purchase emit    | "立即购买"           |
+ * | `credits`  | tier standard/premium 且有积分包        | 触发 purchase emit    | "立即购买"           |
  * | `free`     | tier=free                               | 无动作（禁用）        | "请联系管理员开通"   |
  * | `trial`    | tier=trial                              | 无动作（禁用）        | "请联系管理员开通"   |
- * | `legacy`   | billing_mode=legacy_tier                | 无动作（禁用）        | "老会员制暂不支持"   |
  *
  * Q2 变更（B2B2C 模式）：C 端不能自购会员。free/trial 灰态点击从"跳转会员购买"
  * 改为"无动作 + 联系管理员提示"，与 CreditBalanceCard free state 保持一致。
- * 三种非 credits 状态统一 no-route，只有 credits 会员可点击触发购买（走 QR 扫码）。
+ * 两种非 credits 状态统一 no-route，只有 credits 会员可点击触发购买（走 QR 扫码）。
  *
  * ## Emits
  *
@@ -78,22 +77,17 @@ const tier = computed(() => {
 })
 
 /**
- * 四态优先级：
- *   1. billing_mode=legacy_tier           → 'legacy'（老会员制暂不支持）
- *   2. billing_mode=credits 且有积分包    → 'credits'（可购买）
- *   3. user_tier !== free（兼容）         → 'credits'
- *   4. user_tier=trial（legacy trial）    → 'trial'
- *   5. 其它                               → 'free'
- *
- * credits 制下 user_tier 始终为 'free'，必须优先检查 billing_mode。
+ * 三态优先级：
+ *   1. 有积分包（sub_total > 0 或 booster_total > 0）→ 'credits'（可购买）
+ *   2. user_tier !== free（兼容）                    → 'credits'
+ *   3. user_tier=trial                               → 'trial'
+ *   4. 其它                                          → 'free'
  */
-const cardState = computed<'credits' | 'free' | 'trial' | 'legacy'>(() => {
+const cardState = computed<'credits' | 'free' | 'trial'>(() => {
   const bal = creditsStore.balance
-  if (bal?.billing_mode === 'legacy_tier') return 'legacy'
-  if (bal?.billing_mode === 'credits' && (bal.sub_total > 0 || bal.booster_total > 0))
-    return 'credits'
+  if ((bal?.sub_total ?? 0) > 0 || (bal?.booster_total ?? 0) > 0) return 'credits'
   if (tier.value === 'trial') return 'trial'
-  if (tier.value !== 'free') return 'credits' // legacy tier 未标记 billing_mode 的兼容
+  if (tier.value !== 'free') return 'credits'
   return 'free'
 })
 

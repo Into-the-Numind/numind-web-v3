@@ -62,7 +62,6 @@ function mountView() {
 /** Minimal BalanceDTO shape used in tests */
 function makeBalance(overrides: Record<string, unknown> = {}) {
   return {
-    billing_mode: 'credits',
     balance: 0,
     sub_remain: 0,
     booster_remain: 0,

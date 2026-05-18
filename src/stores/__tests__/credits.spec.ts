@@ -69,18 +69,6 @@ describe('credits store — displayState getter', () => {
     expect(store.displayState).toBe('free')
   })
 
-  it('无 membership_state 但 billing_mode=legacy_tier → displayState="legacy"', () => {
-    const store = useCreditsStore()
-    store.balance = {
-      balance: 0,
-      sub_total: 0,
-      sub_remain: 0,
-      booster_total: 0,
-      booster_remain: 0,
-      billing_mode: 'legacy_tier'
-    }
-    expect(store.displayState).toBe('legacy')
-  })
 })
 
 describe('credits store — isMember getter', () => {

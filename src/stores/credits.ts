@@ -6,7 +6,7 @@
  * - `balance`：QuotaBreakdown（老 API，向后兼容；含 `membership_state` 可选扩展）
  * - `fetchBalance()`：拉取 GET /v1/credits/balance（via getCreditBalance）
  * - `fetchEstimate()`：拉取 POST /v1/credits/estimate
- * - `displayState`：`membership_state` 优先，回退到 billing_mode 映射
+ * - `displayState`：读 `membership_state`（"free" / "trial" / "pro"）
  * - `isMember`：displayState 为 "trial" 或 "pro"
  * - `isBoosterFrozen`：booster_usable < booster_total（来自 BalanceDTO 字段）
  * - `trialExpiresAt`：trial_expires_at 透传
@@ -48,9 +48,6 @@ export const useCreditsStore = defineStore('credits', () => {
 
   // ── Getters ──────────────────────────────────────────────────────────────
 
-  /** billing_mode 快捷访问（undefined 代表 balance 还没拉取）。 */
-  const billingMode = computed(() => balance.value?.billing_mode)
-
   /** 当前 credits 模式下可用总额度（sub_remain + booster_remain）。 */
   const totalRemain = computed(() => {
     const b = balance.value
@@ -61,15 +58,14 @@ export const useCreditsStore = defineStore('credits', () => {
   /**
    * displayState — 会员状态枚举，供 UI 分支判断。
    *
-   * 优先读后端返回的 `membership_state`（"free"/"trial"/"pro"），
-   * 回退到 billing_mode 映射（credits → "pro"，legacy_tier → "legacy"，free → "free"）。
+   * 读后端返回的 `membership_state`（"free"/"trial"/"pro"）。
    *
    * 无 balance 时默认 "free"。
    */
-  const displayState = computed((): 'free' | 'trial' | 'pro' | 'legacy' => {
+  const displayState = computed((): 'free' | 'trial' | 'pro' => {
     const b = balance.value
     if (!b) return 'free'
-    // 优先 membership_state（后端 BalanceDTO 字段）
+    // 读 membership_state（后端 BalanceDTO 字段）
     // 支持两种格式：
     //   旧格式：membership_state = 'free' | 'trial' | 'pro'（字符串）
     //   BalanceDTO 格式：membership_state = { has_active_trial, has_active_subscription, ... }
@@ -81,8 +77,6 @@ export const useCreditsStore = defineStore('credits', () => {
       if (mso.has_active_subscription === true) return 'pro'
       return 'free'
     }
-    // 回退：billing_mode 映射
-    if (b.billing_mode === 'legacy_tier') return 'legacy'
     return 'free'
   })
 
@@ -184,7 +178,6 @@ export const useCreditsStore = defineStore('credits', () => {
     loading,
     error,
     // getters
-    billingMode,
     totalRemain,
     displayState,
     isMember,

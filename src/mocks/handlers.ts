@@ -46,9 +46,6 @@ export const defaultBalance: QuotaBreakdown = {
   sub_remain: 700,
   booster_total: 500,
   booster_remain: 500,
-  billing_mode: 'credits',
-  remaining_runs: null,
-  monthly_limit: null,
   sub_expires_at: '2026-04-30T23:59:59Z',
   booster_earliest_expires_at: '2026-07-15T23:59:59Z'
 }
