@@ -6,10 +6,10 @@
         <h1 class="page-title">设置</h1>
       </div>
 
-      <!-- Section: 我的积分（credits-system Phase 2 Task 2.4）
-           CreditBalanceCard 自动按 user.tier + billing_mode 三态渲染；
-           BoosterPurchaseCard 以 4 态灰态交互。余额数据由 credits store 的
-           fetchBalance() 填充（onMounted 触发）。 -->
+      <!-- Section: 我的积分
+           CreditBalanceCard 二态渲染（credits / free）按 creditsStore.displayState；
+           BoosterPurchaseCard 三态交互（credits / trial / free）按同一 displayState。
+           余额数据由 creditsStore.fetchBalance()（onMounted 触发）填充。 -->
       <div class="settings-section">
         <div class="section-label">我的积分</div>
         <div class="credit-grid">
@@ -67,42 +67,6 @@
           <div v-if="expiryText !== '—'" class="settings-row">
             <div class="row-label">有效期至</div>
             <div class="row-value">{{ expiryText }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section: 用量统计 -->
-      <div class="settings-section">
-        <div class="section-label">用量统计</div>
-        <div class="settings-group">
-          <div class="settings-row settings-row-block">
-            <div class="row-label">额度使用率</div>
-            <div class="row-value-full">
-              <div class="quota-bar-wrap">
-                <div class="quota-bar">
-                  <div
-                    class="quota-fill quota-fill-subscription"
-                    :style="{ width: subscriptionPercent + '%' }"
-                  ></div>
-                  <div
-                    v-if="!isOldMember"
-                    class="quota-fill quota-fill-booster"
-                    :style="{ width: boosterPercent + '%', left: subscriptionPercent + '%' }"
-                  ></div>
-                </div>
-                <span class="quota-percent">{{ quotaLabel }}</span>
-              </div>
-              <div v-if="!isOldMember" class="quota-legend">
-                <span class="quota-legend-item">
-                  <span class="quota-legend-dot subscription"></span>
-                  订阅额度
-                </span>
-                <span class="quota-legend-item">
-                  <span class="quota-legend-dot booster"></span>
-                  加量包
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -205,55 +169,13 @@ const currentUserId = computed((): number => {
   return typeof id === 'number' ? id : parseInt(String(id ?? '0'), 10)
 })
 
-// Computed: tier
-const tier = computed(() => {
-  const raw = userData.value.user_tier || userData.value.tier || userData.value.plan || 'free'
-  return String(raw).toLowerCase()
-})
-
-const isOldMember = computed(() => {
-  const t = tier.value
-  return t === 'standard' || t === 'premium' || t === 'vip'
-})
-
-// 额度进度条计算（兼容新老会员）
-const subscriptionPercent = computed(() => {
-  if (isOldMember.value) {
-    const t = tier.value
-    if (t === 'premium' || t === 'vip') return 100
-    const limit = t === 'standard' ? 20 : 10 // standard 20次/月, trial 10次
-    const used = userData.value.monthly_sop_runs ?? 0
-    const remain = Math.max(limit - used, 0)
-    return Math.round((remain / limit) * 100)
-  }
-  const total = userStore.quotaSubTotal + userStore.quotaBoosterTotal
-  if (total <= 0) return 0
-  return Math.round((userStore.quotaSubRemain / total) * 100)
-})
-const boosterPercent = computed(() => {
-  if (isOldMember.value) return 0
-  const total = userStore.quotaSubTotal + userStore.quotaBoosterTotal
-  if (total <= 0) return 0
-  return Math.round((userStore.quotaBoosterRemain / total) * 100)
-})
-const quotaLabel = computed(() => {
-  if (isOldMember.value) {
-    const t = tier.value
-    if (t === 'premium' || t === 'vip') return '无限次'
-    const limit = t === 'standard' ? 20 : 10
-    const used = userData.value.monthly_sop_runs ?? 0
-    return `${Math.max(limit - used, 0)}/${limit} 次`
-  }
-  return `${userStore.creditBalance}`
-})
+// 会员状态：'free' / 'trial' / 'pro' — 数据源 credits store 的 BalanceDTO.membership_state
+const tier = computed(() => creditsStore.displayState)
 
 const tierLabel = computed(() => {
   const t = tier.value
-  if (t === 'premium' || t === 'vip') return '高级会员'
-  if (t === 'standard') return '普通会员'
   if (t === 'pro') return 'Pro 会员'
   if (t === 'trial') return '体验会员'
-  if (t === 'free' && userStore.creditBalance > 0) return 'Pro'
   return 'Free'
 })
 
@@ -263,19 +185,15 @@ const displayId = computed(
   () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--'
 )
 
-// Computed: expiry
+// Computed: expiry — 数据源 credits store（pro 会员看 sub_expires_at；trial 看 trial_expires_at）
 const expiryText = computed(() => {
-  // tier_expires 后端对老会员返回 user.tier_expires，对 credits-mode 会员返回 sub_expires_at 或 trial_expires_at
-  const tierExpiry =
-    userData.value.tier_expires || userData.value.membership_expires || userData.value.expires_at
   const t = tier.value
-  const shouldShowExpiry = isOldMember.value || t === 'pro' || t === 'trial'
-  if (shouldShowExpiry && tierExpiry) {
-    const d = new Date(tierExpiry)
-    if (d.getFullYear() > 2090) return '永久有效'
-    return d.toLocaleDateString('zh-CN')
-  }
-  return '—'
+  const iso =
+    t === 'pro' ? creditsStore.proExpiresAt : t === 'trial' ? creditsStore.trialExpiresAt : null
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (d.getFullYear() > 2090) return '永久有效'
+  return d.toLocaleDateString('zh-CN')
 })
 
 // Fetch user data
@@ -335,7 +253,7 @@ async function handleBoosterPaid(): Promise<void> {
 
 onMounted(() => {
   void fetchData()
-  // credits-system：拉 credits store 的完整 QuotaBreakdown（含 billing_mode / 过期）
+  // 拉 BalanceDTO（trial_remaining / cycle_remaining / booster_total / membership_state）
   void creditsStore.fetchBalance()
 })
 </script>
@@ -406,12 +324,6 @@ onMounted(() => {
   border-top: 1px solid #f0f1f5;
 }
 
-.settings-row-block {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
 /* Action row (button) */
 .settings-row-action {
   appearance: none;
@@ -453,16 +365,6 @@ onMounted(() => {
   color: #6b7085;
 }
 
-.row-value-num {
-  font-family: var(--font-mono, monospace);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.row-value-full {
-  width: 100%;
-}
-
 .row-chevron {
   color: #c4c6d0;
   flex-shrink: 0;
@@ -478,10 +380,6 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: #fff;
-}
-
-.settings-page[data-tier='premium'] .profile-avatar {
-  background: linear-gradient(135deg, hsl(45, 100%, 55%), hsl(38, 100%, 50%));
 }
 
 /* ===== Tier Badge ===== */
@@ -500,15 +398,9 @@ onMounted(() => {
   color: #2563eb;
 }
 
-.settings-page[data-tier='standard'] .badge-tier {
+.settings-page[data-tier='pro'] .badge-tier {
   background: #ecfdf5;
   color: #059669;
-}
-
-.settings-page[data-tier='premium'] .badge-tier {
-  background: linear-gradient(135deg, hsl(45, 100%, 55%), hsl(38, 100%, 50%));
-  color: white;
-  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
 }
 
 /* ===== Confirm Dialog ===== */
@@ -592,77 +484,6 @@ onMounted(() => {
 
 .confirm-btn-ok:hover {
   background: #dc2626;
-}
-
-/* ===== Quota Progress Bar ===== */
-.quota-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.quota-bar {
-  flex: 1;
-  height: 8px;
-  background: #e2e4ea;
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-}
-
-.quota-fill {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease;
-}
-
-.quota-fill-subscription {
-  left: 0;
-  background: #10b981;
-  z-index: 2;
-}
-
-.quota-fill-booster {
-  background: #34d399;
-  z-index: 1;
-}
-
-.quota-percent {
-  font-size: 14px;
-  font-weight: 600;
-  color: #3d4055;
-  min-width: 40px;
-  text-align: right;
-}
-
-.quota-legend {
-  display: flex;
-  gap: 16px;
-  margin-top: 6px;
-}
-
-.quota-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #8b90a0;
-}
-
-.quota-legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.quota-legend-dot.subscription {
-  background: #10b981;
-}
-
-.quota-legend-dot.booster {
-  background: #34d399;
 }
 
 /* ===== Responsive ===== */
