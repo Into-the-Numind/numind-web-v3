@@ -210,7 +210,7 @@ request.interceptors.response.use(
           // `insufficient-credits` 事件，`App.vue` 监听并打开 `InsufficientCreditsDialog`。
           //
           // detail 采用结构化 payload（`{ message, reason }`）而不是裸 string，
-          // 让 dialog 可以展示原因分支（如 "legacy_tier 当月次数用尽"）。
+          // 让 dialog 可以展示原因分支。
           //
           // 注意：仅当 body.code === 'Credits.Insufficient' 时命中此分支；
           // 其它 402（如网关级 Payment Required）fallthrough 到 default。

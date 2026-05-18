@@ -7,7 +7,7 @@
  *   3. fetchBalance 失败 → balanceError 写入，balance=null
  *   4. fetchEstimate 成功 → estimate 写入
  *   5. fetchEstimate 失败 → estimateError 写入
- *   6. billingMode / totalRemain getters
+ *   6. totalRemain getter
  *   7. reset() 清空一切
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -28,9 +28,6 @@ const balanceFixture: QuotaBreakdown = {
   sub_remain: 600,
   booster_total: 200,
   booster_remain: 150,
-  billing_mode: 'credits',
-  remaining_runs: null,
-  monthly_limit: null,
   sub_expires_at: '2026-04-30T23:59:59Z',
   booster_earliest_expires_at: '2026-07-15T23:59:59Z'
 }
@@ -59,7 +56,6 @@ describe('credits store', () => {
     expect(store.estimateLoading).toBe(false)
     expect(store.balanceError).toBeNull()
     expect(store.estimateError).toBeNull()
-    expect(store.billingMode).toBeUndefined()
     expect(store.totalRemain).toBe(0)
   })
 
@@ -112,7 +108,7 @@ describe('credits store', () => {
     expect(store.estimateError).toBe('backend 500')
   })
 
-  it('billingMode / totalRemain getters', async () => {
+  it('totalRemain getter', async () => {
     vi.mocked(creditsApi.getCreditBalance).mockResolvedValue({
       code: 0,
       message: 'ok',
@@ -121,7 +117,6 @@ describe('credits store', () => {
 
     const store = useCreditsStore()
     await store.fetchBalance()
-    expect(store.billingMode).toBe('credits')
     // sub_remain 600 + booster_remain 150
     expect(store.totalRemain).toBe(750)
   })

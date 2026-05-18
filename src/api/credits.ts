@@ -10,9 +10,6 @@ export interface QuotaBreakdown {
   booster_total: number
   booster_remain: number
   // v3 新增字段（可选，老代码不读即可）
-  billing_mode?: 'credits' | 'legacy_tier'
-  remaining_runs?: number | null // null = premium unlimited
-  monthly_limit?: number | null
   sub_expires_at?: string // credits 月底过期展示
   booster_earliest_expires_at?: string // 最早过期 booster
 }
@@ -70,8 +67,8 @@ export interface EstimateResp {
   first_node_estimate?: number // 首 node 估算
   node_count?: number // N（仅 sop_run 有效）
   sufficient: boolean
-  skip_deduction: boolean // legacy_tier=true
-  reason?: string // legacy_tier 次数不足原因
+  skip_deduction: boolean
+  reason?: string
   balance: QuotaBreakdown
   coefficient_id: number
 }
