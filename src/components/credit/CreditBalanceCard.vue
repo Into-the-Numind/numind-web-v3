@@ -1,6 +1,6 @@
 <template>
   <div class="credit-balance-card" :data-state="cardState">
-    <!-- credits 模式：试用 + 订阅 + 加量包 三档 -->
+    <!-- credits 模式：试用 + 会员 + 加量包 三档 -->
     <template v-if="cardState === 'credits'">
       <div v-if="trialRemaining > 0" class="credit-row trial">
         <span class="label">试用积分</span>
@@ -11,28 +11,26 @@
           {{ formatDate(trialExpiresAtStr) }} 过期
         </span>
       </div>
-      <div v-if="(balance?.sub_total ?? 0) > 0" class="credit-row subscription">
+      <div v-if="showCycleRow" class="credit-row subscription">
         <span class="label">会员积分</span>
         <span class="value">
           <strong>{{ cycleRemaining }}</strong>
         </span>
-        <span v-if="balance?.sub_expires_at" class="sublabel">
-          {{ formatMonthEnd(balance.sub_expires_at) }} 过期
+        <span v-if="subExpiresAtStr" class="sublabel">
+          {{ formatMonthEnd(subExpiresAtStr) }} 过期
         </span>
       </div>
-      <div v-if="(balance?.booster_total ?? 0) > 0" class="credit-row booster">
+      <div v-if="boosterTotal > 0" class="credit-row booster">
         <span class="label">加量包</span>
         <span class="value">
-          <strong>{{ balance?.booster_remain ?? 0 }}</strong>
-          <span class="total"> / {{ balance?.booster_total ?? 0 }}</span>
+          <strong>{{ boosterTotal }}</strong>
+          <span class="suffix"> 积分</span>
         </span>
-        <span v-if="balance?.booster_earliest_expires_at" class="sublabel">
-          最早 {{ formatDate(balance.booster_earliest_expires_at) }} 过期
-        </span>
+        <span v-if="isBoosterFrozen" class="sublabel sublabel-warn"> 需开通会员后可用 </span>
       </div>
     </template>
 
-    <!-- free：未购买过任何付费 → B2B2C 模式，子账户联系父账户管理员开通 -->
+    <!-- free：无任何积分 → B2B2C 模式，子账户联系父账户管理员开通 -->
     <template v-else>
       <p class="upgrade-hint">成为会员解锁 AI 能力</p>
       <p class="contact-admin">请联系您的管理员开通会员</p>
@@ -42,92 +40,74 @@
 
 <script setup lang="ts">
 /**
- * CreditBalanceCard — 二态余额展示（credits-system Track E.2，Q2 改造）
+ * CreditBalanceCard — 二态余额展示
  *
- * 状态判定（按优先级）：
- *   1. 有积分包（试用 / 订阅 / 加量包 任一非零）→ 'credits'
- *   2. user_tier !== 'free'（兼容）              → 'credits'
- *   3. 其它                                      → 'free'  联系管理员提示
+ * 数据源：credits store 的 BalanceDTO（GET /v1/credits/balance）
+ *   - trial_remaining / cycle_remaining：积分余额
+ *   - booster_total：加量包剩余积分（注：后端字段名 total 但语义=remaining）
+ *   - booster_usable：加量包可用积分（冻结时=0）
+ *   - membership_state：会员状态 'free' / 'trial' / 'pro'
  *
- * Q2 变更：C 端不能自购会员（B2B2C 模式）。free state 移除"升级会员"CTA，
- * 仅展示"请联系您的管理员开通会员"静态文案。父账户（parent user）在
- * 客户管理 / 子账户会员管理视图中帮子账户开通。
+ * 二态判定：
+ *   1. 任一池非零（trial / cycle / booster）或会员状态 != free → 'credits'
+ *   2. 其它 → 'free'（B2B2C 提示联系管理员）
+ *
+ * 加量包显示单数字「N 积分」（后端只暴露剩余值无累计购买总额，分子/分母分式
+ * 会让前端永远显示 0/N，已废弃）。冻结时增加 sublabel 提示而非数字归零，
+ * 让用户清楚知道额度仍在只是暂不可用。
  */
 import { computed } from 'vue'
-import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 
-const user = useUserStore()
 const credits = useCreditsStore()
 
-const balance = computed(() => credits.balance)
+const balance = computed(() => credits.balance as unknown as Record<string, unknown> | null)
 
-/** 从 userInfo 读 tier（'free' | 'trial' | 'standard' | 'premium'）。 */
-const tier = computed(() => {
-  const info = user.userInfo as Record<string, unknown> | null
-  const raw = (info?.user_tier ?? info?.tier ?? info?.plan ?? 'free') as string
-  return String(raw).toLowerCase()
-})
-
-/** trial_remaining（BalanceDTO 字段）。QuotaBreakdown 不含此字段，需 cast 读取。 */
-const trialRemaining = computed((): number => {
-  const b = balance.value as unknown as Record<string, unknown> | null
-  const v = b?.trial_remaining
+function readNumber(key: string): number {
+  const v = balance.value?.[key]
   return typeof v === 'number' ? v : 0
-})
+}
 
-/** trial_expires_at（BalanceDTO 字段）。 */
-const trialExpiresAtStr = computed((): string => {
-  const b = balance.value as unknown as Record<string, unknown> | null
-  const v = b?.trial_expires_at
+function readString(key: string): string {
+  const v = balance.value?.[key]
   return typeof v === 'string' ? v : ''
-})
+}
 
-/** cycle_remaining（BalanceDTO 字段）。QuotaBreakdown 不含此字段，需 cast 读取。 */
-const cycleRemaining = computed((): number => {
-  const b = balance.value as unknown as Record<string, unknown> | null
-  const v = b?.cycle_remaining
-  return typeof v === 'number' ? v : 0
-})
+const trialRemaining = computed((): number => readNumber('trial_remaining'))
+const cycleRemaining = computed((): number => readNumber('cycle_remaining'))
+const boosterTotal = computed((): number => readNumber('booster_total'))
+const trialExpiresAtStr = computed((): string => readString('trial_expires_at'))
+const subExpiresAtStr = computed((): string => readString('sub_expires_at'))
+const isBoosterFrozen = computed((): boolean => credits.isBoosterFrozen)
+const displayState = computed(() => credits.displayState)
 
-/**
- * 二态判定：
- *   1. 有任一非零额度（试用 / 订阅 / 加量包）→ 'credits'
- *   2. user_tier !== 'free'（兼容）           → 'credits'
- *   3. 其它（无任何额度）                      → 'free'
- *
- * 注意：trial_remaining 必须计入触发条件，否则仅持有试用积分的用户会被误判为 free
- * 并看到"请联系您的管理员开通会员"，而他们其实有 200 积分可用。
- */
+const showCycleRow = computed(
+  (): boolean => displayState.value === 'pro' || cycleRemaining.value > 0
+)
+
 const cardState = computed<'free' | 'credits'>(() => {
   if (
-    (balance.value?.sub_total ?? 0) > 0 ||
-    (balance.value?.booster_total ?? 0) > 0 ||
-    trialRemaining.value > 0
+    trialRemaining.value > 0 ||
+    cycleRemaining.value > 0 ||
+    boosterTotal.value > 0 ||
+    displayState.value !== 'free'
   )
     return 'credits'
-  if (tier.value !== 'free') return 'credits'
   return 'free'
 })
 
 function formatMonthEnd(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return `${d.getMonth() + 1}月底`
-  } catch {
-    return iso
-  }
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return `${d.getMonth() + 1}月底`
 }
 
 function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${d.getFullYear()}-${m}-${day}`
-  } catch {
-    return iso
-  }
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
 }
 </script>
 
@@ -163,15 +143,20 @@ function formatDate(iso: string): string {
   font-weight: 700;
 }
 
-.value .total {
+.value .suffix {
   font-weight: 400;
   font-size: 14px;
   color: var(--text-secondary, #6b7085);
+  margin-left: 2px;
 }
 
 .sublabel {
   font-size: 11px;
   color: var(--text-tertiary, #9ea1b1);
+}
+
+.sublabel-warn {
+  color: #d97706;
 }
 
 .upgrade-hint {

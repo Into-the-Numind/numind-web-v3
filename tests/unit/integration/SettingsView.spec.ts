@@ -57,14 +57,17 @@ describe('SettingsView — credit cards 嵌入', () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'standard' }
     const credits = useCreditsStore()
-    credits.balance = {
-      balance: 1000,
-      sub_total: 1000,
-      sub_remain: 700,
+    // BalanceDTO 新格式 — 通过 cast 注入 membership_state + cycle_remaining
+    const balance = {
+      balance: 0,
+      sub_total: 0,
+      sub_remain: 0,
       booster_total: 0,
-      booster_remain: 0,
-      billing_mode: 'credits'
-    }
+      booster_remain: 0
+    } as Record<string, unknown>
+    balance.membership_state = 'pro'
+    balance.cycle_remaining = 700
+    credits.balance = balance as unknown as typeof credits.balance
 
     const wrapper = await mountSettings()
 
@@ -78,14 +81,16 @@ describe('SettingsView — credit cards 嵌入', () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'standard' }
     const credits = useCreditsStore()
-    credits.balance = {
-      balance: 1000,
-      sub_total: 1000,
-      sub_remain: 700,
+    const balance = {
+      balance: 0,
+      sub_total: 0,
+      sub_remain: 0,
       booster_total: 0,
-      booster_remain: 0,
-      billing_mode: 'credits'
-    }
+      booster_remain: 0
+    } as Record<string, unknown>
+    balance.membership_state = 'pro'
+    balance.cycle_remaining = 700
+    credits.balance = balance as unknown as typeof credits.balance
 
     const wrapper = await mountSettings()
 
@@ -123,6 +128,7 @@ describe('SettingsView — credit cards 嵌入', () => {
   it('free tier 下 CreditBalanceCard 显示升级引导，不影响 booster 灰态', async () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'free' }
+    // membership_state='free' 是默认（balance 为 null）— 不需注入 balance
 
     const wrapper = await mountSettings()
 

@@ -81,21 +81,24 @@ describe('CreditBalanceCard — free 状态（Q2: 联系管理员）', () => {
 })
 
 describe('CreditBalanceCard — credits 状态', () => {
-  it('有积分包 + 加量包有余额 → 双档渲染', async () => {
+  it('pro 会员有 cycle 积分 + 加量包余额 → 双档渲染（单数字加量包）', async () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'premium' }
     const credits = useCreditsStore()
-    const balance: QuotaBreakdown = {
-      balance: 1100,
-      sub_total: 1000,
-      sub_remain: 700,
-      booster_total: 400,
-      booster_remain: 350,
-      sub_expires_at: '2026-04-30T23:59:59Z',
-      booster_earliest_expires_at: '2026-07-15T23:59:59Z'
-    }
-    // cycle_remaining 是 BalanceDTO 字段，QuotaBreakdown 不含；测试里 cast 注入
+    // BalanceDTO 新格式：使用 cast 通过 QuotaBreakdown 类型，但实际填新字段
+    const balance = {
+      // 旧字段保留 0（后端已不返回，前端不再读）
+      balance: 0,
+      sub_total: 0,
+      sub_remain: 0,
+      booster_total: 400, // 注：后端字段名 total 但语义=remaining
+      booster_remain: 0,
+      // 新字段
+      sub_expires_at: '2026-04-30T23:59:59Z'
+    } as QuotaBreakdown
+    ;(balance as unknown as Record<string, unknown>).membership_state = 'pro'
     ;(balance as unknown as Record<string, unknown>).cycle_remaining = 700
+    ;(balance as unknown as Record<string, unknown>).booster_usable = 400
     credits.balance = balance
     const wrapper = mountCard()
     await flushPromises()
@@ -103,22 +106,27 @@ describe('CreditBalanceCard — credits 状态', () => {
     expect(wrapper.attributes('data-state')).toBe('credits')
     expect(wrapper.find('.credit-row.subscription').exists()).toBe(true)
     expect(wrapper.find('.credit-row.booster').exists()).toBe(true)
+    // cycleRemaining=700 显示
     expect(wrapper.text()).toContain('700')
-    expect(wrapper.text()).toContain('350')
+    // 新版加量包改单数字 boosterTotal=400（不再用 booster_remain 作分子）
     expect(wrapper.text()).toContain('400')
+    expect(wrapper.text()).toContain('积分')
   })
 
-  it('有积分包 + 加量包 total=0 → 只渲染订阅段', async () => {
+  it('pro 会员有 cycle 积分 + 加量包 total=0 → 只渲染会员段', async () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'standard' }
     const credits = useCreditsStore()
-    credits.balance = {
-      balance: 1000,
-      sub_total: 1000,
-      sub_remain: 1000,
+    const balance = {
+      balance: 0,
+      sub_total: 0,
+      sub_remain: 0,
       booster_total: 0,
       booster_remain: 0
-    }
+    } as QuotaBreakdown
+    ;(balance as unknown as Record<string, unknown>).membership_state = 'pro'
+    ;(balance as unknown as Record<string, unknown>).cycle_remaining = 1000
+    credits.balance = balance
     const wrapper = mountCard()
     await flushPromises()
     expect(wrapper.attributes('data-state')).toBe('credits')
@@ -126,19 +134,44 @@ describe('CreditBalanceCard — credits 状态', () => {
     expect(wrapper.find('.credit-row.booster').exists()).toBe(false)
   })
 
-  it('tier 非 free → 视为 credits（新制默认）', async () => {
+  it('trial 会员有试用积分 → 视为 credits（试用档渲染）', async () => {
     const user = useUserStore()
     user.userInfo = { id: 1, username: 'u1', user_tier: 'trial' }
     const credits = useCreditsStore()
-    credits.balance = {
-      balance: 100,
-      sub_total: 100,
-      sub_remain: 100,
+    const balance = {
+      balance: 0,
+      sub_total: 0,
+      sub_remain: 0,
       booster_total: 0,
       booster_remain: 0
-    }
+    } as QuotaBreakdown
+    ;(balance as unknown as Record<string, unknown>).membership_state = 'trial'
+    ;(balance as unknown as Record<string, unknown>).trial_remaining = 100
+    credits.balance = balance
     const wrapper = mountCard()
     await flushPromises()
     expect(wrapper.attributes('data-state')).toBe('credits')
+    expect(wrapper.find('.credit-row.trial').exists()).toBe(true)
+    expect(wrapper.text()).toContain('100')
+  })
+
+  it('加量包冻结（pro 过期 + 仍有余额）→ 显示加量包数字 + 冻结提示', async () => {
+    const credits = useCreditsStore()
+    const balance = {
+      balance: 0,
+      sub_total: 0,
+      sub_remain: 0,
+      booster_total: 580,
+      booster_remain: 0
+    } as QuotaBreakdown
+    ;(balance as unknown as Record<string, unknown>).membership_state = 'free'
+    ;(balance as unknown as Record<string, unknown>).booster_usable = 0
+    credits.balance = balance
+    const wrapper = mountCard()
+    await flushPromises()
+    expect(wrapper.attributes('data-state')).toBe('credits')
+    expect(wrapper.find('.credit-row.booster').exists()).toBe(true)
+    expect(wrapper.text()).toContain('580')
+    expect(wrapper.text()).toContain('需开通会员后可用')
   })
 })

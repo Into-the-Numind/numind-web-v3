@@ -31,28 +31,25 @@
 
 <script setup lang="ts">
 /**
- * BoosterPurchaseCard — 3 状态加量包购买卡（credits-system Track E.4，Q2 改造）
+ * BoosterPurchaseCard — 3 状态加量包购买卡（B2B2C 模式）
  *
  * ## 三态交互矩阵
  *
- * | cardState  | 条件                                    | 点击行为              | CTA 文案             |
- * |------------|-----------------------------------------|-----------------------|----------------------|
- * | `credits`  | tier standard/premium 且有积分包        | 触发 purchase emit    | "立即购买"           |
- * | `free`     | tier=free                               | 无动作（禁用）        | "请联系管理员开通"   |
- * | `trial`    | tier=trial                              | 无动作（禁用）        | "请联系管理员开通"   |
+ * | cardState  | 条件                                                  | 点击行为           | 渲染                   |
+ * |------------|-------------------------------------------------------|--------------------|------------------------|
+ * | `credits`  | displayState='pro' 或 booster_total>0                 | emit purchase      | 价格行 + perks + CTA   |
+ * | `trial`    | displayState='trial'                                  | 无动作（禁用）     | 价格行（仅信息，无 CTA）|
+ * | `free`     | displayState='free' 且无 booster 余额                 | 无动作（禁用）     | 价格行（仅信息，无 CTA）|
  *
- * Q2 变更（B2B2C 模式）：C 端不能自购会员。free/trial 灰态点击从"跳转会员购买"
- * 改为"无动作 + 联系管理员提示"，与 CreditBalanceCard free state 保持一致。
- * 两种非 credits 状态统一 no-route，只有 credits 会员可点击触发购买（走 QR 扫码）。
+ * B2B2C 现状：C 端不能自购会员；trial 体验期当前禁用自购（spec §4.2.6 与 CLAUDE.md §1
+ * 的"booster 不受 B2B2C 限制"存在文字冲突，但 prod 行为锁定为 trial 禁用 — 改动需走
+ * 独立 spec 决策）。free / trial 灰态仅展示价格信息，不提供 CTA 也不跳转。
  *
  * ## Emits
  *
  * - `purchase`：仅 credits 状态下点击触发，父组件接管订单流程
- *
- * Refs: spec §4.2.6, plan Track E.4, Q2 gap-fill (B2B2C 子账户不自购)
  */
 import { computed } from 'vue'
-import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 
 interface Props {
@@ -67,27 +64,22 @@ withDefaults(defineProps<Props>(), {
 })
 const emit = defineEmits<{ (e: 'purchase'): void }>()
 
-const user = useUserStore()
 const creditsStore = useCreditsStore()
 
-const tier = computed(() => {
-  const info = user.userInfo as Record<string, unknown> | null
-  const raw = (info?.user_tier ?? info?.tier ?? info?.plan ?? 'free') as string
-  return String(raw).toLowerCase()
-})
-
 /**
- * 三态优先级：
- *   1. 有积分包（sub_total > 0 或 booster_total > 0）→ 'credits'（可购买）
- *   2. user_tier !== free（兼容）                    → 'credits'
- *   3. user_tier=trial                               → 'trial'
- *   4. 其它                                          → 'free'
+ * 三态判定（数据源：credits store displayState 计算自 BalanceDTO.membership_state）：
+ *   - 'pro'（在期会员）          → 'credits'（可购买）
+ *   - 'trial'（体验期）           → 'trial'（按当前业务规则禁用自购）
+ *   - 'free' 且无 booster 余额    → 'free'（禁用，提示联系管理员）
+ *   - 'free' 但有 booster 余额    → 'credits'（兼容历史 Pro 过期但仍有加量包余额场景）
  */
 const cardState = computed<'credits' | 'free' | 'trial'>(() => {
-  const bal = creditsStore.balance
-  if ((bal?.sub_total ?? 0) > 0 || (bal?.booster_total ?? 0) > 0) return 'credits'
-  if (tier.value === 'trial') return 'trial'
-  if (tier.value !== 'free') return 'credits'
+  const ds = creditsStore.displayState
+  if (ds === 'pro') return 'credits'
+  if (ds === 'trial') return 'trial'
+  const bal = creditsStore.balance as unknown as Record<string, unknown> | null
+  const boosterTotal = typeof bal?.booster_total === 'number' ? bal.booster_total : 0
+  if (boosterTotal > 0) return 'credits'
   return 'free'
 })
 

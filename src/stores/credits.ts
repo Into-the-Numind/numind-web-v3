@@ -48,11 +48,14 @@ export const useCreditsStore = defineStore('credits', () => {
 
   // ── Getters ──────────────────────────────────────────────────────────────
 
-  /** 当前 credits 模式下可用总额度（sub_remain + booster_remain）。 */
+  /** 当前可用总额度（cycle + booster_usable + trial — BalanceDTO 新字段）。 */
   const totalRemain = computed(() => {
-    const b = balance.value
+    const b = balance.value as unknown as Record<string, unknown> | null
     if (!b) return 0
-    return (b.sub_remain ?? 0) + (b.booster_remain ?? 0)
+    const cycle = typeof b.cycle_remaining === 'number' ? b.cycle_remaining : 0
+    const boosterUsable = typeof b.booster_usable === 'number' ? b.booster_usable : 0
+    const trial = typeof b.trial_remaining === 'number' ? b.trial_remaining : 0
+    return cycle + boosterUsable + trial
   })
 
   /**
