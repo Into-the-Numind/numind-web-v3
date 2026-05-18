@@ -1,8 +1,17 @@
 <template>
   <div class="credit-balance-card" :data-state="cardState">
-    <!-- credits 模式：订阅 + 加量包双档 -->
+    <!-- credits 模式：试用 + 订阅 + 加量包 三档 -->
     <template v-if="cardState === 'credits'">
-      <div class="credit-row subscription">
+      <div v-if="trialRemaining > 0" class="credit-row trial">
+        <span class="label">试用积分</span>
+        <span class="value">
+          <strong>{{ trialRemaining }}</strong>
+        </span>
+        <span v-if="trialExpiresAtStr" class="sublabel">
+          {{ formatDate(trialExpiresAtStr) }} 过期
+        </span>
+      </div>
+      <div v-if="(balance?.sub_total ?? 0) > 0" class="credit-row subscription">
         <span class="label">会员积分</span>
         <span class="value">
           <strong>{{ balance?.sub_remain ?? 0 }}</strong>
@@ -78,19 +87,35 @@ const tier = computed(() => {
   return String(raw).toLowerCase()
 })
 
+/** trial_remaining（BalanceDTO 字段）。QuotaBreakdown 不含此字段，需 cast 读取。 */
+const trialRemaining = computed((): number => {
+  const b = balance.value as unknown as Record<string, unknown> | null
+  const v = b?.trial_remaining
+  return typeof v === 'number' ? v : 0
+})
+
+/** trial_expires_at（BalanceDTO 字段）。 */
+const trialExpiresAtStr = computed((): string => {
+  const b = balance.value as unknown as Record<string, unknown> | null
+  const v = b?.trial_expires_at
+  return typeof v === 'string' ? v : ''
+})
+
 /**
- * 三态判定（修正优先级）：
- *   1. billing_mode === 'credits' 且有活跃订阅（sub_total > 0）→ 'credits'
- *   2. billing_mode === 'legacy_tier'                           → 'legacy'
- *   3. 其它（free，无订阅）                                      → 'free'
+ * 三态判定：
+ *   1. billing_mode === 'credits' 且有任一非零额度（试用 / 订阅 / 加量包）→ 'credits'
+ *   2. billing_mode === 'legacy_tier'                                       → 'legacy'
+ *   3. 其它（无任何额度）                                                    → 'free'
  *
- * 旧逻辑先看 user_tier，但 credits 制下 user_tier 始终为 'free'，
- * 导致已购会员的 credits 用户被误判为 free。
+ * 注意：trial_remaining 必须计入触发条件，否则仅持有试用积分的用户会被误判为 free
+ * 并看到"请联系您的管理员开通会员"，而他们其实有 200 积分可用。
  */
 const cardState = computed<'free' | 'legacy' | 'credits'>(() => {
   if (
     balance.value?.billing_mode === 'credits' &&
-    (balance.value.sub_total > 0 || balance.value.booster_total > 0)
+    (balance.value.sub_total > 0 ||
+      balance.value.booster_total > 0 ||
+      trialRemaining.value > 0)
   )
     return 'credits'
   if (balance.value?.billing_mode === 'legacy_tier') return 'legacy'
