@@ -92,3 +92,18 @@ e2e/                # Playwright E2E 测试
 
 工具：`e2e/helpers/diagnose.ts`（`createDiagnostics`）
 模板和 API 详见 `Claude Code/infra-guide.md` 第 11 节。
+
+---
+
+## §7 部署命令（新链路，2026-05-19 起）
+
+| 命令 | 干什么 |
+|------|--------|
+| `/deploy-dev` | 当前代码 → dev 用户端（http://49.233.219.254:9200）|
+| `/deploy-prod` | 需 `v*` git tag → prod（https://youshu.asia/）|
+
+底层 `scripts/cicd/release.sh`（Mac 端）→ rsync 到构建机（成都）→ npm build → push TCR（广州）→ SSH 部署机替换容器。部署后自动清理旧镜像。prod 健康检查失败自动 rollback。
+
+老链路（GH Actions + DockerHub）**已禁用，yaml 保留作 fallback**，详见 `.github/workflows/ci-cd.yml` 顶部注释。
+
+完整流程见根目录 `CLAUDE.md §5`。
