@@ -309,15 +309,26 @@ const sopWorkflows = computed<OnlineWorkflow[]>(() => templateWorkflows.value)
 // agentCards 合并"销售智能体"和普通 chatbot 成同构数组，一起按 hasPermission 排序
 // （销售智能体本质上也是一种 chatbot，不应永远占位 index 0）。
 // Stable sort 保留组内原始顺序：sales 先于 chatbot（初始），chatbots 内部按后端返回顺序。
+//
+// sop-salesrag-parent-scope 多租户隔离 (2026-05-19):
+// 销售智能体磁贴**仅在 hasSalesPermission=true 时渲染**, 不再"无权限时显示带锁卡片"。
+// 产品语义: 销售智能体只属于 user 30 及其子账户, 其他租户根本看不到 (不只是锁住).
+// 后端 /v1/sales-rag/check-permission 返回 has_permission=false 即视为"不属于本租户",
+// 完整 hide 磁贴。
 const agentCards = computed<AgentCard[]>(() => {
-  const all: AgentCard[] = [
-    {
+  const all: AgentCard[] = []
+
+  if (hasSalesPermission.value) {
+    all.push({
       key: 'agent-sales',
       type: 'sales',
       title: '销售智能体',
       subtitle: 'AI驱动的智能销售助手',
-      hasPermission: hasSalesPermission.value
-    },
+      hasPermission: true
+    })
+  }
+
+  all.push(
     ...chatbots.value.map<AgentCard>((bot) => ({
       key: `chatbot-${bot.id}`,
       type: 'chatbot',
@@ -326,7 +337,8 @@ const agentCards = computed<AgentCard[]>(() => {
       hasPermission: bot.has_permission ?? true,
       chatbot: bot
     }))
-  ]
+  )
+
   all.sort((a, b) => Number(b.hasPermission) - Number(a.hasPermission))
   return all
 })
