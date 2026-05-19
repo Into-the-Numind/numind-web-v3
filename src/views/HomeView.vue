@@ -18,8 +18,91 @@
         </div>
       </div>
 
+      <!-- 空工作台：两个 section 都没有内容时，给一个友好的引导而不是双 empty label -->
+      <div v-if="isWorkspaceEmpty" class="empty-workspace">
+        <div class="empty-workspace__art" aria-hidden="true">
+          <svg viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- 剪贴板主体 -->
+            <rect
+              x="20"
+              y="18"
+              width="56"
+              height="64"
+              rx="6"
+              stroke="#cfd2dc"
+              stroke-width="1.5"
+              fill="#fafbfc"
+            />
+            <!-- 剪贴板顶部夹子 -->
+            <rect
+              x="36"
+              y="12"
+              width="24"
+              height="12"
+              rx="3"
+              stroke="#cfd2dc"
+              stroke-width="1.5"
+              fill="#ffffff"
+            />
+            <!-- 三行待开通的列表占位 -->
+            <line
+              x1="32"
+              y1="40"
+              x2="58"
+              y2="40"
+              stroke="#e3e5ec"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+            <line
+              x1="32"
+              y1="52"
+              x2="52"
+              y2="52"
+              stroke="#e3e5ec"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+            <line
+              x1="32"
+              y1="64"
+              x2="60"
+              y2="64"
+              stroke="#e3e5ec"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+            <!-- 翠绿小圆点：从亮到淡，暗示"开通之后会依次到来" -->
+            <circle cx="25" cy="40" r="2" fill="hsl(160, 75%, 42%)" />
+            <circle cx="25" cy="52" r="2" fill="hsl(160, 55%, 65%)" />
+            <circle cx="25" cy="64" r="2" fill="hsl(160, 40%, 80%)" />
+          </svg>
+        </div>
+        <h2 class="empty-workspace__title">工作台尚未开通</h2>
+        <p class="empty-workspace__desc">
+          管理员还没有为您配置 AI 工作流或智能体。<br />
+          开通之后，可用的工具会在这里依次出现。
+        </p>
+        <div class="empty-workspace__hint">
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M3 4.5C3 3.67157 3.67157 3 4.5 3H11.5C12.3284 3 13 3.67157 13 4.5V11C13 11.8284 12.3284 12.5 11.5 12.5H5.5L3 14.5V4.5Z"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linejoin="round"
+            />
+          </svg>
+          如需开通，请联系您的客户经理
+        </div>
+      </div>
+
       <!-- AI 工作流 -->
-      <div class="workspace-section">
+      <div v-if="sopWorkflows.length" class="workspace-section">
         <div class="section-label">AI 工作流</div>
         <div class="feature-cards">
           <button
@@ -120,7 +203,7 @@
       </div>
 
       <!-- AI 智能体 (销售智能体 + chatbot 统一排序，unlocked 在前) -->
-      <div class="workspace-section">
+      <div v-if="agentCards.length" class="workspace-section">
         <div class="section-label">AI 智能体</div>
         <div class="feature-cards">
           <button
@@ -287,7 +370,14 @@ const userStore = useUserStore()
 
 const templateWorkflows = ref<OnlineWorkflow[]>([])
 const launchingWorkflowKey = ref<string | null>(null)
-const pageLoading = ref(true)
+// 三个独立 loading flag：等三个请求全部完成才退出 loading，避免空状态在
+// chatbot/sales-check 还在加载时短暂闪现 (S0 视觉抖动).
+const templatesLoading = ref(true)
+const chatbotsLoading = ref(true)
+const salesLoading = ref(true)
+const pageLoading = computed(
+  () => templatesLoading.value || chatbotsLoading.value || salesLoading.value
+)
 const showPermissionModal = ref(false)
 const hasSalesPermission = ref(true)
 const permissionMessage = ref('')
@@ -343,6 +433,12 @@ const agentCards = computed<AgentCard[]>(() => {
   return all
 })
 
+// 工作台完全空 (两个 section 都 0 条) -> 渲染 empty state 而不是孤立的 section 标签.
+// loading 阶段由 pageLoading 提前 short-circuit, 这里只看派生数据.
+const isWorkspaceEmpty = computed(
+  () => sopWorkflows.value.length === 0 && agentCards.value.length === 0
+)
+
 const getTemplateId = (template: SopTemplate): number | null => {
   const rawId = template.ID ?? template.id ?? template.Id
   const numericId = Number(rawId)
@@ -364,7 +460,7 @@ const checkTemplatePermission = async (templateId: number): Promise<boolean> => 
 }
 
 const fetchTemplates = async () => {
-  pageLoading.value = true
+  templatesLoading.value = true
   try {
     const res = await request.get('/v1/sop/templates')
     const payload = (res as any)?.data
@@ -403,7 +499,7 @@ const fetchTemplates = async () => {
     console.error('获取SOP模板失败:', error)
     templateWorkflows.value = []
   } finally {
-    pageLoading.value = false
+    templatesLoading.value = false
   }
 }
 
@@ -472,6 +568,7 @@ const handleAgentCardClick = async (card: AgentCard) => {
 }
 
 const fetchChatbots = async () => {
+  chatbotsLoading.value = true
   try {
     const res = await listVisibleChatbots()
     // No sort here — agentCards computed does the unified sort (sales + chatbots
@@ -480,13 +577,26 @@ const fetchChatbots = async () => {
   } catch (error) {
     console.error('获取智能体列表失败:', error)
     chatbots.value = []
+  } finally {
+    chatbotsLoading.value = false
   }
 }
 
-onMounted(async () => {
+const fetchSalesPermission = async () => {
+  salesLoading.value = true
+  try {
+    hasSalesPermission.value = await checkSalesPermission()
+  } finally {
+    salesLoading.value = false
+  }
+}
+
+onMounted(() => {
+  // 三个请求并行, 各自维护自己的 loading flag.
+  // pageLoading (computed) 等三者全部完成才退出, 防止 empty state flicker.
   void fetchTemplates()
   void fetchChatbots()
-  hasSalesPermission.value = await checkSalesPermission()
+  void fetchSalesPermission()
 })
 </script>
 
@@ -657,6 +767,89 @@ onMounted(async () => {
   flex: 1;
 }
 
+/* ===== Empty Workspace =====
+   触发条件: SOP + agent 两个 section 都 0 条 (新租户尚未开通任何工具).
+   设计目标: 替代孤立的"section 标签 + 空白"格局, 给一个明确的"下一步".
+   - 衬线 heading 承袭品牌「刊物气质 + 工业可靠」, 与 hero title 同字体
+   - 翠绿胶囊 hint 不做成 button (offline 动作: 联系客户经理), 但保留视觉权重
+   - SVG 用三档渐变的小圆点暗示"开通后会依次到来"的节奏感, 非装饰性 illustration */
+.empty-workspace {
+  max-width: 720px;
+  margin: 24px auto 0;
+  padding: 64px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: empty-enter 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes empty-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.empty-workspace__art {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-workspace__art svg {
+  width: 100%;
+  height: 100%;
+}
+
+.empty-workspace__title {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 600;
+  color: #1e2130;
+  margin: 0 0 14px;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.empty-workspace__desc {
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: #6b7085;
+  margin: 0 0 24px;
+  max-width: 420px;
+}
+
+.empty-workspace__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(160, 38%, 32%);
+  padding: 10px 18px;
+  background: hsl(160, 50%, 96%);
+  border: 1px solid hsl(160, 40%, 88%);
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+}
+
+.empty-workspace__hint svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: hsl(160, 75%, 42%);
+}
+
 /* ===== Loading ===== */
 .loading-state {
   display: flex;
@@ -803,6 +996,25 @@ onMounted(async () => {
 
   .feature-card-desc {
     font-size: 13px;
+  }
+
+  .empty-workspace {
+    padding: 40px 20px;
+    margin-top: 8px;
+  }
+
+  .empty-workspace__art {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+  }
+
+  .empty-workspace__title {
+    font-size: 22px;
+  }
+
+  .empty-workspace__desc {
+    font-size: 13.5px;
   }
 }
 </style>
