@@ -80,7 +80,7 @@
         </div>
         <h2 class="empty-workspace__title">我翻了好几遍，这里还是空的</h2>
         <p class="empty-workspace__desc">
-          账户里没有任何 AI 工作流或智能体——<br />
+          这里没有任何 AI 工具——<br />
           不是 bug，是管理员还没来得及为您开通而已。
         </p>
         <div class="empty-workspace__hint">
@@ -97,7 +97,7 @@
               stroke-linejoin="round"
             />
           </svg>
-          去戳一下客户经理，工具就会出现
+          去戳一下管理员，工具就会出现
         </div>
       </div>
 
@@ -773,13 +773,17 @@ onMounted(() => {
    - 衬线 heading 承袭品牌「刊物气质 + 工业可靠」, 与 hero title 同字体
    - 翠绿胶囊 hint 不做成 button (offline 动作: 联系客户经理), 但保留视觉权重
    - SVG 用三档渐变的小圆点暗示"开通后会依次到来"的节奏感, 非装饰性 illustration */
+/* 垂直居中: 占满 hero 以下的剩余视口 (主面板 padding 72px + hero ~160px ≈ 232px),
+   留 24px 余量 → 256px. 用 100dvh 兼容移动端浏览器 chrome 收缩. */
 .empty-workspace {
   max-width: 720px;
-  margin: 24px auto 0;
-  padding: 64px 32px;
+  margin: 0 auto;
+  padding: 0 32px;
+  min-height: calc(100dvh - 256px);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
   animation: empty-enter 0.45s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -999,8 +1003,9 @@ onMounted(() => {
   }
 
   .empty-workspace {
-    padding: 40px 20px;
-    margin-top: 8px;
+    /* 移动端 hero 更紧凑 (~100px) + main-panel padding 不同, 留稍少的余量. */
+    padding: 0 20px;
+    min-height: calc(100dvh - 200px);
   }
 
   .empty-workspace__art {
