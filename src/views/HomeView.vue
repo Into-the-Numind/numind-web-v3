@@ -78,10 +78,10 @@
             <circle cx="25" cy="64" r="2" fill="hsl(160, 40%, 80%)" />
           </svg>
         </div>
-        <h2 class="empty-workspace__title">工作台尚未开通</h2>
+        <h2 class="empty-workspace__title">我翻了好几遍，这里还是空的</h2>
         <p class="empty-workspace__desc">
-          管理员还没有为您配置 AI 工作流或智能体。<br />
-          开通之后，可用的工具会在这里依次出现。
+          账户里没有任何 AI 工作流或智能体——<br />
+          不是 bug，是管理员还没来得及为您开通而已。
         </p>
         <div class="empty-workspace__hint">
           <svg
@@ -97,7 +97,7 @@
               stroke-linejoin="round"
             />
           </svg>
-          如需开通，请联系您的客户经理
+          去戳一下客户经理，工具就会出现
         </div>
       </div>
 
@@ -810,9 +810,9 @@ onMounted(() => {
 }
 
 .empty-workspace__title {
-  font-family: var(--font-heading);
-  font-size: 26px;
-  font-weight: 600;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 650;
   color: #1e2130;
   margin: 0 0 14px;
   letter-spacing: -0.01em;
