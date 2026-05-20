@@ -143,49 +143,49 @@
                   <span class="status-dot-inner"></span>
                   {{ statusLabel(record) }}
                 </span>
-                <!-- 管理模式删除 -->
-                <button
-                  v-if="manageMode"
-                  class="card-delete-btn"
-                  title="删除此记录"
-                  @click.stop="handleSingleDelete(record.runId)"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="14"
-                    height="14"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                <div class="card-top-right">
+                  <span class="card-meta">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="12"
+                      height="12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    {{ formatTime(record.executedAt) }}
+                  </span>
+                  <button
+                    v-if="manageMode"
+                    class="card-delete-btn"
+                    title="删除此记录"
+                    @click.stop="handleSingleDelete(record.runId)"
                   >
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path
-                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                    ></path>
-                  </svg>
-                </button>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path
+                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                      ></path>
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div class="card-title">{{ record.templateName }}</div>
-
-              <div class="card-meta">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="13"
-                  height="13"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                {{ formatTime(record.executedAt) }}
-              </div>
 
               <!-- 进度 -->
               <div class="card-progress">
@@ -791,8 +791,8 @@ onMounted(() => {
   flex-direction: column;
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
   border: 1px solid hsla(155, 30%, 90%, 0.7);
-  border-radius: 20px;
-  padding: 22px;
+  border-radius: 16px;
+  padding: 14px 16px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
   box-shadow:
@@ -821,8 +821,8 @@ onMounted(() => {
 /* Checkbox */
 .checkbox-wrapper {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: 10px;
+  left: 10px;
   z-index: 2;
   cursor: pointer;
 }
@@ -835,10 +835,10 @@ onMounted(() => {
 }
 
 .checkbox-mark {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border: 2px solid hsl(155, 20%, 82%);
-  border-radius: 6px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -864,17 +864,26 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .status-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
+  gap: 5px;
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .status-indicator.completed {
@@ -904,23 +913,23 @@ onMounted(() => {
 }
 
 .card-title {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 650;
   color: hsl(155, 25%, 18%);
   line-height: 1.3;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .card-meta {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 13px;
+  gap: 4px;
+  font-size: 12px;
   color: hsl(155, 12%, 55%);
-  margin-bottom: 16px;
+  white-space: nowrap;
 }
 
 /* Progress */
@@ -967,15 +976,15 @@ onMounted(() => {
 
 /* Delete Button */
 .card-delete-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   color: hsl(150, 10%, 65%);
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
