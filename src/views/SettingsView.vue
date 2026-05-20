@@ -6,12 +6,12 @@
         <h1 class="page-title">设置</h1>
       </div>
 
-      <!-- Section: 我的积分
+      <!-- Section: 积分与加量包
            CreditBalanceCard 二态渲染（credits / free）按 creditsStore.displayState；
            BoosterPurchaseCard 三态交互（credits / trial / free）按同一 displayState。
            余额数据由 creditsStore.fetchBalance()（onMounted 触发）填充。 -->
       <div class="settings-section">
-        <div class="section-label">我的积分</div>
+        <div class="section-label">积分与加量包</div>
         <div class="credit-grid">
           <CreditBalanceCard />
           <BoosterPurchaseCard @purchase="handleBoosterPurchase" />
