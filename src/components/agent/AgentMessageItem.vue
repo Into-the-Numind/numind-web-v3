@@ -10,6 +10,10 @@ import type {
   FinalAnswerMessage,
   SystemMessage
 } from '@/types/agent'
+import AgentPlanCard from './AgentPlanCard.vue'
+import AgentToolCallList from './AgentToolCallList.vue'
+import AgentArtifactItem from './AgentArtifactItem.vue'
+import AgentFinalAnswer from './AgentFinalAnswer.vue'
 
 interface Props {
   msg: AgentMessage
@@ -77,53 +81,40 @@ const systemText = computed<string>(() => {
     </div>
   </div>
 
-  <!-- Plan card (placeholder — T10 实装 AgentPlanCard.vue 后接线) -->
+  <!-- Plan card -->
   <div v-else-if="asPlan" class="msg msg-plan">
     <span class="avatar">🤖</span>
-    <!-- TODO: 接 T10 AgentPlanCard 组件 -->
-    <div class="plan-placeholder">
-      <p class="plan-title">📋 我的计划</p>
-      <ol class="plan-steps">
-        <li v-for="(step, idx) in asPlan.plan_steps" :key="idx">{{ step }}</li>
-      </ol>
+    <div class="content-wrap">
+      <AgentPlanCard :steps="asPlan.plan_steps" />
     </div>
   </div>
 
-  <!-- Tool group (placeholder — T10 实装 AgentToolCallList 后接线) -->
+  <!-- Tool group -->
   <div v-else-if="asToolGroup" class="msg msg-tool-group">
     <span class="avatar">🤖</span>
-    <!-- TODO: 接 T10 AgentToolCallList 组件 -->
-    <div class="tool-placeholder">
-      <p v-for="tc in asToolGroup.tool_calls" :key="tc.tool_call_id" class="tool-line">
-        <span class="tool-icon">{{
-          tc.current_state === 'result'
-            ? '✓'
-            : tc.current_state === 'error'
-              ? '⚠️'
-              : tc.current_state === 'rejected'
-                ? '✕'
-                : '⋯'
-        }}</span>
-        <span class="tool-msg">{{ tc.events[tc.events.length - 1]?.message ?? '...' }}</span>
-      </p>
+    <div class="content-wrap">
+      <AgentToolCallList :tool-groups="asToolGroup.tool_calls" />
     </div>
   </div>
 
-  <!-- Artifact (placeholder — T11 实装 AgentArtifactItem 后接线) -->
+  <!-- Artifact -->
   <div v-else-if="asArtifact" class="msg msg-artifact">
     <span class="avatar">🤖</span>
-    <!-- TODO: 接 T11 AgentArtifactItem 组件 -->
-    <div class="artifact-placeholder">
-      <a :href="asArtifact.artifact.url" target="_blank">📄 {{ asArtifact.artifact.filename }}</a>
+    <div class="content-wrap">
+      <AgentArtifactItem :artifact="asArtifact.artifact" />
     </div>
   </div>
 
-  <!-- Final answer (placeholder — T11 实装 AgentFinalAnswer + AgentFeedbackBar) -->
+  <!-- Final answer -->
   <div v-else-if="asFinalAnswer" class="msg msg-final">
     <span class="avatar">🤖</span>
-    <!-- TODO: 接 T11 AgentFinalAnswer + AgentFeedbackBar -->
-    <div class="final-placeholder">
-      <p class="final-text">{{ asFinalAnswer.markdown }}</p>
+    <div class="content-wrap">
+      <AgentFinalAnswer
+        :markdown="asFinalAnswer.markdown"
+        :run-id="asFinalAnswer.run_id"
+        :initial-feedback="asFinalAnswer.feedback"
+        :initial-note="asFinalAnswer.feedback_note"
+      />
     </div>
   </div>
 
@@ -198,43 +189,9 @@ const systemText = computed<string>(() => {
   max-width: 80%;
 }
 
-.plan-placeholder,
-.tool-placeholder,
-.artifact-placeholder,
-.final-placeholder {
+.content-wrap {
   flex: 1;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 12px 16px;
-}
-
-.plan-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.plan-steps {
-  margin: 0;
-  padding-left: 20px;
-  font-size: 13px;
-  color: #4b5563;
-}
-
-.plan-steps li {
-  margin-bottom: 4px;
-}
-
-.tool-line {
-  margin: 4px 0;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.tool-icon {
-  margin-right: 6px;
+  max-width: 80%;
 }
 
 .msg-system {
