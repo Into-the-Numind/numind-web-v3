@@ -202,6 +202,66 @@
         </div>
       </div>
 
+      <!-- AI 助手入口 -->
+      <div class="workspace-section">
+        <div class="section-label">AI 助手</div>
+        <div class="feature-cards">
+          <button type="button" class="feature-card" @click="router.push({ name: 'agent-select' })">
+            <div class="card-left">
+              <div class="feature-card-title">AI 助手</div>
+              <div class="feature-card-desc">多步骤自主任务</div>
+            </div>
+            <div class="card-right">
+              <div class="feature-card-icon icon-variant-2">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect
+                    x="4"
+                    y="13"
+                    width="24"
+                    height="14"
+                    rx="3"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <circle
+                    cx="16"
+                    cy="6"
+                    r="3"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M16 9v4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <circle
+                    cx="10"
+                    cy="21"
+                    r="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <circle
+                    cx="22"
+                    cy="21"
+                    r="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-label">🤖 AI 助手</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
       <!-- AI 智能体 (销售智能体 + chatbot 统一排序，unlocked 在前) -->
       <div v-if="agentCards.length" class="workspace-section">
         <div class="section-label">AI 智能体</div>
