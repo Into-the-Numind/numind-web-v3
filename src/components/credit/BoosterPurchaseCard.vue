@@ -123,15 +123,16 @@ function handleClick(): void {
   background: var(--surface-tint, #f9fafb);
 }
 
-/* 两侧月牙凹槽——票券标志性视觉 */
+/* 两侧月牙凹槽——票券"咬掉一口"视觉。
+   无 border + bg 匹配页面背景，让卡片白色被圆形遮住一半，
+   像真的从纸上剪出来一样（带 border 会变成贴纸圆点）。 */
 .booster-card::before,
 .booster-card::after {
   content: '';
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   background: var(--bg-around);
-  border: 1px solid var(--border, #e2e4ea);
   border-radius: 50%;
   top: 50%;
   transform: translateY(-50%);
