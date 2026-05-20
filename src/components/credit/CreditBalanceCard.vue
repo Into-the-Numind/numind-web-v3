@@ -263,6 +263,7 @@ function formatNum(n: number): string {
   overflow: hidden;
 }
 
+/* 三池统一样式：单色 var(--primary)，宽度按各自 % 填充；booster 因无"分母"概念 → 100% */
 .bar-fill {
   height: 100%;
   background: var(--primary, hsl(160, 72%, 40%));
@@ -270,18 +271,8 @@ function formatNum(n: number): string {
   transition: width 350ms ease;
 }
 
-.bar-fill.trial {
-  background: hsl(160, 50%, 60%);
-}
-
-/* booster：横纹纹理表达"累计余额"而非"消耗进度"，与 trial/cycle 区分 */
 .bar-fill.booster {
   width: 100%;
-  background: repeating-linear-gradient(
-    45deg,
-    hsl(160, 72%, 40%) 0 6px,
-    hsl(160, 60%, 50%) 6px 12px
-  );
 }
 
 .pool.frozen .bar-fill {
