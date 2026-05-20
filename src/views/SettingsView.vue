@@ -285,12 +285,14 @@ onMounted(() => {
 }
 
 /* credits-system Phase 2: 两张 credit 卡片并排（宽屏）→ 纵排（窄屏）
-   align-items: start 让卡片按自身内容自然高度，避免短卡片被拉伸出大块空白。 */
+   align-items: stretch 让两卡等高；
+   余额卡的 .pools/.footer flex 布局 + 加量包卡的 .stub/.body flex:1 各占一半
+   负责把多出的高度撑满，避免内部留白。 */
 .credit-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .section-label {

@@ -1,66 +1,71 @@
 <template>
   <div class="credit-balance-card" :data-state="cardState">
-    <!-- credits 模式：仪表盘风（progress bar + tabular nums）-->
+    <!-- credits 模式：仪表盘风（progress bar + tabular nums）
+         结构：title 顶 / pools 中间 flex:1 / footer "可用 N" 底部锚定 -->
     <template v-if="cardState === 'credits'">
-      <div class="head">
-        <div class="title">我的积分</div>
-        <div v-if="totalAvailable > 0" class="total">
-          可用 <strong>{{ formatNum(totalAvailable) }}</strong>
+      <div class="title">我的积分</div>
+
+      <div class="pools">
+        <!-- 试用 / 会员 二选一同位置展示：pro → 会员；trial → 试用；free 看残留 -->
+        <div v-if="showCycleRow" class="pool">
+          <div class="pool-top">
+            <span class="pool-label">会员积分</span>
+            <span class="pool-val">
+              {{ formatNum(cycleRemaining) }}
+              <span class="pool-denom">/ {{ formatNum(SUBSCRIPTION_GRANT_MONTHLY) }}</span>
+            </span>
+          </div>
+          <div class="bar"><div class="bar-fill" :style="{ width: cyclePct + '%' }"></div></div>
+          <div v-if="cycleResetDateStr || cycleDaysLeft !== null" class="pool-meta">
+            <span v-if="cycleResetDateStr">{{ cycleResetDateStr }}</span>
+            <span v-if="cycleDaysLeft !== null" class="pool-meta-right"
+              >剩 {{ cycleDaysLeft }} 天</span
+            >
+          </div>
+        </div>
+        <div v-else-if="showTrialRow" class="pool">
+          <div class="pool-top">
+            <span class="pool-label">试用积分</span>
+            <span class="pool-val">
+              {{ formatNum(trialRemaining) }}
+              <span class="pool-denom">/ {{ formatNum(TRIAL_GRANT) }}</span>
+            </span>
+          </div>
+          <div class="bar">
+            <div class="bar-fill trial" :style="{ width: trialPct + '%' }"></div>
+          </div>
+          <div v-if="trialExpiresAtStr || trialDaysLeft !== null" class="pool-meta">
+            <span v-if="trialExpiresAtStr">{{ formatDate(trialExpiresAtStr) }} 过期</span>
+            <span v-if="trialDaysLeft !== null" class="pool-meta-right"
+              >剩 {{ trialDaysLeft }} 天</span
+            >
+          </div>
+        </div>
+
+        <div v-if="boosterTotal > 0" class="pool" :class="{ frozen: isBoosterFrozen }">
+          <div class="pool-top">
+            <span class="pool-label">加量包</span>
+            <span class="pool-val">
+              {{ formatNum(boosterTotal) }}
+              <span class="pool-denom">积分</span>
+            </span>
+          </div>
+          <div class="bar"><div class="bar-fill booster"></div></div>
+          <div v-if="isBoosterFrozen || boosterEarliestExpires" class="pool-meta">
+            <span v-if="isBoosterFrozen" class="warn">需开通会员后可用</span>
+            <span v-else-if="boosterEarliestExpires">
+              最早 {{ formatDate(boosterEarliestExpires) }} 过期
+            </span>
+          </div>
         </div>
       </div>
 
-      <!-- 试用积分 / 会员积分 二选一同位置展示
-           displayState='trial' → 试用；'pro' → 会员；'free' → 看哪个有残留余额 -->
-      <div v-if="showCycleRow" class="pool">
-        <div class="pool-top">
-          <span class="pool-label">会员积分</span>
-          <span class="pool-val">
-            {{ formatNum(cycleRemaining) }}
-            <span class="pool-denom">/ {{ formatNum(SUBSCRIPTION_GRANT_MONTHLY) }}</span>
-          </span>
-        </div>
-        <div class="bar"><div class="bar-fill" :style="{ width: cyclePct + '%' }"></div></div>
-        <div class="pool-meta">
-          <span v-if="cycleEndStr">{{ formatDate(cycleEndStr) }} 当期重置</span>
-          <span v-else-if="subExpiresAtStr">{{ formatDate(subExpiresAtStr) }} 会员到期</span>
-          <span v-if="cycleDaysLeft !== null" class="pool-meta-right"
-            >剩 {{ cycleDaysLeft }} 天</span
-          >
-        </div>
-      </div>
-      <div v-else-if="showTrialRow" class="pool">
-        <div class="pool-top">
-          <span class="pool-label">试用积分</span>
-          <span class="pool-val">
-            {{ formatNum(trialRemaining) }}
-            <span class="pool-denom">/ {{ formatNum(TRIAL_GRANT) }}</span>
-          </span>
-        </div>
-        <div class="bar"><div class="bar-fill trial" :style="{ width: trialPct + '%' }"></div></div>
-        <div class="pool-meta">
-          <span v-if="trialExpiresAtStr">{{ formatDate(trialExpiresAtStr) }} 过期</span>
-          <span v-if="trialDaysLeft !== null" class="pool-meta-right"
-            >剩 {{ trialDaysLeft }} 天</span
-          >
-        </div>
-      </div>
-
-      <div v-if="boosterTotal > 0" class="pool" :class="{ frozen: isBoosterFrozen }">
-        <div class="pool-top">
-          <span class="pool-label">加量包</span>
-          <span class="pool-val">
-            {{ formatNum(boosterTotal) }}
-            <span class="pool-denom">积分</span>
-          </span>
-        </div>
-        <div class="bar"><div class="bar-fill booster"></div></div>
-        <div class="pool-meta">
-          <span v-if="isBoosterFrozen" class="warn">需开通会员后可用</span>
-          <span v-else-if="boosterEarliestExpires">
-            最早 {{ formatDate(boosterEarliestExpires) }} 过期
-          </span>
-          <span v-else>累加余额，不清零</span>
-        </div>
+      <div v-if="totalAvailable > 0" class="footer">
+        <span class="footer-label">可用合计</span>
+        <span class="footer-val">
+          {{ formatNum(totalAvailable) }}
+          <span class="footer-unit">积分</span>
+        </span>
       </div>
     </template>
 
@@ -153,6 +158,12 @@ const cycleDaysLeft = computed((): number | null => {
   return daysUntil(cycleEndStr.value || subExpiresAtStr.value)
 })
 
+// 会员 row 左侧 meta：当期重置日期优先，否则会员到期日期。不再加"当期重置 / 会员到期"标签。
+const cycleResetDateStr = computed((): string => {
+  const iso = cycleEndStr.value || subExpiresAtStr.value
+  return iso ? formatDate(iso) : ''
+})
+
 function clampPct(n: number): number {
   if (!isFinite(n) || n < 0) return 0
   if (n > 100) return 100
@@ -187,7 +198,6 @@ function formatNum(n: number): string {
 .credit-balance-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
   padding: 20px 20px 18px;
   background: var(--surface, #fff);
   border: 1px solid var(--border, #e2e4ea);
@@ -195,29 +205,23 @@ function formatNum(n: number): string {
   box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.06));
 }
 
-.head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
 .title {
   font-size: 15px;
   font-weight: 600;
   color: var(--text, #1a1d26);
   letter-spacing: -0.005em;
+  margin-bottom: 14px;
 }
 
-.total {
-  font-size: 12px;
-  color: var(--text-secondary, #5f6577);
-  font-variant-numeric: tabular-nums;
-}
-
-.total strong {
-  color: var(--text, #1a1d26);
-  font-weight: 600;
-  margin-left: 2px;
+/* pools 占满 title 和 footer 之间的剩余空间，pool 内部均匀分布。
+   align-items: stretch 下卡片被拉到与加量包卡同高时，这里负责吸收多余高度。 */
+.pools {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 16px;
+  min-height: 0;
 }
 
 .pool {
@@ -301,13 +305,43 @@ function formatNum(n: number): string {
   color: #c68a0e;
 }
 
+/* footer：底部锚定的"可用合计"，配合 .pools flex:1 让卡片高度被拉伸时也不留空白 */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 14px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-light, #eeeff3);
+}
+
+.footer-label {
+  font-size: 12px;
+  color: var(--text-secondary, #5f6577);
+  letter-spacing: 0.02em;
+}
+
+.footer-val {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text, #1a1d26);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted, #8b90a0);
+  margin-left: 4px;
+}
+
 /* free 状态：B2B2C 子账户提示 */
 .free-head {
   font-size: 16px;
   font-weight: 600;
   color: var(--text, #1a1d26);
   letter-spacing: -0.005em;
-  margin: 0;
+  margin: 0 0 6px;
 }
 
 .free-sub {

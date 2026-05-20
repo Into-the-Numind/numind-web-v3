@@ -96,14 +96,14 @@ function handleClick(): void {
 <style scoped>
 .booster-card {
   --serif: var(--font-heading, Georgia, 'Songti SC', 'SimSun', serif);
-  --primary: var(--primary, hsl(160, 72%, 40%));
-  --primary-hover: var(--primary-hover, hsl(160, 72%, 34%));
   --bg-around: var(--bg, #f7f8fb);
 
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--surface, #fff);
   border: 1px solid var(--border, #e2e4ea);
-  border-radius: 8px;
+  border-radius: var(--radius-md, 12px);
   box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04));
   cursor: pointer;
   overflow: visible;
@@ -124,33 +124,40 @@ function handleClick(): void {
 }
 
 /* 两侧月牙凹槽——票券"咬掉一口"视觉。
-   无 border + bg 匹配页面背景，让卡片白色被圆形遮住一半，
-   像真的从纸上剪出来一样（带 border 会变成贴纸圆点）。 */
+   clip-path 只显示朝内的那半个圆，朝外的一半被裁掉露出页面 bg，
+   实现"半透明 / 半带边线"的真切口效果。配合 stub/body 各占 50% 让 perforation
+   落在 50% 位置，月牙的圆心刚好对齐撕口虚线。 */
 .booster-card::before,
 .booster-card::after {
   content: '';
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   background: var(--bg-around);
+  border: 1px solid var(--border, #e2e4ea);
   border-radius: 50%;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
 }
 .booster-card::before {
-  left: -8px;
+  left: -9px;
+  /* 显示右半边（朝内）— 沿 div 中线垂直切，外半边裁掉 */
+  clip-path: inset(0 0 0 50%);
 }
 .booster-card::after {
-  right: -8px;
+  right: -9px;
+  /* 显示左半边（朝内）*/
+  clip-path: inset(0 50% 0 0);
 }
 
 /* === Stub: 上半部分（hook + headline + anchor） === */
 .stub {
+  flex: 1; /* 与 body 等分卡片高度 → perforation 自动落在垂直中点 → 月牙对齐 */
   padding: 18px 20px 14px;
   background:
     radial-gradient(70% 90% at 50% 0%, hsl(160, 60%, 96%) 0%, transparent 65%), var(--surface, #fff);
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--radius-md, 12px) var(--radius-md, 12px) 0 0;
 }
 
 .stub-eyebrow {
@@ -189,11 +196,12 @@ function handleClick(): void {
 
 /* === Body: 下半部分（price + stamp + perk + CTA） === */
 .body {
+  flex: 1;
   padding: 14px 20px 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 var(--radius-md, 12px) var(--radius-md, 12px);
 }
 
 .price-row {
@@ -232,18 +240,20 @@ function handleClick(): void {
   margin-left: 6px;
 }
 
-/* 印章：橡皮章感的旋转徽记 */
+/* 印章：橡皮章感的旋转徽记。
+   bg + shadow 跟"创建知识库"按钮同款（var(--accent) + accent glow），明亮可见。 */
 .stamp {
   font-family: var(--serif);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--primary);
-  border: 1.5px solid var(--primary);
+  color: #fff;
+  background: var(--accent, hsl(160, 75%, 44%));
+  border: none;
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 5px 11px;
   transform: rotate(-3deg);
-  background: hsl(160, 60%, 98%);
+  box-shadow: 0 4px 12px hsl(158 64% 50% / 0.25);
 }
 
 .perk {
@@ -254,20 +264,22 @@ function handleClick(): void {
   border-left: 2px solid hsl(160, 60%, 88%);
 }
 
-/* CTA：serif label + 翠绿填充，比传统 sans CTA 更"票券"感 */
+/* CTA：serif label + 翠绿填充，比传统 sans CTA 更"票券"感。
+   margin-top: auto 把 CTA 推到 body 底部，与上方信息拉开距离。
+   显式 hsl 兜底防止 var(--primary) 解析失败时透明。 */
 .cta {
   appearance: none;
   border: none;
-  background: var(--primary);
-  color: var(--primary-foreground, #fff);
+  background: var(--primary, hsl(160, 72%, 40%));
+  color: #fff;
   border-radius: 6px;
   padding: 11px 16px;
   font-family: var(--serif);
   font-size: 15px;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0.08em;
   cursor: pointer;
-  margin-top: 2px;
+  margin-top: auto;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.04),
     inset 0 -1px 0 rgba(0, 0, 0, 0.08);
@@ -275,7 +287,7 @@ function handleClick(): void {
 }
 
 .cta:hover {
-  background: var(--primary-hover);
+  background: var(--primary-hover, hsl(160, 72%, 34%));
 }
 
 .hint {
