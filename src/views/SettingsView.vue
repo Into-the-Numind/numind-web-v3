@@ -284,12 +284,13 @@ onMounted(() => {
   margin-bottom: 32px;
 }
 
-/* credits-system Phase 2: 两张 credit 卡片并排（宽屏）→ 纵排（窄屏） */
+/* credits-system Phase 2: 两张 credit 卡片并排（宽屏）→ 纵排（窄屏）
+   align-items: start 让卡片按自身内容自然高度，避免短卡片被拉伸出大块空白。 */
 .credit-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .section-label {
