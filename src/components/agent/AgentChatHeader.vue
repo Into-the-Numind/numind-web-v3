@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { AgentSkill, AgentRun, AgentRunStatus } from '@/types/agent'
+import type { AgentSkill, AgentRun } from '@/types/agent'
 import AppButton from '@/components/common/AppButton.vue'
 import { Pause } from 'lucide-vue-next'
 
