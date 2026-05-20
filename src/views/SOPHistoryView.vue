@@ -14,14 +14,6 @@
             <h1 class="hero-title">运行记录</h1>
             <p class="hero-subtitle">查看和管理所有 SOP 任务的执行状态</p>
           </div>
-          <button
-            v-if="records.length > 0"
-            class="manage-btn"
-            :class="{ active: manageMode }"
-            @click="toggleManageMode"
-          >
-            {{ manageMode ? '完成' : '管理' }}
-          </button>
         </div>
 
         <!-- 筛选栏 -->
@@ -60,6 +52,23 @@
             <span class="filter-dot failed"></span>
             已失败
             <span class="filter-count">{{ failedCount }}</span>
+          </button>
+          <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManageMode">
+            <svg
+              v-if="!manageMode"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            {{ manageMode ? '完成' : '管理' }}
           </button>
         </div>
 
@@ -561,12 +570,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 22px;
+  margin-left: auto;
+  padding: 9px 18px;
   border-radius: var(--radius-md);
   border: 1px solid hsla(155, 30%, 90%, 0.7);
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
   color: hsl(155, 12%, 45%);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
