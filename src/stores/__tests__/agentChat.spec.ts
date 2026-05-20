@@ -1,0 +1,247 @@
+import { setActivePinia, createPinia } from 'pinia'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { useAgentChatStore } from '../agentChat'
+import type { NarrationEvent, AgentRun } from '@/types/agent'
+
+// Mock the api module
+vi.mock('@/api/agent', () => ({
+  listAvailableAgents: vi.fn(async () => ({
+    list: [{ id: 1, name: 'A', description: '', is_active: true, created_at: '', updated_at: '' }],
+    total: 1
+  })),
+  listRecentSessions: vi.fn(async () => []),
+  estimateRun: vi.fn(async () => ({ min: 50, max: 150, is_large_task: false })),
+  createRun: vi.fn(async () => ({
+    run_id: 999,
+    session_id: 999,
+    estimated_credits_min: 50,
+    estimated_credits_max: 150
+  })),
+  getRun: vi.fn(
+    async (): Promise<AgentRun> => ({
+      id: 999,
+      session_id: 999,
+      user_id: 1,
+      agent_skill_id: 1,
+      status: 'running',
+      credits_used: 0,
+      credits_budget: 200,
+      credits_threshold_state: 'under_60',
+      created_at: '',
+      updated_at: ''
+    })
+  ),
+  fetchNarrationEvents: vi.fn(async (): Promise<NarrationEvent[]> => []),
+  cancelRun: vi.fn(async () => ({ run_id: 999, status: 'cancelled' as const })),
+  extendBudget: vi.fn(),
+  submitFeedback: vi.fn(),
+  uploadAttachment: vi.fn(),
+  getSessionSnapshot: vi.fn(async () => ({
+    session_id: 1,
+    agent_skill_id: 1,
+    messages: [],
+    agent_run_ids: [],
+    last_active_at: '',
+    status: 'completed' as const
+  }))
+}))
+
+import * as api from '@/api/agent'
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+  vi.clearAllMocks()
+  sessionStorage.clear()
+})
+
+describe('agentChat store', () => {
+  it('fetchAvailableAgents loads + clears error on success', async () => {
+    const store = useAgentChatStore()
+    await store.fetchAvailableAgents()
+    expect(store.availableAgents.length).toBe(1)
+    expect(store.agentsError).toBe(null)
+    expect(store.loadingAgents).toBe(false)
+  })
+
+  it('fetchAvailableAgents records error on failure', async () => {
+    vi.mocked(api.listAvailableAgents).mockRejectedValueOnce(new Error('boom'))
+    const store = useAgentChatStore()
+    await store.fetchAvailableAgents()
+    expect(store.agentsError).toBe('boom')
+    expect(store.loadingAgents).toBe(false)
+  })
+
+  it('startNewRun pushes user message + sets currentRun + clears input', async () => {
+    const store = useAgentChatStore()
+    store.inputText = 'hello'
+    await store.startNewRun(1, 'hello')
+    expect(store.messages.length).toBe(1)
+    expect(store.messages[0].type).toBe('user')
+    expect(store.currentRun?.id).toBe(999)
+    expect(store.inputText).toBe('')
+    expect(sessionStorage.getItem('agentChat:currentRunId')).toBe('999')
+  })
+
+  it('startNewRun pushes failed system message when initial status is failed', async () => {
+    vi.mocked(api.getRun).mockResolvedValueOnce({
+      id: 999,
+      session_id: 999,
+      user_id: 1,
+      agent_skill_id: 1,
+      status: 'failed',
+      credits_used: 0,
+      credits_budget: 0,
+      credits_threshold_state: 'under_60',
+      created_at: '',
+      updated_at: ''
+    })
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hello')
+    const last = store.messages[store.messages.length - 1]
+    expect(last.type).toBe('system')
+    expect(last.type === 'system' && last.system_subtype).toBe('failed')
+  })
+
+  it('pollNarration updates events + resets stuckSince on new events', async () => {
+    const ev: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-1',
+      tool_name: 'x',
+      state: 'use',
+      message: 'doing',
+      timestamp: '2026-05-21T10:00:00Z'
+    }
+    vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([ev])
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    store.stuckSince = 12345
+    await store.pollNarration()
+    expect(store.narrationEvents.length).toBe(1)
+    expect(store.stuckSince).toBe(null)
+  })
+
+  it('pollNarration sets stuckSince on first empty response', async () => {
+    vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([])
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    expect(store.stuckSince).toBe(null)
+    await store.pollNarration()
+    expect(typeof store.stuckSince).toBe('number')
+  })
+
+  it('cancelCurrent sets status and pushes system message', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    await store.cancelCurrent()
+    expect(store.currentRun?.status).toBe('cancelled')
+    const last = store.messages[store.messages.length - 1]
+    expect(last.type === 'system' && last.system_subtype).toBe('cancelled')
+  })
+
+  it('toolGroups aggregates events by tool_call_id', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    const ev1: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-1',
+      tool_name: 't',
+      state: 'use',
+      message: 'a',
+      timestamp: '2026-05-21T10:00:00Z'
+    }
+    const ev2: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-1',
+      tool_name: 't',
+      state: 'result',
+      message: 'b',
+      timestamp: '2026-05-21T10:00:01Z'
+    }
+    const ev3: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-2',
+      tool_name: 'q',
+      state: 'use',
+      message: 'c',
+      timestamp: '2026-05-21T10:00:02Z'
+    }
+    store.narrationEvents.push(ev1, ev2, ev3)
+    expect(store.toolGroups.length).toBe(2)
+    expect(store.toolGroups[0].current_state).toBe('result')
+    expect(store.toolGroups[0].events.length).toBe(2)
+    expect(store.toolGroups[1].tool_call_id).toBe('tc-2')
+  })
+
+  it('budgetThresholdState reads from currentRun', async () => {
+    const store = useAgentChatStore()
+    expect(store.budgetThresholdState).toBe('under_60')
+    await store.startNewRun(1, 'hi')
+    expect(store.budgetThresholdState).toBe('under_60')
+  })
+
+  it('loadSessionSnapshot prepends restored system message when compact_summary exists', async () => {
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 1,
+      agent_skill_id: 1,
+      messages: [],
+      compact_summary: '上次摘要',
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'completed'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot(1, true)
+    expect(store.messages.length).toBe(1)
+    expect(store.messages[0].type).toBe('system')
+    expect(store.isReadOnly).toBe(true)
+  })
+
+  it('loadSessionSnapshot records sessionError on failure', async () => {
+    vi.mocked(api.getSessionSnapshot).mockRejectedValueOnce(new Error('not found'))
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot(999, false)
+    expect(store.sessionError).toBe('not found')
+    expect(store.loadingSnapshot).toBe(false)
+  })
+
+  it('reset clears all 16 fields including sessionStorage', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    store.stuckSince = 9999
+    store.agentsError = 'old err'
+    expect(sessionStorage.getItem('agentChat:currentRunId')).not.toBe(null)
+
+    store.reset()
+
+    expect(store.currentRun).toBe(null)
+    expect(store.messages.length).toBe(0)
+    expect(store.narrationEvents.length).toBe(0)
+    expect(store.lastNarrationTs).toBe('')
+    expect(store.stuckSince).toBe(null)
+    expect(store.inputText).toBe('')
+    expect(store.attachments.length).toBe(0)
+    expect(store.estimate).toBe(null)
+    expect(store.isReadOnly).toBe(false)
+    expect(store.loadingAgents).toBe(false)
+    expect(store.loadingSnapshot).toBe(false)
+    expect(store.sendingMessage).toBe(false)
+    expect(store.cancelling).toBe(false)
+    expect(store.agentsError).toBe(null)
+    expect(store.sessionError).toBe(null)
+    expect(sessionStorage.getItem('agentChat:currentRunId')).toBe(null)
+  })
+
+  it('uploadAttachment pushes to attachments array', async () => {
+    vi.mocked(api.uploadAttachment).mockResolvedValueOnce({
+      id: 1,
+      filename: 'a.xlsx',
+      url: 'blob:x',
+      size_bytes: 100,
+      mime: 'application/xlsx'
+    })
+    const store = useAgentChatStore()
+    const file = new File(['x'], 'a.xlsx')
+    await store.uploadAttachment(file)
+    expect(store.attachments.length).toBe(1)
+  })
+})
