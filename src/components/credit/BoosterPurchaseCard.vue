@@ -10,12 +10,12 @@
   >
     <!-- Top stub：刊物 italic eyebrow + serif headline + 等价锚定 -->
     <div class="stub">
-      <div class="stub-eyebrow">Booster · 加量包</div>
+      <div class="stub-eyebrow">加量包</div>
       <div class="stub-head">兑一张<br />给脑力的加量券</div>
-      <div class="stub-anchor">≈ 一份咖啡换 {{ credits }} 次脑力补给</div>
+      <div class="stub-anchor">≈ 一份咖啡换 {{ credits }} 积分脑力补给</div>
     </div>
 
-    <!-- 中间撕口分隔线（::before / ::after 两侧月牙凹槽配合）-->
+    <!-- 中间撕口分隔线（absolute 定位到卡片 50%，与两侧月牙圆心精确对齐）-->
     <div class="perforation" aria-hidden="true"></div>
 
     <!-- Bottom stub：价格 + 印章 + 单 perk + CTA -->
@@ -31,7 +31,7 @@
 
       <div class="perk">立即到账，余额累加不清零</div>
 
-      <button v-if="cardState === 'credits'" class="cta" type="button">兑换一张</button>
+      <button v-if="cardState === 'credits'" class="cta" type="button">加量</button>
       <div v-else-if="cardState === 'trial'" class="hint">体验期暂不可购买</div>
       <div v-else class="hint">请联系您的管理员开通会员后购买</div>
     </div>
@@ -124,31 +124,31 @@ function handleClick(): void {
 }
 
 /* 两侧月牙凹槽——票券"咬掉一口"视觉。
-   clip-path 只显示朝内的那半个圆，朝外的一半被裁掉露出页面 bg，
-   实现"半透明 / 半带边线"的真切口效果。配合 stub/body 各占 50% 让 perforation
-   落在 50% 位置，月牙的圆心刚好对齐撕口虚线。 */
+   用 border-radius 直接画半圆（不用 clip-path，避免切口处的伪竖线）。
+   div 的直边贴卡片边缘外 1px，弧朝卡片内凸入；三边 border 沿弧形描边，
+   直边无 border（看起来就是从卡片上咬掉了一口）。 */
 .booster-card::before,
 .booster-card::after {
   content: '';
   position: absolute;
-  width: 18px;
-  height: 18px;
+  top: 50%;
+  width: 10px;
+  height: 20px;
   background: var(--bg-around);
   border: 1px solid var(--border, #e2e4ea);
-  border-radius: 50%;
-  top: 50%;
   transform: translateY(-50%);
   z-index: 2;
+  box-sizing: border-box;
 }
 .booster-card::before {
-  left: -9px;
-  /* 显示右半边（朝内）— 沿 div 中线垂直切，外半边裁掉 */
-  clip-path: inset(0 0 0 50%);
+  left: -1px; /* 直边贴卡片左边缘外侧 1px，弧凸入卡片内 */
+  border-left: none;
+  border-radius: 0 999px 999px 0;
 }
 .booster-card::after {
-  right: -9px;
-  /* 显示左半边（朝内）*/
-  clip-path: inset(0 50% 0 0);
+  right: -1px;
+  border-right: none;
+  border-radius: 999px 0 0 999px;
 }
 
 /* === Stub: 上半部分（hook + headline + anchor） === */
@@ -186,12 +186,19 @@ function handleClick(): void {
   margin-top: 8px;
 }
 
-/* === Perforation: 中间撕口虚线 === */
+/* === Perforation: 中间撕口虚线 ===
+   absolute 定位到卡片 50%，与两侧月牙圆心精确对齐（不受 stub/body 内容高度影响）。
+   z-index 在月牙之下，虚线穿过月牙时被月牙挡住，只在两月牙之间可见。 */
 .perforation {
-  height: 1px;
-  margin: 0 4px;
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 0;
   border-top: 1px dashed var(--border, #e2e4ea);
-  position: relative;
+  transform: translateY(-50%);
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* === Body: 下半部分（price + stamp + perk + CTA） === */
