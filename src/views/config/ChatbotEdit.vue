@@ -57,7 +57,25 @@
           <!-- 打招呼 -->
           <div class="form-group">
             <label class="greeting-toggle">
-              <input v-model="form.greeting_enabled" type="checkbox" class="greeting-checkbox" />
+              <input
+                v-model="form.greeting_enabled"
+                type="checkbox"
+                class="greeting-checkbox-input"
+              />
+              <span class="greeting-checkbox-box" aria-hidden="true">
+                <svg
+                  viewBox="0 0 16 16"
+                  width="11"
+                  height="11"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="3 8.5 6.5 12 13 4.5" />
+                </svg>
+              </span>
               <span class="greeting-label">打招呼</span>
               <span class="greeting-hint">开启后，用户首次打开会话时智能体将主动发送这句话</span>
             </label>
@@ -498,10 +516,45 @@ onBeforeRouteLeave(() => {
   flex-wrap: wrap;
 }
 
-.greeting-checkbox {
-  accent-color: var(--primary);
-  width: 16px;
-  height: 16px;
+.greeting-checkbox-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  pointer-events: none;
+}
+
+.greeting-checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: transparent;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.greeting-checkbox-input:checked ~ .greeting-checkbox-box {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.greeting-checkbox-input:focus-visible ~ .greeting-checkbox-box {
+  box-shadow: var(--shadow-focus);
+}
+
+.greeting-toggle:hover .greeting-checkbox-box {
+  border-color: var(--primary);
 }
 
 .greeting-label {
@@ -576,7 +629,7 @@ onBeforeRouteLeave(() => {
 /* ── Visibility Section ── */
 
 .visibility-section {
-  margin-top: 8px;
+  margin-top: var(--space-xl);
 }
 
 /* ── Form Actions ── */

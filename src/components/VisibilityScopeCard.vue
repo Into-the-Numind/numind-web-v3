@@ -212,18 +212,18 @@ function clearAndOpen() {
 <style scoped>
 .visibility-empty-hint {
   padding: 16px 20px;
-  background: var(--color-bg-muted, #f8fafc);
-  border: 1px dashed var(--color-border, #e2e8f0);
-  border-radius: 8px;
-  color: var(--color-text-muted, #64748b);
+  background: var(--surface-hover);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .visibility-card {
   padding: 20px 24px;
-  background: var(--color-bg, #fff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .card-header {
@@ -234,24 +234,24 @@ function clearAndOpen() {
   margin: 0 0 4px;
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-text, #0f172a);
+  color: var(--text);
 }
 
 .card-subtitle {
   margin: 0;
   font-size: 12px;
-  color: var(--color-text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .card-skeleton .skeleton-row {
   width: 100%;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
-    var(--color-bg-muted, #f1f5f9) 0%,
-    var(--color-border, #e2e8f0) 50%,
-    var(--color-bg-muted, #f1f5f9) 100%
+    var(--surface-hover) 0%,
+    var(--border) 50%,
+    var(--surface-hover) 100%
   );
   background-size: 200% 100%;
   animation: skeleton 1.2s infinite;
@@ -273,7 +273,14 @@ function clearAndOpen() {
   gap: 10px;
   cursor: pointer;
   font-size: 14px;
-  color: var(--color-text, #0f172a);
+  color: var(--text);
+}
+
+.toggle-row input[type='checkbox'] {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .selected-row {
@@ -285,20 +292,28 @@ function clearAndOpen() {
 
 .badge {
   padding: 4px 10px;
-  background: var(--color-bg-muted, #f1f5f9);
-  border-radius: 12px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
   font-size: 12px;
-  color: var(--color-text-muted, #64748b);
+  color: var(--primary);
+  font-weight: 500;
 }
 
 .btn-pick {
   padding: 6px 14px;
-  background: var(--color-bg, #fff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 13px;
-  color: var(--brand-primary, #2563eb);
+  color: var(--primary);
+  font-weight: 500;
   cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-pick:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--primary);
 }
 
 .btn-pick:disabled {
@@ -314,18 +329,24 @@ function clearAndOpen() {
   padding: 10px 14px;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: #c00;
   font-size: 13px;
 }
 
 .btn-retry {
   padding: 4px 12px;
-  background: var(--brand-primary, #2563eb);
+  background: var(--primary);
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btn-retry:hover {
+  background: var(--primary-hover);
 }
 </style>

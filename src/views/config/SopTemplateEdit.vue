@@ -572,7 +572,7 @@ onBeforeRouteLeave(() => {
 }
 
 .visibility-section {
-  margin-top: 24px;
+  margin-top: var(--space-xl);
 }
 
 .content-center {

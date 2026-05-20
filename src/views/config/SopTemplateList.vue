@@ -18,8 +18,8 @@
           <h2 class="page-title">SOP 管理</h2>
           <p class="page-desc">创建和管理标准作业流程模板</p>
         </div>
-        <AppButton size="sm" @click="router.push('/config/sop-templates/new/edit')">
-          + 新建SOP模板
+        <AppButton variant="hero" @click="router.push('/config/sop-templates/new/edit')">
+          + 新建 SOP 模板
         </AppButton>
       </div>
 

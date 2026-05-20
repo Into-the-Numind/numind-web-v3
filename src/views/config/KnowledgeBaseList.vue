@@ -18,7 +18,7 @@
           <h2 class="page-title">知识库管理</h2>
           <p class="page-desc">管理知识库文档，为智能体提供专业知识</p>
         </div>
-        <AppButton size="sm" @click="showCreateModal = true">+ 新建知识库</AppButton>
+        <AppButton variant="hero" @click="showCreateModal = true">+ 新建知识库</AppButton>
       </div>
 
       <!-- 空状态 -->

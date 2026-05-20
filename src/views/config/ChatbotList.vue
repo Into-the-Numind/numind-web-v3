@@ -18,7 +18,7 @@
           <h2 class="page-title">智能体管理</h2>
           <p class="page-desc">创建和管理 AI 智能体，为客户提供智能对话服务</p>
         </div>
-        <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
+        <AppButton variant="hero" @click="router.push('/config/chatbots/new/edit')">
           + 新建智能体
         </AppButton>
       </div>
