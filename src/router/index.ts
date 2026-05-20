@@ -155,6 +155,29 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true
     }
   },
+  {
+    path: '/agent',
+    name: 'agent-select',
+    component: () => import('@/views/agent/AgentSelectView.vue'),
+    meta: { title: 'AI 助手', requiresAuth: true }
+  },
+  {
+    path: '/agent/history',
+    name: 'agent-history',
+    component: () => import('@/views/agent/AgentHistoryView.vue'),
+    meta: { title: '助手历史', requiresAuth: true }
+  },
+  {
+    path: '/agent/chat/:sessionId',
+    name: 'agent-chat',
+    component: () => import('@/views/agent/AgentChatView.vue'),
+    meta: { title: 'AI 助手对话', requiresAuth: true },
+    props: (route) => ({
+      sessionId: route.params.sessionId,
+      agentId: route.query.agent_id ? Number(route.query.agent_id) : null,
+      readOnly: route.query.read_only === '1'
+    })
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',
