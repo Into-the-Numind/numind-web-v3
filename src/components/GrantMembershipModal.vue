@@ -52,21 +52,21 @@
             <div class="grant-tabs" role="tablist">
               <button
                 role="tab"
-                :aria-selected="activeTab === 'trial'"
-                class="grant-tab"
-                :class="{ active: activeTab === 'trial' }"
-                @click="activeTab = 'trial'"
-              >
-                体验包
-              </button>
-              <button
-                role="tab"
                 :aria-selected="activeTab === 'monthly'"
                 class="grant-tab"
                 :class="{ active: activeTab === 'monthly' }"
                 @click="activeTab = 'monthly'"
               >
                 Pro 会员
+              </button>
+              <button
+                role="tab"
+                :aria-selected="activeTab === 'trial'"
+                class="grant-tab"
+                :class="{ active: activeTab === 'trial' }"
+                @click="activeTab = 'trial'"
+              >
+                体验会员
               </button>
             </div>
 
@@ -93,9 +93,8 @@
                   </svg>
                 </div>
                 <div class="grant-product-info">
-                  <div class="grant-product-name">体验包</div>
+                  <div class="grant-product-name">体验会员</div>
                   <div class="grant-product-desc">200 积分 · 有效期 3 天</div>
-                  <div class="grant-product-price">¥0（免费赠送）</div>
                 </div>
               </div>
 
@@ -112,7 +111,7 @@
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
-                该账户已使用过体验包，不可重复赠送
+                该账户已使用过体验会员，不可重复赠送
               </div>
             </div>
 
@@ -153,7 +152,7 @@
                     :data-testid="`month-btn-${m}`"
                     @click="months = m"
                   >
-                    {{ m }} 个月
+                    {{ m === 12 ? '1 年' : `${m} 个月` }}
                   </button>
                 </div>
                 <div class="month-input-row">
@@ -216,13 +215,16 @@ const emit = defineEmits<{
 }>()
 
 // ── State ───────────────────────────────────────────────────────────
-const activeTab = ref<'trial' | 'monthly'>('trial')
+const activeTab = ref<'trial' | 'monthly'>('monthly')
 const months = ref(1)
 const loading = ref(false)
 const errorMsg = ref('')
 
 // ── Computed ────────────────────────────────────────────────────────
 const monthlyPrice = computed(() => {
+  if (months.value === 12) {
+    return '1 年 = ¥949'
+  }
   const total = months.value * 99
   return `${months.value} 个月 × ¥99 = ¥${total}`
 })
@@ -240,7 +242,7 @@ watch(
   (val) => {
     if (val) {
       // Reset state when modal opens
-      activeTab.value = 'trial'
+      activeTab.value = 'monthly'
       months.value = 1
       errorMsg.value = ''
       loading.value = false
