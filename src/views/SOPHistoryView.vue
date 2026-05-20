@@ -382,7 +382,7 @@ const activeFilter = ref<'all' | 'running' | 'completed' | 'failed'>('all')
 
 // --- 分页 ---
 const currentPage = ref(1)
-const pageSize = 60
+const pageSize = 30
 const jumpPageInput = ref<string>('')
 
 // --- 确认弹窗 ---
