@@ -1031,10 +1031,11 @@ const filteredUsers = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (q) {
     users = users.filter((u) => {
-      const id = String(u.id || '').toLowerCase()
+      const userId = String(u.user_id ?? '').toLowerCase()
+      const id = String(u.id ?? '').toLowerCase()
       const nickname = (u.nickname || '').toLowerCase()
       const username = (u.username || '').toLowerCase()
-      return id.includes(q) || nickname.includes(q) || username.includes(q)
+      return userId.includes(q) || id.includes(q) || nickname.includes(q) || username.includes(q)
     })
   }
   return users
