@@ -444,10 +444,15 @@ function handleRemoveDoc(docId: number) {
     confirmText: '移除',
     successMsg: '文档已移除',
     action: async () => {
+      // 停轮询，避免删除前发出的 fetchKBDetail 后到达，
+      // 用旧数据把刚删掉的文档"复活"覆写回 detail.value
+      stopPolling()
       const ok = await store.removeDocument(kbId, docId)
       if (ok) {
         await loadDetail()
       }
+      // 若仍有非终态文档（其它在 pending）则恢复轮询，否则 schedulePoll 自检后空操作
+      schedulePoll()
     }
   }
   confirmVisible.value = true
