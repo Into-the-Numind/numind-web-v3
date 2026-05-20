@@ -41,11 +41,11 @@
             <span class="stat-value">{{ statistics.total_sub_users ?? '-' }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">活跃子用户：</span>
+            <span class="stat-label">近 30 天活跃：</span>
             <span class="stat-value">{{ statistics.active_sub_users ?? '-' }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">可用模板数：</span>
+            <span class="stat-label">全部模板数：</span>
             <span class="stat-value">{{ statistics.total_templates ?? '-' }}</span>
           </div>
           <div class="stat-card">
@@ -184,12 +184,80 @@
                     </span>
                   </th>
                   <th class="col-user">用户信息</th>
-                  <th>用户名</th>
-                  <th>会员状态</th>
-                  <th>额度</th>
-                  <th>到期时间</th>
-                  <th>已授权模板</th>
-                  <th>本月运行</th>
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('username')"
+                    @click="toggleSort('username')"
+                  >
+                    <span class="th-label">用户名</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('membership')"
+                    @click="toggleSort('membership')"
+                  >
+                    <span class="th-label">会员状态</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('quota')"
+                    @click="toggleSort('quota')"
+                  >
+                    <span class="th-label">额度</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('expiry')"
+                    @click="toggleSort('expiry')"
+                  >
+                    <span class="th-label">到期时间</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('templates')"
+                    @click="toggleSort('templates')"
+                  >
+                    <span class="th-label">已授权模板</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
+                  <th class="th-sortable" :class="sortClassFor('runs')" @click="toggleSort('runs')">
+                    <span class="th-label">累计运行</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
                   <th class="col-action">操作</th>
                 </tr>
               </thead>
@@ -251,79 +319,30 @@
                     }}</span>
                   </td>
                   <td>
-                    <span class="cell-metric">{{ user.monthly_sop_runs || 0 }}</span>
+                    <span class="cell-metric">{{ user.total_sop_runs || 0 }}</span>
                   </td>
                   <td class="col-action">
-                    <div class="action-dropdown">
-                      <button
-                        class="action-trigger"
-                        aria-haspopup="true"
-                        :aria-expanded="openMenuId === (user.user_id ?? user.id)"
-                        @click.stop="toggleActionMenu(user.user_id ?? user.id)"
-                        @keydown.escape="openMenuId = null"
+                    <button
+                      class="action-trigger"
+                      aria-haspopup="true"
+                      :aria-expanded="isMenuOpenFor(user)"
+                      @click.stop="toggleActionMenu(user, $event)"
+                      @keydown.escape="closeActionMenu"
+                    >
+                      管理
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
                       >
-                        管理
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="14"
-                          height="14"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      </button>
-                      <div
-                        v-if="openMenuId === (user.user_id ?? user.id)"
-                        class="action-menu"
-                        role="menu"
-                      >
-                        <button
-                          class="action-menu-item"
-                          role="menuitem"
-                          @click="handleMenuPermission(user)"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <rect width="18" height="18" x="3" y="3" rx="2" />
-                            <path d="m9 12 2 2 4-4" />
-                          </svg>
-                          管理权限
-                        </button>
-                        <button
-                          class="action-menu-item"
-                          role="menuitem"
-                          @click="handleMenuGrantMembership(user)"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-                            <path d="M12 18V6" />
-                          </svg>
-                          开通会员
-                        </button>
-                      </div>
-                    </div>
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -363,9 +382,78 @@
                 <path d="m9 18 6-6-6-6" />
               </svg>
             </button>
+            <div v-if="totalPages > 1" class="page-jump">
+              <span class="page-jump-label">跳至</span>
+              <input
+                v-model="jumpPageInput"
+                type="number"
+                min="1"
+                :max="totalPages"
+                class="page-jump-input"
+                :placeholder="String(currentPage)"
+                @keydown.enter="handlePageJump"
+                @blur="handlePageJump"
+              />
+              <span class="page-jump-label">页</span>
+            </div>
           </div>
         </div>
       </template>
+
+      <!-- Action 菜单（脱离表格容器，由 Teleport 投到 body 顶层；fixed 定位） -->
+      <Teleport to="body">
+        <Transition name="menu-pop">
+          <div
+            v-if="openMenuUser"
+            class="action-menu action-menu-floating"
+            :style="actionMenuStyle"
+            role="menu"
+            @click.stop
+          >
+            <button
+              class="action-menu-item"
+              role="menuitem"
+              @click="handleMenuPermission(openMenuUser)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="2" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              管理权限
+            </button>
+            <button
+              class="action-menu-item"
+              role="menuitem"
+              @click="handleMenuGrantMembership(openMenuUser)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                <path d="M12 18V6" />
+              </svg>
+              开通会员
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <!-- 批量操作浮动栏 -->
       <Transition name="bar-slide">
@@ -881,6 +969,12 @@ const isLoading = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 20
+const jumpPageInput = ref<string>('')
+
+// 列排序：三态循环 none → asc → desc → none
+type SortKey = 'username' | 'membership' | 'quota' | 'expiry' | 'templates' | 'runs'
+const sortKey = ref<SortKey | null>(null)
+const sortDir = ref<'asc' | 'desc'>('asc')
 const selectedIds = reactive(new Set<number | string>())
 type CustomerFilter = 'all' | 'free' | 'pro' | 'trial'
 const activeFilter = ref<CustomerFilter>('all')
@@ -919,8 +1013,9 @@ const permChatbotOriginalIds = ref<Set<string>>(new Set())
 const featurePermissions = reactive<Record<string, boolean>>({})
 const featurePermOriginal = ref<Set<string>>(new Set())
 
-// Dropdown
-const openMenuId = ref<number | string | null>(null)
+// Dropdown — 通过 Teleport 投到 body，fixed 定位避开表格 overflow 裁剪
+const openMenuUser = ref<SubUser | null>(null)
+const actionMenuStyle = ref<Record<string, string>>({})
 
 // Toast
 const toast = ref({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' })
@@ -945,10 +1040,56 @@ const filteredUsers = computed(() => {
   return users
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize)))
+function sortValueFor(user: SubUser, key: SortKey): number | string | null {
+  switch (key) {
+    case 'username':
+      return (user.username || '').toLowerCase()
+    case 'membership': {
+      const s = getMemberStatus(user)
+      return s === 'pro' ? 2 : s === 'trial' ? 1 : 0
+    }
+    case 'quota':
+      return user.credit_balance ?? user.cycle_remaining ?? user.remaining_sop_runs ?? 0
+    case 'expiry': {
+      const ms = user.membership_state
+      const dateStr =
+        ms?.subscription_expires_at ||
+        ms?.trial_expires_at ||
+        user.credit_expires ||
+        user.tier_expires ||
+        null
+      if (!dateStr) return null
+      const t = Date.parse(dateStr)
+      return Number.isFinite(t) ? t : null
+    }
+    case 'templates':
+      return user.authorized_templates ?? user.template_count ?? 0
+    case 'runs':
+      return user.total_sop_runs ?? 0
+  }
+}
+
+const sortedUsers = computed(() => {
+  if (!sortKey.value) return filteredUsers.value
+  const key = sortKey.value
+  const dir = sortDir.value
+  const list = [...filteredUsers.value]
+  list.sort((a, b) => {
+    const av = sortValueFor(a, key)
+    const bv = sortValueFor(b, key)
+    if (av === bv) return 0
+    if (av === null || av === undefined) return 1
+    if (bv === null || bv === undefined) return -1
+    const cmp = av < bv ? -1 : 1
+    return dir === 'asc' ? cmp : -cmp
+  })
+  return list
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(sortedUsers.value.length / pageSize)))
 const pageUsers = computed(() => {
   const start = (currentPage.value - 1) * pageSize
-  return filteredUsers.value.slice(start, start + pageSize)
+  return sortedUsers.value.slice(start, start + pageSize)
 })
 
 const isAllSelected = computed(() => {
@@ -1018,17 +1159,25 @@ const isRegFormValid = computed(() => {
 
 // ── Lifecycle ──────────────────────────────────────────────────────
 function handleGlobalClick() {
-  openMenuId.value = null
+  openMenuUser.value = null
+}
+function handleViewportChange() {
+  // 滚动或 resize 时关闭浮层 —— fixed 定位无法跟随表格滚动
+  if (openMenuUser.value) openMenuUser.value = null
 }
 
 onBeforeUnmount(() => {
   if (toastTimer) clearTimeout(toastTimer)
   if (searchTimer) clearTimeout(searchTimer)
   document.removeEventListener('click', handleGlobalClick)
+  window.removeEventListener('scroll', handleViewportChange, true)
+  window.removeEventListener('resize', handleViewportChange)
 })
 
 onMounted(async () => {
   document.addEventListener('click', handleGlobalClick)
+  window.addEventListener('scroll', handleViewportChange, true)
+  window.addEventListener('resize', handleViewportChange)
   isLoading.value = true
   try {
     await Promise.all([loadStatistics(), loadSubUsers(), loadAllTemplates(), loadAllChatbots()])
@@ -1118,6 +1267,38 @@ function handleSearch() {
 function setFilter(f: CustomerFilter) {
   activeFilter.value = f
   currentPage.value = 1
+}
+
+function handlePageJump() {
+  const raw = jumpPageInput.value
+  if (raw === '' || raw === null) {
+    jumpPageInput.value = ''
+    return
+  }
+  const num = Math.floor(Number(raw))
+  if (!Number.isFinite(num) || num < 1) {
+    jumpPageInput.value = ''
+    return
+  }
+  currentPage.value = Math.min(num, totalPages.value)
+  jumpPageInput.value = ''
+}
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value !== key) {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  } else if (sortDir.value === 'asc') {
+    sortDir.value = 'desc'
+  } else {
+    sortKey.value = null
+  }
+  currentPage.value = 1
+}
+
+function sortClassFor(key: SortKey): string {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? 'sort-asc' : 'sort-desc'
 }
 
 // ── Selection ──────────────────────────────────────────────────────
@@ -1545,11 +1726,35 @@ function showToast(
 }
 
 // ── Action Dropdown ───────────────────────────────────────────────
-function toggleActionMenu(id: number | string) {
-  openMenuId.value = openMenuId.value === id ? null : id
+const ACTION_MENU_WIDTH = 140
+const ACTION_MENU_HEIGHT_EST = 92 // 两项 menu 高度（含 padding）
+function isMenuOpenFor(user: SubUser): boolean {
+  if (!openMenuUser.value) return false
+  return (openMenuUser.value.user_id ?? openMenuUser.value.id) === (user.user_id ?? user.id)
+}
+function closeActionMenu() {
+  openMenuUser.value = null
+}
+function toggleActionMenu(user: SubUser, ev: MouseEvent) {
+  if (isMenuOpenFor(user)) {
+    openMenuUser.value = null
+    return
+  }
+  const btn = ev.currentTarget as HTMLElement
+  const rect = btn.getBoundingClientRect()
+  // 右对齐 trigger 按钮；溢出视口时左移到 8px 边距
+  let left = rect.right - ACTION_MENU_WIDTH
+  if (left < 8) left = 8
+  let top = rect.bottom + 4
+  // 下方不够时翻转向上
+  if (top + ACTION_MENU_HEIGHT_EST > window.innerHeight - 8) {
+    top = rect.top - 4 - ACTION_MENU_HEIGHT_EST
+  }
+  actionMenuStyle.value = { top: `${top}px`, left: `${left}px` }
+  openMenuUser.value = user
 }
 function handleMenuPermission(user: SubUser) {
-  openMenuId.value = null
+  openMenuUser.value = null
   openPermissionModal(user)
 }
 // ── Grant Membership (B2B2C 帮开通，不走支付) ───────────────────────
@@ -1561,7 +1766,7 @@ const showGrantModal = ref(false)
 const grantTargetUser = ref<SubUser | null>(null)
 
 function handleMenuGrantMembership(user: SubUser) {
-  openMenuId.value = null
+  openMenuUser.value = null
   grantTargetUser.value = user
   showGrantModal.value = true
 }
@@ -1843,6 +2048,51 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
   background: hsl(158, 50%, 97%);
 }
 
+/* 可排序列：表头点击切换 asc/desc/none */
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.th-sortable .th-label {
+  margin-right: 4px;
+}
+.th-sortable:hover {
+  color: var(--accent);
+}
+.sort-indicator {
+  display: inline-flex;
+  vertical-align: middle;
+  color: hsl(155, 15%, 70%);
+  transition: color 0.15s;
+}
+.sort-indicator svg {
+  display: block;
+}
+.sort-arrow-up,
+.sort-arrow-down {
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.th-sortable.sort-asc {
+  color: var(--accent);
+}
+.th-sortable.sort-asc .sort-indicator {
+  color: var(--accent);
+}
+.th-sortable.sort-asc .sort-arrow-up {
+  opacity: 1;
+}
+.th-sortable.sort-desc {
+  color: var(--accent);
+}
+.th-sortable.sort-desc .sort-indicator {
+  color: var(--accent);
+}
+.th-sortable.sort-desc .sort-arrow-down {
+  opacity: 1;
+}
+
 .col-check {
   width: 48px;
   text-align: center;
@@ -1953,12 +2203,6 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
 }
 
 /* Action dropdown */
-.action-dropdown {
-  position: relative;
-  display: inline-flex;
-  justify-content: center;
-}
-
 .action-trigger {
   display: inline-flex;
   align-items: center;
@@ -1981,10 +2225,6 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
 }
 
 .action-menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
   min-width: 140px;
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.97), hsla(150, 12%, 98%, 0.94));
   border: 1px solid hsla(155, 30%, 90%, 0.7);
@@ -1992,20 +2232,26 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
   box-shadow:
     0 8px 24px hsl(150 10% 0% / 0.1),
     0 0 0 1px hsl(155 20% 92% / 0.3);
-  z-index: 200;
+  z-index: 1000;
   padding: 4px;
-  animation: menu-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.action-menu-floating {
+  /* Teleport 到 body 后用 fixed 定位 —— 配合 JS 计算的 top/left，
+     脱离 .table-container 的 overflow 裁剪 */
+  position: fixed;
 }
 
-@keyframes menu-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+/* Teleport <Transition name="menu-pop"> enter/leave 动画 */
+.menu-pop-enter-active,
+.menu-pop-leave-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.menu-pop-enter-from,
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-4px);
 }
 
 .action-menu-item {
@@ -2068,6 +2314,50 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
   font-size: 13px;
   color: hsl(155, 12%, 50%);
   font-weight: 500;
+}
+
+.page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+}
+.page-jump-label {
+  font-weight: 500;
+}
+.page-jump-input {
+  width: 52px;
+  padding: 6px 8px;
+  border: 1px solid hsl(155, 20%, 88%);
+  border-radius: 8px;
+  background: hsla(0, 0%, 100%, 0.8);
+  text-align: center;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.page-jump-input:hover {
+  border-color: hsl(155, 30%, 80%);
+}
+.page-jump-input:focus {
+  outline: none;
+  border-color: hsl(158, 64%, 50%);
+  background: hsl(158, 50%, 98%);
+}
+.page-jump-input::-webkit-inner-spin-button,
+.page-jump-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.page-jump-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* ===== Loading ===== */
