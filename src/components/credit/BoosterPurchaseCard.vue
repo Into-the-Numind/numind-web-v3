@@ -10,7 +10,7 @@
   >
     <div class="header">
       <div class="title">加量包</div>
-      <div v-if="cardState === 'credits'" class="subtitle">脑洞临时透支，先借 600 用用</div>
+      <div v-if="cardState === 'credits'" class="subtitle">脑洞临时透支，为脑力加量</div>
     </div>
 
     <div class="body">
