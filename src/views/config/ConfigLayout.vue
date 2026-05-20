@@ -55,6 +55,7 @@ function isActive(path: string) {
 .config-tabs {
   display: flex;
   justify-content: center;
+  padding: 0 40px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--surface);
@@ -63,7 +64,7 @@ function isActive(path: string) {
 .config-tabs-inner {
   display: flex;
   gap: 4px;
-  padding: 20px 40px 0;
+  padding: 20px 0 0;
   max-width: 1200px;
   width: 100%;
   box-sizing: border-box;
@@ -95,11 +96,12 @@ function isActive(path: string) {
 .config-content {
   flex: 1;
   overflow-y: auto;
+  padding: 0 40px;
 }
 
 .config-content-inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 28px 40px;
+  padding: 28px 0;
 }
 </style>
