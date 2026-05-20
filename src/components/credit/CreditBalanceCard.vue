@@ -9,23 +9,8 @@
         </div>
       </div>
 
-      <div v-if="trialRemaining > 0" class="pool">
-        <div class="pool-top">
-          <span class="pool-label">试用积分</span>
-          <span class="pool-val">
-            {{ formatNum(trialRemaining) }}
-            <span class="pool-denom">/ {{ formatNum(TRIAL_GRANT) }}</span>
-          </span>
-        </div>
-        <div class="bar"><div class="bar-fill trial" :style="{ width: trialPct + '%' }"></div></div>
-        <div class="pool-meta">
-          <span v-if="trialExpiresAtStr">{{ formatDate(trialExpiresAtStr) }} 过期</span>
-          <span v-if="trialDaysLeft !== null" class="pool-meta-right"
-            >剩 {{ trialDaysLeft }} 天</span
-          >
-        </div>
-      </div>
-
+      <!-- 试用积分 / 会员积分 二选一同位置展示
+           displayState='trial' → 试用；'pro' → 会员；'free' → 看哪个有残留余额 -->
       <div v-if="showCycleRow" class="pool">
         <div class="pool-top">
           <span class="pool-label">会员积分</span>
@@ -40,6 +25,22 @@
           <span v-else-if="subExpiresAtStr">{{ formatDate(subExpiresAtStr) }} 会员到期</span>
           <span v-if="cycleDaysLeft !== null" class="pool-meta-right"
             >剩 {{ cycleDaysLeft }} 天</span
+          >
+        </div>
+      </div>
+      <div v-else-if="showTrialRow" class="pool">
+        <div class="pool-top">
+          <span class="pool-label">试用积分</span>
+          <span class="pool-val">
+            {{ formatNum(trialRemaining) }}
+            <span class="pool-denom">/ {{ formatNum(TRIAL_GRANT) }}</span>
+          </span>
+        </div>
+        <div class="bar"><div class="bar-fill trial" :style="{ width: trialPct + '%' }"></div></div>
+        <div class="pool-meta">
+          <span v-if="trialExpiresAtStr">{{ formatDate(trialExpiresAtStr) }} 过期</span>
+          <span v-if="trialDaysLeft !== null" class="pool-meta-right"
+            >剩 {{ trialDaysLeft }} 天</span
           >
         </div>
       </div>
@@ -116,9 +117,17 @@ const boosterEarliestExpires = computed((): string => readString('booster_earlie
 const isBoosterFrozen = computed((): boolean => credits.isBoosterFrozen)
 const displayState = computed(() => credits.displayState)
 
-const showCycleRow = computed(
-  (): boolean => displayState.value === 'pro' || cycleRemaining.value > 0
-)
+// 试用 / 会员 互斥展示规则：
+//   pro → 会员行；trial → 试用行；free → 看哪个有残留余额（cycle 优先）
+const showCycleRow = computed((): boolean => {
+  if (displayState.value === 'pro') return true
+  if (displayState.value === 'trial') return false
+  return cycleRemaining.value > 0
+})
+const showTrialRow = computed((): boolean => {
+  if (showCycleRow.value) return false
+  return displayState.value === 'trial' || trialRemaining.value > 0
+})
 
 const cardState = computed<'free' | 'credits'>(() => {
   if (
