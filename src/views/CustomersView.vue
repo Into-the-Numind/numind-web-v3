@@ -1195,7 +1195,8 @@ async function loadStatistics() {
       statistics.total_sub_users = d.total_sub_users ?? 0
       statistics.active_sub_users = d.active_sub_users ?? 0
       statistics.total_templates = d.total_templates_count ?? d.total_templates ?? 0
-      statistics.total_runs = 0
+      // 后端直接返回 sop_run + chatbot_session 实时聚合（不再依赖 stale user.total_sop_runs）
+      statistics.total_runs = d.total_sop_runs ?? 0
     }
   } catch (e) {
     console.error('加载统计数据失败:', e)
@@ -1224,7 +1225,7 @@ async function loadSubUsers() {
       offset += PAGE
     }
     allSubUsers.value = all
-    statistics.total_runs = all.reduce((sum, u) => sum + (u.total_sop_runs || 0), 0)
+    // total_runs 不再在前端聚合 —— 直接走 loadStatistics() 拿后端的实时计数
   } catch (e) {
     console.error('加载子用户列表失败:', e)
   }
