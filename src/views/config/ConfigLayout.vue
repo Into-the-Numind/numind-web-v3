@@ -51,7 +51,7 @@ function isActive(path: string) {
 .config-tabs {
   display: flex;
   gap: 4px;
-  padding: 20px 28px 0;
+  padding: 20px 40px 0;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--surface);
@@ -83,6 +83,6 @@ function isActive(path: string) {
 .config-content {
   flex: 1;
   overflow-y: auto;
-  padding: 28px;
+  padding: 28px 40px;
 }
 </style>
