@@ -10,7 +10,7 @@
   >
     <div class="header">
       <div class="title">加量包</div>
-      <div v-if="cardState === 'credits'" class="subtitle">为本月 SOP 运行扩充余量</div>
+      <div v-if="cardState === 'credits'" class="subtitle">脑洞临时透支，先借 600 用用</div>
     </div>
 
     <div class="body">
@@ -18,9 +18,6 @@
         <span class="price-value">¥{{ price }}</span>
         <span class="price-unit">/ {{ credits }} 积分</span>
       </div>
-      <ul v-if="cardState === 'credits'" class="perks">
-        <li>立即生效，有效期 90 天</li>
-      </ul>
     </div>
 
     <div v-if="cardState === 'credits'" class="footer">
@@ -144,17 +141,6 @@ function handleClick(): void {
 }
 
 .price-unit {
-  font-size: 12px;
-  color: var(--text-secondary, #6b7085);
-}
-
-.perks {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   font-size: 12px;
   color: var(--text-secondary, #6b7085);
 }
