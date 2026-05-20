@@ -110,7 +110,7 @@
         <!-- 卡片网格 -->
         <div v-else class="card-grid">
           <div
-            v-for="record in filteredRecords"
+            v-for="record in pagedRecords"
             :key="record.runId"
             class="run-card"
             :class="{ selected: selectedIds.has(record.runId) }"
@@ -201,6 +201,55 @@
                 >
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="filteredRecords.length > 0 && totalPages > 1" class="pagination">
+          <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            上一页
+          </button>
+          <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+          <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">
+            下一页
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
+          <div class="page-jump">
+            <span class="page-jump-label">跳至</span>
+            <input
+              v-model="jumpPageInput"
+              type="number"
+              min="1"
+              :max="totalPages"
+              class="page-jump-input"
+              :placeholder="String(currentPage)"
+              @keydown.enter="handlePageJump"
+              @blur="handlePageJump"
+            />
+            <span class="page-jump-label">页</span>
           </div>
         </div>
       </template>
@@ -311,7 +360,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import {
@@ -330,6 +379,11 @@ const records = ref<SopRunRecord[]>([])
 const manageMode = ref(false)
 const selectedIds = ref<Set<string>>(new Set())
 const activeFilter = ref<'all' | 'running' | 'completed' | 'failed'>('all')
+
+// --- 分页 ---
+const currentPage = ref(1)
+const pageSize = 60
+const jumpPageInput = ref<string>('')
 
 // --- 确认弹窗 ---
 const confirmVisible = ref(false)
@@ -380,6 +434,30 @@ const filteredRecords = computed(() => {
   return sortedRecords.value.filter((r) => statusClass(r) === activeFilter.value)
 })
 
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRecords.value.length / pageSize)))
+const pagedRecords = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredRecords.value.slice(start, start + pageSize)
+})
+
+watch(activeFilter, () => {
+  currentPage.value = 1
+})
+watch(totalPages, (n) => {
+  if (currentPage.value > n) currentPage.value = n
+})
+
+function handlePageJump() {
+  const raw = jumpPageInput.value
+  const num = Math.floor(Number(raw))
+  if (!Number.isFinite(num) || num < 1) {
+    jumpPageInput.value = ''
+    return
+  }
+  currentPage.value = Math.min(num, totalPages.value)
+  jumpPageInput.value = ''
+}
+
 const filterLabel = computed(() => {
   const labels = { all: '', running: '进行中', completed: '已完成', failed: '已失败' }
   return labels[activeFilter.value]
@@ -392,7 +470,7 @@ const runningCount = computed(
 const failedCount = computed(() => records.value.filter((r) => r.status === 'failed').length)
 
 const isAllSelected = computed(() => {
-  const currentIds = filteredRecords.value.map((r) => r.runId)
+  const currentIds = pagedRecords.value.map((r) => r.runId)
   return currentIds.length > 0 && currentIds.every((id) => selectedIds.value.has(id))
 })
 
@@ -449,12 +527,14 @@ const toggleSelect = (id: string) => {
 }
 
 const toggleSelectAll = () => {
-  const currentIds = filteredRecords.value.map((r) => r.runId)
+  const currentIds = pagedRecords.value.map((r) => r.runId)
+  const next = new Set(selectedIds.value)
   if (isAllSelected.value) {
-    selectedIds.value = new Set()
+    currentIds.forEach((id) => next.delete(id))
   } else {
-    selectedIds.value = new Set(currentIds)
+    currentIds.forEach((id) => next.add(id))
   }
+  selectedIds.value = next
 }
 
 // --- 导航 ---
@@ -1288,5 +1368,86 @@ onMounted(() => {
   .bar-slide-leave-to {
     transform: translateY(20px);
   }
+}
+
+/* ===== 分页（与 CustomersView 视觉一致） ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid hsl(155, 20%, 90%);
+  background: transparent;
+  font-size: 13px;
+  color: hsl(155, 12%, 40%);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: hsl(155, 20%, 96%);
+  color: var(--accent);
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-info {
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+  font-weight: 500;
+}
+
+.page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 13px;
+  color: hsl(155, 12%, 50%);
+}
+.page-jump-label {
+  font-weight: 500;
+}
+.page-jump-input {
+  width: 52px;
+  padding: 6px 8px;
+  border: 1px solid hsl(155, 20%, 88%);
+  border-radius: 8px;
+  background: hsla(0, 0%, 100%, 0.8);
+  text-align: center;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.page-jump-input:hover {
+  border-color: hsl(155, 30%, 80%);
+}
+.page-jump-input:focus {
+  outline: none;
+  border-color: hsl(158, 64%, 50%);
+  background: hsl(158, 50%, 98%);
+}
+.page-jump-input::-webkit-inner-spin-button,
+.page-jump-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.page-jump-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 </style>
