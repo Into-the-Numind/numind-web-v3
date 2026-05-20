@@ -17,7 +17,7 @@
           <strong>{{ cycleRemaining }}</strong>
         </span>
         <span v-if="subExpiresAtStr" class="sublabel">
-          {{ formatMonthEnd(subExpiresAtStr) }} 过期
+          {{ formatDate(subExpiresAtStr) }} 过期
         </span>
       </div>
       <div v-if="boosterTotal > 0" class="credit-row booster">
@@ -95,12 +95,6 @@ const cardState = computed<'free' | 'credits'>(() => {
     return 'credits'
   return 'free'
 })
-
-function formatMonthEnd(iso: string): string {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return iso
-  return `${d.getMonth() + 1}月底`
-}
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
