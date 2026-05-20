@@ -73,7 +73,7 @@ describe('GrantMembershipModal', () => {
     document.body.innerHTML = ''
   })
 
-  // T1: hasUsedTrial=true → trial tab 置灰 + 提交禁用
+  // T1: hasUsedTrial=true → trial tab 置灰 + 提交禁用（须先切到 trial tab，默认是 Pro）
   it('T1: hasUsedTrial=true grays trial tab content and disables submit button', async () => {
     const wrapper = mountModal({
       open: true,
@@ -83,10 +83,15 @@ describe('GrantMembershipModal', () => {
     })
     await wrapper.vm.$nextTick()
 
+    // 默认 Pro tab，需切到 trial tab（last-child）
+    const trialTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
+    trialTab.click()
+    await wrapper.vm.$nextTick()
+
     // Warning banner visible
     const warning = document.querySelector('[data-testid="trial-used-warning"]')
     expect(warning).not.toBeNull()
-    expect(warning!.textContent).toContain('已使用过体验包')
+    expect(warning!.textContent).toContain('已使用过体验会员')
 
     // Tab content should have .disabled class
     const tabContent = document.querySelector('.grant-tab-content')
@@ -102,8 +107,8 @@ describe('GrantMembershipModal', () => {
     wrapper.unmount()
   })
 
-  // T2: Pro tab 月数选择更新价格
-  it('T2: switching to Pro tab and selecting months updates displayed price', async () => {
+  // T2: Pro tab 月数选择更新价格（默认即 Pro tab）
+  it('T2: Pro tab selecting months updates displayed price', async () => {
     const wrapper = mountModal({
       open: true,
       childId: 42,
@@ -112,12 +117,7 @@ describe('GrantMembershipModal', () => {
     })
     await wrapper.vm.$nextTick()
 
-    // Click Pro tab
-    const proTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
-    proTab.click()
-    await wrapper.vm.$nextTick()
-
-    // Click 3 month button
+    // 默认即 Pro tab，无需切换。Click 3 month button
     const btn3 = document.querySelector('[data-testid="month-btn-3"]') as HTMLButtonElement
     expect(btn3).not.toBeNull()
     btn3.click()
@@ -126,15 +126,22 @@ describe('GrantMembershipModal', () => {
     // Expect button to be active
     expect(btn3.classList.contains('active')).toBe(true)
 
-    // Expect price to reflect 3 months
-    // The price text is computed: "3 个月 × ¥99 = ¥297"
+    // Expect price to reflect 3 months: "3 个月 × ¥99 = ¥297"
     const bodyText = document.body.textContent ?? ''
     expect(bodyText).toContain('297')
+
+    // Click 12 month button → "1 年" + ¥949
+    const btn12 = document.querySelector('[data-testid="month-btn-12"]') as HTMLButtonElement
+    expect(btn12).not.toBeNull()
+    expect(btn12.textContent?.trim()).toBe('1 年')
+    btn12.click()
+    await wrapper.vm.$nextTick()
+    expect(document.body.textContent ?? '').toContain('949')
 
     wrapper.unmount()
   })
 
-  // T3: 提交时带 Idempotency-Key UUID
+  // T3: 提交时带 Idempotency-Key UUID（须切到 trial tab，默认是 Pro）
   it('T3: submit sends grantMembership with idempotency key UUID', async () => {
     grantMock.mockResolvedValue(makeGrantResp('trial_granted'))
 
@@ -146,7 +153,11 @@ describe('GrantMembershipModal', () => {
     })
     await wrapper.vm.$nextTick()
 
-    // Submit (trial tab is default)
+    // 切到 trial tab（last-child）
+    const trialTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
+    trialTab.click()
+    await wrapper.vm.$nextTick()
+
     const submitBtn = document.querySelector(
       '[data-testid="grant-submit-btn"]'
     ) as HTMLButtonElement
@@ -174,6 +185,11 @@ describe('GrantMembershipModal', () => {
       childName: '赵六',
       hasUsedTrial: false
     })
+    await wrapper.vm.$nextTick()
+
+    // 切到 trial tab（last-child）
+    const trialTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
+    trialTab.click()
     await wrapper.vm.$nextTick()
 
     const submitBtn = document.querySelector(
@@ -205,10 +221,7 @@ describe('GrantMembershipModal', () => {
     })
     await wrapper.vm.$nextTick()
 
-    // Switch to Pro tab
-    const proTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
-    proTab.click()
-    await wrapper.vm.$nextTick()
+    // 默认即 Pro tab，无需切换
 
     const submitBtn = document.querySelector(
       '[data-testid="grant-submit-btn"]'
@@ -239,10 +252,7 @@ describe('GrantMembershipModal', () => {
     })
     await wrapper.vm.$nextTick()
 
-    // Switch to Pro tab
-    const proTab = document.querySelector('[role="tab"]:last-child') as HTMLButtonElement
-    proTab.click()
-    await wrapper.vm.$nextTick()
+    // 默认即 Pro tab，无需切换
 
     const submitBtn = document.querySelector(
       '[data-testid="grant-submit-btn"]'
