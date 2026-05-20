@@ -1,0 +1,106 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { renderMarkdown } from '@/utils/markdown'
+import AgentFeedbackBar from './AgentFeedbackBar.vue'
+
+interface Props {
+  markdown: string
+  runId?: number
+  initialFeedback?: 'positive' | 'negative' | null
+  initialNote?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  runId: undefined,
+  initialFeedback: null,
+  initialNote: ''
+})
+
+const html = computed<string>(() => renderMarkdown(props.markdown))
+</script>
+
+<template>
+  <div class="final-answer">
+    <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
+    <div class="markdown-body" v-html="html"></div>
+    <div class="feedback-section">
+      <AgentFeedbackBar
+        :run-id="runId"
+        :initial-feedback="initialFeedback"
+        :initial-note="initialNote"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.final-answer {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.markdown-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text, #1f2937);
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  margin: 16px 0 8px;
+  color: var(--color-text, #1f2937);
+}
+
+.markdown-body :deep(p) {
+  margin: 8px 0;
+}
+
+.markdown-body :deep(code) {
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.markdown-body :deep(pre) {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-body :deep(table) {
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.markdown-body :deep(th) {
+  background: #f9fafb;
+}
+
+.feedback-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+</style>
