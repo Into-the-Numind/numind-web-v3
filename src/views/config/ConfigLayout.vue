@@ -2,18 +2,22 @@
   <MainLayout>
     <div class="config-layout">
       <div class="config-tabs">
-        <router-link
-          v-for="tab in tabs"
-          :key="tab.path"
-          :to="tab.path"
-          class="config-tab"
-          :class="{ active: isActive(tab.path) }"
-        >
-          {{ tab.label }}
-        </router-link>
+        <div class="config-tabs-inner">
+          <router-link
+            v-for="tab in tabs"
+            :key="tab.path"
+            :to="tab.path"
+            class="config-tab"
+            :class="{ active: isActive(tab.path) }"
+          >
+            {{ tab.label }}
+          </router-link>
+        </div>
       </div>
       <div class="config-content">
-        <router-view />
+        <div class="config-content-inner">
+          <router-view />
+        </div>
       </div>
     </div>
   </MainLayout>
@@ -50,11 +54,19 @@ function isActive(path: string) {
 
 .config-tabs {
   display: flex;
-  gap: 4px;
-  padding: 20px 40px 0;
+  justify-content: center;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--surface);
+}
+
+.config-tabs-inner {
+  display: flex;
+  gap: 4px;
+  padding: 20px 40px 0;
+  max-width: 1200px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .config-tab {
@@ -83,6 +95,11 @@ function isActive(path: string) {
 .config-content {
   flex: 1;
   overflow-y: auto;
+}
+
+.config-content-inner {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 28px 40px;
 }
 </style>
