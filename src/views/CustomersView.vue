@@ -1194,7 +1194,7 @@ async function loadStatistics() {
       const d = (res.data || {}) as Record<string, any>
       statistics.total_sub_users = d.total_sub_users ?? 0
       statistics.active_sub_users = d.active_sub_users ?? 0
-      statistics.total_templates = d.total_templates_count ?? d.total_templates ?? 0
+      statistics.total_templates = d.total_templates ?? 0
       // 后端直接返回 sop_run + chatbot_session 实时聚合（不再依赖 stale user.total_sop_runs）
       statistics.total_runs = d.total_sop_runs ?? 0
     }
