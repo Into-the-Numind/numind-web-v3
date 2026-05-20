@@ -2895,6 +2895,38 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
   overflow-y: auto;
   flex: 1;
 }
+
+/* 右下角小按钮（与 GrantMembershipModal 视觉一致） */
+.perm-dialog .modal-footer {
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid hsl(155, 30%, 93%);
+}
+.perm-dialog .btn-cancel {
+  flex: 0 0 auto;
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: 1.5px solid hsl(155, 30%, 88%);
+  background: transparent;
+  color: hsl(155, 12%, 45%);
+  font-size: 14px;
+  font-weight: 500;
+}
+.perm-dialog .btn-cancel:hover {
+  border-color: hsl(155, 20%, 65%);
+  color: hsl(155, 20%, 30%);
+  background: transparent;
+}
+.perm-dialog .btn-primary {
+  flex: 0 0 auto;
+  padding: 9px 24px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.perm-dialog .btn-primary:hover:not(:disabled) {
+  box-shadow: none;
+}
 .perm-loading {
   padding: 32px;
   display: flex;
