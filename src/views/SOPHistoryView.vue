@@ -20,20 +20,6 @@
             :class="{ active: manageMode }"
             @click="toggleManageMode"
           >
-            <svg
-              v-if="!manageMode"
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
             {{ manageMode ? '完成' : '管理' }}
           </button>
         </div>
@@ -464,7 +450,10 @@ const toggleSelectAll = () => {
 
 // --- 导航 ---
 const handleCardClick = (record: SopRunRecord) => {
-  if (manageMode.value) return
+  if (manageMode.value) {
+    toggleSelect(record.runId)
+    return
+  }
   router.push({
     path: '/sop/run',
     query: { runId: record.runId, templateId: record.templateId }
