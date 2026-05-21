@@ -41,7 +41,6 @@
         </div>
         <div class="empty-title">暂无知识库</div>
         <div class="empty-desc">创建知识库并上传文档，为智能体提供专业知识</div>
-        <AppButton size="sm" @click="showCreateModal = true">新建知识库</AppButton>
       </div>
 
       <!-- 数据表格 -->
