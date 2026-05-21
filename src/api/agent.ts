@@ -23,7 +23,7 @@ const useMock = (): boolean => import.meta.env.VITE_AGENT_MOCK === 'true'
 export const listAvailableAgents = async (): Promise<AgentSkillListResponse> => {
   if (useMock()) return mock.listAvailableAgents()
   const { data } = await request.get<{ data: AgentSkillListResponse }>('/v1/agent-skills/available')
-  return data.data
+  return data
 }
 
 // 2. 最近 7 天会话
@@ -32,14 +32,14 @@ export const listRecentSessions = async (limit = 5): Promise<RecentSession[]> =>
   const { data } = await request.get<{ data: RecentSession[] }>('/v1/agent-sessions/recent', {
     params: { limit }
   })
-  return data.data
+  return data
 }
 
 // 3. 历史分组会话
 export const listAllHistorySessions = async (): Promise<RecentSession[]> => {
   if (useMock()) return mock.listAllHistorySessions()
   const { data } = await request.get<{ data: RecentSession[] }>('/v1/agent-sessions/history')
-  return data.data
+  return data
 }
 
 // 4. 会话快照（历史恢复）
@@ -48,28 +48,28 @@ export const getSessionSnapshot = async (sessionId: number): Promise<SessionSnap
   const { data } = await request.get<{ data: SessionSnapshot }>(
     `/v1/sessions/${sessionId}/snapshot`
   )
-  return data.data
+  return data
 }
 
 // 5. 预估消耗
 export const estimateRun = async (req: EstimateRequest): Promise<EstimateResponse> => {
   if (useMock()) return mock.estimateRun(req)
   const { data } = await request.post<{ data: EstimateResponse }>('/v1/agent-runs/estimate', req)
-  return data.data
+  return data
 }
 
 // 6. 创建 run
 export const createRun = async (req: CreateRunRequest): Promise<CreateRunResponse> => {
   if (useMock()) return mock.createRun(req)
   const { data } = await request.post<{ data: CreateRunResponse }>('/v1/agent-runs', req)
-  return data.data
+  return data
 }
 
 // 7. 查 run 状态
 export const getRun = async (runId: number): Promise<AgentRun> => {
   if (useMock()) return mock.getRun(runId)
   const { data } = await request.get<{ data: AgentRun }>(`/v1/agent-runs/${runId}`)
-  return data.data
+  return data
 }
 
 // 8. 拉 narration 事件
@@ -82,14 +82,14 @@ export const fetchNarrationEvents = async (
     `/v1/agent-runs/${runId}/narration`,
     { params: { since: sinceTs } }
   )
-  return data.data
+  return data
 }
 
 // 9. 取消 run
 export const cancelRun = async (runId: number): Promise<CancelRunResponse> => {
   if (useMock()) return mock.cancelRun(runId)
   const { data } = await request.post<{ data: CancelRunResponse }>(`/v1/agent-runs/${runId}/cancel`)
-  return data.data
+  return data
 }
 
 // 10. 续费
@@ -99,7 +99,7 @@ export const extendBudget = async (runId: number, req: ExtendBudgetRequest): Pro
     `/v1/agent-runs/${runId}/extend-budget`,
     req
   )
-  return data.data
+  return data
 }
 
 // 11. 提交反馈
@@ -114,7 +114,7 @@ export const getSupportContact = async (): Promise<SupportContact> => {
   const { data } = await request.get<{ data: SupportContact }>(
     '/v1/tenant-settings/support-contact'
   )
-  return data.data
+  return data
 }
 
 // 13. 文件上传
@@ -125,5 +125,5 @@ export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
   const { data } = await request.post<{ data: UploadResponse }>('/v1/agent-attachments', form, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
-  return data.data
+  return data
 }
