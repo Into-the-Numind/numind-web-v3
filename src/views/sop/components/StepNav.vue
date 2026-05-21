@@ -42,7 +42,9 @@
       :step="item.step"
       :name="item.name"
       :state="item.state"
+      :bookmark-state="item.bookmarkState"
       @click="handleItemClick(item.step)"
+      @toggle-bookmark="emit('toggle-bookmark', item.nodeId)"
     />
 
     <template v-if="trailingChatEnabled">
@@ -63,8 +65,10 @@
 import { computed } from 'vue'
 import { ArrowLeft, X } from 'lucide-vue-next'
 import StepNavItem from './StepNavItem.vue'
+import type { StepBookmarkState } from './StepNavItem.vue'
 import { computeStepState, type StepNavItemState } from './stepNavState'
 import type { SopNodePublic } from '@/views/sop/types'
+import { useBookmarks } from '@/views/sop/composables/useBookmarks'
 
 interface Props {
   nodes: SopNodePublic[]
@@ -89,19 +93,43 @@ const emit = defineEmits<{
   (e: 'navigate', step: number): void
   (e: 'back'): void
   (e: 'closeMobile'): void
+  (e: 'toggle-bookmark', nodeId: number): void
 }>()
 
-interface ItemVm {
+interface MainItemVm {
+  step: number
+  name: string
+  nodeId: number
+  state: StepNavItemState
+  bookmarkState: StepBookmarkState
+}
+
+interface TrailingItemVm {
   step: number
   name: string
   state: StepNavItemState
 }
 
+const bookmarks = useBookmarks()
+
 const completedNodeIdsSet = computed<Set<number>>(() =>
   props.completedNodeIds instanceof Set ? props.completedNodeIds : new Set(props.completedNodeIds)
 )
 
-const mainItems = computed<ItemVm[]>(() =>
+/**
+ * 决定一个 step 的书签 3 态：
+ *   - streaming 中的节点 → 'unavailable'（output 还没落地）
+ *   - 未 complete 的节点 → 'unavailable'
+ *   - complete + 已有书签 → 'saved'
+ *   - complete + 无书签 → 'savable'
+ */
+function deriveBookmarkState(nodeId: number): StepBookmarkState {
+  if (props.streamingNodeId === nodeId) return 'unavailable'
+  if (!completedNodeIdsSet.value.has(nodeId)) return 'unavailable'
+  return bookmarks.hasBookmarkForNode(nodeId) ? 'saved' : 'savable'
+}
+
+const mainItems = computed<MainItemVm[]>(() =>
   props.nodes.map((node, idx) => {
     const step = idx + 1
     const state = computeStepState(
@@ -117,12 +145,14 @@ const mainItems = computed<ItemVm[]>(() =>
     return {
       step,
       name: node.name || `步骤 ${step}`,
-      state
+      nodeId: node.id,
+      state,
+      bookmarkState: deriveBookmarkState(node.id)
     }
   })
 )
 
-const trailingItem = computed<ItemVm | null>(() => {
+const trailingItem = computed<TrailingItemVm | null>(() => {
   if (!props.trailingChatEnabled) return null
   const step = props.nodes.length + 1
   const state = computeStepState(

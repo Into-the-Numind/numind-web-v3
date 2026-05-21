@@ -61,6 +61,7 @@
         @navigate="handleNavigate"
         @back="handleBackHome"
         @close-mobile="closeMobileNav"
+        @toggle-bookmark="handleStepNavToggleBookmark"
       />
 
       <!-- 移动端遮罩：仅 ≤768px + 抽屉展开时显示，点击关闭 -->
@@ -118,6 +119,17 @@
       confirm-text="继续"
       @confirm="doRegenerate"
     />
+
+    <!-- StepNav ⭐ 触发的移除书签确认弹窗（销毁性操作：ui-ux.md 硬规则 4） -->
+    <ConfirmModal
+      v-model="showStepNavRemoveConfirm"
+      title="移除书签"
+      :message="stepNavRemoveMessage"
+      variant="danger"
+      confirm-text="移除"
+      @confirm="confirmStepNavRemoveBookmark"
+      @cancel="cancelStepNavRemoveBookmark"
+    />
   </div>
 </template>
 
@@ -133,6 +145,7 @@ import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatBubbleMessage } from './components/ChatBubble.vue'
 
 import { copyText } from '@/utils/clipboard'
+import { saveBookmark, removeBookmark } from '@/api/sop'
 import { useSopRunStore } from '@/stores/sopRun'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -171,6 +184,10 @@ const showHistory = ref(false)
 const showRegenConfirm = ref(false)
 const regenConfirmMessage = ref<string>('重新生成会抹除当前 AI 输出，是否继续？')
 const pendingRegenerateText = ref<string>('')
+/** StepNav ⭐ 移除书签确认弹窗状态（与 SopStepView 内部弹窗独立，两者不会同时触发） */
+const showStepNavRemoveConfirm = ref(false)
+const pendingStepNavRemoveBookmarkId = ref<number | null>(null)
+const stepNavRemoveMessage = ref<string>('将移除此节点的书签 · 是否确认？')
 /** 移动端 StepNav 抽屉是否展开。仅 ≤768px 视口有视觉影响（CSS 控制）。 */
 const mobileNavOpen = ref(false)
 
@@ -365,6 +382,58 @@ async function doRegenerate() {
   store.markNodeIncomplete(node.id)
   await executeNode(node.id, pendingRegenerateText.value)
   pendingRegenerateText.value = ''
+}
+
+/**
+ * StepNav ⭐ 点击 → 触发 toggle-bookmark
+ *   - 该 node 已有书签 → 打开确认弹窗，确认后调 removeBookmark
+ *   - 该 node 无书签 → 直接调 saveBookmark
+ * useBookmarks 是 singleton，loadBookmarks 后 OutputCard 那边的"已保存"按钮 +
+ * StepNav ⭐ 会自动同步。
+ */
+async function handleStepNavToggleBookmark(nodeId: number) {
+  const run = store.currentRun
+  if (!run) {
+    notifications.error('当前没有运行实例')
+    return
+  }
+
+  const existing = bookmarks.getBookmarksForNode(nodeId)[0]
+  if (existing) {
+    const node = store.nodes.find((n) => n.id === nodeId)
+    stepNavRemoveMessage.value = node
+      ? `将移除「${node.name}」的书签 · 是否确认？`
+      : '将移除此节点的书签 · 是否确认？'
+    pendingStepNavRemoveBookmarkId.value = existing.id
+    showStepNavRemoveConfirm.value = true
+    return
+  }
+
+  try {
+    await saveBookmark({ run_id: run.id, node_id: nodeId })
+    await bookmarks.loadBookmarks(run.template_id)
+    notifications.success('已收藏此步骤')
+  } catch (err) {
+    notifications.error((err as Error)?.message || '保存书签失败')
+  }
+}
+
+async function confirmStepNavRemoveBookmark() {
+  const bookmarkId = pendingStepNavRemoveBookmarkId.value
+  const run = store.currentRun
+  pendingStepNavRemoveBookmarkId.value = null
+  if (!bookmarkId || !run) return
+  try {
+    await removeBookmark(bookmarkId)
+    await bookmarks.loadBookmarks(run.template_id)
+    notifications.success('已移除收藏')
+  } catch (err) {
+    notifications.error((err as Error)?.message || '移除书签失败')
+  }
+}
+
+function cancelStepNavRemoveBookmark() {
+  pendingStepNavRemoveBookmarkId.value = null
 }
 
 function handlePrimary() {

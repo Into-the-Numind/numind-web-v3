@@ -1,10 +1,17 @@
 <!--
   StepNavItem.vue — 单条 step nav item
 
-  布局：icon 在左 + title 在右，水平 row + 垂直居中，文字左对齐。
-  仅渲染 marker icon 与节点名，不再展示 description / status line。
+  布局：icon 在左 + title 居中 + 收藏星标在右，水平 row + 垂直居中。
+  渲染 marker icon、节点名、可选的 ⭐ 书签星标。
 
-  5 个视觉状态：active / done / viewing / pending-return / disabled
+  5 个 step 视觉状态：active / done / viewing / pending-return / disabled
+
+  Bookmark 3 态（与 step state 正交）：
+    - 'saved'       已收藏 → 填色 ⭐
+    - 'savable'     可收藏（步骤有 output，但未收藏）→ outline ⭐
+    - 'unavailable' 不渲染（步骤无 output / streaming / trailing chat）
+
+  点击 ⭐ 触发 toggle-bookmark，stopPropagation 不冒泡到步骤 click。
 -->
 <template>
   <div
@@ -12,6 +19,7 @@
     :data-testid="'sop-nav-item'"
     :data-step-state="state"
     :data-step="step"
+    :data-bookmark-state="bookmarkState"
     :role="state === 'disabled' ? undefined : 'button'"
     :tabindex="state === 'disabled' ? -1 : 0"
     :aria-disabled="state === 'disabled' ? 'true' : undefined"
@@ -27,13 +35,33 @@
       <template v-else>{{ step }}</template>
     </span>
     <div class="step__title">{{ name }}</div>
+    <button
+      v-if="bookmarkState !== 'unavailable'"
+      type="button"
+      class="step__star"
+      :class="{ 'step__star--saved': bookmarkState === 'saved' }"
+      :title="bookmarkState === 'saved' ? '已收藏 · 点击移除' : '收藏此步骤'"
+      :aria-label="bookmarkState === 'saved' ? `移除步骤 ${step} 的收藏` : `收藏步骤 ${step}`"
+      data-testid="step-bookmark-toggle"
+      @click.stop="handleToggleBookmark"
+      @keydown.enter.stop.prevent="handleToggleBookmark"
+      @keydown.space.stop.prevent="handleToggleBookmark"
+    >
+      <Star
+        :size="14"
+        :fill="bookmarkState === 'saved' ? 'currentColor' : 'none'"
+        aria-hidden="true"
+      />
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Check, MessageCircle } from 'lucide-vue-next'
+import { Check, MessageCircle, Star } from 'lucide-vue-next'
 import type { StepNavItemState } from './stepNavState'
+
+export type StepBookmarkState = 'saved' | 'savable' | 'unavailable'
 
 interface Props {
   /** 1-based step 序号 */
@@ -44,14 +72,18 @@ interface Props {
   state: StepNavItemState
   /** 是否为 trailing chat 项（影响图标展示） */
   isTrailingChat?: boolean
+  /** 书签 3 态。默认 'unavailable' 不渲染 ⭐ */
+  bookmarkState?: StepBookmarkState
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isTrailingChat: false
+  isTrailingChat: false,
+  bookmarkState: 'unavailable'
 })
 
 const emit = defineEmits<{
   (e: 'click'): void
+  (e: 'toggle-bookmark'): void
 }>()
 
 const stateClass = computed(() => `step--${props.state}`)
@@ -61,6 +93,10 @@ const ariaLabel = computed(() => `步骤 ${props.step}：${props.name}`)
 function handleClick(): void {
   if (props.state === 'disabled') return
   emit('click')
+}
+
+function handleToggleBookmark(): void {
+  emit('toggle-bookmark')
 }
 </script>
 
@@ -171,5 +207,45 @@ function handleClick(): void {
 }
 .step--disabled .step__dot {
   border-style: dashed;
+}
+
+/* ---------- step__star ----------
+   独立的 button，触控区 24×24，hover/focus 与 step 行解耦。
+   saved 态用主色 + filled，savable 态用 muted + outline。*/
+.step__star {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-left: var(--space-xs);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.step__star:hover {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+}
+.step__star:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+.step__star--saved {
+  color: var(--primary);
+}
+.step__star--saved:hover {
+  color: var(--primary-hover);
+  background: var(--accent-ultra-soft);
+  border-color: var(--accent-soft);
 }
 </style>
