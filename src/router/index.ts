@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useNotificationsStore } from '@/stores/notifications'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -134,6 +135,45 @@ const routes: RouteRecordRaw[] = [
         path: 'knowledge-bases/:id',
         component: () => import('@/views/config/KnowledgeBaseDetail.vue'),
         meta: { title: '知识库详情', requiresAuth: true, requiresParent: true }
+      },
+      // AI Agent 配置者 UX (agent-mode-configurator-relocate, 2026-05-22)
+      {
+        path: 'agents',
+        name: 'config-agents',
+        component: () => import('@/views/config/agents/AgentList.vue'),
+        meta: { title: 'AI 助手', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'agents/new',
+        name: 'config-agents-new',
+        component: () => import('@/views/config/agents/AgentCreateChoose.vue'),
+        meta: { title: '创建助手', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'agents/new/from-template',
+        name: 'config-agents-from-template',
+        component: () => import('@/views/config/agents/TemplateGallery.vue'),
+        meta: { title: '选择模板', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'agents/builder',
+        name: 'config-agents-builder',
+        component: () => import('@/views/config/agents/AgentBuilder.vue'),
+        meta: { title: '创建助手', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'agents/:id',
+        name: 'config-agents-detail',
+        component: () => import('@/views/config/agents/AgentDetail.vue'),
+        props: true,
+        meta: { title: '助手详情', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'agents/:id/edit',
+        name: 'config-agents-edit',
+        component: () => import('@/views/config/agents/AgentEdit.vue'),
+        props: true,
+        meta: { title: '编辑助手', requiresAuth: true, requiresParent: true }
       }
     ]
   },
@@ -195,8 +235,8 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫
-router.beforeEach((to, from, next) => {
+// 路由守卫（async：requiresParent 需 await fetchUserInfo 避免初始 isParentUser=true 的 flash）
+router.beforeEach(async (to) => {
   // 设置页面标题
   const title = to.meta.title as string
   if (title) {
@@ -212,23 +252,27 @@ router.beforeEach((to, from, next) => {
 
   // 需要登录但未登录，跳转到登录页
   if (requiresAuth && !isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
-    return
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   // 已登录但访问登录页，跳转到首页
   if (isLoggedIn && to.path === '/login') {
-    next('/')
-    return
+    return { path: '/' }
   }
 
   // 父用户专属页面：子用户（有 parent_user_id）不可访问
-  if ((to.meta.parentOnly || to.meta.requiresParent) && !userStore.isParentUser) {
-    next('/')
-    return
+  // 改造：先确保 userInfo 已加载（fetch 完成）再判定，避免初始 isParentUser=true 误放行
+  if (to.meta.parentOnly || to.meta.requiresParent) {
+    if (!userStore.userInfo && userStore.isLoggedIn) {
+      await userStore.fetchUserInfo()
+    }
+    if (!userStore.isParentUser) {
+      useNotificationsStore().info('AI 助手配置仅父账户可访问')
+      return { path: '/' }
+    }
   }
 
-  next()
+  // 默认 pass（返回 undefined = pass）
 })
 
 // 路由错误处理
