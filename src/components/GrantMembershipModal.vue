@@ -142,18 +142,13 @@
                   </svg>
                 </span>
                 <div class="hero-top">
-                  <div class="hero-label">
-                    <div class="hero-title">1 年</div>
-                    <div class="hero-monthly">¥79/月<span class="equiv"> · 按月省 ¥20</span></div>
-                  </div>
-                  <div class="hero-price">
-                    <div class="hero-now">¥949</div>
-                    <div class="hero-original">原价 ¥1188</div>
-                  </div>
+                  <div class="hero-title">1 年</div>
+                  <div class="hero-now">¥949</div>
+                  <div class="hero-monthly">¥79/月<span class="equiv"> · 按月省 ¥20</span></div>
+                  <div class="hero-original">原价 ¥1188</div>
                 </div>
                 <div class="hero-savings">
                   <span class="save-pill">省 ¥239</span>
-                  <span class="save-text">相当于 <strong>免费送 2.4 个月</strong></span>
                 </div>
               </button>
 
@@ -640,22 +635,18 @@ async function handleSubmit() {
 }
 
 .hero-top {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 12px;
+  row-gap: 6px;
   margin-bottom: 8px;
   padding-left: 26px;
 }
 
-.hero-label {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 4px;
-}
-
 .hero-title {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: end;
   font-size: 16px;
   font-weight: 700;
   color: hsl(155, 30%, 15%);
@@ -663,7 +654,26 @@ async function handleSubmit() {
   line-height: 1;
 }
 
+.hero-now {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  justify-self: end;
+  font-size: 28px;
+  font-weight: 700;
+  color: hsl(160, 72%, 40%);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hero-card:not(.selected) .hero-now {
+  color: hsl(155, 30%, 15%);
+}
+
 .hero-monthly {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
   font-size: 12px;
   color: hsl(160, 72%, 40%);
   font-weight: 600;
@@ -676,32 +686,11 @@ async function handleSubmit() {
   margin-left: 2px;
 }
 
-.hero-price {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 4px;
-}
-
 .hero-original {
-  line-height: 1;
-}
-
-.hero-now {
-  font-size: 28px;
-  font-weight: 700;
-  color: hsl(160, 72%, 40%);
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.hero-card:not(.selected) .hero-now {
-  color: hsl(155, 30%, 15%);
-}
-
-.hero-original {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  justify-self: end;
   font-size: 12px;
   color: hsl(155, 10%, 55%);
   text-decoration: line-through;
@@ -713,7 +702,7 @@ async function handleSubmit() {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 12px 0 12px 26px;
+  padding: 8px 0 8px 26px;
   margin-top: 4px;
   border-top: 1px dashed hsl(160, 50%, 75%);
 }
@@ -725,17 +714,6 @@ async function handleSubmit() {
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 999px;
-}
-
-.save-text {
-  font-size: 12px;
-  color: hsl(155, 12%, 45%);
-  font-weight: 500;
-}
-
-.save-text strong {
-  color: hsl(155, 30%, 15%);
-  font-weight: 700;
 }
 
 /* ─── More toggle + panel ─── */
