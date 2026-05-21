@@ -78,7 +78,7 @@ const handleSelectStarter = (text: string): void => {
 
 const handleCancel = async (): Promise<void> => {
   if (!store.currentRun) return
-  const used = store.currentRun.credits_used
+  const used = store.currentRun.credits_used ?? 0
   await runCtrl.cancel()
   narration.stop()
   runCtrl.stopStatusPolling()

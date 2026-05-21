@@ -71,8 +71,8 @@ const isContinuable = (status: RecentSession['status']): boolean => {
         <li v-for="s in g.items" :key="s.session_id" class="row">
           <span class="row-emoji">{{ s.agent_emoji ?? '🤖' }}</span>
           <div class="row-main">
-            <p class="row-name">{{ s.agent_name }} · {{ timeOfDay(s.last_active_at) }}</p>
-            <p class="row-preview">{{ s.preview_text }}</p>
+            <p class="row-name">{{ s.agent_name ?? '会话' }} · {{ timeOfDay(s.last_active_at) }}</p>
+            <p class="row-preview">{{ s.preview_text ?? '' }}</p>
           </div>
           <div class="row-action">
             <AppButton

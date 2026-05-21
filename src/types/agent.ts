@@ -74,11 +74,18 @@ export interface AgentRun {
   /** UUID string (backend agent_run.session_id is varchar) */
   session_id: string
   user_id: number
+  /** Always present — every run belongs to an agent skill */
   agent_skill_id: number
   status: AgentRunStatus
-  /** optional: backend AgentRun model has no credits_used field yet — defaults to 0 in views */
+  /** Populated by backend RunSummary enrichment once the run starts/ends.
+   *  Undefined while the backend contract addition is not yet deployed;
+   *  views fall back to 0 via `?? 0`. */
   credits_used?: number
+  /** Maximum credits budget for this run. Populated by RunSummary enrichment.
+   *  Undefined until backend ships; views fall back to 0 via `?? 0`. */
   credits_budget?: number
+  /** Budget threshold state driven by credits_used / credits_budget ratio.
+   *  Undefined until backend ships; store getter defaults to 'under_60'. */
   credits_threshold_state?: 'under_60' | 'warning_60' | 'blocked_100'
   created_at: string
   updated_at: string
@@ -246,8 +253,13 @@ export interface RecentSession {
   /** UUID string */
   session_id: string
   agent_skill_id: number
+  /** Display name of the agent skill. Populated by backend enrichment;
+   *  views fall back to '会话' via `?? '会话'` until backend ships. */
   agent_name?: string
+  /** Emoji icon for the agent skill. Views fall back to '🤖'. */
   agent_emoji?: string
+  /** ISO 8601 timestamp of last activity in this session. Optional because
+   *  legacy rows may not have it; grouping logic falls back to Date.now(). */
   last_active_at?: string
   status:
     | 'running'
@@ -257,6 +269,8 @@ export interface RecentSession {
     | 'cancelled'
     | 'timeout'
     | 'budget_exhausted'
+  /** Short preview of the last user message. Populated by backend enrichment;
+   *  views render empty string when absent. */
   preview_text?: string
 }
 
