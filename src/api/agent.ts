@@ -43,10 +43,11 @@ export const listAllHistorySessions = async (): Promise<RecentSession[]> => {
 }
 
 // 4. 会话快照（历史恢复）
-export const getSessionSnapshot = async (sessionId: number): Promise<SessionSnapshot> => {
+// sessionId is the UUID string from agent_run.session_id (backend varchar).
+export const getSessionSnapshot = async (sessionId: string): Promise<SessionSnapshot> => {
   if (useMock()) return mock.getSessionSnapshot(sessionId)
   const { data } = await request.get<{ data: SessionSnapshot }>(
-    `/v1/sessions/${sessionId}/snapshot`
+    `/v1/sessions/${encodeURIComponent(sessionId)}/snapshot`
   )
   return data
 }

@@ -22,14 +22,14 @@ const handleSelect = (agentId: number): void => {
   })
 }
 
-const handleContinue = (sessionId: number): void => {
-  router.push({ name: 'agent-chat', params: { sessionId: String(sessionId) } })
+const handleContinue = (sessionId: string): void => {
+  router.push({ name: 'agent-chat', params: { sessionId } })
 }
 
-const handleView = (sessionId: number): void => {
+const handleView = (sessionId: string): void => {
   router.push({
     name: 'agent-chat',
-    params: { sessionId: String(sessionId) },
+    params: { sessionId },
     query: { read_only: '1' }
   })
 }

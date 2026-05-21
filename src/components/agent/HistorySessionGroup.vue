@@ -10,8 +10,8 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'continue', sessionId: number): void
-  (e: 'view', sessionId: number): void
+  (e: 'continue', sessionId: string): void
+  (e: 'view', sessionId: string): void
 }>()
 
 interface Group {
@@ -34,7 +34,7 @@ const groupedSessions = computed<Group[]>(() => {
   const earlier: RecentSession[] = []
 
   for (const s of props.sessions) {
-    const t = new Date(s.last_active_at).getTime()
+    const t = new Date(s.last_active_at ?? Date.now()).getTime()
     if (t >= startOfToday.getTime()) today.push(s)
     else if (t >= startOfYesterday.getTime()) yesterday.push(s)
     else if (t >= startOfWeek.getTime()) thisWeek.push(s)
@@ -49,7 +49,8 @@ const groupedSessions = computed<Group[]>(() => {
   return groups
 })
 
-const timeOfDay = (iso: string): string => {
+const timeOfDay = (iso?: string): string => {
+  if (!iso) return ''
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
