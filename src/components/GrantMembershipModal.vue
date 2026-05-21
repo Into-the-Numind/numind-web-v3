@@ -125,7 +125,7 @@
                 data-testid="hero-yearly"
                 @click="selectYear"
               >
-                <span class="deal-flag">-20%↓</span>
+                <span class="deal-flag">20%↓</span>
 
                 <div class="hero-eyebrow">
                   <span class="hero-radio" :class="{ filled: months === 12 }">
