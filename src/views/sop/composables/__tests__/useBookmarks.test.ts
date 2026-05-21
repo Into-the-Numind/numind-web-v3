@@ -211,3 +211,23 @@ describe('useBookmarks — 其他', () => {
     expect(bm2.bookmarks.value.length).toBe(0)
   })
 })
+
+describe('useBookmarks — regression: 跨组件 state 同步 (sop-bookmark-state-sync)', () => {
+  // 复现 hotfix sop-bookmark-state-sync 的 bug：SOPRunView 调 useBookmarks() 加载
+  // 书签后，SopStepView 调 useBookmarks() 应能看到相同 state。当前实现里 ref()
+  // 在函数体内，每次调用是独立实例，导致 SopStepView 的 hasBookmark 永远是 false，
+  // "保存生成记录" 按钮不会切换成"已保存"。
+  it('一个 useBookmarks() 加载的书签，后续 useBookmarks() 调用能看到', async () => {
+    listMock.mockResolvedValue([makeBookmark({ id: 1, node_id: 5 })])
+
+    // 模拟 SOPRunView：先调 useBookmarks() 并 loadBookmarks
+    const bmInSopRunView = useBookmarks()
+    await bmInSopRunView.loadBookmarks(42)
+    expect(bmInSopRunView.bookmarks.value.length).toBe(1)
+
+    // 模拟 SopStepView：之后另外调 useBookmarks() —— 必须看到相同 state
+    const bmInSopStepView = useBookmarks()
+    expect(bmInSopStepView.bookmarks.value.length).toBe(1)
+    expect(bmInSopStepView.hasBookmarkForNode(5)).toBe(true)
+  })
+})
