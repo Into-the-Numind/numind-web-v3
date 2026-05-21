@@ -1,11 +1,12 @@
 /**
- * useBookmarks 单元测试（12 用例，分 4 组）
+ * useBookmarks 单元测试
  *
  * loadBookmarks (3)：成功 / 失败保留空数组 / 重试清除 error
  * applyBookmarkToNode (3)：成功 / 省略 bookmarkId / 失败抛出 + lastError
  * 本地查询方法 (4)：getBookmarksForNode / hasBookmarkForNode /
  *                   bookmarksByNodeId 分组 / 空状态返回空对象
- * 其他 (2)：clear / 多实例独立
+ * 其他 (1)：clear
+ * regression (1)：跨组件 state 同步（hotfix sop-bookmark-state-sync）
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { BookmarkListItem } from '@/api/sop'
@@ -39,6 +40,8 @@ function makeBookmark(overrides: Partial<BookmarkListItem> = {}): BookmarkListIt
 beforeEach(() => {
   listMock.mockReset()
   applyMock.mockReset()
+  // useBookmarks 现在是模块级单例 state，必须每个测试前清空避免泄漏
+  useBookmarks().clear()
 })
 
 afterEach(() => {
@@ -196,18 +199,24 @@ describe('useBookmarks — 其他', () => {
     expect(bm.lastError.value).toBe('')
     expect(bm.loading.value).toBe(false)
   })
+})
 
-  it('多实例状态独立', async () => {
-    listMock.mockResolvedValueOnce([makeBookmark({ id: 1 })])
-    listMock.mockResolvedValueOnce([])
+describe('useBookmarks — regression: 跨组件 state 同步 (sop-bookmark-state-sync)', () => {
+  // 复现 hotfix sop-bookmark-state-sync 的 bug：SOPRunView 调 useBookmarks() 加载
+  // 书签后，SopStepView 调 useBookmarks() 应能看到相同 state。当前实现里 ref()
+  // 在函数体内，每次调用是独立实例，导致 SopStepView 的 hasBookmark 永远是 false，
+  // "保存生成记录" 按钮不会切换成"已保存"。
+  it('一个 useBookmarks() 加载的书签，后续 useBookmarks() 调用能看到', async () => {
+    listMock.mockResolvedValue([makeBookmark({ id: 1, node_id: 5 })])
 
-    const bm1 = useBookmarks()
-    const bm2 = useBookmarks()
+    // 模拟 SOPRunView：先调 useBookmarks() 并 loadBookmarks
+    const bmInSopRunView = useBookmarks()
+    await bmInSopRunView.loadBookmarks(42)
+    expect(bmInSopRunView.bookmarks.value.length).toBe(1)
 
-    await bm1.loadBookmarks(42)
-    await bm2.loadBookmarks(43)
-
-    expect(bm1.bookmarks.value.length).toBe(1)
-    expect(bm2.bookmarks.value.length).toBe(0)
+    // 模拟 SopStepView：之后另外调 useBookmarks() —— 必须看到相同 state
+    const bmInSopStepView = useBookmarks()
+    expect(bmInSopStepView.bookmarks.value.length).toBe(1)
+    expect(bmInSopStepView.hasBookmarkForNode(5)).toBe(true)
   })
 })
