@@ -107,7 +107,7 @@ describe('GrantMembershipModal', () => {
     wrapper.unmount()
   })
 
-  // T2: Pro tab 月数选择更新价格（默认即 Pro tab）
+  // T2: Pro tab 月数选择更新价格（默认即 Pro tab，默认 1 年选中）
   it('T2: Pro tab selecting months updates displayed price', async () => {
     const wrapper = mountModal({
       open: true,
@@ -117,25 +117,34 @@ describe('GrantMembershipModal', () => {
     })
     await wrapper.vm.$nextTick()
 
-    // 默认即 Pro tab，无需切换。Click 3 month button
+    // 默认 1 年选中，hero 卡显示，价格 ¥949 可见
+    const hero = document.querySelector('[data-testid="hero-yearly"]') as HTMLButtonElement
+    expect(hero).not.toBeNull()
+    expect(hero.classList.contains('selected')).toBe(true)
+    expect(hero.textContent ?? '').toContain('1 年')
+    expect(document.body.textContent ?? '').toContain('949')
+
+    // 展开自定义面板才能看到 1/3/6 quick picks
+    const toggle = document.querySelector('[data-testid="toggle-custom"]') as HTMLButtonElement
+    expect(toggle).not.toBeNull()
+    toggle.click()
+    await wrapper.vm.$nextTick()
+
+    // 点 3 个月 quick pick → ¥297
     const btn3 = document.querySelector('[data-testid="month-btn-3"]') as HTMLButtonElement
     expect(btn3).not.toBeNull()
     btn3.click()
     await wrapper.vm.$nextTick()
+    expect(btn3.classList.contains('selected')).toBe(true)
+    expect(document.body.textContent ?? '').toContain('297')
 
-    // Expect button to be active
-    expect(btn3.classList.contains('active')).toBe(true)
+    // hero 卡此时变为未选中
+    expect(hero.classList.contains('selected')).toBe(false)
 
-    // Expect price to reflect 3 months: "3 个月 × ¥99 = ¥297"
-    const bodyText = document.body.textContent ?? ''
-    expect(bodyText).toContain('297')
-
-    // Click 12 month button → "1 年" + ¥949
-    const btn12 = document.querySelector('[data-testid="month-btn-12"]') as HTMLButtonElement
-    expect(btn12).not.toBeNull()
-    expect(btn12.textContent?.trim()).toBe('1 年')
-    btn12.click()
+    // 点 hero 卡切回 1 年 → ¥949
+    hero.click()
     await wrapper.vm.$nextTick()
+    expect(hero.classList.contains('selected')).toBe(true)
     expect(document.body.textContent ?? '').toContain('949')
 
     wrapper.unmount()
