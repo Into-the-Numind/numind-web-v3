@@ -67,8 +67,10 @@ const systemText = computed<string>(() => {
   <div v-if="asUser" class="msg msg-user">
     <div class="bubble">
       <p class="text">{{ asUser.text }}</p>
-      <div v-if="asUser.attachments && asUser.attachments.length > 0" class="user-atts">
-        <span v-for="a in asUser.attachments" :key="a.id" class="att"> 📎 {{ a.filename }} </span>
+      <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
+        <span v-for="a in asUser.attachments ?? []" :key="a.id" class="att">
+          📎 {{ a.filename }}
+        </span>
       </div>
     </div>
   </div>

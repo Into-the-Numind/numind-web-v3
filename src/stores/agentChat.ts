@@ -251,7 +251,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     sessionError.value = null
     try {
       const snap = await api.getSessionSnapshot(sessionId)
-      messages.value = snap.messages
+      // Defensive: backend may omit timestamp on restored messages; fill with
+      // a stable fallback so BaseMessage.timestamp is always a valid string.
+      const now = new Date().toISOString()
+      messages.value = snap.messages.map((m) => ({
+        ...m,
+        timestamp: m.timestamp ?? now
+      }))
       isReadOnly.value = readOnly
       if (snap.compact_summary) {
         messages.value.unshift({

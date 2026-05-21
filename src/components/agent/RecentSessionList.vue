@@ -36,8 +36,8 @@ const isContinuable = (status: RecentSession['status']): boolean => {
       <li v-for="s in sessions" :key="s.session_id" class="row">
         <span class="row-emoji">{{ s.agent_emoji ?? '🤖' }}</span>
         <div class="row-main">
-          <p class="row-name">{{ s.agent_name }}</p>
-          <p class="row-preview">{{ s.preview_text }}</p>
+          <p class="row-name">{{ s.agent_name ?? '会话' }}</p>
+          <p class="row-preview">{{ s.preview_text ?? '' }}</p>
         </div>
         <span class="row-time">{{ relativeTime(s.last_active_at) }}</span>
         <div class="row-action">
