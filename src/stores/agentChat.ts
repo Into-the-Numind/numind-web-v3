@@ -181,7 +181,27 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
     try {
-      currentRun.value = await api.getRun(currentRun.value.id)
+      const prevStatus = currentRun.value.status
+      const next = await api.getRun(currentRun.value.id)
+      currentRun.value = next
+      // When the run transitions from active → terminal and the backend
+      // surfaced a final_output (extracted from agent_run.messages), push it
+      // as a FinalAnswerMessage so the chat UI renders the AI's reply.
+      const wasActive = prevStatus === 'running' || prevStatus === 'pending'
+      const isTerminal = next.status !== 'running' && next.status !== 'pending'
+      const finalOut = next.final_output ?? ''
+      const alreadyHasFinal = messages.value.some(
+        (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === next.id
+      )
+      if (wasActive && isTerminal && finalOut && !alreadyHasFinal) {
+        messages.value.push({
+          id: uuid(),
+          type: 'final_answer',
+          markdown: finalOut,
+          run_id: next.id,
+          timestamp: new Date().toISOString()
+        })
+      }
     } catch {
       // 忽略；下次重试
     }
@@ -226,7 +246,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     attachments.value = attachments.value.filter((a) => a.id !== id)
   }
 
-  const loadSessionSnapshot = async (sessionId: number, readOnly: boolean): Promise<void> => {
+  const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
     loadingSnapshot.value = true
     sessionError.value = null
     try {

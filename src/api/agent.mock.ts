@@ -86,7 +86,7 @@ const DEMO_AGENTS: AgentSkill[] = [
 // === Recent sessions mock ===
 const DEMO_RECENT: RecentSession[] = [
   {
-    session_id: 1001,
+    session_id: 'mock-sess-1001',
     agent_skill_id: 1,
     agent_name: '爆款分析师',
     agent_emoji: '🤖',
@@ -95,7 +95,7 @@ const DEMO_RECENT: RecentSession[] = [
     preview_text: '帮我分析了本周 8 篇笔记'
   },
   {
-    session_id: 1002,
+    session_id: 'mock-sess-1002',
     agent_skill_id: 2,
     agent_name: '数据复盘助手',
     agent_emoji: '📊',
@@ -115,7 +115,7 @@ interface RunStateEntry {
   credits_budget: number
   threshold_state: 'under_60' | 'warning_60' | 'blocked_100'
   agent_skill_id: number
-  session_id: number
+  session_id: string
   created_at: string
 }
 
@@ -301,15 +301,15 @@ export const listAllHistorySessions = async (): Promise<RecentSession[]> => {
   return DEMO_RECENT
 }
 
-export const getSessionSnapshot = async (sessionId: number): Promise<SessionSnapshot> => {
+export const getSessionSnapshot = async (sessionId: string): Promise<SessionSnapshot> => {
   await delay(200)
   const recent = DEMO_RECENT.find((s) => s.session_id === sessionId)
   return {
     session_id: sessionId,
     agent_skill_id: recent?.agent_skill_id ?? 1,
     messages: [],
-    compact_summary: recent
-      ? `上次（${new Date(recent.last_active_at).toLocaleString('zh-CN')}）：${recent.preview_text}`
+    compact_summary: recent?.last_active_at
+      ? `上次（${new Date(recent.last_active_at).toLocaleString('zh-CN')}）：${recent.preview_text ?? ''}`
       : undefined,
     agent_run_ids: [],
     last_active_at: recent?.last_active_at ?? new Date().toISOString(),
@@ -337,7 +337,7 @@ export const estimateRun = async (req: EstimateRequest): Promise<EstimateRespons
 export const createRun = async (req: CreateRunRequest): Promise<CreateRunResponse> => {
   await delay(300)
   const runId = Date.now()
-  const sessionId = req.session_id ?? runId
+  const sessionId = req.session_id ?? `mock-sess-${runId}`
   const { events, finalMarkdown, isLarge } = buildNarrationFixture(runId, req)
   _runState.set(runId, {
     events,
@@ -365,7 +365,7 @@ export const getRun = async (runId: number): Promise<AgentRun> => {
   if (!state) {
     return {
       id: runId,
-      session_id: runId,
+      session_id: `mock-sess-${runId}`,
       user_id: 0,
       agent_skill_id: 1,
       status: 'failed',

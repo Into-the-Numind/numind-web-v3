@@ -71,29 +71,40 @@ export interface AgentSkillListResponse {
 
 export interface AgentRun {
   id: number
-  session_id: number
+  /** UUID string (backend agent_run.session_id is varchar) */
+  session_id: string
   user_id: number
   agent_skill_id: number
   status: AgentRunStatus
-  credits_used: number
-  credits_budget: number
-  credits_threshold_state: 'under_60' | 'warning_60' | 'blocked_100'
+  /** optional: backend AgentRun model has no credits_used field yet — defaults to 0 in views */
+  credits_used?: number
+  credits_budget?: number
+  credits_threshold_state?: 'under_60' | 'warning_60' | 'blocked_100'
   created_at: string
   updated_at: string
   finished_at?: string
+  /** terminal reason string e.g. "done","budget_exhausted","cancelled" */
+  state_reason?: string
+  started_at?: string
+  ended_at?: string
+  /** Extracted assistant text from the last turn; populated by GetRun once the
+   *  run reaches terminal state. Empty while still running or on error. */
+  final_output?: string
 }
 
 export interface CreateRunRequest {
   agent_skill_id: number
-  session_id?: number
+  /** UUID string from prior createRun response */
+  session_id?: string
   input_text: string
   attachment_ids?: number[]
-  restore_from_session_id?: number
+  restore_from_session_id?: string
 }
 
 export interface CreateRunResponse {
   run_id: number
-  session_id: number
+  /** UUID string */
+  session_id: string
   estimated_credits_min: number
   estimated_credits_max: number
 }
@@ -190,14 +201,15 @@ export interface ToolCallAggregate {
 // ─────────────────────────────────────────
 
 export interface SessionSnapshot {
-  session_id: number
+  /** UUID string */
+  session_id: string
   agent_skill_id: number
   messages: AgentMessage[]
   compact_summary?: string
   /** returned by backend; #11 does not render */
-  agent_run_ids: number[]
-  last_active_at: string
-  status: 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout'
+  agent_run_ids?: number[]
+  last_active_at?: string
+  status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout'
 }
 
 // ─────────────────────────────────────────
@@ -231,11 +243,12 @@ export interface SupportContact {
 // ─────────────────────────────────────────
 
 export interface RecentSession {
-  session_id: number
+  /** UUID string */
+  session_id: string
   agent_skill_id: number
-  agent_name: string
+  agent_name?: string
   agent_emoji?: string
-  last_active_at: string
+  last_active_at?: string
   status:
     | 'running'
     | 'pending'
@@ -244,7 +257,7 @@ export interface RecentSession {
     | 'cancelled'
     | 'timeout'
     | 'budget_exhausted'
-  preview_text: string
+  preview_text?: string
 }
 
 // ─────────────────────────────────────────

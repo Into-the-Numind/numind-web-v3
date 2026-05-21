@@ -61,9 +61,14 @@ const handleSend = async (text: string): Promise<void> => {
     showLowBalance.value = true
     return
   }
-  await runCtrl.start(store.currentAgent.id, text)
-  narration.start()
-  runCtrl.startStatusPolling()
+  try {
+    await runCtrl.start(store.currentAgent.id, text)
+    narration.start()
+    runCtrl.startStatusPolling()
+  } catch (err) {
+    const msg = (err as Error)?.message ?? '发送失败,请稍后重试'
+    notifications.error(`发送失败：${msg}`)
+  }
 }
 
 const handleSelectStarter = (text: string): void => {
@@ -159,10 +164,9 @@ onMounted(async () => {
       }
     }
   } else {
-    // 历史会话 — 加载 snapshot
-    const sid = Number(props.sessionId)
-    if (!Number.isNaN(sid)) {
-      await store.loadSessionSnapshot(sid, props.readOnly)
+    // 历史会话 — sessionId 是 UUID string (backend agent_run.session_id varchar)
+    if (props.sessionId) {
+      await store.loadSessionSnapshot(props.sessionId, props.readOnly)
     }
   }
 
@@ -189,9 +193,8 @@ const goBackToList = (): void => {
 }
 
 const handleRetrySnapshot = async (): Promise<void> => {
-  const sid = Number(props.sessionId)
-  if (!Number.isNaN(sid)) {
-    await store.loadSessionSnapshot(sid, props.readOnly)
+  if (props.sessionId) {
+    await store.loadSessionSnapshot(props.sessionId, props.readOnly)
   }
 }
 </script>

@@ -9,11 +9,12 @@ interface Props {
 defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'continue', sessionId: number): void
-  (e: 'view', sessionId: number): void
+  (e: 'continue', sessionId: string): void
+  (e: 'view', sessionId: string): void
 }>()
 
-const relativeTime = (iso: string): string => {
+const relativeTime = (iso?: string): string => {
+  if (!iso) return ''
   const t = new Date(iso).getTime()
   const diff = (Date.now() - t) / 1000
   if (diff < 60) return '刚刚'
