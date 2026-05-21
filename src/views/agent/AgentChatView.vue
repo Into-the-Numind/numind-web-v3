@@ -46,8 +46,11 @@ const showFirstRun = computed(
   () => isNewSession.value && !hasMessages.value && !!store.currentAgent
 )
 
-// creditsStore.balance is QuotaBreakdown | null; .balance is the numeric field
-const currentBalance = computed(() => creditsStore.balance?.balance ?? 0)
+// Sum cycle + booster + trial pools via the store's totalRemain getter.
+// The legacy `.balance` field on QuotaBreakdown is 0 under the new credits
+// schema (cycle_remaining / booster_usable / trial_remaining), so reading it
+// directly causes the "0 积分" false alarm even for users with 1000+ credits.
+const currentBalance = computed(() => creditsStore.totalRemain)
 const isMember = computed(
   () => creditsStore.displayState === 'trial' || creditsStore.displayState === 'pro'
 )
