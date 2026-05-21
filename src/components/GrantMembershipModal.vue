@@ -125,28 +125,39 @@
                 data-testid="hero-yearly"
                 @click="selectYear"
               >
-                <span class="deal-badge">-20%↓</span>
-                <span class="hero-radio" :class="{ filled: months === 12 }">
-                  <svg
-                    v-if="months === 12"
-                    viewBox="0 0 24 24"
-                    width="11"
-                    height="11"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-                <div class="hero-top">
-                  <div class="hero-title">1 年</div>
-                  <div class="hero-now">¥949</div>
-                  <div class="hero-monthly">¥79/月<span class="equiv"> · 按月省 ¥20</span></div>
-                  <div class="hero-original">原价 ¥1188</div>
+                <span class="deal-flag">-20%↓</span>
+
+                <div class="hero-eyebrow">
+                  <span class="hero-radio" :class="{ filled: months === 12 }">
+                    <svg
+                      v-if="months === 12"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                  <span class="hero-tag">1 年</span>
                 </div>
+
+                <div class="hero-price">
+                  <span class="hero-cny">¥</span><span class="hero-num">949</span>
+                </div>
+
+                <div class="hero-meta">
+                  <span class="hero-strike">¥1188</span>
+                  <span class="hero-dot" aria-hidden="true">·</span>
+                  <span class="hero-permonth">折合 ¥79/月</span>
+                </div>
+
+                <div class="hero-divider"></div>
+
                 <div class="hero-savings">
                   <span class="save-pill">省 ¥239</span>
                 </div>
@@ -556,13 +567,13 @@ async function handleSubmit() {
   font-size: 12px;
 }
 
-/* ─── Hero Card (1 year) ─── */
+/* ─── Hero Card (1 year, editorial) ─── */
 .hero-card {
   position: relative;
-  border: 2px solid hsl(160, 72%, 40%);
-  border-radius: 14px;
-  background: linear-gradient(135deg, hsl(160, 60%, 93%) 0%, hsl(160, 60%, 95%) 100%);
-  padding: 28px 18px 0;
+  border: 1.5px solid hsl(160, 72%, 40%);
+  border-radius: 12px;
+  background: linear-gradient(180deg, hsl(160, 40%, 98%) 0%, #fff 70%);
+  padding: 22px 22px 18px;
   cursor: pointer;
   width: 100%;
   font: inherit;
@@ -570,62 +581,69 @@ async function handleSubmit() {
   color: inherit;
   transition: all 0.2s ease;
   overflow: visible;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 24px hsl(160 72% 40% / 0.06);
 }
 
 .hero-card.selected::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 14px;
-  box-shadow: 0 0 0 3px hsl(160 72% 40% / 0.12);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px hsl(160 72% 40% / 0.15);
   pointer-events: none;
 }
 
 .hero-card:not(.selected) {
-  border-color: hsl(160, 30%, 75%);
-  background: hsl(160, 60%, 96%);
-  opacity: 0.92;
+  border-color: hsl(155, 12%, 82%);
+  background: #fff;
+  opacity: 0.88;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .hero-card:not(.selected):hover {
   opacity: 1;
-  border-color: hsl(160, 60%, 60%);
+  border-color: hsl(160, 50%, 60%);
 }
 
-/* Deal badge */
-.deal-badge {
+/* Ribbon flag attached to top edge */
+.deal-flag {
   position: absolute;
-  top: -11px;
-  right: 14px;
+  top: -1.5px;
+  right: 20px;
   background: hsl(160, 72%, 40%);
   color: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
-  padding: 6px 12px 7px;
-  border-radius: 8px;
-  letter-spacing: 0.04em;
-  box-shadow: 0 4px 10px hsl(160 72% 40% / 0.35);
-  transform: rotate(2deg);
+  padding: 5px 10px 6px;
+  border-radius: 0 0 4px 4px;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 8px hsl(160 72% 40% / 0.22);
+  font-variant-numeric: tabular-nums;
   z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
 }
 
-/* Radio indicator */
+/* Eyebrow row: radio + small label */
+.hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
 .hero-radio {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
+  border: 1.5px solid hsl(155, 12%, 72%);
   background: transparent;
-  border: 2px solid hsl(160, 30%, 75%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: transparent;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
 .hero-radio.filled {
@@ -634,77 +652,92 @@ async function handleSubmit() {
   color: #fff;
 }
 
-.hero-top {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  column-gap: 12px;
-  row-gap: 6px;
-  margin-bottom: 8px;
-  padding-left: 26px;
+.hero-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: hsl(160, 35%, 32%);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.hero-title {
-  grid-column: 1;
-  grid-row: 1;
-  align-self: end;
-  font-size: 16px;
-  font-weight: 700;
-  color: hsl(155, 30%, 15%);
-  letter-spacing: -0.01em;
-  line-height: 1;
+.hero-card:not(.selected) .hero-tag {
+  color: hsl(155, 12%, 42%);
 }
 
-.hero-now {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: end;
-  justify-self: end;
-  font-size: 28px;
-  font-weight: 700;
-  color: hsl(160, 72%, 40%);
+/* Hero price — Georgia serif, editorial */
+.hero-price {
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  color: hsl(160, 72%, 38%);
   line-height: 1;
   letter-spacing: -0.02em;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-feature-settings: 'tnum';
 }
 
-.hero-card:not(.selected) .hero-now {
-  color: hsl(155, 30%, 15%);
+.hero-card:not(.selected) .hero-price {
+  color: hsl(155, 25%, 25%);
 }
 
-.hero-monthly {
-  grid-column: 1;
-  grid-row: 2;
-  align-self: start;
-  font-size: 12px;
-  color: hsl(160, 72%, 40%);
+.hero-cny {
+  font-size: 22px;
   font-weight: 600;
+  position: relative;
+  top: -0.32em;
+}
+
+.hero-num {
+  font-size: 46px;
+  font-weight: 700;
+}
+
+/* Meta line */
+.hero-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 13px;
   line-height: 1;
 }
 
-.hero-monthly .equiv {
-  color: hsl(155, 10%, 55%);
-  font-weight: 400;
-  margin-left: 2px;
-}
-
-.hero-original {
-  grid-column: 2;
-  grid-row: 2;
-  align-self: start;
-  justify-self: end;
-  font-size: 12px;
-  color: hsl(155, 10%, 55%);
+.hero-strike {
+  color: hsl(155, 10%, 50%);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
-  line-height: 1;
 }
 
+.hero-dot {
+  color: hsl(155, 10%, 70%);
+  font-weight: 700;
+}
+
+.hero-permonth {
+  color: hsl(160, 65%, 30%);
+  font-weight: 600;
+}
+
+.hero-card:not(.selected) .hero-permonth {
+  color: hsl(155, 20%, 35%);
+}
+
+/* Full-bleed thin rule */
+.hero-divider {
+  height: 1px;
+  background: hsl(160, 25%, 86%);
+  margin: 0 -22px 14px;
+}
+
+.hero-card:not(.selected) .hero-divider {
+  background: hsl(155, 10%, 90%);
+}
+
+/* Savings pill */
 .hero-savings {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 0 8px 26px;
-  margin-top: 4px;
-  border-top: 1px dashed hsl(160, 50%, 75%);
 }
 
 .save-pill {
@@ -712,8 +745,14 @@ async function handleSubmit() {
   color: #fff;
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 11px;
   border-radius: 999px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-card:not(.selected) .save-pill {
+  background: hsl(155, 12%, 60%);
 }
 
 /* ─── More toggle + panel ─── */
