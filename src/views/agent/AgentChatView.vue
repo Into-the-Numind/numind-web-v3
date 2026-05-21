@@ -244,7 +244,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
           :estimate="store.estimate"
           :attachments="store.attachments"
           :sending="store.sendingMessage"
-          :disabled="store.isRunning"
+          :disabled="store.isRunning || store.isWaitingForUser"
           @send="handleSend"
           @estimate-request="handleEstimateRequest"
           @upload="handleUpload"
