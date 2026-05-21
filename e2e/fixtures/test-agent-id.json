@@ -1,0 +1,6 @@
+{
+  "agent_definition_id": 99999,
+  "agent_name": "E2E Test Assistant",
+  "parent_user_id": 1,
+  "note": "Seeded by numind-server migrations/20260521_190000_seed_e2e_test_agent.sql — DEV ONLY"
+}
