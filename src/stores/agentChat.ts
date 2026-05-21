@@ -21,7 +21,8 @@ import type {
   EstimateResponse,
   RecentSession,
   ToolCallAggregate,
-  UploadResponse
+  UploadResponse,
+  QuestionPromptMessage
 } from '@/types/agent'
 
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
@@ -55,6 +56,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // ── Getters ─────────────────────────────────────────────────────────
   const isRunning = computed(
     () => currentRun.value?.status === 'running' || currentRun.value?.status === 'pending'
+  )
+
+  /** True when agent is paused waiting for user to answer an ask_user_question */
+  const isWaitingForUser = computed(
+    () => currentRun.value?.state_reason === 'waiting_for_user_choice'
   )
 
   const toolGroups = computed<ToolCallAggregate[]>(() => {
@@ -167,7 +173,38 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     try {
       const events = await api.fetchNarrationEvents(currentRun.value.id, lastNarrationTs.value)
       if (events.length > 0) {
-        narrationEvents.value.push(...events)
+        for (const ev of events) {
+          if (ev.event_type === 'tool_call_yield' && ev.yield_payload) {
+            // ask_user_question yield — inject a question_prompt message into the chat
+            const qp = ev.yield_payload
+            const promptMsg: QuestionPromptMessage = {
+              id: uuid(),
+              type: 'question_prompt',
+              run_id: qp.run_id,
+              question: qp.question,
+              options: qp.options,
+              header: qp.header,
+              multi_select: qp.multi_select,
+              answer_status: 'pending',
+              timestamp: ev.timestamp
+            }
+            messages.value.push(promptMsg)
+          } else if (ev.event_type === 'run_resumed') {
+            // Mark any pending question_prompt for this run as answered
+            for (const msg of messages.value) {
+              if (
+                msg.type === 'question_prompt' &&
+                msg.run_id === ev.run_id &&
+                msg.answer_status === 'pending'
+              ) {
+                ;(msg as QuestionPromptMessage).answer_status = 'answered'
+              }
+            }
+          } else {
+            // Regular narration event
+            narrationEvents.value.push(ev)
+          }
+        }
         lastNarrationTs.value = events[events.length - 1].timestamp
         stuckSince.value = null
       } else if (stuckSince.value === null) {
@@ -318,6 +355,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     agentsError,
     sessionError,
     isRunning,
+    isWaitingForUser,
     toolGroups,
     budgetThresholdState,
     fetchAvailableAgents,

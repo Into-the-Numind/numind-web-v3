@@ -8,12 +8,14 @@ import type {
   ToolGroupMessage,
   ArtifactMessage,
   FinalAnswerMessage,
-  SystemMessage
+  SystemMessage,
+  QuestionPromptMessage
 } from '@/types/agent'
 import AgentPlanCard from './AgentPlanCard.vue'
 import AgentToolCallList from './AgentToolCallList.vue'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentFinalAnswer from './AgentFinalAnswer.vue'
+import QuestionPrompt from './QuestionPrompt.vue'
 
 interface Props {
   msg: AgentMessage
@@ -39,6 +41,9 @@ const asFinalAnswer = computed<FinalAnswerMessage | null>(() =>
 )
 const asSystem = computed<SystemMessage | null>(() =>
   props.msg.type === 'system' ? props.msg : null
+)
+const asQuestionPrompt = computed<QuestionPromptMessage | null>(() =>
+  props.msg.type === 'question_prompt' ? (props.msg as QuestionPromptMessage) : null
 )
 
 const systemText = computed<string>(() => {
@@ -124,6 +129,21 @@ const systemText = computed<string>(() => {
   <div v-else-if="asSystem" class="msg msg-system">
     <p class="system-text">🤖 {{ systemText }}</p>
   </div>
+
+  <!-- Question prompt (ask_user_question yield) -->
+  <div v-else-if="asQuestionPrompt" class="msg msg-question-prompt">
+    <span class="avatar">🤖</span>
+    <div class="content-wrap">
+      <QuestionPrompt
+        :run-id="asQuestionPrompt.run_id"
+        :question="asQuestionPrompt.question"
+        :options="asQuestionPrompt.options"
+        :header="asQuestionPrompt.header"
+        :multi-select="asQuestionPrompt.multi_select"
+        :answered="asQuestionPrompt.answer_status === 'answered'"
+      />
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -205,5 +225,9 @@ const systemText = computed<string>(() => {
   font-size: 13px;
   color: #6b7280;
   margin: 0;
+}
+
+.msg-question-prompt {
+  align-items: flex-start;
 }
 </style>

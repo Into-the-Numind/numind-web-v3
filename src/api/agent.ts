@@ -17,6 +17,16 @@ import type {
   UploadResponse
 } from '@/types/agent'
 
+export interface AnswerPayload {
+  selected: string[]
+  free_text?: string
+}
+
+export interface AnswerResponse {
+  run_id: number
+  status: 'resumed'
+}
+
 const useMock = (): boolean => import.meta.env.VITE_AGENT_MOCK === 'true'
 
 // 1. 学员侧可用 agent 列表
@@ -127,4 +137,14 @@ export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
   return data
+}
+
+// 14. 提交 ask_user_question 答案（T6）
+export const postAgentAnswer = async (
+  runId: number,
+  payload: AnswerPayload
+): Promise<AnswerResponse> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const res = (await request.post(`/v1/agent-runs/${runId}/answer`, payload)) as any
+  return res.data as AnswerResponse
 }

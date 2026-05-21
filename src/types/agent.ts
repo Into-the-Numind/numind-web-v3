@@ -28,6 +28,16 @@ export interface NarrationEvent {
   reason?: string
   /** ISO 8601 with TZ */
   timestamp: string
+  /** Present only for tool_call_yield events (ask_user_question tool) */
+  event_type?: 'tool_call_yield' | 'run_resumed'
+  /** Present when event_type === 'tool_call_yield' */
+  yield_payload?: {
+    question: string
+    options: Array<{ label: string; description?: string }>
+    header?: string
+    multi_select: boolean
+    run_id: number
+  }
 }
 
 // ─────────────────────────────────────────
@@ -137,6 +147,7 @@ export type AgentMessageType =
   | 'artifact'
   | 'final_answer'
   | 'system'
+  | 'question_prompt'
 
 interface BaseMessage {
   /** client-generated uuid */
@@ -186,6 +197,27 @@ export interface SystemMessage extends BaseMessage {
   markdown?: string
 }
 
+// ─────────────────────────────────────────
+// QuestionPromptMessage — ask_user_question yield
+// Rendered as an interactive card in the chat stream.
+// ─────────────────────────────────────────
+
+export interface QuestionPromptOption {
+  label: string
+  description?: string
+}
+
+export interface QuestionPromptMessage extends BaseMessage {
+  type: 'question_prompt'
+  run_id: number
+  question: string
+  options: QuestionPromptOption[]
+  header?: string
+  multi_select: boolean
+  /** 'pending' until user submits; 'answered' after successful POST */
+  answer_status: 'pending' | 'answered'
+}
+
 export type AgentMessage =
   | UserMessage
   | AssistantMessage
@@ -194,6 +226,7 @@ export type AgentMessage =
   | ArtifactMessage
   | FinalAnswerMessage
   | SystemMessage
+  | QuestionPromptMessage
 
 export interface ToolCallAggregate {
   tool_call_id: string
