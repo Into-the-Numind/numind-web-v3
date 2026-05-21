@@ -24,16 +24,33 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
+const userStore = useUserStore()
 
-const tabs = [
+interface ConfigTab {
+  label: string
+  path: string
+  parentOnly?: boolean
+}
+
+const allTabs: ConfigTab[] = [
   { label: '智能体管理', path: '/config/chatbots' },
   { label: 'SOP 管理', path: '/config/sop-templates' },
-  { label: '知识库管理', path: '/config/knowledge-bases' }
+  { label: '知识库管理', path: '/config/knowledge-bases' },
+  { label: 'AI 助手', path: '/config/agents', parentOnly: true }
 ]
+
+// userInfo 未就绪时默认隐藏 parentOnly tab，避免 isParentUser=true 的 flash；
+// 加载完后再按 isParentUser 决定显隐。
+const tabs = computed<ConfigTab[]>(() => {
+  if (!userStore.userInfo) return allTabs.filter((t) => !t.parentOnly)
+  return allTabs.filter((t) => !t.parentOnly || userStore.isParentUser)
+})
 
 function isActive(path: string) {
   return route.path.startsWith(path)
