@@ -1,10 +1,17 @@
 /**
- * useBookmarks — SOP 节点书签系统 composable
+ * useBookmarks — SOP 节点书签系统 composable（模块级单例 state）
  *
  * ## 概念
  *
  * 书签（Bookmark）是用户对某次节点运行结果的"收藏"，允许后续新建 run 时一键
  * 应用同一份 output 跳过 LLM 调用（节省配额 + 时间）。
+ *
+ * ## State 共享语义
+ *
+ * `bookmarks` / `loading` / `lastError` 是**模块级单例**——所有 `useBookmarks()`
+ * 调用返回**同一份** ref。SOPRunView 调一次 loadBookmarks 后，SopStepView 的
+ * hasBookmarkForNode 立即看到结果。切换 SOP 模板时调用 `clear()` 重置 state，
+ * 避免跨模板串数据。
  *
  * ## 状态与 Actions
  *
@@ -78,64 +85,66 @@ export interface UseBookmarksReturn {
   clear: () => void
 }
 
-export function useBookmarks(): UseBookmarksReturn {
-  const bookmarks = ref<BookmarkListItem[]>([])
-  const loading = ref(false)
-  const lastError = ref<string>('')
+// 模块级单例 state —— 所有 useBookmarks() 调用共享。Hoist 到这里是为了
+// 修复 SOPRunView 与 SopStepView 各自持有独立 state 导致按钮显示错乱的 bug。
+const bookmarks = ref<BookmarkListItem[]>([])
+const loading = ref(false)
+const lastError = ref<string>('')
 
-  const bookmarksByNodeId = computed<Record<number, BookmarkListItem[]>>(() => {
-    const map: Record<number, BookmarkListItem[]> = {}
-    for (const bookmark of bookmarks.value) {
-      if (!map[bookmark.node_id]) {
-        map[bookmark.node_id] = []
-      }
-      map[bookmark.node_id].push(bookmark)
+const bookmarksByNodeId = computed<Record<number, BookmarkListItem[]>>(() => {
+  const map: Record<number, BookmarkListItem[]> = {}
+  for (const bookmark of bookmarks.value) {
+    if (!map[bookmark.node_id]) {
+      map[bookmark.node_id] = []
     }
-    return map
-  })
-
-  async function loadBookmarks(templateId: number): Promise<void> {
-    loading.value = true
-    lastError.value = ''
-    try {
-      const list = await listBookmarksByTemplate(templateId)
-      bookmarks.value = list
-    } catch (err) {
-      lastError.value = (err as Error)?.message || '加载书签失败'
-      bookmarks.value = []
-    } finally {
-      loading.value = false
-    }
+    map[bookmark.node_id].push(bookmark)
   }
+  return map
+})
 
-  async function applyBookmarkToNode(
-    runId: number,
-    nodeId: number,
-    bookmarkId?: number
-  ): Promise<ApplyBookmarkResponse> {
-    lastError.value = ''
-    try {
-      return await applyBookmarkAPI(runId, nodeId, bookmarkId)
-    } catch (err) {
-      lastError.value = (err as Error)?.message || '应用书签失败'
-      throw err
-    }
-  }
-
-  function getBookmarksForNode(nodeId: number): BookmarkListItem[] {
-    return bookmarks.value.filter((b) => b.node_id === nodeId)
-  }
-
-  function hasBookmarkForNode(nodeId: number): boolean {
-    return bookmarks.value.some((b) => b.node_id === nodeId)
-  }
-
-  function clear(): void {
+async function loadBookmarks(templateId: number): Promise<void> {
+  loading.value = true
+  lastError.value = ''
+  try {
+    const list = await listBookmarksByTemplate(templateId)
+    bookmarks.value = list
+  } catch (err) {
+    lastError.value = (err as Error)?.message || '加载书签失败'
     bookmarks.value = []
+  } finally {
     loading.value = false
-    lastError.value = ''
   }
+}
 
+async function applyBookmarkToNode(
+  runId: number,
+  nodeId: number,
+  bookmarkId?: number
+): Promise<ApplyBookmarkResponse> {
+  lastError.value = ''
+  try {
+    return await applyBookmarkAPI(runId, nodeId, bookmarkId)
+  } catch (err) {
+    lastError.value = (err as Error)?.message || '应用书签失败'
+    throw err
+  }
+}
+
+function getBookmarksForNode(nodeId: number): BookmarkListItem[] {
+  return bookmarks.value.filter((b) => b.node_id === nodeId)
+}
+
+function hasBookmarkForNode(nodeId: number): boolean {
+  return bookmarks.value.some((b) => b.node_id === nodeId)
+}
+
+function clear(): void {
+  bookmarks.value = []
+  loading.value = false
+  lastError.value = ''
+}
+
+export function useBookmarks(): UseBookmarksReturn {
   return {
     bookmarks,
     loading,

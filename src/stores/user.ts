@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { login as loginApi, getUserInfo } from '@/api/auth'
 import request from '@/api/request'
 import { getCreditBalance } from '@/api/credits'
+import { useBookmarks } from '@/views/sop/composables/useBookmarks'
 
 export interface UserInfo {
   id: string | number
@@ -164,6 +165,9 @@ export const useUserStore = defineStore('user', () => {
     quotaSubRemain.value = 0
     quotaBoosterTotal.value = 0
     quotaBoosterRemain.value = 0
+    // useBookmarks 模块级单例 state 不在 Pinia store 内，需手工清理，
+    // 避免 router.push('/login') 后另一个用户在同 tab 登录时短暂看到上个用户的书签。
+    useBookmarks().clear()
   }
 
   // 初始化（从本地存储恢复，兼容原版 auth_token / user_info key）

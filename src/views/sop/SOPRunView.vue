@@ -233,6 +233,9 @@ async function initialize() {
     return
   }
   try {
+    // useBookmarks 是模块级单例，切模板 / 重进页面前先清掉上一个模板的书签，
+    // 避免 await loadBookmarks 的窗口内 hasBookmarkForNode 对新模板节点误判 true。
+    bookmarks.clear()
     await store.loadTemplate(templateId.value)
     await bookmarks.loadBookmarks(templateId.value)
 
