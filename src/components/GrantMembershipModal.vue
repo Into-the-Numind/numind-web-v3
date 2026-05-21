@@ -567,7 +567,7 @@ async function handleSubmit() {
   border: 2px solid hsl(160, 72%, 40%);
   border-radius: 14px;
   background: linear-gradient(135deg, hsl(160, 60%, 93%) 0%, hsl(160, 60%, 95%) 100%);
-  padding: 28px 18px 16px;
+  padding: 28px 18px 0;
   cursor: pointer;
   width: 100%;
   font: inherit;
@@ -641,11 +641,18 @@ async function handleSubmit() {
 
 .hero-top {
   display: flex;
-  align-items: baseline;
+  align-items: stretch;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
   padding-left: 26px;
+}
+
+.hero-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
 }
 
 .hero-title {
@@ -653,13 +660,14 @@ async function handleSubmit() {
   font-weight: 700;
   color: hsl(155, 30%, 15%);
   letter-spacing: -0.01em;
+  line-height: 1;
 }
 
 .hero-monthly {
   font-size: 12px;
   color: hsl(160, 72%, 40%);
   font-weight: 600;
-  margin-top: 2px;
+  line-height: 1;
 }
 
 .hero-monthly .equiv {
@@ -672,8 +680,13 @@ async function handleSubmit() {
   text-align: right;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: flex-end;
-  gap: 2px;
+  gap: 4px;
+}
+
+.hero-original {
+  line-height: 1;
 }
 
 .hero-now {
@@ -693,16 +706,16 @@ async function handleSubmit() {
   color: hsl(155, 10%, 55%);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
+  line-height: 1;
 }
 
 .hero-savings {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-top: 10px;
+  padding: 12px 0 12px 26px;
   margin-top: 4px;
   border-top: 1px dashed hsl(160, 50%, 75%);
-  padding-left: 26px;
 }
 
 .save-pill {
