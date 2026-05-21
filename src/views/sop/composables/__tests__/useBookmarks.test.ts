@@ -1,11 +1,12 @@
 /**
- * useBookmarks 单元测试（12 用例，分 4 组）
+ * useBookmarks 单元测试
  *
  * loadBookmarks (3)：成功 / 失败保留空数组 / 重试清除 error
  * applyBookmarkToNode (3)：成功 / 省略 bookmarkId / 失败抛出 + lastError
  * 本地查询方法 (4)：getBookmarksForNode / hasBookmarkForNode /
  *                   bookmarksByNodeId 分组 / 空状态返回空对象
- * 其他 (2)：clear / 多实例独立
+ * 其他 (1)：clear
+ * regression (1)：跨组件 state 同步（hotfix sop-bookmark-state-sync）
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { BookmarkListItem } from '@/api/sop'
@@ -39,6 +40,8 @@ function makeBookmark(overrides: Partial<BookmarkListItem> = {}): BookmarkListIt
 beforeEach(() => {
   listMock.mockReset()
   applyMock.mockReset()
+  // useBookmarks 现在是模块级单例 state，必须每个测试前清空避免泄漏
+  useBookmarks().clear()
 })
 
 afterEach(() => {
@@ -195,20 +198,6 @@ describe('useBookmarks — 其他', () => {
     expect(bm.bookmarks.value).toEqual([])
     expect(bm.lastError.value).toBe('')
     expect(bm.loading.value).toBe(false)
-  })
-
-  it('多实例状态独立', async () => {
-    listMock.mockResolvedValueOnce([makeBookmark({ id: 1 })])
-    listMock.mockResolvedValueOnce([])
-
-    const bm1 = useBookmarks()
-    const bm2 = useBookmarks()
-
-    await bm1.loadBookmarks(42)
-    await bm2.loadBookmarks(43)
-
-    expect(bm1.bookmarks.value.length).toBe(1)
-    expect(bm2.bookmarks.value.length).toBe(0)
   })
 })
 
