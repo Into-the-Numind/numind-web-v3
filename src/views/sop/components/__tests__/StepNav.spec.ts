@@ -25,7 +25,7 @@
  *      14. disabled item 不触发 emit
  *      15. 5 态齐全渲染（data-step-state 属性）
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import StepNav from '../StepNav.vue'
 import { computeStepState } from '../stepNavState'
@@ -254,5 +254,138 @@ describe('StepNav.vue (component)', () => {
       }
     })
     expect(wrapper.find('.step__desc').exists()).toBe(false)
+  })
+})
+
+describe('StepNav.vue — ⭐ 书签星标 (hotfix sop-stepnav-bookmark-star)', () => {
+  /**
+   * useBookmarks 是模块级单例。每个测试前必须 clear() 避免上一个测试污染。
+   * 通过对 listBookmarksByTemplate mock + loadBookmarks 注入"有书签"的 state。
+   */
+  beforeEach(async () => {
+    const { useBookmarks } = await import('@/views/sop/composables/useBookmarks')
+    useBookmarks().clear()
+  })
+
+  function makeBookmarkRow(nodeId: number) {
+    return {
+      id: nodeId * 10,
+      node_id: nodeId,
+      node_sort: nodeId,
+      node_name: `Step ${nodeId}`,
+      bookmark_name: '',
+      output_preview: 'preview',
+      has_thinking: false,
+      total_tokens: 100,
+      created_at: '2026-05-22T00:00:00Z'
+    }
+  }
+
+  it('已完成的节点 + 有书签 → ⭐ saved 态渲染', async () => {
+    // useBookmarks 是 singleton，直接注入 state 比 mock API 更可靠
+    const { useBookmarks } = await import('@/views/sop/composables/useBookmarks')
+    const bm = useBookmarks()
+    bm.bookmarks.value = [makeBookmarkRow(1)]
+
+    const wrapper = mount(StepNav, {
+      props: {
+        nodes: THREE_NODES,
+        currentStep: 2,
+        viewingStep: 2,
+        completedNodeIds: [1],
+        trailingChatEnabled: false,
+        streamingNodeId: null
+      }
+    })
+    const items = wrapper.findAll('[data-testid="sop-nav-item"]')
+    expect(items[0].attributes('data-bookmark-state')).toBe('saved')
+    expect(items[0].find('[data-testid="step-bookmark-toggle"]').exists()).toBe(true)
+  })
+
+  it('已完成的节点 + 无书签 → ⭐ savable 态（outline）', () => {
+    const wrapper = mount(StepNav, {
+      props: {
+        nodes: THREE_NODES,
+        currentStep: 2,
+        viewingStep: 2,
+        completedNodeIds: [1],
+        trailingChatEnabled: false,
+        streamingNodeId: null
+      }
+    })
+    const items = wrapper.findAll('[data-testid="sop-nav-item"]')
+    expect(items[0].attributes('data-bookmark-state')).toBe('savable')
+    expect(items[0].find('[data-testid="step-bookmark-toggle"]').exists()).toBe(true)
+  })
+
+  it('未完成的节点 → ⭐ unavailable，不渲染星按钮', () => {
+    const wrapper = mount(StepNav, {
+      props: {
+        nodes: THREE_NODES,
+        currentStep: 1,
+        viewingStep: 1,
+        completedNodeIds: [],
+        trailingChatEnabled: false,
+        streamingNodeId: null
+      }
+    })
+    const items = wrapper.findAll('[data-testid="sop-nav-item"]')
+    expect(items[0].attributes('data-bookmark-state')).toBe('unavailable')
+    expect(items[0].find('[data-testid="step-bookmark-toggle"]').exists()).toBe(false)
+  })
+
+  it('streaming 中的节点 → ⭐ unavailable（即使在 completedNodeIds 里也屏蔽）', () => {
+    // 防御性：streaming + 已完成同时出现（state 异常态）应优先 streaming
+    const wrapper = mount(StepNav, {
+      props: {
+        nodes: THREE_NODES,
+        currentStep: 1,
+        viewingStep: 1,
+        completedNodeIds: [1],
+        trailingChatEnabled: false,
+        streamingNodeId: 1
+      }
+    })
+    const items = wrapper.findAll('[data-testid="sop-nav-item"]')
+    expect(items[0].attributes('data-bookmark-state')).toBe('unavailable')
+  })
+
+  it('点击 ⭐ 触发 toggle-bookmark 携带 nodeId，且不触发行 navigate', async () => {
+    const wrapper = mount(StepNav, {
+      props: {
+        nodes: THREE_NODES,
+        currentStep: 2,
+        viewingStep: 2,
+        completedNodeIds: [1],
+        trailingChatEnabled: false,
+        streamingNodeId: null
+      }
+    })
+    const items = wrapper.findAll('[data-testid="sop-nav-item"]')
+    const star = items[0].find('[data-testid="step-bookmark-toggle"]')
+    expect(star.exists()).toBe(true)
+    await star.trigger('click')
+
+    expect(wrapper.emitted('toggle-bookmark')).toBeTruthy()
+    expect(wrapper.emitted('toggle-bookmark')?.[0]).toEqual([1]) // node.id=1
+    // 关键：行 click 不应被 stopPropagation 后冒泡到 navigate
+    expect(wrapper.emitted('navigate')).toBeUndefined()
+  })
+
+  it('trailing chat 项不渲染 ⭐ 按钮', () => {
+    const wrapper = mount(StepNav, {
+      props: {
+        nodes: THREE_NODES,
+        currentStep: 4,
+        viewingStep: 4,
+        completedNodeIds: [1, 2, 3],
+        trailingChatEnabled: true,
+        streamingNodeId: null
+      }
+    })
+    const items = wrapper.findAll('[data-testid="sop-nav-item"]')
+    // 第 4 项是 trailing
+    const trailing = items[3]
+    expect(trailing.find('[data-testid="step-bookmark-toggle"]').exists()).toBe(false)
   })
 })
