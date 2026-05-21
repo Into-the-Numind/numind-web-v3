@@ -125,41 +125,51 @@
                 data-testid="hero-yearly"
                 @click="selectYear"
               >
-                <span class="deal-flag">20%↓</span>
-
-                <div class="hero-eyebrow">
-                  <span class="hero-radio" :class="{ filled: months === 12 }">
-                    <svg
-                      v-if="months === 12"
-                      viewBox="0 0 24 24"
-                      width="10"
-                      height="10"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="3"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </span>
-                  <span class="hero-tag">1 年</span>
+                <span class="deal-badge">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polygon
+                      points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                    />
+                  </svg>
+                  20%↓
+                </span>
+                <span class="hero-radio" :class="{ filled: months === 12 }">
+                  <svg
+                    v-if="months === 12"
+                    viewBox="0 0 24 24"
+                    width="11"
+                    height="11"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+                <div class="hero-top">
+                  <div class="hero-label">
+                    <div class="hero-title">1 年</div>
+                    <div class="hero-monthly">¥79/月<span class="equiv"> · 按月省 ¥20</span></div>
+                  </div>
+                  <div class="hero-price">
+                    <div class="hero-now">¥949</div>
+                    <div class="hero-original">原价 ¥1188</div>
+                  </div>
                 </div>
-
-                <div class="hero-price">
-                  <span class="hero-cny">¥</span><span class="hero-num">949</span>
-                </div>
-
-                <div class="hero-meta">
-                  <span class="hero-strike">¥1188</span>
-                  <span class="hero-dot" aria-hidden="true">·</span>
-                  <span class="hero-permonth">折合 ¥79/月</span>
-                </div>
-
-                <div class="hero-divider"></div>
-
                 <div class="hero-savings">
                   <span class="save-pill">省 ¥239</span>
+                  <span class="save-text">相当于 <strong>免费送 2.4 个月</strong></span>
                 </div>
               </button>
 
@@ -567,13 +577,13 @@ async function handleSubmit() {
   font-size: 12px;
 }
 
-/* ─── Hero Card (1 year, editorial) ─── */
+/* ─── Hero Card (1 year) ─── */
 .hero-card {
   position: relative;
-  border: 1.5px solid hsl(160, 72%, 40%);
-  border-radius: 12px;
-  background: linear-gradient(180deg, hsl(160, 40%, 98%) 0%, #fff 70%);
-  padding: 22px 22px 18px;
+  border: 2px solid hsl(160, 72%, 40%);
+  border-radius: 14px;
+  background: linear-gradient(135deg, hsl(160, 60%, 93%) 0%, hsl(160, 60%, 95%) 100%);
+  padding: 26px 18px 16px;
   cursor: pointer;
   width: 100%;
   font: inherit;
@@ -581,69 +591,62 @@ async function handleSubmit() {
   color: inherit;
   transition: all 0.2s ease;
   overflow: visible;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 8px 24px hsl(160 72% 40% / 0.06);
 }
 
 .hero-card.selected::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px hsl(160 72% 40% / 0.15);
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px hsl(160 72% 40% / 0.12);
   pointer-events: none;
 }
 
 .hero-card:not(.selected) {
-  border-color: hsl(155, 12%, 82%);
-  background: #fff;
-  opacity: 0.88;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  border-color: hsl(160, 30%, 75%);
+  background: hsl(160, 60%, 96%);
+  opacity: 0.92;
 }
 
 .hero-card:not(.selected):hover {
   opacity: 1;
-  border-color: hsl(160, 50%, 60%);
+  border-color: hsl(160, 60%, 60%);
 }
 
-/* Ribbon flag attached to top edge */
-.deal-flag {
+/* Deal badge */
+.deal-badge {
   position: absolute;
-  top: -1.5px;
-  right: 20px;
+  top: -11px;
+  right: 14px;
   background: hsl(160, 72%, 40%);
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
-  padding: 5px 10px 6px;
-  border-radius: 0 0 4px 4px;
-  letter-spacing: 0.06em;
-  box-shadow: 0 4px 8px hsl(160 72% 40% / 0.22);
-  font-variant-numeric: tabular-nums;
+  padding: 6px 12px 7px;
+  border-radius: 8px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 10px hsl(160 72% 40% / 0.35);
+  transform: rotate(2deg);
   z-index: 2;
-}
-
-/* Eyebrow row: radio + small label */
-.hero-eyebrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 5px;
 }
 
+/* Radio indicator */
 .hero-radio {
-  width: 16px;
-  height: 16px;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 1.5px solid hsl(155, 12%, 72%);
   background: transparent;
+  border: 2px solid hsl(160, 30%, 75%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: transparent;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
 }
 
 .hero-radio.filled {
@@ -652,92 +655,70 @@ async function handleSubmit() {
   color: #fff;
 }
 
-.hero-tag {
-  font-size: 11px;
+.hero-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-left: 26px;
+}
+
+.hero-title {
+  font-size: 16px;
   font-weight: 700;
-  color: hsl(160, 35%, 32%);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: hsl(155, 30%, 15%);
+  letter-spacing: -0.01em;
 }
 
-.hero-card:not(.selected) .hero-tag {
-  color: hsl(155, 12%, 42%);
+.hero-monthly {
+  font-size: 12px;
+  color: hsl(160, 72%, 40%);
+  font-weight: 600;
+  margin-top: 2px;
 }
 
-/* Hero price — Georgia serif, editorial */
+.hero-monthly .equiv {
+  color: hsl(155, 10%, 55%);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
 .hero-price {
-  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
-  color: hsl(160, 72%, 38%);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.hero-now {
+  font-size: 28px;
+  font-weight: 700;
+  color: hsl(160, 72%, 40%);
   line-height: 1;
   letter-spacing: -0.02em;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-  font-feature-settings: 'tnum';
 }
 
-.hero-card:not(.selected) .hero-price {
-  color: hsl(155, 25%, 25%);
+.hero-card:not(.selected) .hero-now {
+  color: hsl(155, 30%, 15%);
 }
 
-.hero-cny {
-  font-size: 22px;
-  font-weight: 600;
-  position: relative;
-  top: -0.32em;
-}
-
-.hero-num {
-  font-size: 46px;
-  font-weight: 700;
-}
-
-/* Meta line */
-.hero-meta {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 18px;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.hero-strike {
-  color: hsl(155, 10%, 50%);
+.hero-original {
+  font-size: 12px;
+  color: hsl(155, 10%, 55%);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
 }
 
-.hero-dot {
-  color: hsl(155, 10%, 70%);
-  font-weight: 700;
-}
-
-.hero-permonth {
-  color: hsl(160, 65%, 30%);
-  font-weight: 600;
-}
-
-.hero-card:not(.selected) .hero-permonth {
-  color: hsl(155, 20%, 35%);
-}
-
-/* Full-bleed thin rule */
-.hero-divider {
-  height: 1px;
-  background: hsl(160, 25%, 86%);
-  margin: 0 -22px 14px;
-}
-
-.hero-card:not(.selected) .hero-divider {
-  background: hsl(155, 10%, 90%);
-}
-
-/* Savings pill */
 .hero-savings {
   display: flex;
   align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px dashed hsl(160, 50%, 75%);
+  padding-left: 26px;
 }
 
 .save-pill {
@@ -745,14 +726,19 @@ async function handleSubmit() {
   color: #fff;
   font-size: 11px;
   font-weight: 700;
-  padding: 4px 11px;
+  padding: 3px 8px;
   border-radius: 999px;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
 }
 
-.hero-card:not(.selected) .save-pill {
-  background: hsl(155, 12%, 60%);
+.save-text {
+  font-size: 12px;
+  color: hsl(155, 12%, 45%);
+  font-weight: 500;
+}
+
+.save-text strong {
+  color: hsl(155, 30%, 15%);
+  font-weight: 700;
 }
 
 /* ─── More toggle + panel ─── */
