@@ -83,6 +83,11 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'click'): void
+  /**
+   * 收藏星标点击 —— 故意 payload-free。StepNavItem 是纯展示组件，只知道
+   * 自己的 step 序号与文字，不持有 nodeId / bookmarkId 等业务身份。父组件
+   * （StepNav）通过 v-for 绑定 item.nodeId 自行解析触发对象。
+   */
   (e: 'toggle-bookmark'): void
 }>()
 

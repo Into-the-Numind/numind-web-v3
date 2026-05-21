@@ -401,6 +401,13 @@ async function handleStepNavToggleBookmark(nodeId: number) {
   const existing = bookmarks.getBookmarksForNode(nodeId)[0]
   if (existing) {
     const node = store.nodes.find((n) => n.id === nodeId)
+    if (!node) {
+      // 防御性分支：StepNav 已基于 props.nodes 渲染，理论永远命中。日志便于排查。
+      console.warn('[SOPRunView] handleStepNavToggleBookmark: node not found in store.nodes', {
+        nodeId,
+        availableNodeIds: store.nodes.map((n) => n.id)
+      })
+    }
     stepNavRemoveMessage.value = node
       ? `将移除「${node.name}」的书签 · 是否确认？`
       : '将移除此节点的书签 · 是否确认？'
@@ -434,6 +441,8 @@ async function confirmStepNavRemoveBookmark() {
 
 function cancelStepNavRemoveBookmark() {
   pendingStepNavRemoveBookmarkId.value = null
+  // 重置到默认文案，避免下次开弹窗瞬间闪烁上一次的节点名（reviewer P2）
+  stepNavRemoveMessage.value = '将移除此节点的书签 · 是否确认？'
 }
 
 function handlePrimary() {
