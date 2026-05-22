@@ -74,7 +74,7 @@ function goDetail(id: number) {
 }
 
 function derive(agent: Agent) {
-  router.push(`/agents/new?from=copy:${agent.id}`)
+  router.push(`/config/agents/new?from=copy:${agent.id}`)
 }
 
 // ---------- Soft-delete flow ----------
@@ -113,8 +113,10 @@ function cancelDelete() {
     <div class="agent-list__header">
       <AppInput v-model="searchTerm" placeholder="搜索助手" class="agent-list__search" />
       <div class="agent-list__actions">
-        <AppButton variant="primary" @click="router.push('/agents/new')"> + 创建 Agent </AppButton>
-        <AppButton variant="secondary" @click="router.push('/agents/new/from-template')">
+        <AppButton variant="primary" @click="router.push('/config/agents/new')">
+          + 创建 Agent
+        </AppButton>
+        <AppButton variant="secondary" @click="router.push('/config/agents/new/from-template')">
           从模板库选
         </AppButton>
       </div>
