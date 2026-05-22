@@ -73,7 +73,7 @@ const systemText = computed<string>(() => {
     <div class="bubble">
       <p class="text">{{ asUser.text }}</p>
       <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
-        <span v-for="a in asUser.attachments ?? []" :key="a.id" class="att">
+        <span v-for="a in asUser.attachments ?? []" :key="a.url" class="att">
           📎 {{ a.filename }}
         </span>
       </div>

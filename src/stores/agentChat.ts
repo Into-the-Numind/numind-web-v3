@@ -125,8 +125,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         input_text: text,
         attachment_meta: attachments.value.map((a) => ({
           filename: a.filename,
-          size_bytes: a.size_bytes,
-          mime: a.mime
+          size: a.size,
+          mime_type: a.mime_type
         }))
       })
     } catch {
@@ -140,13 +140,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const res = await api.createRun({
         agent_skill_id: agentId,
         input_text: text,
-        attachment_ids: attachments.value.map((a) => a.id)
+        // Server expects "attachment_urls": array of COS URLs (NOT numeric ids).
+        // The upload endpoint does not return an id, so url IS the identity.
+        attachment_urls: attachments.value.map((a) => a.url)
       })
       const userMsg: AgentMessage = {
         id: uuid(),
         type: 'user',
         text,
-        attachments: attachments.value.map((a) => ({ id: a.id, filename: a.filename, url: a.url })),
+        attachments: attachments.value.map((a) => ({ url: a.url, filename: a.filename })),
         timestamp: new Date().toISOString()
       }
       messages.value.push(userMsg)
@@ -292,8 +294,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     attachments.value.push(res)
   }
 
-  const removeAttachment = (id: number): void => {
-    attachments.value = attachments.value.filter((a) => a.id !== id)
+  const removeAttachment = (url: string): void => {
+    attachments.value = attachments.value.filter((a) => a.url !== url)
   }
 
   /**

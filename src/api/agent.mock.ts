@@ -452,10 +452,10 @@ export const getSupportContact = async (): Promise<SupportContact> => {
 export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
   await delay(400)
   return {
-    id: Math.floor(Math.random() * 100_000),
-    filename: file.name,
     url: URL.createObjectURL(file),
-    size_bytes: file.size,
-    mime: file.type
+    filename: file.name,
+    size: file.size,
+    mime_type: file.type,
+    created_at: new Date().toISOString()
   }
 }
