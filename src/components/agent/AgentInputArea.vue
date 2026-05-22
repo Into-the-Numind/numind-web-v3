@@ -21,7 +21,7 @@ const emit = defineEmits<{
   (e: 'send', text: string): void
   (e: 'estimate-request', text: string): void
   (e: 'upload', file: File): void
-  (e: 'remove-attachment', id: number): void
+  (e: 'remove-attachment', url: string): void
   (e: 'reject', reason: string): void
 }>()
 
@@ -119,9 +119,13 @@ onUnmounted(() => {
 
     <!-- 附件预览 -->
     <div v-if="attachments.length > 0" class="attachments">
-      <span v-for="att in attachments" :key="att.id" class="att-chip">
+      <span v-for="att in attachments" :key="att.url" class="att-chip">
         📎 {{ att.filename }}
-        <button class="remove-btn" aria-label="移除附件" @click="emit('remove-attachment', att.id)">
+        <button
+          class="remove-btn"
+          aria-label="移除附件"
+          @click="emit('remove-attachment', att.url)"
+        >
           <X :size="14" />
         </button>
       </span>

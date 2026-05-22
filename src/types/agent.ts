@@ -114,7 +114,11 @@ export interface CreateRunRequest {
   /** UUID string from prior createRun response */
   session_id?: string
   input_text: string
-  attachment_ids?: number[]
+  /** COS URLs of any previously uploaded attachments to attach to this run.
+   *  Server expects field name "attachment_urls" (string array of COS URLs).
+   *  Was previously misnamed "attachment_ids" with numeric ids — backend never
+   *  read that field, so attachments silently dropped before LLM. */
+  attachment_urls?: string[]
   restore_from_session_id?: string
 }
 
@@ -158,7 +162,7 @@ interface BaseMessage {
 export interface UserMessage extends BaseMessage {
   type: 'user'
   text: string
-  attachments?: Array<{ id: number; filename: string; url: string }>
+  attachments?: Array<{ url: string; filename: string }>
 }
 
 export interface AssistantMessage extends BaseMessage {
@@ -259,7 +263,7 @@ export interface SessionSnapshot {
 export interface EstimateRequest {
   agent_skill_id: number
   input_text: string
-  attachment_meta?: Array<{ filename: string; size_bytes: number; mime: string }>
+  attachment_meta?: Array<{ filename: string; size: number; mime_type: string }>
 }
 
 export interface EstimateResponse {
@@ -321,9 +325,15 @@ export interface FeedbackRequest {
 // ─────────────────────────────────────────
 
 export interface UploadResponse {
-  id: number
-  filename: string
+  /** COS public URL — also the canonical identity for the uploaded file
+   *  (the upload endpoint does NOT return a separate numeric id).
+   *  file_read tool ownership check parses {userID} out of the path. */
   url: string
-  size_bytes: number
-  mime: string
+  filename: string
+  /** size in bytes (server returns key "size") */
+  size: number
+  /** MIME type (server returns key "mime_type") */
+  mime_type: string
+  /** ISO timestamp string when the upload completed */
+  created_at: string
 }

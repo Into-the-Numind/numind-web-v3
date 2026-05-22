@@ -322,15 +322,90 @@ describe('agentChat store', () => {
 
   it('uploadAttachment pushes to attachments array', async () => {
     vi.mocked(api.uploadAttachment).mockResolvedValueOnce({
-      id: 1,
+      url: 'https://cos.example/agent-attachments/1/x-a.xlsx',
       filename: 'a.xlsx',
-      url: 'blob:x',
-      size_bytes: 100,
-      mime: 'application/xlsx'
+      size: 100,
+      mime_type: 'application/xlsx',
+      created_at: '2026-05-22T10:00:00Z'
     })
     const store = useAgentChatStore()
     const file = new File(['x'], 'a.xlsx')
     await store.uploadAttachment(file)
     expect(store.attachments.length).toBe(1)
+  })
+
+  it('startNewRun sends attachment_urls (not attachment_ids) in createRun payload', async () => {
+    // Regression: server expects "attachment_urls" (COS URL array). Previously
+    // frontend sent "attachment_ids" → backend silently dropped attachments →
+    // LLM claimed "no file uploaded" even though UI showed the chip.
+    const store = useAgentChatStore()
+
+    // Seed two uploaded attachments
+    vi.mocked(api.uploadAttachment)
+      .mockResolvedValueOnce({
+        url: 'https://cos.example/agent-attachments/1/x-a.pdf',
+        filename: 'a.pdf',
+        size: 100,
+        mime_type: 'application/pdf',
+        created_at: '2026-05-22T10:00:00Z'
+      })
+      .mockResolvedValueOnce({
+        url: 'https://cos.example/agent-attachments/1/y-b.jpg',
+        filename: 'b.jpg',
+        size: 200,
+        mime_type: 'image/jpeg',
+        created_at: '2026-05-22T10:00:01Z'
+      })
+    await store.uploadAttachment(new File(['a'], 'a.pdf'))
+    await store.uploadAttachment(new File(['b'], 'b.jpg'))
+    expect(store.attachments.length).toBe(2)
+
+    vi.mocked(api.createRun).mockResolvedValueOnce({
+      run_id: 99,
+      session_id: 'sess-99',
+      estimated_credits_min: 5,
+      estimated_credits_max: 7
+    })
+    vi.mocked(api.getRun).mockResolvedValueOnce({
+      id: 99,
+      session_id: 'sess-99',
+      status: 'running',
+      created_at: '',
+      updated_at: ''
+    } as never)
+
+    await store.startNewRun(1, 'please read these')
+
+    // The createRun payload MUST carry attachment_urls (string COS URLs).
+    expect(api.createRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent_skill_id: 1,
+        input_text: 'please read these',
+        attachment_urls: [
+          'https://cos.example/agent-attachments/1/x-a.pdf',
+          'https://cos.example/agent-attachments/1/y-b.jpg'
+        ]
+      })
+    )
+    // Old buggy field MUST NOT be present.
+    const callArg = vi.mocked(api.createRun).mock.calls[0][0] as Record<string, unknown>
+    expect(callArg.attachment_ids).toBeUndefined()
+    // Local attachments cleared after send.
+    expect(store.attachments.length).toBe(0)
+  })
+
+  it('removeAttachment filters by url', async () => {
+    const store = useAgentChatStore()
+    vi.mocked(api.uploadAttachment).mockResolvedValueOnce({
+      url: 'https://cos.example/agent-attachments/1/x-keep.pdf',
+      filename: 'keep.pdf',
+      size: 50,
+      mime_type: 'application/pdf',
+      created_at: '2026-05-22T10:00:00Z'
+    })
+    await store.uploadAttachment(new File(['k'], 'keep.pdf'))
+    expect(store.attachments.length).toBe(1)
+    store.removeAttachment('https://cos.example/agent-attachments/1/x-keep.pdf')
+    expect(store.attachments.length).toBe(0)
   })
 })
