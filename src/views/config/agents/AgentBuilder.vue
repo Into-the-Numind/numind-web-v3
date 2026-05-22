@@ -209,10 +209,16 @@ async function handleSave() {
         source_template_id: templateId ?? null
       }
       saved = await store.create(payload)
-    } else {
-      // Edit mode
+    } else if (props.mode === 'edit' && props.agentId != null) {
+      // Edit mode (defensive: explicit mode check + agentId guard prevents
+      // route misconfigs from PATCHing /v1/agent/skills/undefined → 400)
       const payload: PatchAgentPayload = formToPayload()
-      saved = await store.update(props.agentId!, payload)
+      saved = await store.update(props.agentId, payload)
+    } else {
+      throw new Error(
+        `AgentBuilder misconfigured: mode=${String(props.mode)}, agentId=${String(props.agentId)}; ` +
+          `route must pass props { mode: 'create' } or wrap with AgentEdit (which passes mode="edit" + agent-id)`
+      )
     }
 
     // Reset dirty snapshot after successful save

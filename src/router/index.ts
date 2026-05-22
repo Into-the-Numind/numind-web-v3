@@ -159,6 +159,10 @@ const routes: RouteRecordRaw[] = [
         path: 'agents/builder',
         name: 'config-agents-builder',
         component: () => import('@/views/config/agents/AgentBuilder.vue'),
+        // mode='create' is REQUIRED — without it AgentBuilder receives undefined,
+        // falls into the edit branch, and PATCHes /v1/agent/skills/undefined → 400.
+        // The /edit route is wrapped by AgentEdit.vue which explicitly passes mode="edit".
+        props: { mode: 'create' },
         meta: { title: '创建助手', requiresAuth: true, requiresParent: true }
       },
       {
