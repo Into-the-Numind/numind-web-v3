@@ -1,67 +1,67 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
-import { useAgentBuilderStore } from "@/stores/agentBuilder";
-import { errorStatus } from "@/constants/agentErrno";
-import AppButton from "@/components/common/AppButton.vue";
-import AgentConfigTab from "./components/AgentConfigTab.vue";
-import AgentHistoryTab from "./components/AgentHistoryTab.vue";
-import AgentStatsTab from "./components/AgentStatsTab.vue";
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAgentBuilderStore } from '@/stores/agentBuilder'
+import { errorStatus } from '@/constants/agentErrno'
+import AppButton from '@/components/common/AppButton.vue'
+import AgentConfigTab from './components/AgentConfigTab.vue'
+import AgentHistoryTab from './components/AgentHistoryTab.vue'
+import AgentStatsTab from './components/AgentStatsTab.vue'
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface Props {
-  id: string | number;
+  id: string | number
 }
 
-const props = defineProps<Props>();
+const props = defineProps<Props>()
 
 // ── Composables ────────────────────────────────────────────────────────────
 
-const router = useRouter();
-const store = useAgentBuilderStore();
+const router = useRouter()
+const store = useAgentBuilderStore()
 
 // ── Local state ────────────────────────────────────────────────────────────
 
-type TabKey = "config" | "history" | "stats";
-const tab = ref<TabKey>("config");
-const is404 = ref(false);
+type TabKey = 'config' | 'history' | 'stats'
+const tab = ref<TabKey>('config')
+const is404 = ref(false)
 
 // ── Computed ───────────────────────────────────────────────────────────────
 
-const agentId = computed(() => Number(props.id));
+const agentId = computed(() => Number(props.id))
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
 async function loadAgent() {
-  is404.value = false;
+  is404.value = false
   try {
-    await store.fetchOne(agentId.value);
+    await store.fetchOne(agentId.value)
   } catch (e: unknown) {
     if (errorStatus(e) === 404) {
-      is404.value = true;
+      is404.value = true
     }
   }
 }
 
-onMounted(loadAgent);
+onMounted(loadAgent)
 
 // ── Handlers ───────────────────────────────────────────────────────────────
 
 function goBack() {
-  router.push("/config/agents");
+  router.push('/config/agents')
 }
 
 function goEdit() {
-  router.push(`/config/agents/${agentId.value}/edit`);
+  router.push(`/config/agents/${agentId.value}/edit`)
 }
 
 function goDerive() {
-  router.push(`/agents/builder?from=copy:${agentId.value}`);
+  router.push(`/config/agents/builder?from=copy:${agentId.value}`)
 }
 
 async function refetch() {
-  await loadAgent();
+  await loadAgent()
 }
 </script>
 
@@ -94,9 +94,7 @@ async function refetch() {
           <p class="detail-header__desc">{{ store.current.description }}</p>
         </div>
         <div class="detail-header__actions">
-          <AppButton variant="secondary" @click="goDerive"
-            >派生此 Agent</AppButton
-          >
+          <AppButton variant="secondary" @click="goDerive">派生此 Agent</AppButton>
           <AppButton variant="primary" @click="goEdit">编辑</AppButton>
         </div>
       </header>
