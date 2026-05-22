@@ -21,6 +21,7 @@ import type {
   EstimateResponse,
   RecentSession,
   ToolCallAggregate,
+  ToolGroupMessage,
   UploadResponse,
   QuestionPromptMessage
 } from '@/types/agent'
@@ -38,6 +39,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const narrationEvents = ref<NarrationEvent[]>([])
   const lastNarrationTs = ref<string>('')
   const stuckSince = ref<number | null>(null)
+  // Tracks the in-flight tool_group message that mirrors toolGroups computed.
+  // Without this bridge, narrationEvents pile up in the store and the existing
+  // `toolGroups` computed has no consumer — AgentMessageItem only renders
+  // AgentToolCallList when `msg.type === 'tool_group'`, but nothing was
+  // injecting such a message into `messages`. Hotfix narration-tool-group-message-wire.
+  const currentToolGroupId = ref<string | null>(null)
 
   const inputText = ref('')
   const attachments = ref<UploadResponse[]>([])
@@ -146,6 +153,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       narrationEvents.value = []
       lastNarrationTs.value = ''
       stuckSince.value = null
+      currentToolGroupId.value = null
       currentRun.value = await api.getRun(res.run_id)
       // 边界：罕见情况 run 创建后立即非 running（队列时已 fail）
       const s = currentRun.value.status
@@ -207,6 +215,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         }
         lastNarrationTs.value = events[events.length - 1].timestamp
         stuckSince.value = null
+
+        // Bridge: surface narration into the chat stream so AgentMessageItem
+        // actually renders AgentToolCallList. Without this, narrationEvents
+        // pile up in the store and the user sees no tool-call narration.
+        syncToolGroupMessage()
       } else if (stuckSince.value === null) {
         stuckSince.value = performance.now()
       }
@@ -283,6 +296,55 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     attachments.value = attachments.value.filter((a) => a.id !== id)
   }
 
+  /**
+   * Ensure messages[] contains one tool_group message that mirrors the
+   * current toolGroups aggregate. Called whenever pollNarration receives
+   * new events.
+   *
+   * AgentMessageItem only renders <AgentToolCallList> when
+   * msg.type === 'tool_group' AND msg.tool_calls is non-empty; without
+   * this bridge nothing in the chat stream consumes narrationEvents and
+   * the learner UI shows no tool-call narration. The message is created
+   * on first event and updated in place on subsequent events (assigning
+   * a fresh array reference so Vue's reactivity sees the change).
+   */
+  const syncToolGroupMessage = (): void => {
+    const groups = toolGroups.value
+    if (groups.length === 0) return
+
+    if (currentToolGroupId.value === null) {
+      const tgId = uuid()
+      currentToolGroupId.value = tgId
+      const tgMsg: ToolGroupMessage = {
+        id: tgId,
+        type: 'tool_group',
+        tool_calls: groups,
+        timestamp: new Date().toISOString()
+      }
+      messages.value.push(tgMsg)
+      return
+    }
+
+    const idx = messages.value.findIndex((m) => m.id === currentToolGroupId.value)
+    if (idx === -1) {
+      // Defensive: tool_group message was removed (compact / reset race) —
+      // create a fresh one so subsequent events still surface.
+      const tgId = uuid()
+      currentToolGroupId.value = tgId
+      messages.value.push({
+        id: tgId,
+        type: 'tool_group',
+        tool_calls: groups,
+        timestamp: new Date().toISOString()
+      })
+      return
+    }
+
+    // Update in place — fresh array reference so Vue picks up the change.
+    const existing = messages.value[idx] as ToolGroupMessage
+    messages.value[idx] = { ...existing, tool_calls: groups }
+  }
+
   const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
     loadingSnapshot.value = true
     sessionError.value = null
@@ -321,6 +383,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     narrationEvents.value = []
     lastNarrationTs.value = ''
     stuckSince.value = null
+    currentToolGroupId.value = null
     inputText.value = ''
     attachments.value = []
     estimate.value = null

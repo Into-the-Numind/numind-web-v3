@@ -120,6 +120,95 @@ describe('agentChat store', () => {
     expect(store.stuckSince).toBe(null)
   })
 
+  // Hotfix narration-tool-group-message-wire: regression for the
+  // visibility bug. Before this fix narrationEvents accumulated in the
+  // store but no `tool_group` message was ever injected into messages[],
+  // so AgentMessageItem (which only renders AgentToolCallList when
+  // msg.type === 'tool_group') silently dropped every tool call. This
+  // test asserts a tool_group message exists in messages after polling
+  // and that subsequent events update the same message in place rather
+  // than creating duplicates.
+  it('pollNarration injects + updates a single tool_group message in messages', async () => {
+    const ev1: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-1',
+      tool_name: 'web_search',
+      state: 'use',
+      message: '正在搜索 网络',
+      timestamp: '2026-05-21T10:00:00Z'
+    }
+    const ev2: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-1',
+      tool_name: 'web_search',
+      state: 'result',
+      message: '搜索完成',
+      timestamp: '2026-05-21T10:00:05Z'
+    }
+    vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([ev1]).mockResolvedValueOnce([ev2])
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+
+    await store.pollNarration()
+    const afterFirst = store.messages.filter((m) => m.type === 'tool_group')
+    expect(afterFirst.length).toBe(1)
+    expect(afterFirst[0].type === 'tool_group' && afterFirst[0].tool_calls.length).toBe(1)
+    expect(afterFirst[0].type === 'tool_group' && afterFirst[0].tool_calls[0].current_state).toBe(
+      'use'
+    )
+
+    await store.pollNarration()
+    const afterSecond = store.messages.filter((m) => m.type === 'tool_group')
+    // Still exactly one tool_group message — second event aggregates into the
+    // SAME group (same tool_call_id), and the group is updated in place.
+    expect(afterSecond.length).toBe(1)
+    expect(afterSecond[0].type === 'tool_group' && afterSecond[0].tool_calls[0].current_state).toBe(
+      'result'
+    )
+    expect(afterSecond[0].type === 'tool_group' && afterSecond[0].tool_calls[0].events.length).toBe(
+      2
+    )
+  })
+
+  it('startNewRun resets currentToolGroupId so a new turn creates a fresh group instead of appending to run-1 group', async () => {
+    const ev1: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-1',
+      tool_name: 'web_search',
+      state: 'use',
+      message: 'm',
+      timestamp: '2026-05-21T10:00:00Z'
+    }
+    const ev2: NarrationEvent = {
+      run_id: 1000,
+      tool_call_id: 'tc-2',
+      tool_name: 'kb_search',
+      state: 'use',
+      message: 'm2',
+      timestamp: '2026-05-21T10:01:00Z'
+    }
+    vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([ev1]).mockResolvedValueOnce([ev2])
+    const store = useAgentChatStore()
+
+    await store.startNewRun(1, 'hi')
+    await store.pollNarration()
+    const groupsAfterFirst = store.messages.filter((m) => m.type === 'tool_group')
+    expect(groupsAfterFirst.length).toBe(1)
+    const firstGroupId = groupsAfterFirst[0].id
+
+    // Second turn: messages history is preserved (the run-1 tool_group stays
+    // as historical record), but currentToolGroupId must be reset so the new
+    // tool call creates a separate group rather than mutating the historical
+    // one. Without the reset, ev2 (different tool_call_id) would still get
+    // appended into the SAME group as run-1's tc-1 — wrong UX.
+    await store.startNewRun(1, 'second turn')
+    await store.pollNarration()
+    const groupsAfterSecond = store.messages.filter((m) => m.type === 'tool_group')
+    expect(groupsAfterSecond.length).toBe(2)
+    expect(groupsAfterSecond[0].id).toBe(firstGroupId)
+    expect(groupsAfterSecond[1].id).not.toBe(firstGroupId)
+  })
+
   it('pollNarration sets stuckSince on first empty response', async () => {
     vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([])
     const store = useAgentChatStore()
