@@ -48,7 +48,7 @@
 
 import { test, expect } from '@playwright/test'
 import { auth } from './helpers/selectors'
-import fixtureJson from './fixtures/test-agent-id.json'
+import fixtureJson from './fixtures/test-agent-id.json' with { type: 'json' }
 
 const SHOULD_RUN = process.env.E2E_INTEGRATION === 'true'
 const STUDENT_USER = process.env.E2E_STUDENT_USERNAME ?? ''
