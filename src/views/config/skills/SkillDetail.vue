@@ -8,7 +8,7 @@
   Refs: docs/superpowers/specs/2026-05-24-agent-mode-v2-skill-as-artifact-design.md ADR-12
 -->
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
