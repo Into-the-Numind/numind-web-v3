@@ -262,6 +262,34 @@ const routes: RouteRecordRaw[] = [
       readOnly: route.query.read_only === '1'
     })
   },
+  // 技能市场 (agent-mode-v2-skill-marketplace, 2026-05-24)
+  // requiresParent: true — 子账户/学员不能访问 (spec §10.1 rule 2);
+  // 现有 router.beforeEach 已处理 redirect (line 309-317).
+  // /subscribed 必须在 /:id 之前注册避免被 :id catch-all 吞掉.
+  {
+    path: '/marketplace',
+    name: 'marketplace-browse',
+    component: () => import('@/views/marketplace/MarketplaceBrowse.vue'),
+    meta: { title: '技能市场', requiresAuth: true, requiresParent: true }
+  },
+  {
+    path: '/marketplace/subscribed',
+    name: 'marketplace-subscribed',
+    component: () => import('@/views/marketplace/MarketplaceSubscribed.vue'),
+    meta: { title: '我的订阅', requiresAuth: true, requiresParent: true }
+  },
+  {
+    path: '/marketplace/publish/:skill_id',
+    name: 'marketplace-publish',
+    component: () => import('@/views/marketplace/MarketplacePublish.vue'),
+    meta: { title: '发布到市场', requiresAuth: true, requiresParent: true }
+  },
+  {
+    path: '/marketplace/:id',
+    name: 'marketplace-detail',
+    component: () => import('@/views/marketplace/MarketplaceDetail.vue'),
+    meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',

@@ -252,6 +252,13 @@ function onCancel() {
   router.back()
 }
 
+// 跳转到发布页 (agent-mode-v2-skill-marketplace T10).
+// 仅 edit 模式调用 (button v-if 已守卫); skillId 非 null 时安全.
+function onPublishToMarketplace() {
+  if (!skillId.value) return
+  router.push(`/marketplace/publish/${skillId.value}`)
+}
+
 // ---------- Dirty guard（离开前确认） ----------
 function handleBeforeUnload(e: BeforeUnloadEvent) {
   if (isDirty.value) {
@@ -305,6 +312,17 @@ function formatBytes(n: number): string {
         </span>
       </div>
       <div class="skill-editor__actions">
+        <!-- 发布到市场 (agent-mode-v2-skill-marketplace T10, spec §8.4) -->
+        <!-- 仅 edit 模式可见 (创建模式 skill 还未保存, 无法 publish). -->
+        <!-- 跳转到 /marketplace/publish/:skill_id 走完整两步发布 flow. -->
+        <AppButton
+          v-if="mode === 'edit' && skillId"
+          variant="text"
+          :disabled="saving"
+          @click="onPublishToMarketplace"
+        >
+          发布到市场
+        </AppButton>
         <AppButton variant="secondary" :disabled="saving" @click="onCancel">取消</AppButton>
         <AppButton variant="primary" :disabled="!canSave" @click="onSave">
           {{ saving ? '保存中…' : '保存' }}
