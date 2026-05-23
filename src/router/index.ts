@@ -178,6 +178,39 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/config/agents/AgentEdit.vue'),
         props: true,
         meta: { title: '编辑助手', requiresAuth: true, requiresParent: true }
+      },
+      // 我的技能 (agent-mode-v2-skill-as-artifact, 2026-05-24)
+      {
+        path: 'skills',
+        name: 'config-skills',
+        component: () => import('@/views/config/skills/SkillList.vue'),
+        meta: { title: '我的技能', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/new',
+        name: 'config-skills-new',
+        component: () => import('@/views/config/skills/SkillEditor.vue'),
+        props: { mode: 'create' },
+        meta: { title: '新建技能', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/:id',
+        name: 'config-skills-detail',
+        component: () => import('@/views/config/skills/SkillDetail.vue'),
+        meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/:id/edit',
+        name: 'config-skills-edit',
+        component: () => import('@/views/config/skills/SkillEditor.vue'),
+        props: { mode: 'edit' },
+        meta: { title: '编辑技能', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/:id/history',
+        name: 'config-skills-history',
+        component: () => import('@/views/config/skills/SkillHistory.vue'),
+        meta: { title: '技能历史', requiresAuth: true, requiresParent: true }
       }
     ]
   },
