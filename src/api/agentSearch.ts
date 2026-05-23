@@ -44,8 +44,10 @@ export interface AgentSearchParams {
 export const searchAgentRuns = async (
   params: AgentSearchParams
 ): Promise<AgentSearchResponse> => {
-  const { data } = await request.get<{ data: AgentSearchResponse }>('/v1/agent-runs/search', {
-    params
-  })
-  return data
+  // request interceptor returns the full {code, message, data} body (not raw
+  // AxiosResponse). We cast through unknown to extract data.X following the
+  // pattern in src/api/sop.ts (the rest of src/api/agent.ts uses the buggy
+  // `{ data: X }` generic — fix-forward as those endpoints get touched).
+  const res = await request.get('/v1/agent-runs/search', { params })
+  return (res as unknown as { data: AgentSearchResponse }).data
 }
