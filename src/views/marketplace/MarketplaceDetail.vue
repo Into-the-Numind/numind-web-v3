@@ -22,13 +22,26 @@ const store = useMarketplaceStore()
 const notifications = useNotificationsStore()
 
 const marketplaceID = computed(() => Number(route.params.id))
-const subscribed = ref(false) // 来自 /marketplace/my-subscriptions hint，缺时按 server 返回 — 简化为本地
 const confirmSubscribeOpen = ref(false)
 const confirmUnsubscribeOpen = ref(false)
 
+// subscribed status derived from store.mySubscriptions (T9 P1 reviewer fix):
+// previous implementation used a local ref defaulting to false, which made the
+// "Subscribe" button show on page reload even for already-subscribed users.
+// Now we hydrate mySubscriptions on mount and compute subscribed from it.
+//
+// Backend Get /v1/marketplace/:id does NOT currently return i_subscribed
+// (spec §4.1 design intent — controller passes mp through unmodified; field
+// hydration is a backend tech debt logged in manifest S4-T9-D3). Until backend
+// adds i_subscribed, mySubscriptions provides the authoritative status.
+const subscribed = computed(() =>
+  store.mySubscriptions.some((s) => s.marketplace.id === marketplaceID.value)
+)
+
 async function load() {
   if (!marketplaceID.value) return
-  await store.fetchDetail(marketplaceID.value)
+  // Parallel: detail fetch + my-subscriptions fetch (needed for subscribed status).
+  await Promise.all([store.fetchDetail(marketplaceID.value), store.fetchMySubscriptions()])
 }
 onMounted(load)
 watch(marketplaceID, load)
@@ -43,7 +56,8 @@ async function doSubscribe() {
   confirmSubscribeOpen.value = false
   try {
     const res = await store.subscribe(marketplaceID.value)
-    subscribed.value = true
+    // Refresh mySubscriptions so the computed `subscribed` flips to true.
+    await store.fetchMySubscriptions()
     notifications.success(`订阅成功：已添加到你的技能库（skill id=${res.cloned_skill_id}）`)
   } catch (e) {
     notifications.error(`订阅失败：${(e as Error).message || '请稍后重试'}`)
@@ -54,7 +68,8 @@ async function doUnsubscribe() {
   confirmUnsubscribeOpen.value = false
   try {
     await store.unsubscribe(marketplaceID.value)
-    subscribed.value = false
+    // store.unsubscribe already drops the row from mySubscriptions optimistically;
+    // computed `subscribed` flips to false without an extra fetch.
     notifications.success('已取消订阅：副本技能已软删除')
   } catch (e) {
     notifications.error(`取消订阅失败：${(e as Error).message || '请稍后重试'}`)

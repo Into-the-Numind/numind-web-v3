@@ -35,6 +35,9 @@ const confirmOpen = ref(false)
 const pending = ref<SubscriptionItem | null>(null)
 
 async function load() {
+  // Clear stale error so the loading state isn't masked when retrying after a
+  // prior failure (T9 P1 reviewer fix: spec compliance B.2).
+  store.mySubscriptionsError = ''
   await store.fetchMySubscriptions({ page: page.value, page_size: pageSize })
 }
 onMounted(load)
@@ -83,17 +86,17 @@ function onPageChange(p: number) {
       <router-link to="/marketplace" class="link">← 返回市场</router-link>
     </header>
 
-    <!-- Error -->
-    <div v-if="store.mySubscriptionsError" class="state-msg state-msg--error">
+    <!-- States order: loading → error → empty → success (T9 P1 reviewer fix). -->
+    <div v-if="store.mySubscriptionsLoading && store.mySubsEmpty" class="state-msg">
+      <p>加载中...</p>
+    </div>
+
+    <div v-else-if="store.mySubscriptionsError" class="state-msg state-msg--error">
       <p>{{ store.mySubscriptionsError }}</p>
       <AppButton @click="load">重试</AppButton>
     </div>
 
-    <!-- Empty -->
-    <div
-      v-else-if="!store.mySubscriptionsLoading && store.mySubsEmpty"
-      class="state-msg state-msg--empty"
-    >
+    <div v-else-if="store.mySubsEmpty" class="state-msg state-msg--empty">
       <p>还没有订阅的技能</p>
       <router-link to="/marketplace" class="cta">去市场逛逛 →</router-link>
     </div>
