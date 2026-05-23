@@ -59,12 +59,6 @@ const doSearch = async (): Promise<void> => {
   }
 }
 
-const handleEnter = (event: KeyboardEvent): void => {
-  if (event.key === 'Enter') {
-    void doSearch()
-  }
-}
-
 const handleResultClick = (sessionId: string): void => {
   router.push({
     name: 'agent-chat',
@@ -111,7 +105,7 @@ const roleLabel = (role: string): string => {
           type="text"
           class="search-input"
           placeholder="例如：王医生 / 合同跟进 / 订单进度"
-          @keyup="handleEnter"
+          @keyup.enter="doSearch"
         />
         <AppButton variant="primary" :loading="loading" @click="doSearch">搜索</AppButton>
       </div>
