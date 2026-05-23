@@ -96,6 +96,8 @@ describe('AgentToolCallItem — use_skill rendering (T08)', () => {
     expect(wrapper.text()).toContain('⚠ 技能加载失败')
     // error state must use the .narration-state-error color class
     expect(wrapper.find('.narration-state-error').exists()).toBe(true)
+    // P2 fix: error 态 use_skill 仍应保留 .skill-use 视觉标记（技能错误不应失去 skill bubble 识别）
+    expect(wrapper.find('.tool-call-item.skill-use').exists()).toBe(true)
   })
 
   it('compact mode shows latest event only (folded preview)', () => {
