@@ -83,8 +83,8 @@ vi.mock('@/api/marketplace', () => ({
     })
   ),
   publishMarketplace: vi.fn(async (): Promise<MarketplaceItem> => fixtureItem),
-  unpublishMarketplace: vi.fn(async () => undefined),
-  setRecommended: vi.fn(async () => undefined)
+  unpublishMarketplace: vi.fn(async () => undefined)
+  // setRecommended omitted — admin-only endpoint not in web-v3 (spec §1 OOS).
 }))
 
 describe('useMarketplaceStore', () => {
@@ -111,13 +111,13 @@ describe('useMarketplaceStore', () => {
     store.queryQ = '销售'
     store.queryCategory = '数据分析'
     store.querySort = 'popular'
-    store.page = 5
+    store.queryPage = 5
 
     store.resetQuery()
     expect(store.queryQ).toBe('')
     expect(store.queryCategory).toBe('')
     expect(store.querySort).toBe('recommended')
-    expect(store.page).toBe(1)
+    expect(store.queryPage).toBe(1)
   })
 
   it('fetchDetail loads currentItem', async () => {
@@ -215,13 +215,12 @@ describe('useMarketplaceStore', () => {
     expect(store.currentItem?.is_public).toBe(false)
   })
 
-  it('setItemRecommended flips currentItem.is_platform_recommended', async () => {
+  it('queryPage and page alias point to same ref', () => {
     const store = useMarketplaceStore()
-    await store.fetchDetail(1)
-    expect(store.currentItem?.is_platform_recommended).toBe(false)
-
-    await store.setItemRecommended(1, true)
-    expect(store.currentItem?.is_platform_recommended).toBe(true)
+    store.queryPage = 5
+    expect(store.page).toBe(5)
+    store.page = 7
+    expect(store.queryPage).toBe(7)
   })
 
   it('fetchMySubscriptions populates list + total', async () => {

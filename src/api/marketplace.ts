@@ -77,9 +77,7 @@ export const unsubscribeMarketplace = async (id: number): Promise<void> => {
   await request.delete(`/v1/marketplace/${id}/unsubscribe`)
 }
 
-// 9. POST /v1/admin/marketplace/:id/recommend — admin 设置 is_platform_recommended
-//    Admin endpoint — 调用方须有 admin token（管理后台 UI 通常单独的 axios 实例;
-//    本函数留给用户端管理 admin 同 tab 场景，否则不会被普通父账户调用）。
-export const setRecommended = async (id: number, recommended: boolean): Promise<void> => {
-  await request.post(`/v1/admin/marketplace/${id}/recommend`, { recommended })
-}
+// admin endpoint POST /v1/admin/marketplace/:id/recommend 不在 numind-web-v3 范围
+// (spec §1 Out of scope: "admin-web 不动"). T7 reviewer P1: 之前 setRecommended
+// 用 user_token axios instance 调 admin endpoint 会运行时 401 — 删除. 由
+// numind-admin-web 单独实现使用 admin_token.

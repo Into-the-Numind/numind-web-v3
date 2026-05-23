@@ -22,8 +22,7 @@ import {
   listMySubscriptions,
   sanitizePreview as apiSanitizePreview,
   publishMarketplace,
-  unpublishMarketplace,
-  setRecommended
+  unpublishMarketplace
 } from '@/api/marketplace'
 import type {
   MarketplaceItem,
@@ -38,15 +37,22 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
   // --- Browse list state ---
   const items = ref<MarketplaceItem[]>([])
   const total = ref(0)
-  const page = ref(1)
-  const pageSize = ref(20)
   const loading = ref(false)
   const error = ref('')
 
-  // --- Browse query (UI 双向绑定 search 框 / category / sort) ---
+  // --- Browse query (UI 双向绑定 search 框 / category / sort / pagination) ---
+  // Spec §8.1 names: queryQ / queryCategory / querySort / queryPage. We also
+  // expose `page` + `pageSize` aliases so existing consumers reading either form
+  // work. queryPage is the authoritative state; page reads/writes mirror it.
   const queryQ = ref('')
   const queryCategory = ref('')
   const querySort = ref<'recommended' | 'recent' | 'popular'>('recommended')
+  const queryPage = ref(1)
+  const queryPageSize = ref(20)
+  // Compatibility aliases — `page` / `pageSize` are short forms used in some
+  // UI templates while `queryPage` matches spec §8.1.
+  const page = queryPage
+  const pageSize = queryPageSize
 
   // --- Detail state ---
   const currentItem = ref<MarketplaceItemDetail | null>(null)
@@ -86,15 +92,15 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
         q: queryQ.value,
         category: queryCategory.value,
         sort: querySort.value,
-        page: page.value,
-        page_size: pageSize.value,
+        page: queryPage.value,
+        page_size: queryPageSize.value,
         ...overrides
       }
       const res = await listMarketplace(params)
       items.value = res.list
       total.value = res.total
-      page.value = res.page
-      pageSize.value = res.page_size
+      queryPage.value = res.page
+      queryPageSize.value = res.page_size
     } catch (e) {
       error.value = (e as Error).message || '加载失败'
       throw e
@@ -107,7 +113,7 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
     queryQ.value = ''
     queryCategory.value = ''
     querySort.value = 'recommended'
-    page.value = 1
+    queryPage.value = 1
   }
 
   // ===========================================================
@@ -212,6 +218,10 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
    * Failure (LLM down → backend returns 503 Marketplace.SanitizeUnavailable) is
    * surfaced as sanitizePreviewError; UI disables the publish button until the
    * user retries successfully.
+   *
+   * @throws Error propagated to caller after setting sanitizePreviewError. The
+   * UI may either rely on the reactive error ref OR catch the throw — the
+   * throw is intentional so awaiting code can branch (e.g. abort modal flow).
    */
   async function sanitizePreview(skillId: number) {
     sanitizePreviewLoading.value = true
@@ -266,24 +276,17 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
     }
   }
 
-  async function setItemRecommended(marketplaceID: number, recommended: boolean) {
-    saving.value = true
-    try {
-      await setRecommended(marketplaceID, recommended)
-      if (currentItem.value?.id === marketplaceID) {
-        currentItem.value = { ...currentItem.value, is_platform_recommended: recommended }
-      }
-    } finally {
-      saving.value = false
-    }
-  }
+  // setItemRecommended omitted — admin endpoint not exposed in numind-web-v3
+  // (spec §1 Out of scope "admin-web 不动"). Lives in numind-admin-web instead.
 
   return {
     // browse list
     items,
     total,
-    page,
-    pageSize,
+    queryPage, // spec §8.1 name
+    queryPageSize,
+    page, // alias
+    pageSize, // alias
     loading,
     error,
     queryQ,
@@ -318,7 +321,6 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
     publishing,
     publishError,
     publish,
-    unpublish,
-    setItemRecommended
+    unpublish
   }
 })
