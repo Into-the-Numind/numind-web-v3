@@ -339,7 +339,12 @@ router.beforeEach(async (to) => {
       await userStore.fetchUserInfo()
     }
     if (!userStore.isParentUser) {
-      useNotificationsStore().info('AI 助手配置仅父账户可访问')
+      // T10 reviewer P2: 路径分支文案 — marketplace 路径使用 marketplace 措辞,
+      // 其它父账户专属路径仍用 "AI 助手配置..." 默认。避免子账户看到混淆提示.
+      const msg = to.path.startsWith('/marketplace')
+        ? '技能市场仅父账户可访问'
+        : 'AI 助手配置仅父账户可访问'
+      useNotificationsStore().info(msg)
       return { path: '/' }
     }
   }

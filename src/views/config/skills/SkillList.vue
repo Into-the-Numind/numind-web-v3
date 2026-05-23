@@ -40,11 +40,18 @@ const notifications = useNotificationsStore()
 const publishedSourceIds = ref<Set<number>>(new Set())
 async function fetchPublishedIds() {
   const myID = userStore.userInfo?.id
-  if (!myID) return
+  if (myID == null) return
+  // T10 reviewer P1: UserInfo.id 类型为 string | number, 后端 publisher_user_id 是 number.
+  // 严格相等 (===) 在 string 形式 ID (localStorage 反序列化等场景) 下静默失配 → 徽章永不显示.
+  // 用 Number() 强转 + isFinite 守卫一致比较.
+  const myIDNum = Number(myID)
+  if (!Number.isFinite(myIDNum)) return
   try {
     const res = await listMarketplace({ page: 1, page_size: 100, sort: 'recent' })
     publishedSourceIds.value = new Set(
-      res.list.filter((mp) => mp.publisher_user_id === myID).map((mp) => mp.source_skill_id)
+      res.list
+        .filter((mp) => Number(mp.publisher_user_id) === myIDNum)
+        .map((mp) => mp.source_skill_id)
     )
   } catch {
     // 静默失败 — 徽章是 nice-to-have, 不影响列表加载.
