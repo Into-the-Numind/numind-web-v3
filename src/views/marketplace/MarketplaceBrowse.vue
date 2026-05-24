@@ -57,6 +57,16 @@ function clearQuery() {
   store.resetQuery()
   store.fetchList()
 }
+
+function prevPage() {
+  store.queryPage = Math.max(1, store.queryPage - 1)
+  store.fetchList()
+}
+
+function nextPage() {
+  store.queryPage = store.queryPage + 1
+  store.fetchList()
+}
 </script>
 
 <template>
@@ -163,24 +173,13 @@ function clearQuery() {
 
         <!-- Pagination (轻量) -->
         <div v-if="!store.isEmpty && store.total > store.queryPageSize" class="pagination">
-          <AppButton
-            :disabled="store.queryPage <= 1"
-            @click="
-              store.queryPage = Math.max(1, store.queryPage - 1)
-              store.fetchList()
-            "
-          >
-            上一页
-          </AppButton>
+          <AppButton :disabled="store.queryPage <= 1" @click="prevPage"> 上一页 </AppButton>
           <span class="pagination__info">
             第 {{ store.queryPage }} 页 / 共 {{ Math.ceil(store.total / store.queryPageSize) }} 页
           </span>
           <AppButton
             :disabled="store.queryPage * store.queryPageSize >= store.total"
-            @click="
-              store.queryPage = store.queryPage + 1
-              store.fetchList()
-            "
+            @click="nextPage"
           >
             下一页
           </AppButton>
