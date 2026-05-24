@@ -219,6 +219,9 @@ const menuItems = computed(() => {
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
+    // 技能市场 (agent-mode-v2-skill-marketplace, 2026-05-24) — 父账户专属。
+    // icon 复用 'agent' (AI 助手) 暂用图标; 后续 UI 设计师可换专属 marketplace 图标。
+    items.push({ path: '/marketplace', title: '技能市场', icon: 'agent' })
   }
 
   items.push({ path: '/settings', title: '设置', icon: 'settings' })

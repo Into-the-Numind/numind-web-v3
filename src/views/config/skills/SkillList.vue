@@ -17,7 +17,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Lightbulb } from 'lucide-vue-next'
 import { useSkillStore } from '@/stores/skill'
+import { useUserStore } from '@/stores/user'
 import { useNotificationsStore } from '@/stores/notifications'
+import { listMarketplace } from '@/api/marketplace'
 import type { Skill } from '@/types/skill'
 import DataTable, { type Column } from '@/components/common/DataTable.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -28,7 +30,33 @@ import { formatDateTime } from '@/utils/datetime'
 
 const router = useRouter()
 const store = useSkillStore()
+const userStore = useUserStore()
 const notifications = useNotificationsStore()
+
+// ---------- 已发布到市场的 source_skill_id 集合 (agent-mode-v2-skill-marketplace T10) ----------
+// 用 listMarketplace 取 public items, client-side filter publisher == 当前 user.id.
+// 限制: page_size=100 命中绝大多数发布者 (publishing >100 skills 罕见); 真正完整
+// 视图需后端加 GET /v1/marketplace/my-published endpoint, 当前算 known limitation.
+const publishedSourceIds = ref<Set<number>>(new Set())
+async function fetchPublishedIds() {
+  const myID = userStore.userInfo?.id
+  if (myID == null) return
+  // T10 reviewer P1: UserInfo.id 类型为 string | number, 后端 publisher_user_id 是 number.
+  // 严格相等 (===) 在 string 形式 ID (localStorage 反序列化等场景) 下静默失配 → 徽章永不显示.
+  // 用 Number() 强转 + isFinite 守卫一致比较.
+  const myIDNum = Number(myID)
+  if (!Number.isFinite(myIDNum)) return
+  try {
+    const res = await listMarketplace({ page: 1, page_size: 100, sort: 'recent' })
+    publishedSourceIds.value = new Set(
+      res.list
+        .filter((mp) => Number(mp.publisher_user_id) === myIDNum)
+        .map((mp) => mp.source_skill_id)
+    )
+  } catch {
+    // 静默失败 — 徽章是 nice-to-have, 不影响列表加载.
+  }
+}
 
 // ---------- Local state ----------
 const searchTerm = ref('')
@@ -80,7 +108,10 @@ async function fetchList() {
   }
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  fetchList()
+  fetchPublishedIds()
+})
 
 // 搜索词改变时 debounce 拉取（手动实现，避免引依赖）
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -218,9 +249,15 @@ const showEmpty = computed(
         <div class="skill-icon">{{ String(row.name).charAt(0) || 'S' }}</div>
       </template>
 
-      <!-- 名称 -->
+      <!-- 名称 + 已发布徽章 (agent-mode-v2-skill-marketplace T10) -->
       <template #cell-name="{ row }">
         <span class="skill-name" @click="goView(row)">{{ row.name }}</span>
+        <span
+          v-if="publishedSourceIds.has((row as Skill).id)"
+          class="published-badge"
+          title="已发布到技能市场 (is_public=1)"
+          >已发布</span
+        >
       </template>
 
       <!-- 描述（截断显示） -->
@@ -367,6 +404,19 @@ const showEmpty = computed(
 
 .skill-name:hover {
   color: var(--primary);
+}
+
+/* "已发布" 徽章 (agent-mode-v2-skill-marketplace T10) */
+.published-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: #ecfdf5;
+  color: #047857;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 .skill-description {
