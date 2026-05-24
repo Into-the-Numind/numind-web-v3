@@ -39,10 +39,20 @@ export const listSkills = async (params: ListSkillParams = {}): Promise<SkillLis
   return (res as unknown as { data: SkillListResponse }).data
 }
 
-// 3. GET /v1/skills/:id — 详情（含 bound_agents）
+// 3. GET /v1/skills/:id — 详情
+//
+// 后端返回 shape (controller skill_artifact.go:163):
+//   { code, message, data: { skill: {...}, bound_agents: [...] } }
+//
+// 这里只 return skill 主体. bound_agents 在 store 里通过单独 fetchBoundAgents
+// (走 /v1/skills/:id/agents) 加载, 与本接口解耦 (避免 store.current shape 混乱).
+//
+// 之前 bug: 直接 return res.data, 让 store.current = {skill, bound_agents}
+// → SkillDetail.vue 访问 store.current.allowed_tools.length 触发 TypeError.
+// 见 e2e/skill-detail-shape.spec.ts 回归测试.
 export const getSkill = async (id: number): Promise<Skill> => {
   const res = await request.get(`/v1/skills/${id}`)
-  return (res as unknown as { data: Skill }).data
+  return (res as unknown as { data: { skill: Skill; bound_agents: unknown[] } }).data.skill
 }
 
 // 4. PUT /v1/skills/:id — 全量更新（version 自增）
