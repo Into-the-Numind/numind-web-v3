@@ -107,14 +107,14 @@ async function apiCreateSkill(page: Page, name: string, body: string): Promise<{
 
 async function apiDeleteSkill(page: Page, id: number): Promise<void> {
   const token = await getToken(page)
-  await page.request.delete(`/v1/skills/${id}`, {
+  await page.request.delete(`/api/v1/skills/${id}`, {
     headers: { Authorization: `Bearer ${token}` }
   })
 }
 
 async function apiUnpublishMarketplace(page: Page, marketplaceID: number): Promise<void> {
   const token = await getToken(page)
-  await page.request.post(`/v1/marketplace/${marketplaceID}/unpublish`, {
+  await page.request.post(`/api/v1/marketplace/${marketplaceID}/unpublish`, {
     headers: { Authorization: `Bearer ${token}` }
   })
 }
@@ -204,9 +204,12 @@ test.describe('marketplace cross-tenant E2E', () => {
       await loginAs(page, PARENT_B_USERNAME, PARENT_B_PASSWORD)
       const token = await getToken(page)
 
-      const subResp = await page.request.post(`/v1/marketplace/${createdMarketplaceID}/subscribe`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const subResp = await page.request.post(
+        `/api/v1/marketplace/${createdMarketplaceID}/subscribe`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
       expect(subResp.status(), `subscribe HTTP ${subResp.status()}`).toBe(200)
       const subBody = await subResp.json()
       expect(subBody.code, `subscribe failed: ${JSON.stringify(subBody)}`).toBe(0)
@@ -223,11 +226,11 @@ test.describe('marketplace cross-tenant E2E', () => {
       })
       const skillsBody = await skillsResp.json()
       expect(skillsBody.code).toBe(0)
-      const cloned = (skillsBody.data.list as Array<{ id: number; source: string }>).find(
+      const cloned = (skillsBody.data.list as Array<{ id: number; source_type: string }>).find(
         (s) => s.id === clonedSkillID
       )
       expect(cloned, "cloned skill missing from B's skill list").toBeTruthy()
-      expect(cloned!.source).toBe('imported_from_marketplace')
+      expect(cloned!.source_type).toBe('imported_from_marketplace')
     } finally {
       await ctx.close()
     }
@@ -244,7 +247,7 @@ test.describe('marketplace cross-tenant E2E', () => {
       const token = await getToken(page)
 
       const unsubResp = await page.request.delete(
-        `/v1/marketplace/${createdMarketplaceID}/unsubscribe`,
+        `/api/v1/marketplace/${createdMarketplaceID}/unsubscribe`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       expect(unsubResp.status(), `unsubscribe HTTP ${unsubResp.status()}`).toBe(200)
@@ -262,7 +265,7 @@ test.describe('marketplace cross-tenant E2E', () => {
       expect(stillThere, 'subscription should be removed after unsubscribe').toBeFalsy()
 
       // Marketplace entry itself is still visible (publisher retains it).
-      const detailResp = await page.request.get(`/v1/marketplace/${createdMarketplaceID}`, {
+      const detailResp = await page.request.get(`/api/v1/marketplace/${createdMarketplaceID}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(detailResp.status()).toBe(200)
