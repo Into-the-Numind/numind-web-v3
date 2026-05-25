@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { AgentSkill, AgentRun } from '@/types/agent'
 import AppButton from '@/components/common/AppButton.vue'
-import { Pause } from 'lucide-vue-next'
+import { Pause, ArrowLeft } from 'lucide-vue-next'
 
 interface Props {
   agent: AgentSkill | null
@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'cancel'): void
+  (e: 'back'): void
 }>()
 
 const statusBadge = computed<{ icon: string; label: string; color: string }>(() => {
@@ -55,6 +56,9 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
 <template>
   <header class="agent-chat-header" :class="['status-' + statusBadge.color]">
     <div class="left">
+      <button class="back-btn" @click="emit('back')" title="返回">
+        <ArrowLeft :size="18" />
+      </button>
       <span class="emoji">{{ agent?.emoji ?? '🤖' }}</span>
       <h2 class="name">{{ agent?.name ?? 'AI 助手' }}</h2>
     </div>
@@ -109,6 +113,26 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface, #fff);
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: var(--color-surface-tint, #f3f4f6);
+  color: var(--color-text, #1f2937);
+  border-color: var(--color-accent, #2563eb);
 }
 
 .emoji {

@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { Sparkles, FilePlus2, Copy, Bot, X } from "lucide-vue-next";
+import { Sparkles, FilePlus2, Copy, Bot, X, ArrowLeft } from "lucide-vue-next";
 import AppButton from "@/components/common/AppButton.vue";
 import { useAgentBuilderStore } from "@/stores/agentBuilder";
 import type { Agent } from "@/types/agentBuilder";
 
 const router = useRouter();
 const store = useAgentBuilderStore();
+
+function goBack() {
+  router.push("/config/agents");
+}
 
 // "从已有派生" modal state
 const showCopyModal = ref(false);
@@ -52,6 +56,11 @@ function retryFetchList() {
 
 <template>
   <div class="choose-page">
+    <div class="back-link" @click="goBack">
+      <ArrowLeft :size="16" />
+      <span>返回智能体列表</span>
+    </div>
+
     <div class="choose-header">
       <h1 class="choose-title">创建 AI 助手</h1>
       <p class="choose-subtitle">选择一种方式开始</p>
@@ -188,6 +197,22 @@ function retryFetchList() {
   max-width: 960px;
   margin: 0 auto;
   padding: var(--space-10) var(--space-8);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--on-surface-variant, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--tertiary, #2563eb);
 }
 
 /* Header */

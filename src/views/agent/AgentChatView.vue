@@ -228,6 +228,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
           :cancelling="store.cancelling"
           :cancel-always-enabled="narration.cancelAlwaysEnabled.value"
           @cancel="handleCancel"
+          @back="goBackToList"
         />
 
         <AgentFirstRun
