@@ -7,6 +7,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 
 import { useMarketplaceStore } from '@/stores/marketplace'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -81,9 +82,13 @@ function onPageChange(p: number) {
 
 <template>
   <div class="marketplace-subscribed">
+    <div class="back-link" @click="router.push('/marketplace')">
+      <ArrowLeft :size="16" />
+      <span>返回市场</span>
+    </div>
+
     <header class="page-header">
       <h1>我的订阅</h1>
-      <router-link to="/marketplace" class="link">← 返回市场</router-link>
     </header>
 
     <!-- States order: loading → error → empty → success (T9 P1 reviewer fix). -->
@@ -169,20 +174,33 @@ function onPageChange(p: number) {
   max-width: 1280px;
   margin: 0 auto;
 }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--color-primary, #2563eb);
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 20px;
 }
+
 .page-header h1 {
   margin: 0;
   font-size: 22px;
-}
-.link {
-  color: var(--color-primary, #2563eb);
-  text-decoration: none;
-  font-size: 13px;
 }
 .name-cell {
   font-weight: 500;

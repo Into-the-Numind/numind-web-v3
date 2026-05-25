@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { AlertTriangle, RefreshCcw } from 'lucide-vue-next'
+import { AlertTriangle, RefreshCcw, ArrowLeft } from 'lucide-vue-next'
 
 import { useMarketplaceStore } from '@/stores/marketplace'
 import { useSkillStore } from '@/stores/skill'
@@ -88,6 +88,11 @@ function goBack() {
 
 <template>
   <div class="marketplace-publish">
+    <div class="back-link" @click="goBack">
+      <ArrowLeft :size="16" />
+      <span>返回技能详情</span>
+    </div>
+
     <header class="page-header">
       <h1>发布到技能市场</h1>
       <p class="subtitle">脱敏后的技能将对所有父账户可见。请仔细核对脱敏内容。</p>
@@ -188,6 +193,22 @@ function goBack() {
   padding: 24px 32px;
   max-width: 1280px;
   margin: 0 auto;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--color-primary, #2563eb);
 }
 .page-header h1 {
   margin: 0 0 4px;

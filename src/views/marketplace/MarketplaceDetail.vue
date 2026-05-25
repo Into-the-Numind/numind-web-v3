@@ -9,7 +9,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { RefreshCcw } from 'lucide-vue-next'
+import { RefreshCcw, ArrowLeft } from 'lucide-vue-next'
 
 import { useMarketplaceStore } from '@/stores/marketplace'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -83,9 +83,10 @@ function back() {
 
 <template>
   <div class="marketplace-detail">
-    <nav class="breadcrumb">
-      <button type="button" @click="back">← 返回市场</button>
-    </nav>
+    <div class="back-link" @click="back">
+      <ArrowLeft :size="16" />
+      <span>返回市场</span>
+    </div>
 
     <!-- Loading -->
     <div v-if="store.currentLoading" class="state-msg">加载中...</div>
@@ -185,16 +186,21 @@ function back() {
   max-width: 920px;
   margin: 0 auto;
 }
-.breadcrumb {
-  margin-bottom: 16px;
-}
-.breadcrumb button {
-  border: 0;
-  background: transparent;
-  color: var(--color-primary, #2563eb);
-  cursor: pointer;
-  padding: 4px 0;
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--color-primary, #2563eb);
 }
 .detail-header h1 {
   margin: 0 0 8px;
