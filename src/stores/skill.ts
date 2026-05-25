@@ -78,8 +78,8 @@ export const useSkillStore = defineStore('skill', () => {
         sort: 'updated_at_desc',
         ...params
       })
-      list.value = res.list
-      total.value = res.total
+      list.value = res.list ?? []
+      total.value = res.total ?? 0
     } catch (e) {
       error.value = (e as Error).message || '加载失败'
       throw e
@@ -141,7 +141,7 @@ export const useSkillStore = defineStore('skill', () => {
     historyError.value = ''
     try {
       const res = await listSkillHistory(id)
-      history.value = res.list
+      history.value = res.list ?? []
     } catch (e) {
       historyError.value = (e as Error).message || '加载历史失败'
       throw e
@@ -167,7 +167,9 @@ export const useSkillStore = defineStore('skill', () => {
     boundAgentsLoading.value = true
     try {
       const res = await listSkillAgents(id)
-      boundAgents.value = res.list
+      // 后端空列表序列化为 list:null (numind-server controller 没归一空切片),
+      // store 兜底为 [] 防 SkillDetail.vue `boundAgents.length` 触发 null.length TypeError.
+      boundAgents.value = res.list ?? []
     } finally {
       boundAgentsLoading.value = false
     }
@@ -180,7 +182,7 @@ export const useSkillStore = defineStore('skill', () => {
     bindingError.value = ''
     try {
       const res = await listAgentSkills(agentId)
-      skillsByAgent.value = { ...skillsByAgent.value, [agentId]: res.list }
+      skillsByAgent.value = { ...skillsByAgent.value, [agentId]: res.list ?? [] }
     } catch (e) {
       bindingError.value = (e as Error).message || '加载装载列表失败'
       throw e
