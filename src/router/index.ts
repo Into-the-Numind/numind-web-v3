@@ -178,6 +178,39 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/config/agents/AgentEdit.vue'),
         props: true,
         meta: { title: '编辑助手', requiresAuth: true, requiresParent: true }
+      },
+      // 我的技能 (agent-mode-v2-skill-as-artifact, 2026-05-24)
+      {
+        path: 'skills',
+        name: 'config-skills',
+        component: () => import('@/views/config/skills/SkillList.vue'),
+        meta: { title: '我的技能', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/new',
+        name: 'config-skills-new',
+        component: () => import('@/views/config/skills/SkillEditor.vue'),
+        props: { mode: 'create' },
+        meta: { title: '新建技能', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/:id',
+        name: 'config-skills-detail',
+        component: () => import('@/views/config/skills/SkillDetail.vue'),
+        meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/:id/edit',
+        name: 'config-skills-edit',
+        component: () => import('@/views/config/skills/SkillEditor.vue'),
+        props: { mode: 'edit' },
+        meta: { title: '编辑技能', requiresAuth: true, requiresParent: true }
+      },
+      {
+        path: 'skills/:id/history',
+        name: 'config-skills-history',
+        component: () => import('@/views/config/skills/SkillHistory.vue'),
+        meta: { title: '技能历史', requiresAuth: true, requiresParent: true }
       }
     ]
   },
@@ -229,6 +262,34 @@ const routes: RouteRecordRaw[] = [
       readOnly: route.query.read_only === '1'
     })
   },
+  // 技能市场 (agent-mode-v2-skill-marketplace, 2026-05-24)
+  // requiresParent: true — 子账户/学员不能访问 (spec §10.1 rule 2);
+  // 现有 router.beforeEach 已处理 redirect (line 309-317).
+  // /subscribed 必须在 /:id 之前注册避免被 :id catch-all 吞掉.
+  {
+    path: '/marketplace',
+    name: 'marketplace-browse',
+    component: () => import('@/views/marketplace/MarketplaceBrowse.vue'),
+    meta: { title: '技能市场', requiresAuth: true, requiresParent: true }
+  },
+  {
+    path: '/marketplace/subscribed',
+    name: 'marketplace-subscribed',
+    component: () => import('@/views/marketplace/MarketplaceSubscribed.vue'),
+    meta: { title: '我的订阅', requiresAuth: true, requiresParent: true }
+  },
+  {
+    path: '/marketplace/publish/:skill_id',
+    name: 'marketplace-publish',
+    component: () => import('@/views/marketplace/MarketplacePublish.vue'),
+    meta: { title: '发布到市场', requiresAuth: true, requiresParent: true }
+  },
+  {
+    path: '/marketplace/:id',
+    name: 'marketplace-detail',
+    component: () => import('@/views/marketplace/MarketplaceDetail.vue'),
+    meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',
@@ -278,7 +339,12 @@ router.beforeEach(async (to) => {
       await userStore.fetchUserInfo()
     }
     if (!userStore.isParentUser) {
-      useNotificationsStore().info('AI 助手配置仅父账户可访问')
+      // T10 reviewer P2: 路径分支文案 — marketplace 路径使用 marketplace 措辞,
+      // 其它父账户专属路径仍用 "AI 助手配置..." 默认。避免子账户看到混淆提示.
+      const msg = to.path.startsWith('/marketplace')
+        ? '技能市场仅父账户可访问'
+        : 'AI 助手配置仅父账户可访问'
+      useNotificationsStore().info(msg)
       return { path: '/' }
     }
   }
