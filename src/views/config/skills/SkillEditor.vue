@@ -240,6 +240,7 @@ async function onSave() {
       const updated = await store.update(skillId.value, payload)
       notifications.success(`已保存（v${updated.version}）`)
       initialContent.value = rawContent.value
+      router.push(`/config/skills/${skillId.value}`)
     }
   } catch (e) {
     notifications.error((e as Error).message || '保存失败')
@@ -249,7 +250,11 @@ async function onSave() {
 }
 
 function onCancel() {
-  router.back()
+  if (props.mode === 'edit' && skillId.value) {
+    router.push(`/config/skills/${skillId.value}`)
+  } else {
+    router.push('/config/skills')
+  }
 }
 
 // 跳转到发布页 (agent-mode-v2-skill-marketplace T10).
