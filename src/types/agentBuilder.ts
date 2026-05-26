@@ -157,6 +157,7 @@ export interface CreateAgentPayload {
   credit_cap_per_session?: number | null;
   daily_credit_cap?: number | null;
   source_template_id?: number | null;
+  custom_skill_body?: string;
 }
 
 // PATCH payload — 所有 optional；advanced_mode / is_active / parent_user_id 不可改
