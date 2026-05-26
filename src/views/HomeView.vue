@@ -339,7 +339,7 @@
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">🤖 AI 智能体</div>
+              <div class="feature-card-label">AI 智能体</div>
             </div>
           </button>
         </div>
@@ -808,7 +808,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 10px;
 }
 
 /* Card icon */

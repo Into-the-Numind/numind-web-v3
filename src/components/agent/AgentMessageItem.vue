@@ -123,7 +123,9 @@ const systemText = computed<string>(() => {
 
   <!-- Assistant text -->
   <div v-else-if="asAssistant" class="msg msg-assistant">
-    <span class="avatar">🤖</span>
+    <span class="avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+    </span>
     <div class="bubble">
       <p class="text">{{ asAssistant.markdown }}</p>
     </div>
@@ -131,7 +133,9 @@ const systemText = computed<string>(() => {
 
   <!-- Plan card -->
   <div v-else-if="asPlan" class="msg msg-plan">
-    <span class="avatar">🤖</span>
+    <span class="avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+    </span>
     <div class="content-wrap">
       <AgentPlanCard :steps="asPlan.plan_steps" />
     </div>
@@ -139,7 +143,9 @@ const systemText = computed<string>(() => {
 
   <!-- Tool group -->
   <div v-else-if="asToolGroup" class="msg msg-tool-group">
-    <span class="avatar">🤖</span>
+    <span class="avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+    </span>
     <div class="content-wrap">
       <AgentToolCallList :tool-groups="asToolGroup.tool_calls" />
     </div>
@@ -147,7 +153,9 @@ const systemText = computed<string>(() => {
 
   <!-- Artifact -->
   <div v-else-if="asArtifact" class="msg msg-artifact">
-    <span class="avatar">🤖</span>
+    <span class="avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+    </span>
     <div class="content-wrap">
       <AgentArtifactItem :artifact="asArtifact.artifact" />
     </div>
@@ -155,7 +163,9 @@ const systemText = computed<string>(() => {
 
   <!-- Final answer -->
   <div v-else-if="asFinalAnswer" class="msg msg-final">
-    <span class="avatar">🤖</span>
+    <span class="avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+    </span>
     <div class="content-wrap">
       <AgentFinalAnswer
         :markdown="asFinalAnswer.markdown"
@@ -168,12 +178,14 @@ const systemText = computed<string>(() => {
 
   <!-- System (本组件直接实现，不外置) -->
   <div v-else-if="asSystem" class="msg msg-system">
-    <p class="system-text">🤖 {{ systemText }}</p>
+    <p class="system-text">{{ systemText }}</p>
   </div>
 
   <!-- Question prompt (ask_user_question yield) -->
   <div v-else-if="asQuestionPrompt" class="msg msg-question-prompt">
-    <span class="avatar">🤖</span>
+    <span class="avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+    </span>
     <div class="content-wrap">
       <QuestionPrompt
         :run-id="asQuestionPrompt.run_id"
@@ -301,6 +313,15 @@ const systemText = computed<string>(() => {
   flex-shrink: 0;
   width: 28px;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bot-avatar-svg {
+  width: 18px;
+  height: 18px;
+  color: hsl(160, 50%, 45%);
 }
 
 .msg-assistant .bubble {
