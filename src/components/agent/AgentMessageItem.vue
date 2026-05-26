@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type {
   AgentMessage,
   UserMessage,
@@ -16,6 +16,7 @@ import AgentToolCallList from './AgentToolCallList.vue'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentFinalAnswer from './AgentFinalAnswer.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
+import { Copy, Check } from 'lucide-vue-next'
 
 interface Props {
   msg: AgentMessage
@@ -23,6 +24,35 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), { readOnly: false })
+
+const copied = ref(false)
+
+const copyText = async (text: string): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(text)
+    copied.value = true
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch {
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      copied.value = true
+      setTimeout(() => {
+        copied.value = false
+      }, 2000)
+    } catch {
+      // silently ignore
+    }
+  }
+}
 
 // Type guard helpers (discriminated union 收窄)
 const asUser = computed<UserMessage | null>(() => (props.msg.type === 'user' ? props.msg : null))
@@ -70,12 +100,23 @@ const systemText = computed<string>(() => {
 <template>
   <!-- User -->
   <div v-if="asUser" class="msg msg-user">
-    <div class="bubble">
-      <p class="text">{{ asUser.text }}</p>
-      <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
-        <span v-for="a in asUser.attachments ?? []" :key="a.url" class="att">
-          📎 {{ a.filename }}
-        </span>
+    <div class="user-bubble-wrap">
+      <button
+        class="user-copy-btn"
+        :class="{ copied: copied }"
+        :aria-label="copied ? '已复制' : '复制'"
+        @click="copyText(asUser.text)"
+      >
+        <Check v-if="copied" :size="14" />
+        <Copy v-else :size="14" />
+      </button>
+      <div class="bubble">
+        <p class="text">{{ asUser.text }}</p>
+        <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
+          <span v-for="a in asUser.attachments ?? []" :key="a.url" class="att">
+            📎 {{ a.filename }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -157,35 +198,94 @@ const systemText = computed<string>(() => {
   justify-content: flex-end;
 }
 
-.msg-user .bubble {
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px 14px;
+.user-bubble-wrap {
+  position: relative;
   max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.user-bubble-wrap .bubble {
+  max-width: 100% !important;
+  background: var(--primary, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  border-bottom-right-radius: 4px;
+  padding: 10px 14px;
+}
+
+.user-copy-btn {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  margin-right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.msg-user:hover .user-copy-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+.user-copy-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.user-copy-btn.copied {
+  visibility: visible;
+  opacity: 1;
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
 }
 
 .msg-user .text {
   margin: 0;
   font-size: 14px;
-  color: #1f2937;
+  color: white;
   white-space: pre-wrap;
 }
 
 .user-atts {
-  margin-top: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .att {
   font-size: 12px;
-  color: #6b7280;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  padding: 2px 8px;
-  border-radius: 10px;
+  color: white;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  padding: 3px 8px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .msg-assistant,

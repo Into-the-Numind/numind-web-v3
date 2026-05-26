@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { EstimateResponse, UploadResponse } from '@/types/agent'
-import AppButton from '@/components/common/AppButton.vue'
-import { Paperclip, Send, X } from 'lucide-vue-next'
+import { Paperclip, ArrowUp, X, FileText } from 'lucide-vue-next'
+import { getInputBudgetState } from '@/utils/inputBudget'
 
 interface Props {
   agentId: number
@@ -26,25 +26,31 @@ const emit = defineEmits<{
 }>()
 
 const text = ref('')
-const textarea = ref<HTMLTextAreaElement | null>(null)
-const fileInput = ref<HTMLInputElement | null>(null)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const isDragging = ref(false)
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
 const MAX_FILE_COUNT = 5
 const REJECT_MIME = ['application/x-msdownload', 'application/x-executable']
 
-const canSend = computed(() => text.value.trim().length > 0 && !props.sending && !props.disabled)
+const canSend = computed(() => {
+  const hasText = text.value.trim().length > 0
+  const hasUploads = props.attachments.length > 0
+  return (hasText || hasUploads) && !props.sending && !props.disabled
+})
 
-// 自动调高度（最多 5 行）
-const adjustHeight = (): void => {
-  const el = textarea.value
+const inputBudget = computed(() => getInputBudgetState(text.value))
+
+// 自动调高度
+const autoResize = (): void => {
+  const el = textareaRef.value
   if (!el) return
   el.style.height = 'auto'
-  const maxHeight = 5 * 24 + 16 // ~5 lines
-  el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px'
 }
 
-watch(text, adjustHeight)
+watch(text, () => nextTick(autoResize))
 
 // Debounce estimate 500ms
 let estimateTimer: ReturnType<typeof setTimeout> | null = null
@@ -60,6 +66,7 @@ const handleSend = (): void => {
   if (!canSend.value) return
   emit('send', text.value)
   text.value = ''
+  nextTick(autoResize)
 }
 
 const handleKeydown = (e: KeyboardEvent): void => {
@@ -70,14 +77,10 @@ const handleKeydown = (e: KeyboardEvent): void => {
 }
 
 const triggerUpload = (): void => {
-  fileInput.value?.click()
+  fileInputRef.value?.click()
 }
 
-const handleFileChange = (e: Event): void => {
-  const input = e.target as HTMLInputElement
-  const files = input.files
-  if (!files || files.length === 0) return
-
+const processFiles = (files: FileList): void => {
   for (const file of Array.from(files)) {
     if (props.attachments.length >= MAX_FILE_COUNT) {
       emit('reject', `最多上传 ${MAX_FILE_COUNT} 个文件`)
@@ -93,174 +96,380 @@ const handleFileChange = (e: Event): void => {
     }
     emit('upload', file)
   }
-  // 清空 input 让相同文件可重传
+}
+
+const handleFileChange = (e: Event): void => {
+  const input = e.target as HTMLInputElement
+  if (input.files && input.files.length > 0) {
+    processFiles(input.files)
+  }
   input.value = ''
 }
 
-onMounted(adjustHeight)
+const handleDrop = (e: DragEvent): void => {
+  isDragging.value = false
+  const droppedFiles = e.dataTransfer?.files
+  if (droppedFiles && droppedFiles.length > 0) {
+    processFiles(droppedFiles)
+  }
+}
+
+const handlePaste = (e: ClipboardEvent): void => {
+  const clipboardFiles = e.clipboardData?.files
+  if (clipboardFiles && clipboardFiles.length > 0) {
+    e.preventDefault()
+    processFiles(clipboardFiles)
+  }
+}
+
+onMounted(() => {
+  nextTick(autoResize)
+})
+
 onUnmounted(() => {
   if (estimateTimer) clearTimeout(estimateTimer)
 })
 </script>
 
 <template>
-  <div class="input-area">
-    <!-- 预估提示 -->
+  <div class="input-stage">
     <div
-      v-if="estimate && text.trim().length > 0"
-      class="estimate"
-      :class="{ large: estimate.is_large_task }"
+      class="input-floating-container"
+      :class="{ 'drag-over': isDragging }"
+      @dragover.prevent="isDragging = true"
+      @dragenter.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="handleDrop"
     >
-      <template v-if="estimate.is_large_task">
-        📊 这个任务预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分
-      </template>
-      <template v-else> 预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分 </template>
-    </div>
-
-    <!-- 附件预览 -->
-    <div v-if="attachments.length > 0" class="attachments">
-      <span v-for="att in attachments" :key="att.url" class="att-chip">
-        📎 {{ att.filename }}
-        <button
-          class="remove-btn"
-          aria-label="移除附件"
-          @click="emit('remove-attachment', att.url)"
-        >
-          <X :size="14" />
-        </button>
-      </span>
-    </div>
-
-    <!-- 输入行 -->
-    <div class="input-row">
-      <textarea
-        ref="textarea"
-        v-model="text"
-        :disabled="disabled"
-        rows="1"
-        placeholder="输入你的问题，或拖拽文件到这里..."
-        @keydown="handleKeydown"
-      />
+      <!-- Hidden file input -->
       <input
-        ref="fileInput"
+        ref="fileInputRef"
         type="file"
         multiple
-        hidden
+        style="display: none"
         accept=".xlsx,.csv,.txt,.pdf,.png,.jpg,.jpeg,.docx"
         @change="handleFileChange"
       />
-      <button class="upload-btn" :disabled="disabled" aria-label="上传文件" @click="triggerUpload">
-        <Paperclip :size="18" />
-      </button>
-      <AppButton :disabled="!canSend" @click="handleSend">
-        <Send :size="14" />
-        <span>发送</span>
-      </AppButton>
+
+      <textarea
+        ref="textareaRef"
+        v-model="text"
+        class="chat-input"
+        :disabled="disabled"
+        placeholder="输入你的问题，或拖入文件到这里..."
+        @keydown="handleKeydown"
+        @paste="handlePaste"
+        @input="autoResize"
+      />
+
+      <!-- 预估消耗条 -->
+      <div
+        v-if="estimate && text.trim().length > 0"
+        class="estimate-bar"
+        :class="{ large: estimate.is_large_task }"
+      >
+        <template v-if="estimate.is_large_task">
+          📊 本次运行属于大型任务，预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分
+        </template>
+        <template v-else>
+          预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分
+        </template>
+      </div>
+
+      <!-- Attachment preview strip -->
+      <div v-if="attachments.length > 0" class="attachment-strip">
+        <div
+          v-for="att in attachments"
+          :key="att.url"
+          class="attachment-item success"
+        >
+          <FileText :size="14" class="attachment-icon" />
+          <span class="attachment-name" :title="att.filename">{{ att.filename }}</span>
+          <button
+            class="attachment-remove"
+            @click="emit('remove-attachment', att.url)"
+          >
+            <X :size="12" />
+          </button>
+        </div>
+      </div>
+
+      <div class="input-toolbar">
+        <div class="toolbar-left">
+          <button
+            class="toolbar-icon-btn"
+            title="上传附件"
+            :disabled="disabled"
+            @click="triggerUpload"
+          >
+            <Paperclip :size="18" />
+          </button>
+        </div>
+        
+        <!-- 字数计数器 -->
+        <div
+          v-if="text.length > 0"
+          class="input-budget"
+          :class="{
+            'input-budget--warning': inputBudget.state === 'warning',
+            'input-budget--error': inputBudget.state === 'error'
+          }"
+          aria-live="polite"
+        >
+          <span>{{ inputBudget.label }}</span>
+          <span v-if="inputBudget.state === 'error'" class="input-budget-hint">
+            输入过长，系统可能需要压缩上下文
+          </span>
+        </div>
+
+        <div class="toolbar-right">
+          <button
+            class="send-btn"
+            :disabled="!canSend"
+            @click="handleSend"
+          >
+            <ArrowUp :size="20" />
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.input-area {
-  position: sticky;
-  bottom: 0;
-  background: var(--color-surface, #fff);
-  border-top: 1px solid var(--color-border, #e5e7eb);
-  padding: 12px 20px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
+.input-stage {
+  padding: 0 32px 32px;
+  position: relative;
+  background: transparent;
+  flex-shrink: 0;
 }
 
-.estimate {
+.input-floating-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  padding: 12px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  position: relative;
+}
+
+.input-floating-container:focus-within {
+  border-color: hsla(160, 45%, 50%, 0.5);
+  box-shadow: 0 4px 24px rgba(37, 167, 105, 0.08);
+}
+
+.input-floating-container.drag-over {
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.02);
+  box-shadow: 0 0 0 2px rgba(37, 167, 105, 0.15);
+}
+
+.chat-input {
+  width: 100%;
+  border: none;
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  background: transparent;
+  outline: none;
+  padding: 4px 0 8px;
+  max-height: 140px;
+  min-height: 28px;
+  overflow-y: auto;
+}
+
+.chat-input::placeholder {
+  color: var(--text-light);
+}
+
+.chat-input:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* ===== Estimate Bar ===== */
+.estimate-bar {
   font-size: 12px;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--text-muted);
+  padding: 6px 10px;
+  background: hsla(160, 40%, 50%, 0.06);
+  color: hsl(160, 45%, 36%);
+  border-radius: 8px;
   margin-bottom: 8px;
+  border: 1px dashed hsla(160, 45%, 50%, 0.2);
+  display: inline-flex;
 }
 
-.estimate.large {
+.estimate-bar.large {
   background: #fff7ed;
   color: #c2410c;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #fdba74;
+  border-color: #fdba74;
 }
 
-.attachments {
+/* ===== Attachment Strip ===== */
+.attachment-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
 
-.att-chip {
+.attachment-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: #f3f4f6;
-  border-radius: 14px;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
   padding: 4px 8px;
-  font-size: 12px;
-  color: var(--color-text, #1f2937);
+  max-width: 200px;
 }
 
-.remove-btn {
+.attachment-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.attachment-name {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-remove {
   background: none;
   border: none;
-  padding: 0;
+  color: var(--text-muted);
+  padding: 2px;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
 }
 
-.input-row {
+.attachment-remove:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+}
+
+/* ===== Toolbar ===== */
+.input-toolbar {
   display: flex;
-  align-items: end;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
+  padding-top: 8px;
+  margin-top: auto;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-textarea {
-  flex: 1;
-  resize: none;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-  outline: none;
-  transition: border-color 0.15s ease;
-  background: var(--color-surface, #fff);
-}
-
-textarea:focus {
-  border-color: var(--color-primary, #2563eb);
-}
-
-textarea:disabled {
-  background: #f9fafb;
-  color: #9ca3af;
-}
-
-.upload-btn {
+.toolbar-icon-btn {
   background: none;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.upload-btn:disabled {
+.toolbar-icon-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text);
+}
+
+.toolbar-icon-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+/* ===== Input Budget ===== */
+.input-budget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.input-budget--warning {
+  color: #eab308;
+  font-weight: 500;
+}
+
+.input-budget--error {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.input-budget-hint {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ===== Send Button ===== */
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.send-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(37, 167, 105, 0.2);
+}
+
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 2px 10px rgba(37, 167, 105, 0.3);
+}
+
+.send-btn:disabled {
+  background: var(--border-light);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
 @media (max-width: 768px) {
-  .input-area {
-    padding: 10px 12px;
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  .input-stage {
+    padding: 0 16px 16px;
+  }
+  .input-floating-container {
+    border-radius: 16px;
   }
 }
 </style>

@@ -134,12 +134,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
-  const startNewRun = async (agentId: number, text: string): Promise<void> => {
+  const startNewRun = async (agentId: number, text: string, sessionId?: string): Promise<void> => {
     sendingMessage.value = true
     try {
       const res = await api.createRun({
         agent_skill_id: agentId,
         input_text: text,
+        session_id: sessionId && sessionId !== 'new' ? sessionId : undefined,
         // Server expects "attachment_urls": array of COS URLs (NOT numeric ids).
         // The upload endpoint does not return an id, so url IS the identity.
         attachment_urls: attachments.value.map((a) => a.url)

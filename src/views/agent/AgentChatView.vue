@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, watch } from 'vue'
+import { onMounted, onUnmounted, computed, watch, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  ArrowLeft,
+  Plus,
+  MessageSquare
+} from 'lucide-vue-next'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useCreditsStore } from '@/stores/credits'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -8,7 +13,6 @@ import { useAgentNarration } from '@/composables/useAgentNarration'
 import { useAgentRun } from '@/composables/useAgentRun'
 import { useAgentCost } from '@/composables/useAgentCost'
 import * as api from '@/api/agent'
-import MainLayout from '@/components/layout/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
 import AgentFirstRun from '@/components/agent/AgentFirstRun.vue'
@@ -17,7 +21,6 @@ import AgentInputArea from '@/components/agent/AgentInputArea.vue'
 import AgentBudgetExceededModal from '@/components/agent/AgentBudgetExceededModal.vue'
 import AgentLowBalanceModal from '@/components/agent/AgentLowBalanceModal.vue'
 import type { SupportContact } from '@/types/agent'
-import { ref } from 'vue'
 
 interface Props {
   sessionId: string
@@ -37,23 +40,25 @@ const cost = useAgentCost()
 
 const supportContact = ref<SupportContact>({})
 const showLowBalance = ref(false)
+const sidebarOpen = ref(false)
 
 const isNewSession = computed(() => props.sessionId === 'new')
 const isLoadingSnapshot = computed(() => store.loadingSnapshot)
 const hasSnapshotError = computed(() => store.sessionError !== null)
-const hasMessages = computed(() => store.messages.length > 0)
 const showFirstRun = computed(
-  () => isNewSession.value && !hasMessages.value && !!store.currentAgent
+  () => isNewSession.value && store.messages.length === 0 && !!store.currentAgent
 )
 
 // Sum cycle + booster + trial pools via the store's totalRemain getter.
-// The legacy `.balance` field on QuotaBreakdown is 0 under the new credits
-// schema (cycle_remaining / booster_usable / trial_remaining), so reading it
-// directly causes the "0 积分" false alarm even for users with 1000+ credits.
 const currentBalance = computed(() => creditsStore.totalRemain)
 const isMember = computed(
   () => creditsStore.displayState === 'trial' || creditsStore.displayState === 'pro'
 )
+
+const filteredSessions = computed(() => {
+  if (!props.agentId) return store.recentSessions
+  return store.recentSessions.filter((s) => s.agent_skill_id === props.agentId)
+})
 
 const handleSend = async (text: string): Promise<void> => {
   if (!store.currentAgent) return
@@ -62,7 +67,7 @@ const handleSend = async (text: string): Promise<void> => {
     return
   }
   try {
-    await runCtrl.start(store.currentAgent.id, text)
+    await runCtrl.start(store.currentAgent.id, text, props.sessionId)
     narration.start()
     runCtrl.startStatusPolling()
   } catch (err) {
@@ -137,17 +142,38 @@ const loadCurrentAgent = async (): Promise<void> => {
   if (agent) store.currentAgent = agent
 }
 
+const createNewSession = (): void => {
+  sidebarOpen.value = false
+  if (props.sessionId === 'new') return
+  router.push({
+    name: 'agent-chat',
+    params: { sessionId: 'new' },
+    query: { agent_id: props.agentId }
+  })
+}
+
+const switchToSession = async (session: (typeof store.recentSessions)[0]): Promise<void> => {
+  sidebarOpen.value = false
+  if (session.session_id === props.sessionId) return
+  router.push({
+    name: 'agent-chat',
+    params: { sessionId: session.session_id },
+    query: { agent_id: props.agentId, read_only: session.status === 'completed' ? '1' : undefined }
+  })
+}
+
 onMounted(async () => {
+  document.body.classList.add('agent-chat-route')
   await Promise.all([
     creditsStore.fetchBalance(),
     loadCurrentAgent(),
+    store.fetchRecentSessions(),
     api.getSupportContact().then((c) => {
       supportContact.value = c
     })
   ])
 
   if (isNewSession.value) {
-    // 尝试 sessionStorage 恢复进行中的 run
     const storedRunId = sessionStorage.getItem('agentChat:currentRunId')
     if (storedRunId) {
       const runId = Number(storedRunId)
@@ -164,7 +190,6 @@ onMounted(async () => {
       }
     }
   } else {
-    // 历史会话 — sessionId 是 UUID string (backend agent_run.session_id varchar)
     if (props.sessionId) {
       await store.loadSessionSnapshot(props.sessionId, props.readOnly)
     }
@@ -172,6 +197,41 @@ onMounted(async () => {
 
   cost.watchThresholds()
 })
+
+watch(
+  () => props.sessionId,
+  async (newSessionId) => {
+    if (newSessionId === 'new') {
+      store.messages = []
+      store.currentRun = null
+      store.narrationEvents = []
+      store.lastNarrationTs = ''
+      store.stuckSince = null
+      store.attachments = []
+      store.inputText = ''
+      store.estimate = null
+      store.isReadOnly = false
+      sessionStorage.removeItem('agentChat:currentRunId')
+      sessionStorage.removeItem('agentChat:currentSessionId')
+    } else {
+      await store.loadSessionSnapshot(newSessionId, props.readOnly)
+    }
+  }
+)
+
+watch(
+  () => store.currentRun?.session_id,
+  (newSessionId) => {
+    if (newSessionId && props.sessionId === 'new') {
+      router.replace({
+        name: 'agent-chat',
+        params: { sessionId: newSessionId },
+        query: { agent_id: props.agentId }
+      })
+      void store.fetchRecentSessions()
+    }
+  }
+)
 
 watch(
   () => cost.budgetExceeded.value,
@@ -183,6 +243,7 @@ watch(
 )
 
 onUnmounted(() => {
+  document.body.classList.remove('agent-chat-route')
   narration.stop()
   runCtrl.stopStatusPolling()
   store.reset()
@@ -200,26 +261,63 @@ const handleRetrySnapshot = async (): Promise<void> => {
 </script>
 
 <template>
-  <MainLayout>
-    <div class="agent-chat-page">
-      <!-- 加载快照中 -->
-      <div v-if="isLoadingSnapshot" class="state-loading">
-        <div v-for="i in 3" :key="i" class="skeleton-msg"></div>
-      </div>
+  <div class="agent-view">
+    <!-- 加载快照中 -->
+    <div v-if="isLoadingSnapshot" class="page-loading">
+      <div class="loading-spinner" />
+      <div class="loading-text">加载中...</div>
+    </div>
 
-      <!-- 快照加载失败 -->
-      <div v-else-if="hasSnapshotError" class="state-error">
-        <div class="error-icon">😢</div>
-        <h2 class="error-title">会话加载失败</h2>
-        <p class="error-msg">{{ store.sessionError }}</p>
-        <div class="error-actions">
-          <AppButton @click="handleRetrySnapshot">重试</AppButton>
-          <AppButton variant="secondary" @click="goBackToList">返回 Agent 列表</AppButton>
+    <!-- 快照加载失败 -->
+    <div v-else-if="hasSnapshotError" class="state-error">
+      <div class="error-icon">😢</div>
+      <h2 class="error-title">会话加载失败</h2>
+      <p class="error-msg">{{ store.sessionError }}</p>
+      <div class="error-actions">
+        <AppButton @click="handleRetrySnapshot">重试</AppButton>
+        <AppButton variant="secondary" @click="goBackToList">返回 Agent 列表</AppButton>
+      </div>
+    </div>
+
+    <!-- 正常 / First-run / 历史 / readOnly -->
+    <div v-else class="app-container">
+      <!-- Sidebar -->
+      <aside class="sidebar" :class="{ 'mobile-open': sidebarOpen }">
+        <!-- 返回列表 -->
+        <button type="button" class="nav__back" @click="goBackToList">
+          <ArrowLeft :size="16" aria-hidden="true" />
+          <span>返回助手列表</span>
+        </button>
+
+        <button class="new-chat-btn" @click="createNewSession">
+          <Plus :size="18" />
+          <span>新对话</span>
+        </button>
+        
+        <div class="sessions-list">
+          <div
+            v-for="session in filteredSessions"
+            :key="session.session_id"
+            class="session-item"
+            :class="{
+              'session-item--active': session.session_id === props.sessionId,
+              active: session.session_id === props.sessionId
+            }"
+            @click="switchToSession(session)"
+          >
+            <MessageSquare class="session-icon" :size="16" />
+            <span class="session-title" :title="session.preview_text || '新对话'">{{ session.preview_text || '新对话' }}</span>
+          </div>
+          <div v-if="filteredSessions.length === 0" class="sessions-empty">暂无对话</div>
         </div>
-      </div>
+      </aside>
 
-      <!-- 正常 / First-run / 历史 / readOnly -->
-      <template v-else>
+      <!-- Sidebar Overlay (Mobile) -->
+      <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false" />
+
+      <!-- Main Chat Area -->
+      <main class="main-stage">
+        <!-- Header -->
         <AgentChatHeader
           :agent="store.currentAgent"
           :run="store.currentRun"
@@ -227,17 +325,20 @@ const handleRetrySnapshot = async (): Promise<void> => {
           :read-only="readOnly"
           :cancelling="store.cancelling"
           :cancel-always-enabled="narration.cancelAlwaysEnabled.value"
+          :sidebar-open="sidebarOpen"
+          @toggle-sidebar="sidebarOpen = !sidebarOpen"
           @cancel="handleCancel"
-          @back="goBackToList"
         />
 
-        <AgentFirstRun
-          v-if="showFirstRun"
-          :agent="store.currentAgent!"
-          @select-starter="handleSelectStarter"
-        />
+        <div class="chat-wrapper">
+          <AgentFirstRun
+            v-if="showFirstRun"
+            :agent="store.currentAgent!"
+            @select-starter="handleSelectStarter"
+          />
 
-        <AgentMessageList v-else :messages="store.messages" :read-only="readOnly" />
+          <AgentMessageList v-else :messages="store.messages" :read-only="readOnly" />
+        </div>
 
         <AgentInputArea
           v-if="!readOnly && store.currentAgent"
@@ -252,59 +353,255 @@ const handleRetrySnapshot = async (): Promise<void> => {
           @remove-attachment="store.removeAttachment"
           @reject="handleReject"
         />
-      </template>
-
-      <!-- Budget exceeded modal -->
-      <AgentBudgetExceededModal
-        :open="cost.budgetExceeded.value"
-        :used-credits="store.currentRun?.credits_used ?? 0"
-        :current-balance="currentBalance"
-        @continue="handleBudgetContinue"
-        @stop="handleBudgetStop"
-        @low-balance="handleBudgetLowBalance"
-      />
-
-      <!-- Low balance modal -->
-      <AgentLowBalanceModal
-        :open="showLowBalance"
-        :balance="currentBalance"
-        :is-member="isMember"
-        :support-contact="supportContact"
-        @purchase="handlePurchase"
-        @try="handleTryDemoTask"
-        @close="handleCloseLowBalance"
-      />
+      </main>
     </div>
-  </MainLayout>
+
+    <!-- Budget exceeded modal -->
+    <AgentBudgetExceededModal
+      :open="cost.budgetExceeded.value"
+      :used-credits="store.currentRun?.credits_used ?? 0"
+      :current-balance="currentBalance"
+      @continue="handleBudgetContinue"
+      @stop="handleBudgetStop"
+      @low-balance="handleBudgetLowBalance"
+    />
+
+    <!-- Low balance modal -->
+    <AgentLowBalanceModal
+      :open="showLowBalance"
+      :balance="currentBalance"
+      :is-member="isMember"
+      :support-contact="supportContact"
+      @purchase="handlePurchase"
+      @try="handleTryDemoTask"
+      @close="handleCloseLowBalance"
+    />
+  </div>
 </template>
 
+<!-- Unscoped: route-level overrides -->
+<style>
+body.agent-chat-route {
+  --sidebar-width: 260px;
+  --text-light: var(--text-muted);
+  --bg: #ffffff;
+
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.agent-chat-route #app {
+  height: 100%;
+}
+</style>
+
 <style scoped>
-.agent-chat-page {
+.agent-view {
+  width: 100%;
+  height: 100%;
+}
+
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--bg);
+}
+
+/* ===== Page Loading ===== */
+.page-loading {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--text-muted);
 }
 
-.state-loading {
-  flex: 1;
-  padding: 20px;
-}
-
-.skeleton-msg {
-  height: 80px;
-  background: linear-gradient(90deg, #f3f4f6, #e5e7eb, #f3f4f6);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite linear;
-  border-radius: 12px;
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
   margin-bottom: 16px;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
+.loading-text {
+  font-size: 14px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
-  100% {
-    background-position: 200% 0;
+}
+
+/* ===== Back Button ===== */
+.nav__back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  margin: 0 12px 8px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: hsl(160, 18%, 52%);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+}
+
+.nav__back:hover {
+  color: hsl(160, 40%, 36%);
+  background: hsla(160, 45%, 50%, 0.1);
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100%;
+  background: hsla(160, 30%, 96%, 0.65);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid hsla(160, 20%, 88%, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  padding-top: 16px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.new-chat-btn {
+  margin: 0 12px 12px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  color: var(--primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+  font-size: 0.9rem;
+}
+
+.new-chat-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.sessions-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+
+.sessions-empty {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.85rem;
+  padding: 24px 0;
+}
+
+.session-item {
+  position: relative;
+  padding: 12px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.session-item:hover {
+  background: hsla(160, 45%, 50%, 0.1);
+  color: var(--text);
+}
+
+.session-item.active {
+  background: hsla(160, 50%, 50%, 0.14);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.session-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===== Sidebar Overlay ===== */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 5;
+}
+
+.sidebar-overlay.show {
+  display: block;
+  touch-action: none;
+}
+
+/* ===== Main Stage ===== */
+.main-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.chat-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
   }
 }
 

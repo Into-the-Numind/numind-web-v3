@@ -7,7 +7,7 @@ import { onUnmounted } from 'vue'
 import { useAgentChatStore } from '@/stores/agentChat'
 
 export interface UseAgentRunApi {
-  start: (agentId: number, text: string) => Promise<void>
+  start: (agentId: number, text: string, sessionId?: string) => Promise<void>
   cancel: () => Promise<void>
   refresh: () => Promise<void>
   startStatusPolling: () => void
@@ -18,8 +18,8 @@ export function useAgentRun(): UseAgentRunApi {
   const store = useAgentChatStore()
   let statusTimer: ReturnType<typeof setInterval> | null = null
 
-  const start = async (agentId: number, text: string): Promise<void> => {
-    await store.startNewRun(agentId, text)
+  const start = async (agentId: number, text: string, sessionId?: string): Promise<void> => {
+    await store.startNewRun(agentId, text, sessionId)
   }
 
   const cancel = async (): Promise<void> => {
