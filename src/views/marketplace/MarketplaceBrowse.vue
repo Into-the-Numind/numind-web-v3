@@ -11,7 +11,7 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, RefreshCcw } from 'lucide-vue-next'
+import { Search, RefreshCcw, ArrowLeft } from 'lucide-vue-next'
 
 import { useMarketplaceStore } from '@/stores/marketplace'
 import AppButton from '@/components/common/AppButton.vue'
@@ -71,6 +71,11 @@ function nextPage() {
 
 <template>
   <div class="marketplace-browse">
+    <div class="back-link" @click="router.push('/config/skills')">
+      <ArrowLeft :size="16" />
+      <span>返回我的技能</span>
+    </div>
+
     <header class="page-header">
       <h1>技能市场</h1>
       <p class="subtitle">浏览其他机构发布的脱敏技能，一键订阅到自己的技能库。</p>
@@ -194,6 +199,22 @@ function nextPage() {
   padding: 24px 32px;
   max-width: 1280px;
   margin: 0 auto;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--color-primary, #2563eb);
 }
 
 .page-header h1 {

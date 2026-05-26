@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import { useNotificationsStore } from '@/stores/notifications'
 import { validateForm } from './components/validation'
@@ -10,6 +11,14 @@ import QuestionnaireForm from './components/QuestionnaireForm.vue'
 import AfterSaveModal from './components/AfterSaveModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
+
+function goBack() {
+  if (props.mode === 'edit' && props.agentId != null) {
+    router.push(`/config/agents/${props.agentId}`)
+  } else {
+    router.push('/config/agents/new')
+  }
+}
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -330,10 +339,15 @@ onBeforeUnmount(() => {
   <div class="agent-builder">
     <!-- Header -->
     <header class="agent-builder__header">
-      <h1 class="agent-builder__title">
-        <template v-if="mode === 'edit'">编辑：{{ form.name || '...' }}</template>
-        <template v-else>创建新助手</template>
-      </h1>
+      <div class="header-left">
+        <button class="back-btn" @click="goBack" title="返回">
+          <ArrowLeft :size="18" />
+        </button>
+        <h1 class="agent-builder__title">
+          <template v-if="mode === 'edit'">编辑：{{ form.name || '...' }}</template>
+          <template v-else>创建新助手</template>
+        </h1>
+      </div>
       <AppButton variant="primary" :loading="store.saving" @click="handleSave"> 保存 </AppButton>
     </header>
 
@@ -421,6 +435,35 @@ onBeforeUnmount(() => {
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--outline-variant, #a9b4b9);
   margin-bottom: var(--space-2);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--outline-variant, #e5e7eb);
+  background: var(--surface-low, #fff);
+  color: var(--on-surface-variant, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  background: var(--surface-high, #f3f4f6);
+  color: var(--on-surface, #1f2937);
+  border-color: var(--tertiary, #2563eb);
 }
 
 .agent-builder__title {

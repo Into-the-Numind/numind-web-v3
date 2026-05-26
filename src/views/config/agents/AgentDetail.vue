@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import { errorStatus } from '@/constants/agentErrno'
 import AppButton from '@/components/common/AppButton.vue'
@@ -88,6 +89,11 @@ async function refetch() {
 
     <!-- Success -->
     <div v-else-if="store.current" class="agent-detail">
+      <div class="back-link" @click="goBack">
+        <ArrowLeft :size="16" />
+        <span>返回智能体列表</span>
+      </div>
+
       <header class="detail-header">
         <div class="detail-header__info">
           <h1 class="detail-header__name">{{ store.current.name }}</h1>
@@ -140,6 +146,22 @@ async function refetch() {
   max-width: 960px;
   margin: 0 auto;
   padding: var(--space-6);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--on-surface-variant, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--primary, #2563eb);
 }
 
 /* Loading skeleton */

@@ -15,6 +15,7 @@ import {
   Heart,
   Star,
   Coffee,
+  ArrowLeft,
   type LucideIcon,
 } from "lucide-vue-next";
 import AppButton from "@/components/common/AppButton.vue";
@@ -87,6 +88,11 @@ const viewState = computed<"loading" | "error" | "empty" | "success">(() => {
 
 <template>
   <div class="gallery-page">
+    <div class="back-link" @click="cancel">
+      <ArrowLeft :size="16" />
+      <span>返回</span>
+    </div>
+
     <!-- Page header -->
     <div class="gallery-header">
       <div class="gallery-header-text">
@@ -168,6 +174,22 @@ const viewState = computed<"loading" | "error" | "empty" | "success">(() => {
   max-width: 1040px;
   margin: 0 auto;
   padding: var(--space-10) var(--space-8);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--on-surface-variant, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--tertiary, #2563eb);
 }
 
 /* Header */

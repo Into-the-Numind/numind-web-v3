@@ -18,11 +18,16 @@
  */
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import { searchAgentRuns, type AgentSearchResult } from '@/api/agentSearch'
 
 const router = useRouter()
+
+const goBack = (): void => {
+  router.push({ name: 'agent-history' })
+}
 
 const query = ref('')
 const results = ref<AgentSearchResult[]>([])
@@ -94,6 +99,11 @@ const roleLabel = (role: string): string => {
 <template>
   <MainLayout>
     <div class="agent-history-search-page">
+      <div class="back-link" @click="goBack">
+        <ArrowLeft :size="16" />
+        <span>返回历史会话</span>
+      </div>
+
       <header class="page-header">
         <h1 class="page-title">搜索历史对话</h1>
         <p class="page-subtitle">支持中文短词检索，按相关度排序</p>
@@ -168,6 +178,22 @@ const roleLabel = (role: string): string => {
   max-width: 960px;
   margin: 0 auto;
   padding: 32px 24px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.back-link:hover {
+  color: var(--color-accent, #2563eb);
 }
 
 .page-header {

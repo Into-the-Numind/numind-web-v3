@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import AgentFeedbackBar from './AgentFeedbackBar.vue'
+import { Copy, Check } from 'lucide-vue-next'
 
 interface Props {
   markdown: string
@@ -17,6 +18,35 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const html = computed<string>(() => renderMarkdown(props.markdown))
+
+const copied = ref(false)
+
+const copyText = async (): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(props.markdown)
+    copied.value = true
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch {
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = props.markdown
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      copied.value = true
+      setTimeout(() => {
+        copied.value = false
+      }, 2000)
+    } catch {
+      // silently ignore
+    }
+  }
+}
 </script>
 
 <template>
@@ -24,21 +54,36 @@ const html = computed<string>(() => renderMarkdown(props.markdown))
     <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
     <div class="markdown-body" v-html="html"></div>
     <div class="feedback-section">
-      <AgentFeedbackBar
-        :run-id="runId"
-        :initial-feedback="initialFeedback"
-        :initial-note="initialNote"
-      />
+      <div class="feedback-left">
+        <AgentFeedbackBar
+          :run-id="runId"
+          :initial-feedback="initialFeedback"
+          :initial-note="initialNote"
+        />
+      </div>
+      <div class="feedback-right">
+        <button
+          class="ai-action-btn"
+          :class="{ copied: copied }"
+          @click="copyText"
+          title="复制回答"
+        >
+          <Check v-if="copied" :size="14" />
+          <Copy v-else :size="14" />
+          <span>{{ copied ? '已复制' : '复制' }}</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .final-answer {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  width: 100%;
 }
 
 .markdown-body {
@@ -102,5 +147,45 @@ const html = computed<string>(() => renderMarkdown(props.markdown))
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.feedback-left {
+  display: flex;
+  align-items: center;
+}
+
+.feedback-right {
+  display: flex;
+  align-items: center;
+}
+
+.ai-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--text-muted, #6b7280);
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-action-btn:hover {
+  color: var(--primary, #2563eb);
+  border-color: var(--primary, #2563eb);
+  background: rgba(37, 167, 105, 0.04);
+}
+
+.ai-action-btn.copied {
+  color: var(--primary, #2563eb);
+  border-color: var(--primary, #2563eb);
+  background: rgba(37, 167, 105, 0.08);
 }
 </style>

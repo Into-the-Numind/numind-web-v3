@@ -12,16 +12,19 @@ interface Props {
   cancelling?: boolean
   /** stuck 60s 之后强制 enable 取消按钮 */
   cancelAlwaysEnabled?: boolean
+  sidebarOpen?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readOnly: false,
   cancelling: false,
-  cancelAlwaysEnabled: false
+  cancelAlwaysEnabled: false,
+  sidebarOpen: false
 })
 
 const emit = defineEmits<{
   (e: 'cancel'): void
+  (e: 'toggle-sidebar'): void
 }>()
 
 const statusBadge = computed<{ icon: string; label: string; color: string }>(() => {
@@ -55,18 +58,34 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
 <template>
   <header class="agent-chat-header" :class="['status-' + statusBadge.color]">
     <div class="left">
+      <button class="sidebar-toggle" @click="emit('toggle-sidebar')" aria-label="切换侧边栏">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
       <span class="emoji">{{ agent?.emoji ?? '🤖' }}</span>
       <h2 class="name">{{ agent?.name ?? 'AI 助手' }}</h2>
-    </div>
-
-    <div class="center">
-      <span class="badge" :class="'badge-' + statusBadge.color">
-        {{ statusBadge.icon }} {{ statusBadge.label }}
-      </span>
-      <span class="separator" aria-hidden="true">·</span>
-      <span class="credits">已用 {{ creditsUsed }} 积分</span>
-      <span class="separator desktop-only" aria-hidden="true">·</span>
-      <span class="balance desktop-only">余额 {{ balance }}</span>
+      
+      <div class="center-info">
+        <span class="badge" :class="'badge-' + statusBadge.color">
+          {{ statusBadge.icon }} {{ statusBadge.label }}
+        </span>
+        <span class="separator" aria-hidden="true">·</span>
+        <span class="credits">已用 {{ creditsUsed }} 积分</span>
+        <span class="separator desktop-only" aria-hidden="true">·</span>
+        <span class="balance desktop-only">余额 {{ balance }}</span>
+      </div>
     </div>
 
     <div class="right">
@@ -89,45 +108,61 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
   position: sticky;
   top: 0;
   z-index: 10;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 16px;
+  display: flex;
   align-items: center;
-  padding: 12px 20px;
-  background: var(--color-surface, #fff);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-}
-
-.agent-chat-header.status-orange {
-  border-bottom-color: #f59e0b;
-}
-.agent-chat-header.status-red {
-  border-bottom-color: #ef4444;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg, #fff);
+  border-bottom: 1px solid hsla(160, 20%, 88%, 0.5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
 }
 
 .left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+
+.sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-toggle:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+  color: var(--text);
 }
 
 .emoji {
-  font-size: 22px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
 }
 
 .name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text, #1f2937);
   margin: 0;
 }
 
-.center {
+.center-info {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
   color: var(--color-text-muted, #6b7280);
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .badge {
@@ -158,11 +193,12 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
 }
 
 .separator {
-  color: #d1d5db;
+  color: #e5e7eb;
 }
 
 .right {
-  justify-self: end;
+  display: flex;
+  align-items: center;
 }
 
 /* cancel 按钮覆盖为红色 danger 风格 */
@@ -176,20 +212,12 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
   border-color: #ef4444 !important;
 }
 
-/* 移动端：隐藏 balance，仅显示已用积分 + 取消按钮 */
+/* 移动端响应式布局 */
 @media (max-width: 768px) {
+  .sidebar-toggle {
+    display: flex;
+  }
   .agent-chat-header {
-    grid-template-columns: 1fr auto;
-    padding: 10px 12px;
-  }
-  .left .name {
-    display: none;
-  }
-  .center {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    font-size: 12px;
   }
   .desktop-only {
     display: none;
