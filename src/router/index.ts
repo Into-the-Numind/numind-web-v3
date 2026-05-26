@@ -65,7 +65,7 @@ const routes: RouteRecordRaw[] = [
     name: 'knowledge',
     component: () => import('@/views/KnowledgeView.vue'),
     meta: {
-      title: '知识库管理',
+      title: '知识库',
       requiresAuth: true
     }
   },
@@ -109,7 +109,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'chatbots',
         component: () => import('@/views/config/ChatbotList.vue'),
-        meta: { title: '智能体管理', requiresAuth: true, requiresParent: true }
+        meta: { title: 'AI 助手', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'chatbots/:id/edit',
@@ -119,7 +119,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'sop-templates',
         component: () => import('@/views/config/SopTemplateList.vue'),
-        meta: { title: 'SOP 管理', requiresAuth: true, requiresParent: true }
+        meta: { title: 'SOP', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'sop-templates/:id/edit',
@@ -129,7 +129,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'knowledge-bases',
         component: () => import('@/views/config/KnowledgeBaseList.vue'),
-        meta: { title: '知识库管理', requiresAuth: true, requiresParent: true }
+        meta: { title: '知识库', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'knowledge-bases/:id',
@@ -141,7 +141,7 @@ const routes: RouteRecordRaw[] = [
         path: 'agents',
         name: 'config-agents',
         component: () => import('@/views/config/agents/AgentList.vue'),
-        meta: { title: 'AI 助手', requiresAuth: true, requiresParent: true }
+        meta: { title: '智能体', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'agents/new',
@@ -184,7 +184,7 @@ const routes: RouteRecordRaw[] = [
         path: 'skills',
         name: 'config-skills',
         component: () => import('@/views/config/skills/SkillList.vue'),
-        meta: { title: '我的技能', requiresAuth: true, requiresParent: true }
+        meta: { title: 'Skill', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'skills/new',

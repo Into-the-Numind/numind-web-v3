@@ -39,11 +39,11 @@ interface ConfigTab {
 }
 
 const allTabs: ConfigTab[] = [
-  { label: '智能体管理', path: '/config/chatbots' },
-  { label: 'SOP 管理', path: '/config/sop-templates' },
-  { label: '知识库管理', path: '/config/knowledge-bases' },
-  { label: 'AI 助手', path: '/config/agents', parentOnly: true },
-  { label: '我的技能', path: '/config/skills', parentOnly: true }
+  { label: 'AI 助手', path: '/config/chatbots' },
+  { label: 'SOP', path: '/config/sop-templates' },
+  { label: '知识库', path: '/config/knowledge-bases' },
+  { label: '智能体', path: '/config/agents', parentOnly: true },
+  { label: 'Skill', path: '/config/skills', parentOnly: true }
 ]
 
 // userInfo 未就绪时默认隐藏 parentOnly tab，避免 isParentUser=true 的 flash；
