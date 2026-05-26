@@ -43,7 +43,7 @@ async function fetchList() {
   } catch (e: unknown) {
     const status = errorStatus(e)
     if (status === HTTP_CHILD_ACCOUNT_FORBIDDEN) {
-      listError.value = '仅父账户可配置 AI 智能体，请联系机构主'
+      listError.value = '仅父账户可配置智能体，请联系机构主'
     } else if (status === 404) {
       listError.value = '智能体不存在或已被删除'
     } else {
@@ -115,8 +115,8 @@ function cancelDelete() {
       <!-- 头部 -->
       <div class="page-header">
         <div class="header-left">
-          <h2 class="page-title">智能体管理</h2>
-          <p class="page-desc">创建和管理多步骤 AI 智能体，为学员提供自主 SOP 执行服务</p>
+          <h2 class="page-title">智能体</h2>
+          <p class="page-desc">创建和管理多步骤智能体，为学员提供自主 SOP 执行服务</p>
         </div>
         <div class="header-right">
           <AppButton variant="secondary" @click="router.push('/config/agents/new/from-template')">

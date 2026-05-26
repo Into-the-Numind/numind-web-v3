@@ -73,7 +73,7 @@ function nextPage() {
   <div class="marketplace-browse">
     <div class="back-link" @click="router.push('/config/skills')">
       <ArrowLeft :size="16" />
-      <span>返回我的技能</span>
+      <span>返回 Skill</span>
     </div>
 
     <header class="page-header">

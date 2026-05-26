@@ -15,7 +15,7 @@
       <!-- 头部 -->
       <div class="page-header">
         <div class="header-left">
-          <h2 class="page-title">知识库管理</h2>
+          <h2 class="page-title">知识库</h2>
           <p class="page-desc">管理知识库文档，为智能体提供专业知识</p>
         </div>
         <AppButton variant="hero" @click="showCreateModal = true">+ 新建知识库</AppButton>

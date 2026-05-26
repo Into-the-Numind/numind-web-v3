@@ -15,11 +15,11 @@
       <!-- 头部 -->
       <div class="page-header">
         <div class="header-left">
-          <h2 class="page-title">智能体管理</h2>
-          <p class="page-desc">创建和管理 AI 智能体，为客户提供智能对话服务</p>
+          <h2 class="page-title">AI 助手</h2>
+          <p class="page-desc">创建和管理 AI 助手，为客户提供智能对话服务</p>
         </div>
         <AppButton variant="hero" @click="router.push('/config/chatbots/new/edit')">
-          + 新建智能体
+          + 新建 AI 助手
         </AppButton>
       </div>
 
@@ -44,10 +44,10 @@
             <path d="M9 13v2" />
           </svg>
         </div>
-        <div class="empty-title">暂无智能体</div>
-        <div class="empty-desc">创建第一个智能体，开始为客户提供智能对话服务</div>
+        <div class="empty-title">暂无 AI 助手</div>
+        <div class="empty-desc">创建第一个 AI 助手，开始为客户提供智能对话服务</div>
         <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
-          新建智能体
+          新建 AI 助手
         </AppButton>
       </div>
 
@@ -170,7 +170,7 @@ async function loadData() {
 function handlePublish(id: number) {
   confirmAction.value = {
     title: '确认发布',
-    message: '确认发布该智能体？',
+    message: '确认发布该 AI 助手？',
     variant: 'default',
     confirmText: '发布',
     successMsg: '已发布',
@@ -182,7 +182,7 @@ function handlePublish(id: number) {
 function handleOffline(id: number) {
   confirmAction.value = {
     title: '确认下线',
-    message: '确认下线该智能体？下线后用户将无法使用。',
+    message: '确认下线该 AI 助手？下线后用户将无法使用。',
     variant: 'danger',
     confirmText: '下线',
     successMsg: '已下线',
@@ -194,7 +194,7 @@ function handleOffline(id: number) {
 function handleDelete(id: number) {
   confirmAction.value = {
     title: '确认删除',
-    message: '确认删除该智能体？此操作不可恢复。',
+    message: '确认删除该 AI 助手？此操作不可恢复。',
     variant: 'danger',
     confirmText: '删除',
     successMsg: '已删除',

@@ -13,7 +13,7 @@
           <!-- Hero 区域 -->
           <div class="hero-section">
             <div class="hero-content">
-              <h1 class="hero-title">知识库管理</h1>
+              <h1 class="hero-title">知识库</h1>
               <p class="hero-subtitle">集中管理业务文档，支持智能切分与向量检索</p>
             </div>
             <button class="hero-action-btn" @click="showUploadModal = true">

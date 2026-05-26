@@ -118,7 +118,7 @@ onMounted(() => {
               没有可装载的 Skill
               <p class="state__hint">
                 所有 Skill 都已装载，或先去
-                <strong>"我的技能"</strong>
+                <strong>Skill</strong>
                 创建一个。
               </p>
             </div>
