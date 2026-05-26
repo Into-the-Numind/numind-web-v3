@@ -282,14 +282,21 @@
       <div v-if="agentChatStore.availableAgents.length" class="workspace-section">
         <div class="section-label">AI 智能体</div>
         <div class="feature-cards">
-          <button type="button" class="feature-card" @click="router.push({ name: 'agent-select' })">
+          <button
+            v-for="agent in agentChatStore.availableAgents"
+            :key="agent.id"
+            type="button"
+            class="feature-card"
+            @click="handleAgentClick(agent.id)"
+          >
             <div class="card-left">
-              <div class="feature-card-title">AI 智能体</div>
-              <div class="feature-card-desc">多步骤自主任务</div>
+              <div class="feature-card-title">{{ agent.name }}</div>
+              <div class="feature-card-desc">{{ agent.description || '多步骤自主任务' }}</div>
             </div>
             <div class="card-right">
               <div class="feature-card-icon icon-variant-2">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <span v-if="agent.emoji" class="agent-emoji">{{ agent.emoji }}</span>
+                <svg v-else viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect
                     x="4"
                     y="13"
@@ -630,6 +637,14 @@ const handleAgentCardClick = async (card: AgentCard) => {
   }
 }
 
+const handleAgentClick = (agentId: number) => {
+  void router.push({
+    name: 'agent-chat',
+    params: { sessionId: 'new' },
+    query: { agent_id: String(agentId) }
+  })
+}
+
 const fetchChatbots = async () => {
   chatbotsLoading.value = true
   try {
@@ -807,6 +822,11 @@ onMounted(() => {
 .feature-card-icon svg {
   width: 28px;
   height: 28px;
+}
+
+.agent-emoji {
+  font-size: 26px;
+  line-height: 1;
 }
 
 .feature-card-label {
