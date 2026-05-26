@@ -202,9 +202,9 @@
         </div>
       </div>
 
-      <!-- AI 智能体 (销售智能体 + chatbot 统一排序，unlocked 在前) -->
+      <!-- AI 助手 (销售智能体 + chatbot 统一排序，unlocked 在前) -->
       <div v-if="agentCards.length" class="workspace-section">
-        <div class="section-label">AI 智能体</div>
+        <div class="section-label">AI 助手</div>
         <div class="feature-cards">
           <button
             v-for="card in agentCards"
@@ -272,19 +272,19 @@
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">AI 智能体</div>
+              <div class="feature-card-label">AI 助手</div>
             </div>
           </button>
         </div>
       </div>
 
-      <!-- AI 助手入口 -->
+      <!-- AI 智能体入口 -->
       <div v-if="agentChatStore.availableAgents.length" class="workspace-section">
-        <div class="section-label">AI 助手</div>
+        <div class="section-label">AI 智能体</div>
         <div class="feature-cards">
           <button type="button" class="feature-card" @click="router.push({ name: 'agent-select' })">
             <div class="card-left">
-              <div class="feature-card-title">AI 助手</div>
+              <div class="feature-card-title">AI 智能体</div>
               <div class="feature-card-desc">多步骤自主任务</div>
             </div>
             <div class="card-right">
@@ -332,7 +332,7 @@
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">🤖 AI 助手</div>
+              <div class="feature-card-label">🤖 AI 智能体</div>
             </div>
           </button>
         </div>
