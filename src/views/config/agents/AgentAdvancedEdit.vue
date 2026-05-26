@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import { useNotificationsStore } from '@/stores/notifications'
-import NoticeBanner from '@/components/common/NoticeBanner.vue'
+
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import type { ToolFlags } from '@/types/agentBuilder'
@@ -24,6 +24,7 @@ const toolFlags = ref<ToolFlags>({
   media: false,
   dangerous: false
 })
+const localBody = ref('')
 const dangerousConfirmVisible = ref(false)
 const leavingConfirmVisible = ref(false)
 // Tracks the intended navigation destination when the route guard fires
@@ -35,24 +36,23 @@ let prevDangerous = false
 // --- Computed ---
 const agent = computed(() => store.current)
 
-const bodyDisplay = computed(() => {
-  if (!agent.value) return ''
-  return agent.value.custom_skill_body || agent.value.generated_skill_body || ''
-})
 
-const charCount = computed(() => bodyDisplay.value.length)
+
+const charCount = computed(() => localBody.value.length)
 
 const isDirty = computed(() => {
   if (!agent.value) return false
   const original = agent.value.tool_flags ?? {}
+  const originalBody = agent.value.custom_skill_body || agent.value.generated_skill_body || ''
   return (
     !!toolFlags.value.code_sandbox !== !!original.code_sandbox ||
     !!toolFlags.value.media !== !!original.media ||
-    !!toolFlags.value.dangerous !== !!original.dangerous
+    !!toolFlags.value.dangerous !== !!original.dangerous ||
+    localBody.value !== originalBody
   )
 })
 
-// --- Sync toolFlags when agent loads or changes ---
+// --- Sync toolFlags and localBody when agent loads or changes ---
 watch(
   () => store.current,
   (a) => {
@@ -63,6 +63,7 @@ watch(
         dangerous: !!a.tool_flags?.dangerous
       }
       prevDangerous = !!a.tool_flags?.dangerous
+      localBody.value = a.custom_skill_body || a.generated_skill_body || ''
     }
   },
   { immediate: true }
@@ -134,7 +135,10 @@ function cancelLeave() {
 // --- Save ---
 async function handleSave() {
   try {
-    await store.update(props.agentId, { tool_flags: { ...toolFlags.value } })
+    await store.update(props.agentId, {
+      tool_flags: { ...toolFlags.value },
+      custom_skill_body: localBody.value
+    })
     // Sync local prevDangerous from fresh store data
     if (store.current) {
       prevDangerous = !!store.current.tool_flags?.dangerous
@@ -153,10 +157,6 @@ function goBack() {
 
 <template>
   <div class="advanced-editor">
-    <!-- v1 limitation banner -->
-    <NoticeBanner type="info">
-      ✏️ 自定义 Prompt 编辑功能即将上线（v1 仅可查看 + 切换工具开关）。
-    </NoticeBanner>
 
     <!-- Loading state -->
     <div v-if="store.currentLoading" class="advanced-editor__loading">加载中…</div>
@@ -179,14 +179,13 @@ function goBack() {
         </span>
       </header>
 
-      <!-- Read-only body textarea -->
+      <!-- Edit body textarea -->
       <textarea
-        :value="bodyDisplay"
-        disabled
+        v-model="localBody"
         class="advanced-textarea"
         rows="30"
         spellcheck="false"
-        placeholder="（暂无内容）"
+        placeholder="请输入系统提示词（Prompt）..."
       />
 
       <!-- Tool flags section -->
@@ -207,7 +206,7 @@ function goBack() {
       </section>
 
       <footer class="advanced-editor__footer">
-        <AppButton @click="handleSave" :loading="store.saving">保存工具开关</AppButton>
+        <AppButton @click="handleSave" :loading="store.saving">保存</AppButton>
         <AppButton variant="secondary" @click="goBack">返回</AppButton>
       </footer>
     </template>
@@ -228,7 +227,7 @@ function goBack() {
     <ConfirmModal
       :model-value="leavingConfirmVisible"
       title="您有未保存的更改"
-      message="确认离开？未保存的工具开关更改将丢失。"
+      message="确认离开？未保存的更改将丢失。"
       confirm-text="离开"
       cancel-text="继续编辑"
       @confirm="confirmLeave"
@@ -301,7 +300,6 @@ function goBack() {
   color: var(--on-surface, #111827);
   resize: vertical;
   box-sizing: border-box;
-  cursor: default;
 }
 
 .advanced-textarea:disabled {
