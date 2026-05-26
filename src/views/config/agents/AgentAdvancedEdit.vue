@@ -296,7 +296,7 @@ function goBack() {
   padding: var(--space-4, 16px);
   border: 1px solid rgba(169, 180, 185, 0.25);
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-low, #f9fafb);
+  background: var(--surface-lowest, #ffffff);
   color: var(--on-surface, #111827);
   resize: vertical;
   box-sizing: border-box;
