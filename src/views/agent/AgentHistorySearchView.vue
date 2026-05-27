@@ -67,8 +67,7 @@ const doSearch = async (): Promise<void> => {
 const handleResultClick = (sessionId: string): void => {
   router.push({
     name: 'agent-chat',
-    params: { sessionId },
-    query: { read_only: '1' }
+    params: { sessionId }
   })
 }
 

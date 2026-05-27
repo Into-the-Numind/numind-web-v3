@@ -63,7 +63,9 @@ onMounted(async () => {
 <template>
   <div class="message-list">
     <div ref="scroller" class="scroller" @scroll="handleScroll">
-      <AgentMessageItem v-for="msg in messages" :key="msg.id" :msg="msg" :read-only="readOnly" />
+      <div class="messages-container">
+        <AgentMessageItem v-for="msg in messages" :key="msg.id" :msg="msg" :read-only="readOnly" />
+      </div>
     </div>
     <button
       v-if="showBackToBottom"
@@ -89,8 +91,22 @@ onMounted(async () => {
 .scroller {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 20px 32px 200px;
   scroll-behavior: smooth;
+}
+
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .scroller {
+    padding: 16px;
+  }
 }
 
 .back-to-bottom {
