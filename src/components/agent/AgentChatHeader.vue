@@ -81,10 +81,6 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
       <h2 class="name">{{ agent?.name ?? 'AI 助手' }}</h2>
       
       <div class="center-info">
-        <span class="badge" :class="'badge-' + statusBadge.color">
-          {{ statusBadge.icon }} {{ statusBadge.label }}
-        </span>
-        <span class="separator" aria-hidden="true">·</span>
         <span class="credits">已用 {{ creditsUsed }} 积分</span>
         <span class="separator desktop-only" aria-hidden="true">·</span>
         <span class="balance desktop-only">余额 {{ balance }}</span>

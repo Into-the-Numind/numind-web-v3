@@ -31,56 +31,6 @@ const mkRun = (
 })
 
 describe('AgentChatHeader', () => {
-  it('shows 进行中 + green badge for running status', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('进行中')
-    expect(wrapper.find('.badge-green').exists()).toBe(true)
-  })
-
-  it('shows orange badge when threshold_state = warning_60', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running', 'warning_60'), balance: 1000 }
-    })
-    expect(wrapper.find('.badge-orange').exists()).toBe(true)
-  })
-
-  it('shows 已完成 for completed', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('completed'), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('已完成')
-  })
-
-  it('shows 已取消 for cancelled', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('cancelled'), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('已取消')
-  })
-
-  it('shows 任务失败 for failed', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('failed'), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('任务失败')
-  })
-
-  it('shows 任务失败 for timeout', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('timeout'), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('任务失败')
-  })
-
-  it('shows 积分用尽 for budget_exhausted', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('budget_exhausted'), balance: 0 }
-    })
-    expect(wrapper.text()).toContain('积分用尽')
-  })
-
   it('cancel button shown only when running', () => {
     const wrapper = mount(AgentChatHeader, {
       props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
@@ -113,7 +63,7 @@ describe('AgentChatHeader', () => {
     const wrapper = mount(AgentChatHeader, {
       props: { agent: mkAgent(), run: mkRun('running'), balance: 1000, cancelling: true }
     })
-    const btn = wrapper.find('button')
+    const btn = wrapper.find('.cancel-btn')
     expect(btn.attributes('disabled')).toBeDefined()
   })
 
@@ -121,7 +71,7 @@ describe('AgentChatHeader', () => {
     const wrapper = mount(AgentChatHeader, {
       props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
     })
-    await wrapper.find('button').trigger('click')
+    await wrapper.find('.cancel-btn').trigger('click')
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
