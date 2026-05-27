@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ref, nextTick } from 'vue'
-import { shallowMount } from '@vue/test-utils'
+import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAgentChatStore } from '@/stores/agentChat'
-import AgentChatView from '../AgentChatView.vue'
 
 // ─── vue-router mock ───────────────────────────────────────────────────────
 // AgentChatView calls useRouter() at the top level — must be mocked before
@@ -88,34 +86,10 @@ vi.mock('@/composables/useAgentStream', () => ({
   })
 }))
 
-// ─── Helper: mount AgentChatView with shallowMount ─────────────────────────
-// shallowMount stubs all child components (AgentChatHeader, AgentFirstRun,
-// AgentMessageList, AgentInputArea, AgentBudgetExceededModal, etc.) so the
-// test only exercises AgentChatView's own script logic and template wiring.
-function mountView(
-  props?: Partial<{ sessionId: string; agentId: number | null; readOnly: boolean }>
-) {
-  return shallowMount(AgentChatView, {
-    props: {
-      sessionId: 'new',
-      agentId: null,
-      readOnly: false,
-      ...props
-    },
-    global: {
-      // Additional stubs for lucide icons and AppButton so they don't throw
-      stubs: {
-        AppButton: true,
-        AgentChatHeader: true,
-        AgentFirstRun: true,
-        AgentMessageList: true,
-        AgentInputArea: true,
-        AgentBudgetExceededModal: true,
-        AgentLowBalanceModal: true
-      }
-    }
-  })
-}
+// Note: an earlier mountView() helper was removed alongside the mount-based
+// T14 tests that proved infeasible to set up reliably (deep route+store deps).
+// The mount-level coverage now lives in e2e/agent-streaming.spec.ts (T16).
+// Remaining tests in this file run on the store/ref level via vi.mock seams.
 
 beforeEach(() => {
   setActivePinia(createPinia())
