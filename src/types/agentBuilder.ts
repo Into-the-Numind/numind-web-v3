@@ -207,7 +207,11 @@ export function initialFormState(): AgentFormState {
       q11: "这个问题有点超出我的能力范围，你可以去问老师或者换个方式描述一下～",
       q12: "friendly",
     },
-    tool_flags: {},
+    tool_flags: {
+      code_sandbox: true,
+      media: true,
+      dangerous: true,
+    },
     credit_cap_per_session: null,
     daily_credit_cap: null,
   };
