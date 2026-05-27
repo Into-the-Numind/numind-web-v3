@@ -23,6 +23,7 @@ import { useSkillStore } from '@/stores/skill'
 import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import CategoryMultiSelect from './CategoryMultiSelect.vue'
+import MainLayout from '@/components/layout/MainLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -87,105 +88,107 @@ function goBack() {
 </script>
 
 <template>
-  <div class="marketplace-publish">
-    <div class="back-link" @click="goBack">
-      <ArrowLeft :size="16" />
-      <span>返回技能详情</span>
-    </div>
+  <MainLayout>
+    <div class="marketplace-publish">
+      <div class="back-link" @click="goBack">
+        <ArrowLeft :size="16" />
+        <span>返回技能详情</span>
+      </div>
 
-    <header class="page-header">
-      <h1>发布到技能市场</h1>
-      <p class="subtitle">脱敏后的技能将对所有父账户可见。请仔细核对脱敏内容。</p>
-    </header>
+      <header class="page-header">
+        <h1>发布到技能市场</h1>
+        <p class="subtitle">脱敏后的技能将对所有父账户可见。请仔细核对脱敏内容。</p>
+      </header>
 
-    <!-- Skill 不存在 -->
-    <div
-      v-if="!skillStore.current && !skillStore.currentLoading"
-      class="state-msg state-msg--error"
-    >
-      <p>技能不存在或无权访问</p>
-      <AppButton @click="goBack">返回</AppButton>
-    </div>
+      <!-- Skill 不存在 -->
+      <div
+        v-if="!skillStore.current && !skillStore.currentLoading"
+        class="state-msg state-msg--error"
+      >
+        <p>技能不存在或无权访问</p>
+        <AppButton @click="goBack">返回</AppButton>
+      </div>
 
-    <template v-else-if="skillStore.current">
-      <!-- 元信息 -->
-      <section class="meta">
-        <div><strong>技能名称：</strong>{{ skillStore.current.name }}</div>
-        <div><strong>当前版本：</strong>v{{ skillStore.current.version }}</div>
-      </section>
+      <template v-else-if="skillStore.current">
+        <!-- 元信息 -->
+        <section class="meta">
+          <div><strong>技能名称：</strong>{{ skillStore.current.name }}</div>
+          <div><strong>当前版本：</strong>v{{ skillStore.current.version }}</div>
+        </section>
 
-      <!-- 分类多选 -->
-      <section class="categories">
-        <h3>选择分类（必选）</h3>
-        <CategoryMultiSelect v-model="selectedCategories" :max="5" />
-      </section>
+        <!-- 分类多选 -->
+        <section class="categories">
+          <h3>选择分类（必选）</h3>
+          <CategoryMultiSelect v-model="selectedCategories" :max="5" />
+        </section>
 
-      <!-- Diff (loading / error / result) -->
-      <section class="diff-section">
-        <header class="diff-header">
-          <h3>脱敏预览</h3>
+        <!-- Diff (loading / error / result) -->
+        <section class="diff-section">
+          <header class="diff-header">
+            <h3>脱敏预览</h3>
+            <AppButton
+              v-if="store.sanitizePreviewResult || store.sanitizePreviewError"
+              size="sm"
+              :loading="store.sanitizePreviewLoading"
+              @click="preview"
+            >
+              <RefreshCcw :size="14" /> 重新生成
+            </AppButton>
+          </header>
+
+          <div v-if="store.sanitizePreviewLoading" class="state-msg">
+            <p>正在脱敏中... (调 qwen-turbo, 通常 1-2 秒)</p>
+          </div>
+
+          <div v-else-if="store.sanitizePreviewError" class="state-msg state-msg--error">
+            <AlertTriangle :size="20" />
+            <p>{{ store.sanitizePreviewError }}</p>
+            <p class="hint">脱敏服务暂不可用，发布功能已禁用。</p>
+            <AppButton @click="preview"><RefreshCcw :size="14" /> 重试</AppButton>
+          </div>
+
+          <div v-else-if="store.sanitizePreviewResult" class="diff">
+            <div class="diff__pane">
+              <header>原文（含敏感信息）</header>
+              <pre class="diff__body">{{ skillStore.current.body_md }}</pre>
+            </div>
+            <div class="diff__pane diff__pane--sanitized">
+              <header>脱敏后（将上架）</header>
+              <pre class="diff__body">{{ store.sanitizePreviewResult.sanitized_body_md }}</pre>
+            </div>
+          </div>
+
+          <p v-if="store.sanitizePreviewResult" class="tokens">
+            脱敏 token 用量: prompt {{ store.sanitizePreviewResult.llm_tokens.prompt }} + completion
+            {{ store.sanitizePreviewResult.llm_tokens.completion }} （阶段：{{
+              store.sanitizePreviewResult.stages_applied.join(' → ')
+            }}）
+          </p>
+        </section>
+
+        <!-- Confirmation gate -->
+        <section class="confirm-gate">
+          <label>
+            <input v-model="confirmed" type="checkbox" />
+            我已确认脱敏内容无敏感信息（人名 / 机构名 / 产品名 / 客户隐私等）
+          </label>
+        </section>
+
+        <!-- Actions -->
+        <footer class="actions">
+          <AppButton @click="goBack">取消</AppButton>
           <AppButton
-            v-if="store.sanitizePreviewResult || store.sanitizePreviewError"
-            size="sm"
-            :loading="store.sanitizePreviewLoading"
-            @click="preview"
+            variant="primary"
+            :disabled="!canPublish"
+            :loading="store.publishing"
+            @click="publish"
           >
-            <RefreshCcw :size="14" /> 重新生成
+            发布到市场
           </AppButton>
-        </header>
-
-        <div v-if="store.sanitizePreviewLoading" class="state-msg">
-          <p>正在脱敏中... (调 qwen-turbo, 通常 1-2 秒)</p>
-        </div>
-
-        <div v-else-if="store.sanitizePreviewError" class="state-msg state-msg--error">
-          <AlertTriangle :size="20" />
-          <p>{{ store.sanitizePreviewError }}</p>
-          <p class="hint">脱敏服务暂不可用，发布功能已禁用。</p>
-          <AppButton @click="preview"><RefreshCcw :size="14" /> 重试</AppButton>
-        </div>
-
-        <div v-else-if="store.sanitizePreviewResult" class="diff">
-          <div class="diff__pane">
-            <header>原文（含敏感信息）</header>
-            <pre class="diff__body">{{ skillStore.current.body_md }}</pre>
-          </div>
-          <div class="diff__pane diff__pane--sanitized">
-            <header>脱敏后（将上架）</header>
-            <pre class="diff__body">{{ store.sanitizePreviewResult.sanitized_body_md }}</pre>
-          </div>
-        </div>
-
-        <p v-if="store.sanitizePreviewResult" class="tokens">
-          脱敏 token 用量: prompt {{ store.sanitizePreviewResult.llm_tokens.prompt }} + completion
-          {{ store.sanitizePreviewResult.llm_tokens.completion }} （阶段：{{
-            store.sanitizePreviewResult.stages_applied.join(' → ')
-          }}）
-        </p>
-      </section>
-
-      <!-- Confirmation gate -->
-      <section class="confirm-gate">
-        <label>
-          <input v-model="confirmed" type="checkbox" />
-          我已确认脱敏内容无敏感信息（人名 / 机构名 / 产品名 / 客户隐私等）
-        </label>
-      </section>
-
-      <!-- Actions -->
-      <footer class="actions">
-        <AppButton @click="goBack">取消</AppButton>
-        <AppButton
-          variant="primary"
-          :disabled="!canPublish"
-          :loading="store.publishing"
-          @click="publish"
-        >
-          发布到市场
-        </AppButton>
-      </footer>
-    </template>
-  </div>
+        </footer>
+      </template>
+    </div>
+  </MainLayout>
 </template>
 
 <style scoped>

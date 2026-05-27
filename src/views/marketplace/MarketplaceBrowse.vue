@@ -15,6 +15,7 @@ import { Search, RefreshCcw, ArrowLeft } from 'lucide-vue-next'
 
 import { useMarketplaceStore } from '@/stores/marketplace'
 import AppButton from '@/components/common/AppButton.vue'
+import MainLayout from '@/components/layout/MainLayout.vue'
 
 const router = useRouter()
 const store = useMarketplaceStore()
@@ -70,128 +71,132 @@ function nextPage() {
 </script>
 
 <template>
-  <div class="marketplace-browse">
-    <div class="back-link" @click="router.push('/config/skills')">
-      <ArrowLeft :size="16" />
-      <span>返回 Skill</span>
-    </div>
-
-    <header class="page-header">
-      <h1>技能市场</h1>
-      <p class="subtitle">浏览其他机构发布的脱敏技能，一键订阅到自己的技能库。</p>
-      <div class="page-header__actions">
-        <router-link to="/marketplace/subscribed" class="link-subscribed"> 我的订阅 → </router-link>
+  <MainLayout>
+    <div class="marketplace-browse">
+      <div class="back-link" @click="router.push('/config/skills')">
+        <ArrowLeft :size="16" />
+        <span>返回 Skill</span>
       </div>
-    </header>
 
-    <div class="toolbar">
-      <div class="search-input">
-        <Search :size="16" class="search-icon" />
-        <input
-          v-model="store.queryQ"
-          type="text"
-          placeholder="搜索技能名称、描述、用途..."
-          aria-label="搜索"
-        />
+      <header class="page-header">
+        <h1>技能市场</h1>
+        <p class="subtitle">浏览其他机构发布的脱敏技能，一键订阅到自己的技能库。</p>
+        <div class="page-header__actions">
+          <router-link to="/marketplace/subscribed" class="link-subscribed">
+            我的订阅 →
+          </router-link>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div class="search-input">
+          <Search :size="16" class="search-icon" />
+          <input
+            v-model="store.queryQ"
+            type="text"
+            placeholder="搜索技能名称、描述、用途..."
+            aria-label="搜索"
+          />
+        </div>
+        <select v-model="store.querySort" aria-label="排序">
+          <option value="recommended">官方推荐</option>
+          <option value="recent">最近上架</option>
+          <option value="popular">最多订阅</option>
+        </select>
       </div>
-      <select v-model="store.querySort" aria-label="排序">
-        <option value="recommended">官方推荐</option>
-        <option value="recent">最近上架</option>
-        <option value="popular">最多订阅</option>
-      </select>
-    </div>
 
-    <div class="layout">
-      <aside class="sidebar">
-        <h3>分类</h3>
-        <ul>
-          <li>
-            <button
-              type="button"
-              :class="{ active: !store.queryCategory }"
-              @click="selectCategory('')"
+      <div class="layout">
+        <aside class="sidebar">
+          <h3>分类</h3>
+          <ul>
+            <li>
+              <button
+                type="button"
+                :class="{ active: !store.queryCategory }"
+                @click="selectCategory('')"
+              >
+                全部
+              </button>
+            </li>
+            <li v-for="cat in CATEGORIES" :key="cat">
+              <button
+                type="button"
+                :class="{ active: store.queryCategory === cat }"
+                @click="selectCategory(cat)"
+              >
+                {{ cat }}
+              </button>
+            </li>
+          </ul>
+        </aside>
+
+        <section class="content">
+          <!-- Loading skeleton -->
+          <div v-if="store.loading" class="grid">
+            <div v-for="i in 6" :key="i" class="card skeleton" aria-hidden="true"></div>
+          </div>
+
+          <!-- Error retry -->
+          <div v-else-if="store.error" class="state-msg state-msg--error">
+            <p>{{ store.error }}</p>
+            <AppButton @click="reload"> <RefreshCcw :size="14" /> 重试 </AppButton>
+          </div>
+
+          <!-- Empty -->
+          <div v-else-if="store.isEmpty" class="state-msg state-msg--empty">
+            <p v-if="store.queryQ || store.queryCategory">未找到相关技能，试试别的关键词或分类</p>
+            <p v-else>市场暂无技能，欢迎成为第一个发布者</p>
+            <AppButton v-if="store.queryQ || store.queryCategory" @click="clearQuery">
+              清空搜索
+            </AppButton>
+          </div>
+
+          <!-- Success grid -->
+          <div v-else class="grid">
+            <article
+              v-for="item in store.items"
+              :key="item.id"
+              class="card"
+              tabindex="0"
+              role="button"
+              @click="goDetail(item.id)"
+              @keyup.enter="goDetail(item.id)"
             >
-              全部
-            </button>
-          </li>
-          <li v-for="cat in CATEGORIES" :key="cat">
-            <button
-              type="button"
-              :class="{ active: store.queryCategory === cat }"
-              @click="selectCategory(cat)"
-            >
-              {{ cat }}
-            </button>
-          </li>
-        </ul>
-      </aside>
-
-      <section class="content">
-        <!-- Loading skeleton -->
-        <div v-if="store.loading" class="grid">
-          <div v-for="i in 6" :key="i" class="card skeleton" aria-hidden="true"></div>
-        </div>
-
-        <!-- Error retry -->
-        <div v-else-if="store.error" class="state-msg state-msg--error">
-          <p>{{ store.error }}</p>
-          <AppButton @click="reload"> <RefreshCcw :size="14" /> 重试 </AppButton>
-        </div>
-
-        <!-- Empty -->
-        <div v-else-if="store.isEmpty" class="state-msg state-msg--empty">
-          <p v-if="store.queryQ || store.queryCategory">未找到相关技能，试试别的关键词或分类</p>
-          <p v-else>市场暂无技能，欢迎成为第一个发布者</p>
-          <AppButton v-if="store.queryQ || store.queryCategory" @click="clearQuery">
-            清空搜索
-          </AppButton>
-        </div>
-
-        <!-- Success grid -->
-        <div v-else class="grid">
-          <article
-            v-for="item in store.items"
-            :key="item.id"
-            class="card"
-            tabindex="0"
-            role="button"
-            @click="goDetail(item.id)"
-            @keyup.enter="goDetail(item.id)"
-          >
-            <header class="card__head">
-              <h4 class="card__title">{{ item.name }}</h4>
-              <span v-if="item.is_platform_recommended" class="badge badge--recommended">
-                官方推荐
-              </span>
-            </header>
-            <p class="card__desc" :title="item.description">{{ item.description }}</p>
-            <footer class="card__foot">
-              <span class="card__count">订阅 {{ item.subscribe_count }}</span>
-              <span class="card__tags">
-                <span v-for="t in item.category_tags.slice(0, 3)" :key="t" class="tag">
-                  {{ t }}
+              <header class="card__head">
+                <h4 class="card__title">{{ item.name }}</h4>
+                <span v-if="item.is_platform_recommended" class="badge badge--recommended">
+                  官方推荐
                 </span>
-              </span>
-            </footer>
-          </article>
-        </div>
+              </header>
+              <p class="card__desc" :title="item.description">{{ item.description }}</p>
+              <footer class="card__foot">
+                <span class="card__count">订阅 {{ item.subscribe_count }}</span>
+                <span class="card__tags">
+                  <span v-for="t in item.category_tags.slice(0, 3)" :key="t" class="tag">
+                    {{ t }}
+                  </span>
+                </span>
+              </footer>
+            </article>
+          </div>
 
-        <!-- Pagination (轻量) -->
-        <div v-if="!store.isEmpty && store.total > store.queryPageSize" class="pagination">
-          <AppButton :disabled="store.queryPage <= 1" @click="prevPage"> 上一页 </AppButton>
-          <span class="pagination__info">
-            第 {{ store.queryPage }} 页 / 共 {{ Math.ceil(store.total / store.queryPageSize) }} 页
-          </span>
-          <AppButton
-            :disabled="store.queryPage * store.queryPageSize >= store.total"
-            @click="nextPage"
-          >
-            下一页
-          </AppButton>
-        </div>
-      </section>
+          <!-- Pagination (轻量) -->
+          <div v-if="!store.isEmpty && store.total > store.queryPageSize" class="pagination">
+            <AppButton :disabled="store.queryPage <= 1" @click="prevPage"> 上一页 </AppButton>
+            <span class="pagination__info">
+              第 {{ store.queryPage }} 页 / 共 {{ Math.ceil(store.total / store.queryPageSize) }} 页
+            </span>
+            <AppButton
+              :disabled="store.queryPage * store.queryPageSize >= store.total"
+              @click="nextPage"
+            >
+              下一页
+            </AppButton>
+          </div>
+        </section>
+      </div>
     </div>
-  </div>
+  </MainLayout>
 </template>
 
 <style scoped>
