@@ -168,6 +168,10 @@ export interface UserMessage extends BaseMessage {
 export interface AssistantMessage extends BaseMessage {
   type: 'assistant'
   markdown: string
+  /** True while the SSE stream is still delivering tokens for this message */
+  isStreaming?: boolean
+  /** Accumulated reasoning/thinking text from thinking-model reasoning_delta events */
+  reasoning?: string
 }
 
 export interface PlanMessage extends BaseMessage {
@@ -238,6 +242,10 @@ export interface ToolCallAggregate {
   /** chronological, latest at tail */
   events: NarrationEvent[]
   current_state: NarrationState
+  /** Truncated result preview populated by tool_call_result streaming event */
+  preview?: string
+  /** Error message populated by tool_call_error streaming event */
+  error_message?: string
 }
 
 // ─────────────────────────────────────────
