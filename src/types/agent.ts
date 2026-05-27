@@ -309,6 +309,8 @@ export interface RecentSession {
   /** Short preview of the last user message. Populated by backend enrichment;
    *  views render empty string when absent. */
   preview_text?: string
+  is_pinned?: boolean
+  session_name?: string
 }
 
 // ─────────────────────────────────────────
