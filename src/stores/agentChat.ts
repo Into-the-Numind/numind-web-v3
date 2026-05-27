@@ -356,10 +356,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // Defensive: backend may omit timestamp on restored messages; fill with
       // a stable fallback so BaseMessage.timestamp is always a valid string.
       const now = new Date().toISOString()
-      messages.value = (snap.messages ?? []).map((m) => ({
+      const localUserMsgs = messages.value.filter((m) => m.type === 'user')
+      const snapMsgs = (snap.messages ?? []).map((m) => ({
         ...m,
         timestamp: m.timestamp ?? now
       }))
+      // 边界防御：如果后端传回的快照里还没有任何用户消息，而我们本地正好有刚发的用户消息
+      if (snapMsgs.filter((m) => m.type === 'user').length === 0 && localUserMsgs.length > 0) {
+        snapMsgs.unshift(...localUserMsgs)
+      }
+      messages.value = snapMsgs
       isReadOnly.value = readOnly
       if (snap.compact_summary) {
         messages.value.unshift({
