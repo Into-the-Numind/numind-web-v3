@@ -439,6 +439,10 @@ const systemText = computed<string>(() => {
   align-items: flex-start;
 }
 
+/* P2 fix: "mostly visible, briefly off" convention — cursor visible ~50% of
+   the time at top/bottom of cycle, off at 50% midpoint. 1s linear smooth fade
+   reads cleaner than step-start (which was inverted / cursor invisible at first
+   frame). */
 @keyframes blink-cursor {
   0%,
   100% {
@@ -452,7 +456,7 @@ const systemText = computed<string>(() => {
 .streaming-cursor {
   display: inline;
   color: currentColor;
-  animation: blink-cursor 1s step-start infinite;
+  animation: blink-cursor 1s linear infinite;
   user-select: none;
 }
 </style>

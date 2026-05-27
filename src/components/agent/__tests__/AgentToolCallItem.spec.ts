@@ -220,10 +220,16 @@ describe('AgentToolCallItem — status badge (T13)', () => {
     expect(wrapper.find('.status-label').text()).toBe('已完成')
   })
 
-  it('badge has role="status" for accessibility', () => {
+  it('badge has no role="status" (P1 fix: aria-live="polite" unusable with 10+ concurrent cards)', () => {
+    // role="status" was removed because the implicit aria-live="polite" causes
+    // screen readers to announce every state transition for every card during
+    // streaming, making the chat unusable for SR users. The :title attribute
+    // still surfaces the state label on focus navigation.
     const group = mkGroup([mkEvent({ state: 'use', message: '执行中' })])
     const wrapper = mount(AgentToolCallItem, { props: { group } })
-    expect(wrapper.find('.status-badge').attributes('role')).toBe('status')
+    expect(wrapper.find('.status-badge').attributes('role')).toBeUndefined()
+    // :title should still be present so SR users get the state on focus
+    expect(wrapper.find('.status-badge').attributes('title')).toBe('执行中')
   })
 
   it('badge renders in compact mode as well', () => {

@@ -496,7 +496,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
         <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">
           <!-- Abort button — visible only while SSE stream is active -->
           <div v-if="isStreaming" class="abort-bar">
-            <button class="abort-btn" type="button" @click="stopStream">
+            <button class="abort-btn" type="button" aria-label="中止流式响应" @click="stopStream">
               <Square :size="14" aria-hidden="true" />
               <span>中止</span>
             </button>

@@ -90,8 +90,12 @@ watch(
 
 <template>
   <div :class="['tool-call-item', { 'skill-use': isSkillUse }]">
-    <!-- T13: Status badge — upper-right colored dot reflecting current_state -->
-    <span :class="badgeClass" :aria-label="badgeLabel" :title="badgeLabel" role="status">
+    <!-- T13: Status badge — upper-right colored dot reflecting current_state.
+         NOTE: role="status" removed (P1 fix). With 10+ concurrent tool calls
+         the implicit aria-live="polite" causes screen readers to announce every
+         state transition per card, making the chat unusable for SR users. The
+         :title attribute still surfaces the state label when users focus-navigate. -->
+    <span :class="badgeClass" :aria-label="badgeLabel" :title="badgeLabel">
       <span class="status-dot" />
       <span class="status-label">{{ badgeLabel }}</span>
     </span>
@@ -172,6 +176,9 @@ watch(
 
 .tool-call-item {
   position: relative;
+  /* P2 fix: guarantee clearance so the absolute-positioned status badge
+     never visually collides with long tool message text. */
+  padding-right: 60px;
 }
 
 .status-badge {
