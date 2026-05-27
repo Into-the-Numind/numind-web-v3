@@ -356,7 +356,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // Defensive: backend may omit timestamp on restored messages; fill with
       // a stable fallback so BaseMessage.timestamp is always a valid string.
       const now = new Date().toISOString()
-      messages.value = snap.messages.map((m) => ({
+      messages.value = (snap.messages ?? []).map((m) => ({
         ...m,
         timestamp: m.timestamp ?? now
       }))
