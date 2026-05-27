@@ -108,6 +108,7 @@ async function initForm() {
           icon_url: agent.icon_url,
           description: agent.description,
           welcome_message: agent.welcome_message,
+          system_prompt: agent.system_prompt ?? '',
           starters: [...(agent.starters ?? [])],
           questionnaire_answers: { ...(agent.questionnaire_answers ?? {}) },
           tool_flags: { ...(agent.tool_flags ?? {}) },
@@ -132,6 +133,7 @@ async function initForm() {
             icon_url: template.icon_url || 'lucide:Bot',
             description: template.description,
             welcome_message: template.welcome_message,
+            system_prompt: '',
             starters: [...(template.starters ?? [])],
             questionnaire_answers: {
               ...(template.questionnaire_answers ?? {})
@@ -151,6 +153,7 @@ async function initForm() {
             icon_url: source.icon_url,
             description: source.description,
             welcome_message: source.welcome_message,
+            system_prompt: source.system_prompt ?? '',
             starters: [...(source.starters ?? [])],
             questionnaire_answers: { ...(source.questionnaire_answers ?? {}) },
             tool_flags: { ...(source.tool_flags ?? {}) },
@@ -189,6 +192,7 @@ function formToPayload(): CreateAgentPayload {
     description: form.description || undefined,
     icon_url: form.icon_url || undefined,
     welcome_message: form.welcome_message || undefined,
+    system_prompt: form.system_prompt || undefined,
     starters: form.starters.length > 0 ? [...form.starters] : undefined,
     questionnaire_answers: { ...form.questionnaire_answers },
     tool_flags: Object.keys(form.tool_flags).length > 0 ? { ...form.tool_flags } : undefined,

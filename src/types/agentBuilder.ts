@@ -14,20 +14,20 @@
 
 /** Q6 任务类型 — 5 个内置 code + 自由文本（其他选项） */
 export type Q6TaskType =
-  | "analyze_data"
-  | "generate_content"
-  | "answer_questions"
-  | "make_plan"
-  | "grade_assignment";
+  | 'analyze_data'
+  | 'generate_content'
+  | 'answer_questions'
+  | 'make_plan'
+  | 'grade_assignment'
 
 /** Q7 材料类型 */
-export type Q7MaterialType = "text" | "csv" | "image" | "none";
+export type Q7MaterialType = 'text' | 'csv' | 'image' | 'none'
 
 /** Q9 网络搜索 */
-export type Q9WebSearch = "no_web_search" | "allow_search";
+export type Q9WebSearch = 'no_web_search' | 'allow_search'
 
 /** Q12 说话风格 */
-export type Q12Style = "friendly" | "professional" | "encouraging";
+export type Q12Style = 'friendly' | 'professional' | 'encouraging'
 
 /**
  * 12 题问卷答案（Q1-Q5 存在 AgentDefinition 直接字段；这里仅 Q6-Q12）。
@@ -37,13 +37,13 @@ export type Q12Style = "friendly" | "professional" | "encouraging";
  * 用 normalizeQuestionnaire() 在 store 层把无效值统一为 undefined。
  */
 export interface QuestionnaireAnswers {
-  q6?: (Q6TaskType | string)[]; // 多选 + 自由文本透传
-  q7?: Q7MaterialType[]; // 多选
-  q8?: number; // 200-2000；0 视为 default 800
-  q9?: Q9WebSearch;
-  q10?: string;
-  q11?: string;
-  q12?: Q12Style;
+  q6?: (Q6TaskType | string)[] // 多选 + 自由文本透传
+  q7?: Q7MaterialType[] // 多选
+  q8?: number // 200-2000；0 视为 default 800
+  q9?: Q9WebSearch
+  q10?: string
+  q11?: string
+  q12?: Q12Style
 }
 
 /**
@@ -51,24 +51,20 @@ export interface QuestionnaireAnswers {
  * 全部统一为 undefined，避免 union type 运行时不一致。
  */
 export function normalizeQuestionnaire(
-  q: Partial<QuestionnaireAnswers> | null | undefined,
+  q: Partial<QuestionnaireAnswers> | null | undefined
 ): QuestionnaireAnswers {
-  const out: QuestionnaireAnswers = {};
-  if (!q) return out;
-  if (Array.isArray(q.q6) && q.q6.length > 0) out.q6 = q.q6;
-  if (Array.isArray(q.q7) && q.q7.length > 0) out.q7 = q.q7 as Q7MaterialType[];
-  if (typeof q.q8 === "number" && q.q8 > 0) out.q8 = q.q8;
-  if (q.q9 === "no_web_search" || q.q9 === "allow_search") out.q9 = q.q9;
-  if (typeof q.q10 === "string" && q.q10 !== "") out.q10 = q.q10;
-  if (typeof q.q11 === "string" && q.q11 !== "") out.q11 = q.q11;
-  if (
-    q.q12 === "friendly" ||
-    q.q12 === "professional" ||
-    q.q12 === "encouraging"
-  ) {
-    out.q12 = q.q12;
+  const out: QuestionnaireAnswers = {}
+  if (!q) return out
+  if (Array.isArray(q.q6) && q.q6.length > 0) out.q6 = q.q6
+  if (Array.isArray(q.q7) && q.q7.length > 0) out.q7 = q.q7 as Q7MaterialType[]
+  if (typeof q.q8 === 'number' && q.q8 > 0) out.q8 = q.q8
+  if (q.q9 === 'no_web_search' || q.q9 === 'allow_search') out.q9 = q.q9
+  if (typeof q.q10 === 'string' && q.q10 !== '') out.q10 = q.q10
+  if (typeof q.q11 === 'string' && q.q11 !== '') out.q11 = q.q11
+  if (q.q12 === 'friendly' || q.q12 === 'professional' || q.q12 === 'encouraging') {
+    out.q12 = q.q12
   }
-  return out;
+  return out
 }
 
 // ============================================================
@@ -76,10 +72,10 @@ export function normalizeQuestionnaire(
 // ============================================================
 
 export interface ToolFlags {
-  code_sandbox?: boolean;
-  media?: boolean;
-  dangerous?: boolean;
-  [k: string]: boolean | undefined;
+  code_sandbox?: boolean
+  media?: boolean
+  dangerous?: boolean
+  [k: string]: boolean | undefined
 }
 
 // ============================================================
@@ -87,26 +83,27 @@ export interface ToolFlags {
 // ============================================================
 
 export interface Agent {
-  id: number;
-  parent_user_id: number;
-  name: string;
-  description: string;
-  icon_url: string; // 可能是 URL / "lucide:Bot" / "data:image/png;base64,..."
-  welcome_message: string;
-  starters: string[]; // 后端 datatypes.JSON 序列化后 = array
-  questionnaire_answers: QuestionnaireAnswers;
-  generated_skill_body: string;
-  advanced_mode: boolean;
-  custom_skill_body: string;
-  tool_flags: ToolFlags;
-  credit_cap_per_session: number | null; // 后端 *uint
-  daily_credit_cap: number | null;
-  version: number;
-  is_active: boolean;
-  source_template_id: number | null;
-  created_by: number;
-  created_at: string; // ISO 8601
-  updated_at: string;
+  id: number
+  parent_user_id: number
+  name: string
+  description: string
+  icon_url: string // 可能是 URL / "lucide:Bot" / "data:image/png;base64,..."
+  welcome_message: string
+  system_prompt?: string // 行为指引（可选，最长 16384 字符）
+  starters: string[] // 后端 datatypes.JSON 序列化后 = array
+  questionnaire_answers: QuestionnaireAnswers
+  generated_skill_body: string
+  advanced_mode: boolean
+  custom_skill_body: string
+  tool_flags: ToolFlags
+  credit_cap_per_session: number | null // 后端 *uint
+  daily_credit_cap: number | null
+  version: number
+  is_active: boolean
+  source_template_id: number | null
+  created_by: number
+  created_at: string // ISO 8601
+  updated_at: string
 }
 
 // ============================================================
@@ -115,13 +112,13 @@ export interface Agent {
 // ============================================================
 
 export interface AgentHistory {
-  id: number;
-  agent_id: number;
-  version: number;
-  snapshot: Agent; // 后端 datatypes.JSON 序列化的完整 row
-  changes_summary: string; // 后端 ComputeChangesSummary 生成的中文摘要
-  created_by: number;
-  created_at: string;
+  id: number
+  agent_id: number
+  version: number
+  snapshot: Agent // 后端 datatypes.JSON 序列化的完整 row
+  changes_summary: string // 后端 ComputeChangesSummary 生成的中文摘要
+  created_by: number
+  created_at: string
 }
 
 // ============================================================
@@ -129,17 +126,17 @@ export interface AgentHistory {
 // ============================================================
 
 export interface SkillTemplate {
-  id: number;
-  name: string;
-  description: string;
-  icon_url: string;
-  welcome_message: string;
-  starters: string[];
-  questionnaire_answers: QuestionnaireAnswers;
-  tool_flags: ToolFlags;
-  credit_cap_per_session: number | null;
-  daily_credit_cap: number | null;
-  created_at: string;
+  id: number
+  name: string
+  description: string
+  icon_url: string
+  welcome_message: string
+  starters: string[]
+  questionnaire_answers: QuestionnaireAnswers
+  tool_flags: ToolFlags
+  credit_cap_per_session: number | null
+  daily_credit_cap: number | null
+  created_at: string
 }
 
 // ============================================================
@@ -147,23 +144,22 @@ export interface SkillTemplate {
 // ============================================================
 
 export interface CreateAgentPayload {
-  name: string;
-  description?: string;
-  icon_url?: string;
-  welcome_message?: string;
-  starters?: string[];
-  questionnaire_answers?: QuestionnaireAnswers;
-  tool_flags?: ToolFlags;
-  credit_cap_per_session?: number | null;
-  daily_credit_cap?: number | null;
-  source_template_id?: number | null;
-  custom_skill_body?: string;
+  name: string
+  description?: string
+  icon_url?: string
+  welcome_message?: string
+  system_prompt?: string
+  starters?: string[]
+  questionnaire_answers?: QuestionnaireAnswers
+  tool_flags?: ToolFlags
+  credit_cap_per_session?: number | null
+  daily_credit_cap?: number | null
+  source_template_id?: number | null
+  custom_skill_body?: string
 }
 
 // PATCH payload — 所有 optional；advanced_mode / is_active / parent_user_id 不可改
-export type PatchAgentPayload = Partial<
-  Omit<CreateAgentPayload, "source_template_id">
->;
+export type PatchAgentPayload = Partial<Omit<CreateAgentPayload, 'source_template_id'>>
 
 // ============================================================
 // AgentFormState — Builder 表单内部 state shape
@@ -171,17 +167,18 @@ export type PatchAgentPayload = Partial<
 
 export interface AgentFormState {
   // Q1-Q5 顶层字段
-  name: string;
-  icon_url: string;
-  description: string;
-  welcome_message: string;
-  starters: string[];
+  name: string
+  icon_url: string
+  description: string
+  welcome_message: string
+  system_prompt: string
+  starters: string[]
   // Q6-Q12 嵌套
-  questionnaire_answers: QuestionnaireAnswers;
+  questionnaire_answers: QuestionnaireAnswers
   // tool_flags + cap 隐藏字段（v1 通过模板预设或保持默认）
-  tool_flags: ToolFlags;
-  credit_cap_per_session: number | null;
-  daily_credit_cap: number | null;
+  tool_flags: ToolFlags
+  credit_cap_per_session: number | null
+  daily_credit_cap: number | null
 }
 
 /**
@@ -193,28 +190,29 @@ export interface AgentFormState {
  */
 export function initialFormState(): AgentFormState {
   return {
-    name: "",
-    icon_url: "lucide:Bot",
-    description: "",
-    welcome_message: "",
+    name: '',
+    icon_url: 'lucide:Bot',
+    description: '',
+    welcome_message: '',
+    system_prompt: '',
     starters: [],
     questionnaire_answers: {
       q6: [],
       q7: [],
       q8: 800,
-      q9: "no_web_search",
-      q10: "",
-      q11: "这个问题有点超出我的能力范围，你可以去问老师或者换个方式描述一下～",
-      q12: "friendly",
+      q9: 'no_web_search',
+      q10: '',
+      q11: '这个问题有点超出我的能力范围，你可以去问老师或者换个方式描述一下～',
+      q12: 'friendly'
     },
     tool_flags: {
       code_sandbox: true,
       media: true,
-      dangerous: true,
+      dangerous: true
     },
     credit_cap_per_session: null,
-    daily_credit_cap: null,
-  };
+    daily_credit_cap: null
+  }
 }
 
 // ============================================================
@@ -222,6 +220,6 @@ export function initialFormState(): AgentFormState {
 // ============================================================
 
 export interface ListResponse<T> {
-  list: T[];
-  total: number;
+  list: T[]
+  total: number
 }

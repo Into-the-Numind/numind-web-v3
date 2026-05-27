@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { X } from "lucide-vue-next";
-import type { Agent, AgentFormState } from "@/types/agentBuilder";
-import QuestionnaireForm from "./QuestionnaireForm.vue";
+import { computed } from 'vue'
+import { X } from 'lucide-vue-next'
+import type { Agent, AgentFormState } from '@/types/agentBuilder'
+import QuestionnaireForm from './QuestionnaireForm.vue'
 
 // ── Props / Emits ──────────────────────────────────────────────────────────
 
 interface Props {
-  visible: boolean;
-  snapshot: Agent;
+  visible: boolean
+  snapshot: Agent
 }
 
-const props = defineProps<Props>();
+const props = defineProps<Props>()
 
 defineEmits<{
-  close: [];
-}>();
+  close: []
+}>()
 
 // ── Computed ───────────────────────────────────────────────────────────────
 
@@ -24,12 +24,13 @@ const form = computed<AgentFormState>(() => ({
   description: props.snapshot.description,
   icon_url: props.snapshot.icon_url,
   welcome_message: props.snapshot.welcome_message,
+  system_prompt: props.snapshot.system_prompt ?? '',
   starters: props.snapshot.starters ?? [],
   questionnaire_answers: props.snapshot.questionnaire_answers,
   tool_flags: props.snapshot.tool_flags ?? {},
   credit_cap_per_session: props.snapshot.credit_cap_per_session,
-  daily_credit_cap: props.snapshot.daily_credit_cap,
-}));
+  daily_credit_cap: props.snapshot.daily_credit_cap
+}))
 </script>
 
 <template>
