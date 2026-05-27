@@ -19,6 +19,19 @@ const props = withDefaults(defineProps<Props>(), {
 
 const html = computed<string>(() => renderMarkdown(props.markdown))
 
+const previewImageUrl = ref<string | null>(null)
+
+const handleImageClick = (e: MouseEvent): void => {
+  const target = e.target as HTMLElement
+  if (target.tagName === 'IMG') {
+    previewImageUrl.value = (target as HTMLImageElement).src
+  }
+}
+
+const closePreview = (): void => {
+  previewImageUrl.value = null
+}
+
 const copied = ref(false)
 
 const copyText = async (): Promise<void> => {
@@ -52,7 +65,7 @@ const copyText = async (): Promise<void> => {
 <template>
   <div class="final-answer">
     <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
-    <div class="markdown-body" v-html="html"></div>
+    <div class="markdown-body" v-html="html" @click="handleImageClick"></div>
     <div class="feedback-section">
       <div class="feedback-left">
         <AgentFeedbackBar
@@ -74,6 +87,18 @@ const copyText = async (): Promise<void> => {
         </button>
       </div>
     </div>
+
+    <!-- 全屏图片大图预览 Modal -->
+    <Teleport to="body">
+      <div v-if="previewImageUrl" class="image-preview-overlay" @click="closePreview">
+        <div class="image-preview-content">
+          <img :src="previewImageUrl" class="preview-img" alt="预览大图" />
+          <button class="close-btn" @click.stop="closePreview" aria-label="关闭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="close-icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -187,5 +212,96 @@ const copyText = async (): Promise<void> => {
   color: var(--primary, #2563eb);
   border-color: var(--primary, #2563eb);
   background: rgba(37, 167, 105, 0.08);
+}
+
+/* 缩略图展现样式 */
+.markdown-body :deep(img) {
+  max-width: 240px;
+  max-height: 180px;
+  border-radius: 8px;
+  cursor: zoom-in;
+  border: 1px solid #e5e7eb;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: block;
+  margin: 8px 0;
+  object-fit: cover;
+  background: var(--surface-low, #f9fafb);
+}
+
+.markdown-body :deep(img:hover) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 全屏大图遮罩层 — 毛玻璃和淡入动画 */
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.image-preview-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: zoomIn 0.2s ease;
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  object-fit: contain;
+}
+
+.close-btn {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  outline: none;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.close-icon {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
 }
 </style>
