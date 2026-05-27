@@ -14,7 +14,9 @@ export type SkillSourceType =
   | 'imported_from_template'
   | 'imported_from_marketplace'
 
-/** Skill frontmatter 字段 — Markdown 顶部 YAML 块的结构化形式 */
+export type SkillOriginType = 'official' | 'tenant' | 'user'
+
+/** Skill frontmatter 字段 — Markdown 顶部 YAML 块 of structured form */
 export interface Frontmatter {
   name: string
   description?: string
@@ -41,6 +43,7 @@ export interface Skill {
   body_md: string
   source_type: SkillSourceType
   source_template_id: number | null
+  origin_type: SkillOriginType
   version: number
   is_active: boolean
   created_by: number

@@ -187,6 +187,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Skill', requiresAuth: true, requiresParent: true }
       },
       {
+        path: 'skills/templates',
+        name: 'config-skills-templates',
+        component: () => import('@/views/config/skills/SkillTemplateBrowse.vue'),
+        meta: { title: '官方模板库', requiresAuth: true, requiresParent: true }
+      },
+      {
         path: 'skills/new',
         name: 'config-skills-new',
         component: () => import('@/views/config/skills/SkillEditor.vue'),

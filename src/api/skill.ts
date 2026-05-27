@@ -119,3 +119,15 @@ export const listAgentSkills = async (agentId: number): Promise<{ list: Skill[] 
   const res = await request.get(`/v1/agents/${agentId}/skills`)
   return (res as unknown as { data: { list: Skill[] } }).data
 }
+
+// 12. POST /v1/skills/import-template — 从官方模板一键克隆技能
+export const importSkillTemplate = async (templateId: number): Promise<Skill> => {
+  const res = await request.post('/v1/skills/import-template', { template_id: templateId })
+  return (res as unknown as { data: Skill }).data
+}
+
+// 13. GET /v1/agent/skill-templates — 获取官方技能模板列表
+export const listSkillTemplates = async (): Promise<{ list: any[]; total: number }> => {
+  const res = await request.get('/v1/agent/skill-templates')
+  return (res as unknown as { data: { list: any[]; total: number } }).data
+}
