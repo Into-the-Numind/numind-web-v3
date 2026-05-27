@@ -15,6 +15,7 @@ import { useMarketplaceStore } from '@/stores/marketplace'
 import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import MainLayout from '@/components/layout/MainLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,102 +83,104 @@ function back() {
 </script>
 
 <template>
-  <div class="marketplace-detail">
-    <div class="back-link" @click="back">
-      <ArrowLeft :size="16" />
-      <span>返回市场</span>
+  <MainLayout>
+    <div class="marketplace-detail">
+      <div class="back-link" @click="back">
+        <ArrowLeft :size="16" />
+        <span>返回市场</span>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="store.currentLoading" class="state-msg">加载中...</div>
+
+      <!-- Error -->
+      <div v-else-if="store.currentError" class="state-msg state-msg--error">
+        <p>{{ store.currentError }}</p>
+        <AppButton @click="load"><RefreshCcw :size="14" /> 重试</AppButton>
+      </div>
+
+      <!-- Empty/Not found -->
+      <div v-else-if="!store.currentItem" class="state-msg state-msg--empty">
+        <p>项目不存在或已下架</p>
+        <AppButton @click="back">返回市场</AppButton>
+      </div>
+
+      <!-- Success -->
+      <template v-else>
+        <header class="detail-header">
+          <h1>{{ store.currentItem.name }}</h1>
+          <div class="meta">
+            <span v-if="store.currentItem.is_platform_recommended" class="badge badge--recommended">
+              官方推荐
+            </span>
+            <span class="meta__count">{{ store.currentItem.subscribe_count }} 人订阅</span>
+          </div>
+          <p class="desc">{{ store.currentItem.description }}</p>
+
+          <div class="actions">
+            <AppButton
+              v-if="!subscribed"
+              variant="primary"
+              :loading="store.saving"
+              @click="confirmSubscribeOpen = true"
+            >
+              订阅
+            </AppButton>
+            <AppButton
+              v-else
+              variant="secondary"
+              :loading="store.saving"
+              @click="confirmUnsubscribeOpen = true"
+            >
+              取消订阅
+            </AppButton>
+          </div>
+        </header>
+
+        <section class="meta-table">
+          <h2>技能信息</h2>
+          <dl>
+            <dt>何时使用</dt>
+            <dd>{{ store.currentItem.when_to_use || '（未填写）' }}</dd>
+            <dt>允许工具</dt>
+            <dd>
+              <span v-for="t in store.currentItem.allowed_tools" :key="t" class="tool-tag">{{
+                t
+              }}</span>
+              <span v-if="!store.currentItem.allowed_tools?.length" class="muted">（无）</span>
+            </dd>
+            <dt>分类</dt>
+            <dd>
+              <span v-for="c in store.currentItem.category_tags" :key="c" class="tag">{{ c }}</span>
+            </dd>
+          </dl>
+        </section>
+
+        <section class="body">
+          <h2>完整内容</h2>
+          <!-- DOMPurify-sanitized markdown HTML; trusted output (DOMPurify allowlist) -->
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <article class="markdown" v-html="renderedBody"></article>
+        </section>
+      </template>
+
+      <ConfirmModal
+        v-model="confirmSubscribeOpen"
+        title="确认订阅"
+        message="订阅后会在你的技能库添加一份副本，可装载到 Agent。继续？"
+        confirm-text="订阅"
+        @confirm="doSubscribe"
+      />
+      <ConfirmModal
+        v-model="confirmUnsubscribeOpen"
+        title="确认取消订阅"
+        message="取消订阅会软删除你的副本技能。已装载到 Agent 的关系将失效。确认？"
+        variant="danger"
+        confirm-text="取消订阅"
+        @confirm="doUnsubscribe"
+      />
     </div>
-
-    <!-- Loading -->
-    <div v-if="store.currentLoading" class="state-msg">加载中...</div>
-
-    <!-- Error -->
-    <div v-else-if="store.currentError" class="state-msg state-msg--error">
-      <p>{{ store.currentError }}</p>
-      <AppButton @click="load"><RefreshCcw :size="14" /> 重试</AppButton>
-    </div>
-
-    <!-- Empty/Not found -->
-    <div v-else-if="!store.currentItem" class="state-msg state-msg--empty">
-      <p>项目不存在或已下架</p>
-      <AppButton @click="back">返回市场</AppButton>
-    </div>
-
-    <!-- Success -->
-    <template v-else>
-      <header class="detail-header">
-        <h1>{{ store.currentItem.name }}</h1>
-        <div class="meta">
-          <span v-if="store.currentItem.is_platform_recommended" class="badge badge--recommended">
-            官方推荐
-          </span>
-          <span class="meta__count">{{ store.currentItem.subscribe_count }} 人订阅</span>
-        </div>
-        <p class="desc">{{ store.currentItem.description }}</p>
-
-        <div class="actions">
-          <AppButton
-            v-if="!subscribed"
-            variant="primary"
-            :loading="store.saving"
-            @click="confirmSubscribeOpen = true"
-          >
-            订阅
-          </AppButton>
-          <AppButton
-            v-else
-            variant="secondary"
-            :loading="store.saving"
-            @click="confirmUnsubscribeOpen = true"
-          >
-            取消订阅
-          </AppButton>
-        </div>
-      </header>
-
-      <section class="meta-table">
-        <h2>技能信息</h2>
-        <dl>
-          <dt>何时使用</dt>
-          <dd>{{ store.currentItem.when_to_use || '（未填写）' }}</dd>
-          <dt>允许工具</dt>
-          <dd>
-            <span v-for="t in store.currentItem.allowed_tools" :key="t" class="tool-tag">{{
-              t
-            }}</span>
-            <span v-if="!store.currentItem.allowed_tools?.length" class="muted">（无）</span>
-          </dd>
-          <dt>分类</dt>
-          <dd>
-            <span v-for="c in store.currentItem.category_tags" :key="c" class="tag">{{ c }}</span>
-          </dd>
-        </dl>
-      </section>
-
-      <section class="body">
-        <h2>完整内容</h2>
-        <!-- DOMPurify-sanitized markdown HTML; trusted output (DOMPurify allowlist) -->
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <article class="markdown" v-html="renderedBody"></article>
-      </section>
-    </template>
-
-    <ConfirmModal
-      v-model="confirmSubscribeOpen"
-      title="确认订阅"
-      message="订阅后会在你的技能库添加一份副本，可装载到 Agent。继续？"
-      confirm-text="订阅"
-      @confirm="doSubscribe"
-    />
-    <ConfirmModal
-      v-model="confirmUnsubscribeOpen"
-      title="确认取消订阅"
-      message="取消订阅会软删除你的副本技能。已装载到 Agent 的关系将失效。确认？"
-      variant="danger"
-      confirm-text="取消订阅"
-      @confirm="doUnsubscribe"
-    />
-  </div>
+  </MainLayout>
 </template>
 
 <style scoped>

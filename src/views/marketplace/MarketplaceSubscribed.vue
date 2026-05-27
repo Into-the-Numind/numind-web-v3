@@ -14,6 +14,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import DataTable, { type Column } from '@/components/common/DataTable.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import MainLayout from '@/components/layout/MainLayout.vue'
 import { formatDateTime } from '@/utils/datetime'
 import type { SubscriptionItem } from '@/types/marketplace'
 
@@ -81,91 +82,93 @@ function onPageChange(p: number) {
 </script>
 
 <template>
-  <div class="marketplace-subscribed">
-    <div class="back-link" @click="router.push('/marketplace')">
-      <ArrowLeft :size="16" />
-      <span>返回市场</span>
+  <MainLayout>
+    <div class="marketplace-subscribed">
+      <div class="back-link" @click="router.push('/marketplace')">
+        <ArrowLeft :size="16" />
+        <span>返回市场</span>
+      </div>
+
+      <header class="page-header">
+        <h1>我的订阅</h1>
+      </header>
+
+      <!-- States order: loading → error → empty → success (T9 P1 reviewer fix). -->
+      <div v-if="store.mySubscriptionsLoading && store.mySubsEmpty" class="state-msg">
+        <p>加载中...</p>
+      </div>
+
+      <div v-else-if="store.mySubscriptionsError" class="state-msg state-msg--error">
+        <p>{{ store.mySubscriptionsError }}</p>
+        <AppButton @click="load">重试</AppButton>
+      </div>
+
+      <div v-else-if="store.mySubsEmpty" class="state-msg state-msg--empty">
+        <p>还没有订阅的技能</p>
+        <router-link to="/marketplace" class="cta">去市场逛逛 →</router-link>
+      </div>
+
+      <!-- Success: DataTable -->
+      <DataTable
+        v-else
+        :columns="columns"
+        :data="store.mySubscriptions"
+        :loading="store.mySubscriptionsLoading"
+        :total="store.mySubscriptionsTotal"
+        :page="page"
+        :page-size="pageSize"
+        row-key="id"
+        @update:page="onPageChange"
+      >
+        <template #cell-name="{ row }">
+          <span class="name-cell">{{ (row as SubscriptionItem).marketplace.name }}</span>
+          <span
+            v-if="(row as SubscriptionItem).marketplace.is_platform_recommended"
+            class="badge badge--recommended"
+            >推荐</span
+          >
+        </template>
+        <template #cell-category_tags="{ row }">
+          <span
+            v-for="t in (row as SubscriptionItem).marketplace.category_tags"
+            :key="t"
+            class="tag"
+            >{{ t }}</span
+          >
+        </template>
+        <template #cell-subscribed_at="{ row }">
+          {{ formatDateTime((row as SubscriptionItem).subscription.subscribed_at) }}
+        </template>
+        <template #cell-agent_count="{ row }">
+          {{ (row as SubscriptionItem).agent_count }}
+        </template>
+        <template #cell-actions="{ row }">
+          <AppButton size="sm" @click="goLoadIntoAgent(row as SubscriptionItem)"
+            >装载到 Agent</AppButton
+          >
+          <AppButton size="sm" @click="goDetail(row as SubscriptionItem)">详情</AppButton>
+          <AppButton size="sm" variant="text" @click="askUnsubscribe(row as SubscriptionItem)">
+            取消订阅
+          </AppButton>
+        </template>
+      </DataTable>
+
+      <ConfirmModal
+        v-model="confirmOpen"
+        title="确认取消订阅"
+        :message="
+          pending
+            ? `取消订阅「${pending.marketplace.name}」会软删除你的副本技能${
+                pending.agent_count > 0 ? `（影响 ${pending.agent_count} 个 Agent 装载关系）` : ''
+              }。继续？`
+            : ''
+        "
+        variant="danger"
+        confirm-text="取消订阅"
+        @confirm="doUnsubscribe"
+      />
     </div>
-
-    <header class="page-header">
-      <h1>我的订阅</h1>
-    </header>
-
-    <!-- States order: loading → error → empty → success (T9 P1 reviewer fix). -->
-    <div v-if="store.mySubscriptionsLoading && store.mySubsEmpty" class="state-msg">
-      <p>加载中...</p>
-    </div>
-
-    <div v-else-if="store.mySubscriptionsError" class="state-msg state-msg--error">
-      <p>{{ store.mySubscriptionsError }}</p>
-      <AppButton @click="load">重试</AppButton>
-    </div>
-
-    <div v-else-if="store.mySubsEmpty" class="state-msg state-msg--empty">
-      <p>还没有订阅的技能</p>
-      <router-link to="/marketplace" class="cta">去市场逛逛 →</router-link>
-    </div>
-
-    <!-- Success: DataTable -->
-    <DataTable
-      v-else
-      :columns="columns"
-      :data="store.mySubscriptions"
-      :loading="store.mySubscriptionsLoading"
-      :total="store.mySubscriptionsTotal"
-      :page="page"
-      :page-size="pageSize"
-      row-key="id"
-      @update:page="onPageChange"
-    >
-      <template #cell-name="{ row }">
-        <span class="name-cell">{{ (row as SubscriptionItem).marketplace.name }}</span>
-        <span
-          v-if="(row as SubscriptionItem).marketplace.is_platform_recommended"
-          class="badge badge--recommended"
-          >推荐</span
-        >
-      </template>
-      <template #cell-category_tags="{ row }">
-        <span
-          v-for="t in (row as SubscriptionItem).marketplace.category_tags"
-          :key="t"
-          class="tag"
-          >{{ t }}</span
-        >
-      </template>
-      <template #cell-subscribed_at="{ row }">
-        {{ formatDateTime((row as SubscriptionItem).subscription.subscribed_at) }}
-      </template>
-      <template #cell-agent_count="{ row }">
-        {{ (row as SubscriptionItem).agent_count }}
-      </template>
-      <template #cell-actions="{ row }">
-        <AppButton size="sm" @click="goLoadIntoAgent(row as SubscriptionItem)"
-          >装载到 Agent</AppButton
-        >
-        <AppButton size="sm" @click="goDetail(row as SubscriptionItem)">详情</AppButton>
-        <AppButton size="sm" variant="text" @click="askUnsubscribe(row as SubscriptionItem)">
-          取消订阅
-        </AppButton>
-      </template>
-    </DataTable>
-
-    <ConfirmModal
-      v-model="confirmOpen"
-      title="确认取消订阅"
-      :message="
-        pending
-          ? `取消订阅「${pending.marketplace.name}」会软删除你的副本技能${
-              pending.agent_count > 0 ? `（影响 ${pending.agent_count} 个 Agent 装载关系）` : ''
-            }。继续？`
-          : ''
-      "
-      variant="danger"
-      confirm-text="取消订阅"
-      @confirm="doUnsubscribe"
-    />
-  </div>
+  </MainLayout>
 </template>
 
 <style scoped>

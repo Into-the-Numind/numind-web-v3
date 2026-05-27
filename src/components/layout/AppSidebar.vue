@@ -116,6 +116,21 @@
         >
           <path d="M12 2l2.39 6.9H22l-5.8 4.26 2.22 6.84L12 15.9l-6.42 4.1L7.8 13.16 2 8.9h7.61z" />
         </svg>
+        <svg
+          v-else-if="item.icon === 'marketplace'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 9L5 4H19L21 9" />
+          <path d="M4 9V20H20V9" />
+          <path d="M3 9H21" />
+          <path d="M9 14C9 15.6569 10.3431 17 12 17C13.6569 17 15 15.6569 15 14" />
+        </svg>
 
         <svg
           v-else-if="item.icon === 'settings'"
@@ -204,9 +219,7 @@ const menuItems = computed(() => {
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
-    // 技能市场 (agent-mode-v2-skill-marketplace, 2026-05-24) — 父账户专属。
-    // icon 复用 'agent' (AI 助手) 暂用图标; 后续 UI 设计师可换专属 marketplace 图标。
-    items.push({ path: '/marketplace', title: '技能市场', icon: 'agent' })
+    items.push({ path: '/marketplace', title: '技能市场', icon: 'marketplace' })
   }
 
   items.push({ path: '/settings', title: '设置', icon: 'settings' })
