@@ -10,6 +10,8 @@
 //       existing state→class map, but locked in for use_skill specifically).
 //   (4) Unknown tool_name triggers console.warn exactly once (de-dupe per name).
 //   (5) Known tool names (existing platform tools + SOP-prefixed) do NOT warn.
+//
+// T13: Status badge tests also included (see bottom of file).
 
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -167,5 +169,82 @@ describe('AgentToolCallItem — use_skill rendering (T08)', () => {
       mount(AgentToolCallItem, { props: { group } })
     }
     expect(warnSpy).not.toHaveBeenCalled()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T13: Status badge — current_state reflected as colored dot in upper-right
+// ─────────────────────────────────────────────────────────────────────────────
+describe('AgentToolCallItem — status badge (T13)', () => {
+  it('renders a .status-badge element on every tool call card', () => {
+    const group = mkGroup([mkEvent({ state: 'result', message: '已完成' })])
+    const wrapper = mount(AgentToolCallItem, { props: { group } })
+    expect(wrapper.find('.status-badge').exists()).toBe(true)
+    expect(wrapper.find('.status-dot').exists()).toBe(true)
+    expect(wrapper.find('.status-label').exists()).toBe(true)
+  })
+
+  it.each([
+    ['queued', 'status-badge--queued', '排队中'],
+    ['use', 'status-badge--use', '执行中'],
+    ['progress', 'status-badge--progress', '进行中'],
+    ['result', 'status-badge--result', '已完成'],
+    ['error', 'status-badge--error', '失败'],
+    ['rejected', 'status-badge--rejected', '已拒绝']
+  ] as const)('state "%s" → .%s class + label "%s"', (state, expectedClass, expectedLabel) => {
+    const group = mkGroup([mkEvent({ state, message: 'msg' })])
+    const wrapper = mount(AgentToolCallItem, { props: { group } })
+    const badge = wrapper.find('.status-badge')
+    expect(badge.classes()).toContain(expectedClass)
+    expect(badge.find('.status-label').text()).toBe(expectedLabel)
+  })
+
+  it('badge class updates when current_state changes (state transition)', async () => {
+    const group = mkGroup([mkEvent({ state: 'progress', message: '进行中' })])
+    const wrapper = mount(AgentToolCallItem, { props: { group } })
+
+    // Initial state: progress
+    expect(wrapper.find('.status-badge').classes()).toContain('status-badge--progress')
+    expect(wrapper.find('.status-label').text()).toBe('进行中')
+
+    // Simulate state transition: progress → result
+    const updatedGroup: ToolCallAggregate = {
+      ...group,
+      events: [...group.events, mkEvent({ state: 'result', message: '已完成', icon: '✓' })],
+      current_state: 'result'
+    }
+    await wrapper.setProps({ group: updatedGroup })
+
+    expect(wrapper.find('.status-badge').classes()).toContain('status-badge--result')
+    expect(wrapper.find('.status-badge').classes()).not.toContain('status-badge--progress')
+    expect(wrapper.find('.status-label').text()).toBe('已完成')
+  })
+
+  it('badge has role="status" for accessibility', () => {
+    const group = mkGroup([mkEvent({ state: 'use', message: '执行中' })])
+    const wrapper = mount(AgentToolCallItem, { props: { group } })
+    expect(wrapper.find('.status-badge').attributes('role')).toBe('status')
+  })
+
+  it('badge renders in compact mode as well', () => {
+    const group = mkGroup([
+      mkEvent({ state: 'use', message: '执行中' }),
+      mkEvent({ state: 'result', message: '已完成' })
+    ])
+    const wrapper = mount(AgentToolCallItem, { props: { group, compact: true } })
+    // Badge should be present in compact mode too
+    expect(wrapper.find('.status-badge').exists()).toBe(true)
+    expect(wrapper.find('.status-badge').classes()).toContain('status-badge--result')
+    // compact: only 1 tool-line
+    expect(wrapper.findAll('.tool-line').length).toBe(1)
+  })
+
+  it('progress state badge has --progress class (spinning ring via CSS)', () => {
+    const group = mkGroup([mkEvent({ state: 'progress', message: '进行中', detail: '45/87' })])
+    const wrapper = mount(AgentToolCallItem, { props: { group } })
+    const badge = wrapper.find('.status-badge')
+    expect(badge.classes()).toContain('status-badge--progress')
+    // The .status-dot should exist — CSS animation badge-spin applied via .status-badge--progress
+    expect(badge.find('.status-dot').exists()).toBe(true)
   })
 })
