@@ -193,11 +193,11 @@ function goBack() {
         <h3 class="tool-flags__title">工具开关</h3>
         <label class="tool-flags__item">
           <input type="checkbox" v-model="toolFlags.code_sandbox" />
-          沙箱代码执行
+          沙箱代码执行（允许执行 Python 等沙箱代码）
         </label>
         <label class="tool-flags__item">
           <input type="checkbox" v-model="toolFlags.media" />
-          多媒体处理
+          多媒体处理（包含图像生成工具，如 Nano Banana 2）
         </label>
         <label class="tool-flags__item tool-flags__item--dangerous">
           <input type="checkbox" v-model="toolFlags.dangerous" @change="onDangerousChange" />
