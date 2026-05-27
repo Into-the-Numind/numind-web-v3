@@ -1,147 +1,146 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import type { AgentFormState } from "@/types/agentBuilder";
-import ChipInput from "./ChipInput.vue";
-import CreditSlider from "./CreditSlider.vue";
-import AvatarPicker from "./AvatarPicker.vue";
-import ConfirmModal from "@/components/common/ConfirmModal.vue";
+import { computed, ref, watch } from 'vue'
+import type { AgentFormState } from '@/types/agentBuilder'
+import ChipInput from './ChipInput.vue'
+import CreditSlider from './CreditSlider.vue'
+import AvatarPicker from './AvatarPicker.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 interface Props {
-  modelValue: AgentFormState;
-  readonly?: boolean;
-  errors?: Record<string, string>;
+  modelValue: AgentFormState
+  readonly?: boolean
+  errors?: Record<string, string>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
-  errors: () => ({}),
-});
+  errors: () => ({})
+})
 
 const emit = defineEmits<{
-  "update:modelValue": [value: AgentFormState];
-}>();
+  'update:modelValue': [value: AgentFormState]
+}>()
 
 /** Helper: patch a top-level field */
-function patchField<K extends keyof AgentFormState>(
-  key: K,
-  value: AgentFormState[K],
-): void {
-  emit("update:modelValue", { ...props.modelValue, [key]: value });
+function patchField<K extends keyof AgentFormState>(key: K, value: AgentFormState[K]): void {
+  emit('update:modelValue', { ...props.modelValue, [key]: value })
 }
 
 /** Helper: patch a questionnaire_answers field */
-function patchQA<K extends keyof AgentFormState["questionnaire_answers"]>(
+function patchQA<K extends keyof AgentFormState['questionnaire_answers']>(
   key: K,
-  value: AgentFormState["questionnaire_answers"][K],
+  value: AgentFormState['questionnaire_answers'][K]
 ): void {
-  emit("update:modelValue", {
+  emit('update:modelValue', {
     ...props.modelValue,
     questionnaire_answers: {
       ...props.modelValue.questionnaire_answers,
-      [key]: value,
-    },
-  });
+      [key]: value
+    }
+  })
 }
 
 // Computed proxies for top-level fields
 const name = computed({
   get: () => props.modelValue.name,
-  set: (v) => patchField("name", v),
-});
+  set: (v) => patchField('name', v)
+})
 
 const iconUrl = computed({
   get: () => props.modelValue.icon_url,
-  set: (v) => patchField("icon_url", v),
-});
+  set: (v) => patchField('icon_url', v)
+})
 
 const description = computed({
   get: () => props.modelValue.description,
-  set: (v) => patchField("description", v),
-});
+  set: (v) => patchField('description', v)
+})
 
 const welcomeMessage = computed({
   get: () => props.modelValue.welcome_message,
-  set: (v) => patchField("welcome_message", v),
-});
+  set: (v) => patchField('welcome_message', v)
+})
+
+const MAX_SYSTEM_PROMPT_LEN = 16384
+
+const systemPrompt = computed({
+  get: () => props.modelValue.system_prompt,
+  set: (v) => patchField('system_prompt', v)
+})
 
 const starters = computed({
   get: () => props.modelValue.starters,
-  set: (v) => patchField("starters", v),
-});
+  set: (v) => patchField('starters', v)
+})
 
 // Computed proxies for questionnaire_answers
 const q8 = computed({
   get: () => props.modelValue.questionnaire_answers.q8 ?? 800,
-  set: (v) => patchQA("q8", v),
-});
+  set: (v) => patchQA('q8', v)
+})
 
 // Computed proxies for tool_flags
 const codeSandbox = computed({
   get: () => !!props.modelValue.tool_flags?.code_sandbox,
-  set: (v) => patchToolFlag("code_sandbox", v),
-});
+  set: (v) => patchToolFlag('code_sandbox', v)
+})
 
 const media = computed({
   get: () => !!props.modelValue.tool_flags?.media,
-  set: (v) => patchToolFlag("media", v),
-});
+  set: (v) => patchToolFlag('media', v)
+})
 
 const dangerous = computed({
   get: () => !!props.modelValue.tool_flags?.dangerous,
-  set: (v) => patchToolFlag("dangerous", v),
-});
+  set: (v) => patchToolFlag('dangerous', v)
+})
 
 function patchToolFlag(key: string, value: boolean) {
-  emit("update:modelValue", {
+  emit('update:modelValue', {
     ...props.modelValue,
     tool_flags: {
       ...props.modelValue.tool_flags,
-      [key]: value,
-    },
-  });
+      [key]: value
+    }
+  })
 }
 
-const dangerousConfirmVisible = ref(false);
-let prevDangerous = false;
+const dangerousConfirmVisible = ref(false)
+let prevDangerous = false
 
 watch(
   () => props.modelValue.tool_flags?.dangerous,
   (newVal) => {
-    prevDangerous = !!newVal;
+    prevDangerous = !!newVal
   },
   { immediate: true }
-);
+)
 
 function onDangerousChange() {
   if (dangerous.value && !prevDangerous) {
-    dangerousConfirmVisible.value = true;
+    dangerousConfirmVisible.value = true
   } else {
-    prevDangerous = dangerous.value;
+    prevDangerous = dangerous.value
   }
 }
 
 function confirmDangerous() {
-  prevDangerous = true;
-  dangerousConfirmVisible.value = false;
+  prevDangerous = true
+  dangerousConfirmVisible.value = false
 }
 
 function cancelDangerous() {
-  patchToolFlag("dangerous", false);
-  prevDangerous = false;
-  dangerousConfirmVisible.value = false;
+  patchToolFlag('dangerous', false)
+  prevDangerous = false
+  dangerousConfirmVisible.value = false
 }
 </script>
 
 <template>
-  <div
-    class="questionnaire-form"
-    :class="{ 'questionnaire-form--readonly': readonly }"
-  >
+  <div class="questionnaire-form" :class="{ 'questionnaire-form--readonly': readonly }">
     <!-- Q1: 助手名字 -->
     <div class="questionnaire-form__question" data-question="name">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
+      <label class="questionnaire-form__label questionnaire-form__label--required">
         助手名字
       </label>
       <input
@@ -154,7 +153,7 @@ function cancelDangerous() {
         @input="name = ($event.target as HTMLInputElement).value"
       />
       <p v-if="errors['name']" class="questionnaire-form__error">
-        {{ errors["name"] }}
+        {{ errors['name'] }}
       </p>
     </div>
 
@@ -166,9 +165,7 @@ function cancelDangerous() {
 
     <!-- Q3: 一句话描述 -->
     <div class="questionnaire-form__question" data-question="description">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
+      <label class="questionnaire-form__label questionnaire-form__label--required">
         一句话描述
       </label>
       <input
@@ -181,21 +178,17 @@ function cancelDangerous() {
         @input="description = ($event.target as HTMLInputElement).value"
       />
       <p v-if="errors['description']" class="questionnaire-form__error">
-        {{ errors["description"] }}
+        {{ errors['description'] }}
       </p>
     </div>
 
     <!-- Q4: 欢迎语 -->
     <div class="questionnaire-form__question" data-question="welcome_message">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
-        欢迎语
-      </label>
+      <label class="questionnaire-form__label questionnaire-form__label--required"> 欢迎语 </label>
       <textarea
         class="questionnaire-form__textarea"
         :class="{
-          'questionnaire-form__input--error': errors['welcome_message'],
+          'questionnaire-form__input--error': errors['welcome_message']
         }"
         :value="welcomeMessage"
         :disabled="readonly"
@@ -204,35 +197,46 @@ function cancelDangerous() {
         @input="welcomeMessage = ($event.target as HTMLTextAreaElement).value"
       />
       <p v-if="errors['welcome_message']" class="questionnaire-form__error">
-        {{ errors["welcome_message"] }}
+        {{ errors['welcome_message'] }}
+      </p>
+    </div>
+
+    <!-- 行为指引 -->
+    <div class="questionnaire-form__question" data-question="system_prompt">
+      <label class="questionnaire-form__label">行为指引</label>
+      <textarea
+        class="questionnaire-form__textarea"
+        :value="systemPrompt"
+        :disabled="readonly"
+        :maxlength="MAX_SYSTEM_PROMPT_LEN"
+        rows="12"
+        placeholder="例：你是【XX 公司】的销售助手。
+职责：帮销售应对客户异议、提供推单话术。
+规则：聊到价格永远不报具体数字、涉及投诉转人工、用专业但亲和的语气。"
+        @input="systemPrompt = ($event.target as HTMLTextAreaElement).value"
+      />
+      <p class="questionnaire-form__char-count">
+        {{ (systemPrompt ?? '').length }} / {{ MAX_SYSTEM_PROMPT_LEN }}
       </p>
     </div>
 
     <!-- Q5: 引导问题 -->
     <div class="questionnaire-form__question" data-question="starters">
       <label class="questionnaire-form__label">引导问题（最多 4 条）</label>
-      <ChipInput
-        v-model="starters"
-        :max="4"
-        :min-len="5"
-        :max-len="50"
-        :readonly="readonly"
-      />
+      <ChipInput v-model="starters" :max="4" :min-len="5" :max-len="50" :readonly="readonly" />
       <p v-if="errors['starters']" class="questionnaire-form__error">
-        {{ errors["starters"] }}
+        {{ errors['starters'] }}
       </p>
     </div>
-
 
     <!-- Q8: 积分上限 -->
     <div class="questionnaire-form__question" data-question="q8">
       <label class="questionnaire-form__label">单次会话积分上限</label>
       <CreditSlider v-model="q8" :readonly="readonly" />
       <p v-if="errors['q8']" class="questionnaire-form__error">
-        {{ errors["q8"] }}
+        {{ errors['q8'] }}
       </p>
     </div>
-
 
     <!-- 工具开关 -->
     <div class="questionnaire-form__question" data-question="tool_flags">
@@ -262,8 +266,8 @@ function cancelDangerous() {
             :checked="dangerous"
             :disabled="readonly"
             @change="
-              dangerous = ($event.target as HTMLInputElement).checked;
-              onDangerousChange();
+              dangerous = ($event.target as HTMLInputElement).checked
+              onDangerousChange()
             "
           />
           <span>高危工具（谨慎开启）</span>
@@ -311,7 +315,7 @@ function cancelDangerous() {
 }
 
 .questionnaire-form__label--required::before {
-  content: "* ";
+  content: '* ';
   color: var(--danger, #9f403d);
 }
 
@@ -353,6 +357,13 @@ function cancelDangerous() {
   color: var(--danger, #9f403d);
 }
 
+.questionnaire-form__char-count {
+  margin: 0;
+  font-size: 12px;
+  color: var(--on-surface-variant, #566166);
+  text-align: right;
+}
+
 .questionnaire-form__radio-group {
   display: flex;
   flex-direction: column;
@@ -369,14 +380,14 @@ function cancelDangerous() {
   user-select: none;
 }
 
-.questionnaire-form__radio-label input[type="radio"] {
+.questionnaire-form__radio-label input[type='radio'] {
   width: 16px;
   height: 16px;
   accent-color: var(--tertiary, #005eb6);
   cursor: pointer;
 }
 
-.questionnaire-form__radio-label input[type="radio"]:disabled {
+.questionnaire-form__radio-label input[type='radio']:disabled {
   cursor: not-allowed;
 }
 
