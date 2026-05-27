@@ -548,7 +548,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
 
     <!-- 删除确认 Modal -->
     <Teleport to="body">
-      <div v-if="deleteConfirmId !== null" class="modal-overlay" @click.self="cancelDelete">
+      <div v-if="deleteConfirmId !== null" class="modal-overlay open" @click.self="cancelDelete">
         <div class="modal-dialog">
           <div class="modal-title">删除对话</div>
           <div class="modal-desc">确定删除这个对话吗？删除后无法恢复。</div>
@@ -581,6 +581,78 @@ body.agent-chat-route {
 
 body.agent-chat-route #app {
   height: 100%;
+}
+
+/* ===== Delete Dialog Modal ===== */
+body.agent-chat-route .modal-overlay .modal-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: 36px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12);
+  animation: dialog-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+body.agent-chat-route .modal-overlay .modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+body.agent-chat-route .modal-overlay .modal-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+body.agent-chat-route .modal-overlay .modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+body.agent-chat-route .modal-overlay .modal-btn {
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+body.agent-chat-route .modal-overlay .modal-btn.secondary {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+body.agent-chat-route .modal-overlay .modal-btn.secondary:hover {
+  background: var(--border-light);
+}
+
+body.agent-chat-route .modal-overlay .modal-btn.danger {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
+  background: #dc2626;
 }
 </style>
 
