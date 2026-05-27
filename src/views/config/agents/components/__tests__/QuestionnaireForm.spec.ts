@@ -9,7 +9,7 @@ function makeForm() {
 
 describe("QuestionnaireForm", () => {
   describe("12 questions rendered", () => {
-    it("renders all 12 data-question attributes", () => {
+    it("renders all 7 data-question attributes", () => {
       const wrapper = mount(QuestionnaireForm, {
         props: { modelValue: makeForm() },
       });
@@ -19,13 +19,8 @@ describe("QuestionnaireForm", () => {
         "description",
         "welcome_message",
         "starters",
-        "q6",
-        "q7",
         "q8",
-        "q9",
-        "q10",
-        "q11",
-        "q12",
+        "tool_flags",
       ];
       expectedAttrs.forEach((attr) => {
         expect(
@@ -35,11 +30,11 @@ describe("QuestionnaireForm", () => {
       });
     });
 
-    it("renders 12 question blocks total", () => {
+    it("renders 7 question blocks total", () => {
       const wrapper = mount(QuestionnaireForm, {
         props: { modelValue: makeForm() },
       });
-      expect(wrapper.findAll(".questionnaire-form__question")).toHaveLength(12);
+      expect(wrapper.findAll(".questionnaire-form__question")).toHaveLength(7);
     });
   });
 
@@ -49,10 +44,10 @@ describe("QuestionnaireForm", () => {
         props: { modelValue: makeForm() },
       });
       const requiredLabels = wrapper.findAll(
-        ".questionnaire-form__label--required",
+          ".questionnaire-form__label--required",
       );
-      // Q1, Q3, Q4, Q6, Q7, Q9, Q12 = 7 required questions
-      expect(requiredLabels.length).toBeGreaterThanOrEqual(7);
+      // Q1, Q3, Q4 = 3 required questions
+      expect(requiredLabels.length).toBe(3);
     });
 
     it("required label text includes * via CSS (class present)", () => {
@@ -73,7 +68,7 @@ describe("QuestionnaireForm", () => {
       const iconBlock = wrapper.find('[data-question="icon_url"]');
       const label = iconBlock.find(".questionnaire-form__label");
       expect(label.classes()).not.toContain(
-        "questionnaire-form__label--required",
+          "questionnaire-form__label--required",
       );
     });
   });
@@ -118,7 +113,7 @@ describe("QuestionnaireForm", () => {
           errors: {
             name: "名字错误",
             description: "描述错误",
-            q6: "请选择任务类型",
+            welcome_message: "欢迎语错误",
           },
         },
       });
@@ -159,26 +154,6 @@ describe("QuestionnaireForm", () => {
       const block = wrapper.find('[data-question="welcome_message"]');
       const textarea = block.find<HTMLTextAreaElement>("textarea");
       expect(textarea.element.disabled).toBe(true);
-    });
-
-    it("disables Q9 radio inputs when readonly=true", () => {
-      const wrapper = mount(QuestionnaireForm, {
-        props: { modelValue: makeForm(), readonly: true },
-      });
-      const block = wrapper.find('[data-question="q9"]');
-      const radios = block.findAll<HTMLInputElement>('input[type="radio"]');
-      expect(radios.length).toBeGreaterThan(0);
-      radios.forEach((r) => expect(r.element.disabled).toBe(true));
-    });
-
-    it("disables Q12 radio inputs when readonly=true", () => {
-      const wrapper = mount(QuestionnaireForm, {
-        props: { modelValue: makeForm(), readonly: true },
-      });
-      const block = wrapper.find('[data-question="q12"]');
-      const radios = block.findAll<HTMLInputElement>('input[type="radio"]');
-      expect(radios.length).toBe(3);
-      radios.forEach((r) => expect(r.element.disabled).toBe(true));
     });
   });
 

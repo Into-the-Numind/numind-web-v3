@@ -3,6 +3,7 @@
 // Returns "" on pass, non-empty error message on fail.
 // Spec ref: S2 §7 (with P1-6 fix for Q8 NaN handling).
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { AgentFormState, QuestionnaireAnswers } from "@/types/agentBuilder";
 
 export type ValidationResult = string;
@@ -36,13 +37,11 @@ export function validateQ5(starters: string[]): ValidationResult {
   return "";
 }
 
-export function validateQ6(q6: string[]): ValidationResult {
-  if (!q6 || q6.length === 0) return "请至少选择一种任务类型";
+export function validateQ6(_q6: string[]): ValidationResult {
   return "";
 }
 
-export function validateQ7(q7: string[]): ValidationResult {
-  if (!q7 || q7.length === 0) return "请至少选择一种材料类型";
+export function validateQ7(_q7: string[]): ValidationResult {
   return "";
 }
 
@@ -53,28 +52,19 @@ export function validateQ8(q8: number): ValidationResult {
   return "";
 }
 
-export function validateQ9(q9: string): ValidationResult {
-  if (!q9) return "请选择是否允许网络搜索";
-  if (q9 !== "no_web_search" && q9 !== "allow_search") return "无效选项";
+export function validateQ9(_q9: string): ValidationResult {
   return "";
 }
 
-export function validateQ10(q10: string): ValidationResult {
-  if (q10.length > 500) return "注意话题最多 500 字";
+export function validateQ10(_q10: string): ValidationResult {
   return "";
 }
 
-export function validateQ11(q11: string): ValidationResult {
-  // Q11 is optional — empty is fine; non-empty must be 5-200 chars
-  if (q11 && (q11.length < 5 || q11.length > 200))
-    return "越界话术应为 5-200 字";
+export function validateQ11(_q11: string): ValidationResult {
   return "";
 }
 
-export function validateQ12(q12: string): ValidationResult {
-  if (!q12) return "请选择说话风格";
-  if (!["friendly", "professional", "encouraging"].includes(q12))
-    return "无效选项";
+export function validateQ12(_q12: string): ValidationResult {
   return "";
 }
 
@@ -101,26 +91,8 @@ export function validateForm(form: AgentFormState): Record<string, string> {
   const e5 = validateQ5(form.starters);
   if (e5) errors.starters = e5;
 
-  const e6 = validateQ6(q.q6 ?? []);
-  if (e6) errors.q6 = e6;
-
-  const e7 = validateQ7(q.q7 ?? []);
-  if (e7) errors.q7 = e7;
-
   const e8 = validateQ8(q.q8 ?? 800);
   if (e8) errors.q8 = e8;
-
-  const e9 = validateQ9(q.q9 ?? "");
-  if (e9) errors.q9 = e9;
-
-  const e10 = validateQ10(q.q10 ?? "");
-  if (e10) errors.q10 = e10;
-
-  const e11 = validateQ11(q.q11 ?? "");
-  if (e11) errors.q11 = e11;
-
-  const e12 = validateQ12(q.q12 ?? "");
-  if (e12) errors.q12 = e12;
 
   return errors;
 }
