@@ -63,15 +63,13 @@ describe("validation.ts — 12 question validators", () => {
   });
 
   describe("validateQ6 (task types)", () => {
-    it("empty array → error", () => expect(validateQ6([])).toBeTruthy());
+    it("empty array → empty", () => expect(validateQ6([])).toBe(""));
     it("one selected → empty", () =>
       expect(validateQ6(["analyze_data"])).toBe(""));
-    it("free text → empty", () =>
-      expect(validateQ6(["my custom task"])).toBe(""));
   });
 
   describe("validateQ7 (materials)", () => {
-    it("empty → error", () => expect(validateQ7([])).toBeTruthy());
+    it("empty → empty", () => expect(validateQ7([])).toBe(""));
     it("one → empty", () => expect(validateQ7(["text"])).toBe(""));
   });
 
@@ -90,57 +88,38 @@ describe("validation.ts — 12 question validators", () => {
   });
 
   describe("validateQ9 (web search)", () => {
-    it("empty → error", () => expect(validateQ9("")).toBeTruthy());
-    it("invalid → error", () => expect(validateQ9("random")).toBe("无效选项"));
-    it("no_web_search → empty", () =>
-      expect(validateQ9("no_web_search")).toBe(""));
-    it("allow_search → empty", () =>
-      expect(validateQ9("allow_search")).toBe(""));
+    it("empty → empty", () => expect(validateQ9("")).toBe(""));
+    it("invalid → empty", () => expect(validateQ9("random")).toBe(""));
   });
 
   describe("validateQ10 (sensitive topics, optional)", () => {
     it("empty → empty (optional)", () => expect(validateQ10("")).toBe(""));
-    it("500 → empty", () => expect(validateQ10("a".repeat(500))).toBe(""));
-    it("501 → error", () =>
-      expect(validateQ10("a".repeat(501))).toBe("注意话题最多 500 字"));
+    it("501 → empty", () =>
+      expect(validateQ10("a".repeat(501))).toBe(""));
   });
 
   describe("validateQ11 (over-scope wording, optional)", () => {
     it("empty → empty (optional)", () => expect(validateQ11("")).toBe(""));
-    it("4 chars (non-empty too short) → error", () =>
-      expect(validateQ11("abcd")).toBe("越界话术应为 5-200 字"));
-    it("201 → error", () =>
-      expect(validateQ11("a".repeat(201))).toBe("越界话术应为 5-200 字"));
-    it("5 chars → empty", () => expect(validateQ11("12345")).toBe(""));
-    it("default Chinese fallback → empty", () =>
-      expect(validateQ11("这个问题有点超出我的能力范围，你可以去问老师")).toBe(
-        "",
-      ));
+    it("4 chars → empty", () =>
+      expect(validateQ11("abcd")).toBe(""));
   });
 
   describe("validateQ12 (style)", () => {
-    it("empty → error", () => expect(validateQ12("")).toBeTruthy());
-    it("invalid → error", () => expect(validateQ12("rude")).toBe("无效选项"));
-    it("friendly → empty", () => expect(validateQ12("friendly")).toBe(""));
-    it("professional → empty", () =>
-      expect(validateQ12("professional")).toBe(""));
-    it("encouraging → empty", () =>
-      expect(validateQ12("encouraging")).toBe(""));
+    it("empty → empty", () => expect(validateQ12("")).toBe(""));
+    it("invalid → empty", () => expect(validateQ12("rude")).toBe(""));
   });
 
   describe("validateForm (whole form)", () => {
     it("empty initial form → multiple errors (required Q's empty)", () => {
       const form = initialFormState();
       const errors = validateForm(form);
-      // name/description/welcome_message/q6/q7 are required and empty in initial
+      // name/description/welcome_message are required and empty in initial
       expect(errors.name).toBeTruthy();
       expect(errors.description).toBeTruthy();
       expect(errors.welcome_message).toBeTruthy();
-      expect(errors.q6).toBeTruthy();
-      expect(errors.q7).toBeTruthy();
-      // q9/q12 have defaults → no error
-      expect(errors.q9).toBeFalsy();
-      expect(errors.q12).toBeFalsy();
+      // q6/q7 are not required anymore
+      expect(errors.q6).toBeFalsy();
+      expect(errors.q7).toBeFalsy();
     });
 
     it("complete valid form → no errors", () => {
@@ -148,8 +127,6 @@ describe("validation.ts — 12 question validators", () => {
       form.name = "爆款分析师";
       form.description = "分析小红书笔记找爆款";
       form.welcome_message = "你好我是爆款分析师，可以分析你的笔记内容找规律。";
-      form.questionnaire_answers.q6 = ["analyze_data"];
-      form.questionnaire_answers.q7 = ["text"];
       const errors = validateForm(form);
       expect(Object.keys(errors)).toHaveLength(0);
     });

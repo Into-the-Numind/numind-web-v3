@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import type { AgentFormState, Q9WebSearch, Q12Style } from "@/types/agentBuilder";
-import CheckboxGroup from "@/components/common/CheckboxGroup.vue";
+import type { AgentFormState } from "@/types/agentBuilder";
 import ChipInput from "./ChipInput.vue";
 import CreditSlider from "./CreditSlider.vue";
 import AvatarPicker from "./AvatarPicker.vue";
@@ -71,39 +70,9 @@ const starters = computed({
 });
 
 // Computed proxies for questionnaire_answers
-const q6 = computed({
-  get: () => props.modelValue.questionnaire_answers.q6 ?? [],
-  set: (v) => patchQA("q6", v),
-});
-
-const q7 = computed({
-  get: () => props.modelValue.questionnaire_answers.q7 ?? [],
-  set: (v) => patchQA("q7", v as AgentFormState["questionnaire_answers"]["q7"]),
-});
-
 const q8 = computed({
   get: () => props.modelValue.questionnaire_answers.q8 ?? 800,
   set: (v) => patchQA("q8", v),
-});
-
-const q9 = computed({
-  get: () => props.modelValue.questionnaire_answers.q9 ?? "no_web_search",
-  set: (v) => patchQA("q9", v),
-});
-
-const q10 = computed({
-  get: () => props.modelValue.questionnaire_answers.q10 ?? "",
-  set: (v) => patchQA("q10", v),
-});
-
-const q11 = computed({
-  get: () => props.modelValue.questionnaire_answers.q11 ?? "",
-  set: (v) => patchQA("q11", v),
-});
-
-const q12 = computed({
-  get: () => props.modelValue.questionnaire_answers.q12 ?? "friendly",
-  set: (v) => patchQA("q12", v),
 });
 
 // Computed proxies for tool_flags
@@ -160,29 +129,6 @@ function cancelDangerous() {
   patchToolFlag("dangerous", false);
   prevDangerous = false;
   dangerousConfirmVisible.value = false;
-}
-
-const Q6_OPTIONS = [
-  { value: "analyze_data", label: "数据分析" },
-  { value: "generate_content", label: "内容生成" },
-  { value: "answer_questions", label: "答题解惑" },
-  { value: "make_plan", label: "制定计划" },
-  { value: "grade_assignment", label: "批改作业" },
-];
-
-const Q7_OPTIONS = [
-  { value: "text", label: "文本" },
-  { value: "csv", label: "表格（CSV）" },
-  { value: "image", label: "图片" },
-  { value: "none", label: "不需要材料" },
-];
-
-function onQ9Change(event: Event): void {
-  q9.value = (event.target as HTMLInputElement).value as Q9WebSearch;
-}
-
-function onQ12Change(event: Event): void {
-  q12.value = (event.target as HTMLInputElement).value as Q12Style;
 }
 </script>
 
@@ -277,36 +223,6 @@ function onQ12Change(event: Event): void {
       </p>
     </div>
 
-    <!-- Q6: 任务类型 -->
-    <div class="questionnaire-form__question" data-question="q6">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
-        主要任务类型
-      </label>
-      <CheckboxGroup
-        v-model="q6"
-        :options="Q6_OPTIONS"
-        :allow-other="true"
-        :readonly="readonly"
-      />
-      <p v-if="errors['q6']" class="questionnaire-form__error">
-        {{ errors["q6"] }}
-      </p>
-    </div>
-
-    <!-- Q7: 材料类型 -->
-    <div class="questionnaire-form__question" data-question="q7">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
-        用户通常提供的材料类型
-      </label>
-      <CheckboxGroup v-model="q7" :options="Q7_OPTIONS" :readonly="readonly" />
-      <p v-if="errors['q7']" class="questionnaire-form__error">
-        {{ errors["q7"] }}
-      </p>
-    </div>
 
     <!-- Q8: 积分上限 -->
     <div class="questionnaire-form__question" data-question="q8">
@@ -317,117 +233,6 @@ function onQ12Change(event: Event): void {
       </p>
     </div>
 
-    <!-- Q9: 网络搜索 -->
-    <div class="questionnaire-form__question" data-question="q9">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
-        是否允许网络搜索
-      </label>
-      <div class="questionnaire-form__radio-group">
-        <label class="questionnaire-form__radio-label">
-          <input
-            type="radio"
-            :value="'no_web_search'"
-            :checked="q9 === 'no_web_search'"
-            :disabled="readonly"
-            @change="onQ9Change"
-          />
-          <span>不使用网络搜索</span>
-        </label>
-        <label class="questionnaire-form__radio-label">
-          <input
-            type="radio"
-            :value="'allow_search'"
-            :checked="q9 === 'allow_search'"
-            :disabled="readonly"
-            @change="onQ9Change"
-          />
-          <span>允许搜索</span>
-        </label>
-      </div>
-      <p v-if="errors['q9']" class="questionnaire-form__error">
-        {{ errors["q9"] }}
-      </p>
-    </div>
-
-    <!-- Q10: 额外 prompt -->
-    <div class="questionnaire-form__question" data-question="q10">
-      <label class="questionnaire-form__label">额外系统提示词（可选）</label>
-      <textarea
-        class="questionnaire-form__textarea"
-        :class="{ 'questionnaire-form__input--error': errors['q10'] }"
-        :value="q10"
-        :disabled="readonly"
-        rows="3"
-        placeholder="最多 500 字，补充你对助手行为的特殊要求"
-        @input="q10 = ($event.target as HTMLTextAreaElement).value"
-      />
-      <p v-if="errors['q10']" class="questionnaire-form__error">
-        {{ errors["q10"] }}
-      </p>
-    </div>
-
-    <!-- Q11: 兜底话术 -->
-    <div class="questionnaire-form__question" data-question="q11">
-      <label class="questionnaire-form__label">超出能力时的兜底回复</label>
-      <textarea
-        class="questionnaire-form__textarea"
-        :class="{ 'questionnaire-form__input--error': errors['q11'] }"
-        :value="q11"
-        :disabled="readonly"
-        rows="3"
-        placeholder="5-200 字，当助手遇到超出能力的问题时返回的话术"
-        @input="q11 = ($event.target as HTMLTextAreaElement).value"
-      />
-      <p v-if="errors['q11']" class="questionnaire-form__error">
-        {{ errors["q11"] }}
-      </p>
-    </div>
-
-    <!-- Q12: 说话风格 -->
-    <div class="questionnaire-form__question" data-question="q12">
-      <label
-        class="questionnaire-form__label questionnaire-form__label--required"
-      >
-        说话风格
-      </label>
-      <div class="questionnaire-form__radio-group">
-        <label class="questionnaire-form__radio-label">
-          <input
-            type="radio"
-            :value="'friendly'"
-            :checked="q12 === 'friendly'"
-            :disabled="readonly"
-            @change="onQ12Change"
-          />
-          <span>亲切友好</span>
-        </label>
-        <label class="questionnaire-form__radio-label">
-          <input
-            type="radio"
-            :value="'professional'"
-            :checked="q12 === 'professional'"
-            :disabled="readonly"
-            @change="onQ12Change"
-          />
-          <span>专业严谨</span>
-        </label>
-        <label class="questionnaire-form__radio-label">
-          <input
-            type="radio"
-            :value="'encouraging'"
-            :checked="q12 === 'encouraging'"
-            :disabled="readonly"
-            @change="onQ12Change"
-          />
-          <span>激励鼓舞</span>
-        </label>
-      </div>
-      <p v-if="errors['q12']" class="questionnaire-form__error">
-        {{ errors["q12"] }}
-      </p>
-    </div>
 
     <!-- 工具开关 -->
     <div class="questionnaire-form__question" data-question="tool_flags">
