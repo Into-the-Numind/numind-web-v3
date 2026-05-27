@@ -124,6 +124,11 @@ function onDangerousChange() {
   }
 }
 
+function onDangerousCheckboxChange(ev: Event) {
+  dangerous.value = (ev.target as HTMLInputElement).checked
+  onDangerousChange()
+}
+
 function confirmDangerous() {
   prevDangerous = true
   dangerousConfirmVisible.value = false
@@ -265,10 +270,7 @@ function cancelDangerous() {
             type="checkbox"
             :checked="dangerous"
             :disabled="readonly"
-            @change="
-              dangerous = ($event.target as HTMLInputElement).checked
-              onDangerousChange()
-            "
+            @change="onDangerousCheckboxChange($event)"
           />
           <span>高危工具（谨慎开启）</span>
         </label>
