@@ -11,6 +11,7 @@
 
 import type { AgentStreamEvent } from '@/types/agent-stream'
 import { AgentStreamConflict } from '@/types/agent-stream'
+import type { CreateRunRequest } from '@/types/agent'
 import { getToken, clearAuth } from './request'
 import { buildApiUrl } from './sales'
 
@@ -100,7 +101,7 @@ export async function readAgentSSEStream(
  *   - DOMException (AbortError) when signal is aborted before the stream ends
  */
 export async function streamAgentRun(
-  req: Record<string, unknown>,
+  req: CreateRunRequest,
   onEvent: (e: AgentStreamEvent) => void,
   signal?: AbortSignal
 ): Promise<void> {

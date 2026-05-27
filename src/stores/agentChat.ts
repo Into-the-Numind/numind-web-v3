@@ -687,9 +687,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           type: 'question_prompt',
           run_id: e.run_id,
           question: payload.question,
-          options: (payload.options ?? []).map((opt) =>
-            typeof opt === 'string' ? { label: opt } : opt
-          ),
+          options: (payload.options ?? []).map((opt) => ({ label: opt })),
           header: payload.header,
           multi_select: payload.multi_select ?? false,
           answer_status: 'pending',

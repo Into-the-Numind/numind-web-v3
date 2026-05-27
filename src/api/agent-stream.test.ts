@@ -159,6 +159,30 @@ describe('streamAgentRun', () => {
 
     expect(caught).toBeInstanceOf(AgentStreamConflict)
     expect((caught as AgentStreamConflict).runId).toBe(42)
+    expect((caught as AgentStreamConflict).snapshot).toEqual(conflictBody)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Unauthenticated path → throws '未登录，请重新登录'
+  // ---------------------------------------------------------------------------
+
+  it('throws unauthenticated error when no token is in localStorage', async () => {
+    const savedToken = localStorage.getItem('token')
+    localStorage.removeItem('token')
+
+    let caught: unknown
+    try {
+      await streamAgentRun({ agent_skill_id: 1, input_text: 'hi' }, () => {})
+    } catch (err) {
+      caught = err
+    } finally {
+      if (savedToken !== null) {
+        localStorage.setItem('token', savedToken)
+      }
+    }
+
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toBe('未登录，请重新登录')
   })
 
   it('throws generic Error for other non-2xx responses', async () => {

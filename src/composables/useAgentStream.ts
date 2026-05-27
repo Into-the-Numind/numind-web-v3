@@ -11,6 +11,7 @@
  * Spec: docs/superpowers/specs/2026-05-27-agent-react-streaming-design.md §5.4
  */
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import { streamAgentRun } from '@/api/agent-stream'
 import { AgentStreamConflict } from '@/types/agent-stream'
 import { useAgentChatStore } from '@/stores/agentChat'
@@ -23,9 +24,9 @@ export interface UseAgentStreamApi {
   /** Abort the in-flight stream (safe to call when not streaming). */
   stop: () => void
   /** True while SSE stream is open. */
-  isStreaming: ReturnType<typeof ref<boolean>>
+  isStreaming: Ref<boolean>
   /** True after 409 fallback — polling is now active. */
-  fallbackPolling: ReturnType<typeof ref<boolean>>
+  fallbackPolling: Ref<boolean>
 }
 
 export function useAgentStream(): UseAgentStreamApi {
@@ -45,11 +46,7 @@ export function useAgentStream(): UseAgentStreamApi {
     abort.value = new AbortController()
 
     try {
-      await streamAgentRun(
-        req as unknown as Record<string, unknown>,
-        (e) => store.applyStreamEvent(e),
-        abort.value.signal
-      )
+      await streamAgentRun(req, (e) => store.applyStreamEvent(e), abort.value.signal)
     } catch (err) {
       if (err instanceof AgentStreamConflict) {
         // R4: Another subscriber is already attached — fall back to polling
