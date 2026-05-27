@@ -278,7 +278,72 @@
         </div>
       </div>
 
-
+      <!-- AI 智能体入口 -->
+      <div v-if="agentChatStore.availableAgents.length" class="workspace-section">
+        <div class="section-label">AI 智能体</div>
+        <div class="feature-cards">
+          <button
+            v-for="agent in agentChatStore.availableAgents"
+            :key="agent.id"
+            type="button"
+            class="feature-card"
+            @click="handleAgentClick(agent.id)"
+          >
+            <div class="card-left">
+              <div class="feature-card-title">{{ agent.name }}</div>
+              <div class="feature-card-desc">{{ agent.description || '多步骤自主任务' }}</div>
+            </div>
+            <div class="card-right">
+              <div class="feature-card-icon icon-variant-2">
+                <span v-if="agent.emoji" class="agent-emoji">{{ agent.emoji }}</span>
+                <svg v-else viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect
+                    x="4"
+                    y="13"
+                    width="24"
+                    height="14"
+                    rx="3"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <circle
+                    cx="16"
+                    cy="6"
+                    r="3"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M16 9v4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                  <circle
+                    cx="10"
+                    cy="21"
+                    r="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                  <circle
+                    cx="22"
+                    cy="21"
+                    r="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-label">AI 智能体</div>
+            </div>
+          </button>
+        </div>
+      </div>
     </template>
 
     <!-- 权限不足模态框 -->
@@ -331,7 +396,7 @@ import { checkSalesPermission } from '@/api/sales'
 import { listVisibleChatbots, checkChatbotPermission } from '@/api/chatbot'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import { useUserStore } from '@/stores/user'
-
+import { useAgentChatStore } from '@/stores/agentChat'
 import type { ChatbotConfig } from '@/types/config'
 
 interface SopTemplate {
@@ -370,7 +435,7 @@ interface AgentCard {
 
 const router = useRouter()
 const userStore = useUserStore()
-
+const agentChatStore = useAgentChatStore()
 
 const templateWorkflows = ref<OnlineWorkflow[]>([])
 const launchingWorkflowKey = ref<string | null>(null)
@@ -379,8 +444,9 @@ const launchingWorkflowKey = ref<string | null>(null)
 const templatesLoading = ref(true)
 const chatbotsLoading = ref(true)
 const salesLoading = ref(true)
+const agentsLoading = ref(true)
 const pageLoading = computed(
-  () => templatesLoading.value || chatbotsLoading.value || salesLoading.value
+  () => templatesLoading.value || chatbotsLoading.value || salesLoading.value || agentsLoading.value
 )
 const showPermissionModal = ref(false)
 const hasSalesPermission = ref(true)
@@ -440,7 +506,7 @@ const agentCards = computed<AgentCard[]>(() => {
 // 工作台完全空 (两个 section 都 0 条) -> 渲染 empty state 而不是孤立的 section 标签.
 // loading 阶段由 pageLoading 提前 short-circuit, 这里只看派生数据.
 const isWorkspaceEmpty = computed(
-  () => sopWorkflows.value.length === 0 && agentCards.value.length === 0
+  () => sopWorkflows.value.length === 0 && agentCards.value.length === 0 && agentChatStore.availableAgents.length === 0
 )
 
 const getTemplateId = (template: SopTemplate): number | null => {
@@ -571,7 +637,13 @@ const handleAgentCardClick = async (card: AgentCard) => {
   }
 }
 
-
+const handleAgentClick = (agentId: number) => {
+  void router.push({
+    name: 'agent-chat',
+    params: { sessionId: 'new' },
+    query: { agent_id: String(agentId) }
+  })
+}
 
 const fetchChatbots = async () => {
   chatbotsLoading.value = true
@@ -597,14 +669,24 @@ const fetchSalesPermission = async () => {
   }
 }
 
-
+const fetchAvailableAgents = async () => {
+  agentsLoading.value = true
+  try {
+    await agentChatStore.fetchAvailableAgents()
+  } catch (error) {
+    console.error('获取可用助手失败:', error)
+  } finally {
+    agentsLoading.value = false
+  }
+}
 
 onMounted(() => {
-  // 三个请求并行, 各自维护自己的 loading flag.
+  // 四个请求并行, 各自维护自己的 loading flag.
   // pageLoading (computed) 等全部完成才退出, 防止 empty state flicker.
   void fetchTemplates()
   void fetchChatbots()
   void fetchSalesPermission()
+  void fetchAvailableAgents()
 })
 </script>
 

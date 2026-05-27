@@ -238,7 +238,36 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true
     }
   },
-
+  {
+    path: '/agent',
+    name: 'agent-select',
+    component: () => import('@/views/agent/AgentSelectView.vue'),
+    meta: { title: 'AI 助手', requiresAuth: true }
+  },
+  {
+    path: '/agent/history',
+    name: 'agent-history',
+    component: () => import('@/views/agent/AgentHistoryView.vue'),
+    meta: { title: '助手历史', requiresAuth: true }
+  },
+  {
+    // Task 3.5: full-text Chinese search over agent history messages
+    path: '/agent/history/search',
+    name: 'agent-history-search',
+    component: () => import('@/views/agent/AgentHistorySearchView.vue'),
+    meta: { title: '搜索历史', requiresAuth: true }
+  },
+  {
+    path: '/agent/chat/:sessionId',
+    name: 'agent-chat',
+    component: () => import('@/views/agent/AgentChatView.vue'),
+    meta: { title: 'AI 助手对话', requiresAuth: true },
+    props: (route) => ({
+      sessionId: route.params.sessionId,
+      agentId: route.query.agent_id ? Number(route.query.agent_id) : null,
+      readOnly: route.query.read_only === '1'
+    })
+  },
   // 技能市场 (agent-mode-v2-skill-marketplace, 2026-05-24)
   // requiresParent: true — 子账户/学员不能访问 (spec §10.1 rule 2);
   // 现有 router.beforeEach 已处理 redirect (line 309-317).
