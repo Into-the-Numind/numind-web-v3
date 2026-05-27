@@ -9,13 +9,15 @@ import {
   Pin,
   PinOff,
   Edit3,
-  Trash2
+  Trash2,
+  Square
 } from 'lucide-vue-next'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useCreditsStore } from '@/stores/credits'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useAgentNarration } from '@/composables/useAgentNarration'
 import { useAgentRun } from '@/composables/useAgentRun'
+import { useAgentStream } from '@/composables/useAgentStream'
 import { useAgentCost } from '@/composables/useAgentCost'
 import * as api from '@/api/agent'
 import AppButton from '@/components/common/AppButton.vue'
@@ -41,6 +43,7 @@ const creditsStore = useCreditsStore()
 const notifications = useNotificationsStore()
 const narration = useAgentNarration()
 const runCtrl = useAgentRun()
+const { start: startStream, stop: stopStream, isStreaming } = useAgentStream()
 const cost = useAgentCost()
 
 const supportContact = ref<SupportContact>({})
@@ -72,9 +75,12 @@ const handleSend = async (text: string): Promise<void> => {
     return
   }
   try {
-    await runCtrl.start(store.currentAgent.id, text, props.sessionId)
-    narration.start()
-    runCtrl.startStatusPolling()
+    await startStream({
+      agent_skill_id: store.currentAgent.id,
+      input_text: text,
+      session_id: props.sessionId !== 'new' ? props.sessionId : undefined,
+      attachment_urls: store.attachments.map((a) => a.url)
+    })
   } catch (err) {
     const msg = (err as Error)?.message ?? '发送失败,请稍后重试'
     notifications.error(`发送失败：${msg}`)
@@ -183,7 +189,10 @@ const openMenu = (sessionId: string): void => {
   }
 }
 
-const onTogglePinClick = async (session: (typeof store.recentSessions)[0], event?: Event): Promise<void> => {
+const onTogglePinClick = async (
+  session: (typeof store.recentSessions)[0],
+  event?: Event
+): Promise<void> => {
   if (event) event.stopPropagation()
   openMenuSessionId.value = null
   const nextPinned = !session.is_pinned
@@ -247,7 +256,7 @@ const doDelete = async (sessionId: string, event?: Event): Promise<void> => {
   try {
     await store.deleteSession(sessionId)
     notifications.success('会话已删除')
-    
+
     // 如果删除的是当前会话，需要平滑切换
     if (sessionId === props.sessionId) {
       const remaining = filteredSessions.value
@@ -352,6 +361,7 @@ watch(
 onUnmounted(() => {
   document.body.classList.remove('agent-chat-route')
   narration.stop()
+  stopStream()
   runCtrl.stopStatusPolling()
   store.reset()
   window.removeEventListener('click', closeAllMenus)
@@ -401,7 +411,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
           <Plus :size="18" />
           <span>新对话</span>
         </button>
-        
+
         <div class="sessions-list">
           <div
             v-for="session in filteredSessions"
@@ -415,7 +425,9 @@ const handleRetrySnapshot = async (): Promise<void> => {
             @click="switchToSession(session)"
           >
             <MessageSquare class="session-icon" :size="16" />
-            <span class="session-title">{{ session.session_name || session.preview_text || '新对话' }}</span>
+            <span class="session-title">{{
+              session.session_name || session.preview_text || '新对话'
+            }}</span>
             <div class="session-menu-container">
               <button
                 class="session-menu-btn"
@@ -439,7 +451,10 @@ const handleRetrySnapshot = async (): Promise<void> => {
                   <Edit3 :size="14" />
                   <span>重命名</span>
                 </button>
-                <button class="session-menu-item danger" @click.stop="onDeleteClick(session.session_id, $event)">
+                <button
+                  class="session-menu-item danger"
+                  @click.stop="onDeleteClick(session.session_id, $event)"
+                >
                   <Trash2 :size="14" />
                   <span>删除</span>
                 </button>
@@ -478,19 +493,28 @@ const handleRetrySnapshot = async (): Promise<void> => {
           <AgentMessageList v-else :messages="store.messages" :read-only="readOnly" />
         </div>
 
-        <AgentInputArea
-          v-if="!readOnly && store.currentAgent"
-          :agent-id="store.currentAgent.id"
-          :estimate="store.estimate"
-          :attachments="store.attachments"
-          :sending="store.sendingMessage"
-          :disabled="store.isRunning || store.isWaitingForUser"
-          @send="handleSend"
-          @estimate-request="handleEstimateRequest"
-          @upload="handleUpload"
-          @remove-attachment="store.removeAttachment"
-          @reject="handleReject"
-        />
+        <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">
+          <!-- Abort button — visible only while SSE stream is active -->
+          <div v-if="isStreaming" class="abort-bar">
+            <button class="abort-btn" type="button" aria-label="中止流式响应" @click="stopStream">
+              <Square :size="14" aria-hidden="true" />
+              <span>中止</span>
+            </button>
+          </div>
+
+          <AgentInputArea
+            :agent-id="store.currentAgent.id"
+            :estimate="store.estimate"
+            :attachments="store.attachments"
+            :sending="store.sendingMessage"
+            :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
+            @send="handleSend"
+            @estimate-request="handleEstimateRequest"
+            @upload="handleUpload"
+            @remove-attachment="store.removeAttachment"
+            @reject="handleReject"
+          />
+        </div>
       </main>
     </div>
 
@@ -993,5 +1017,42 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
 
 .session-menu-item.danger:hover {
   background: rgba(239, 68, 68, 0.08);
+}
+
+/* ===== Abort / Stop Streaming ===== */
+.input-area-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.abort-bar {
+  display: flex;
+  justify-content: center;
+  padding: 4px 32px 0;
+}
+
+.abort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--border-light, rgba(0, 0, 0, 0.12));
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.abort-btn:hover {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
 }
 </style>

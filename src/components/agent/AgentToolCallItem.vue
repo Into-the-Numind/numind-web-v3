@@ -11,6 +11,28 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), { compact: false })
 
+// ──────────────────────────────────────────────────────────────────
+// T13: Status badge — reflects ToolCallAggregate.current_state
+// ──────────────────────────────────────────────────────────────────
+
+/** CSS class for the status dot (color + optional spin) */
+const badgeClass = computed<string>(() => {
+  return `status-badge status-badge--${props.group.current_state}`
+})
+
+/** Chinese label for the status dot */
+const badgeLabel = computed<string>(() => {
+  const labels: Record<NarrationState, string> = {
+    queued: '排队中',
+    use: '执行中',
+    progress: '进行中',
+    result: '已完成',
+    error: '失败',
+    rejected: '已拒绝'
+  }
+  return labels[props.group.current_state]
+})
+
 const latestEvent = computed(() => props.group.events[props.group.events.length - 1])
 
 // agent-mode v2 #2 (use_skill): 已知的 platform AgentTool 名集合。
@@ -68,6 +90,15 @@ watch(
 
 <template>
   <div :class="['tool-call-item', { 'skill-use': isSkillUse }]">
+    <!-- T13: Status badge — upper-right colored dot reflecting current_state.
+         NOTE: role="status" removed (P1 fix). With 10+ concurrent tool calls
+         the implicit aria-live="polite" causes screen readers to announce every
+         state transition per card, making the chat unusable for SR users. The
+         :title attribute still surfaces the state label when users focus-navigate. -->
+    <span :class="badgeClass" :aria-label="badgeLabel" :title="badgeLabel">
+      <span class="status-dot" />
+      <span class="status-label">{{ badgeLabel }}</span>
+    </span>
     <!-- compact: 只显示最新事件 -->
     <p v-if="compact" :class="['tool-line', colorClassFor(latestEvent.state)]">
       <span
@@ -137,6 +168,110 @@ watch(
   color: #9ca3af;
   margin-left: 4px;
   font-size: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   T13: Status badge — per-tool-call colored dot in the upper-right
+   ───────────────────────────────────────────────────────────────── */
+
+.tool-call-item {
+  position: relative;
+  /* P2 fix: guarantee clearance so the absolute-positioned status badge
+     never visually collides with long tool message text. */
+  padding-right: 60px;
+}
+
+.status-badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  /* 200ms color transition when state changes */
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+  flex-shrink: 0;
+}
+
+.status-label {
+  font-size: 11px;
+  transition: color 0.2s ease;
+}
+
+/* queued — gray */
+.status-badge--queued .status-dot {
+  background-color: #9ca3af;
+}
+.status-badge--queued .status-label {
+  color: #9ca3af;
+}
+
+/* use — blue solid */
+.status-badge--use .status-dot {
+  background-color: #3b82f6;
+}
+.status-badge--use .status-label {
+  color: #3b82f6;
+}
+
+/* progress — blue + spinning ring (~1s rotation) */
+.status-badge--progress .status-dot {
+  background-color: transparent;
+  border: 2px solid #3b82f6;
+  border-top-color: transparent;
+  animation: badge-spin 1s linear infinite;
+  /* slightly bigger to look like a ring */
+  width: 8px;
+  height: 8px;
+}
+.status-badge--progress .status-label {
+  color: #3b82f6;
+}
+
+@keyframes badge-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* result — green */
+.status-badge--result .status-dot {
+  background-color: #10b981;
+}
+.status-badge--result .status-label {
+  color: #10b981;
+}
+
+/* error — red */
+.status-badge--error .status-dot {
+  background-color: #ef4444;
+}
+.status-badge--error .status-label {
+  color: #ef4444;
+}
+
+/* rejected — dark red/orange */
+.status-badge--rejected .status-dot {
+  background-color: #dc2626;
+}
+.status-badge--rejected .status-label {
+  color: #dc2626;
 }
 
 /* use_skill 调用气泡：左缘强调色 + 浅底，与普通 tool call 视觉区分。

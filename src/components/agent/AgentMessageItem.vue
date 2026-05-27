@@ -124,17 +124,48 @@ const systemText = computed<string>(() => {
   <!-- Assistant text -->
   <div v-else-if="asAssistant" class="msg msg-assistant">
     <span class="avatar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
     </span>
     <div class="bubble">
-      <p class="text">{{ asAssistant.markdown }}</p>
+      <p class="text">
+        {{ asAssistant.markdown
+        }}<span v-if="asAssistant.isStreaming" class="streaming-cursor" aria-hidden="true">▎</span>
+      </p>
     </div>
   </div>
 
   <!-- Plan card -->
   <div v-else-if="asPlan" class="msg msg-plan">
     <span class="avatar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
     </span>
     <div class="content-wrap">
       <AgentPlanCard :steps="asPlan.plan_steps" />
@@ -144,7 +175,21 @@ const systemText = computed<string>(() => {
   <!-- Tool group -->
   <div v-else-if="asToolGroup" class="msg msg-tool-group">
     <span class="avatar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
     </span>
     <div class="content-wrap">
       <AgentToolCallList :tool-groups="asToolGroup.tool_calls" />
@@ -154,7 +199,21 @@ const systemText = computed<string>(() => {
   <!-- Artifact -->
   <div v-else-if="asArtifact" class="msg msg-artifact">
     <span class="avatar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
     </span>
     <div class="content-wrap">
       <AgentArtifactItem :artifact="asArtifact.artifact" />
@@ -164,7 +223,21 @@ const systemText = computed<string>(() => {
   <!-- Final answer -->
   <div v-else-if="asFinalAnswer" class="msg msg-final">
     <span class="avatar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
     </span>
     <div class="content-wrap">
       <AgentFinalAnswer
@@ -184,7 +257,21 @@ const systemText = computed<string>(() => {
   <!-- Question prompt (ask_user_question yield) -->
   <div v-else-if="asQuestionPrompt" class="msg msg-question-prompt">
     <span class="avatar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-avatar-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
     </span>
     <div class="content-wrap">
       <QuestionPrompt
@@ -350,5 +437,26 @@ const systemText = computed<string>(() => {
 
 .msg-question-prompt {
   align-items: flex-start;
+}
+
+/* P2 fix: "mostly visible, briefly off" convention — cursor visible ~50% of
+   the time at top/bottom of cycle, off at 50% midpoint. 1s linear smooth fade
+   reads cleaner than step-start (which was inverted / cursor invisible at first
+   frame). */
+@keyframes blink-cursor {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.streaming-cursor {
+  display: inline;
+  color: currentColor;
+  animation: blink-cursor 1s linear infinite;
+  user-select: none;
 }
 </style>

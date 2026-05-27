@@ -148,4 +148,83 @@ describe('AgentMessageItem', () => {
       expect(wrapper.text().length).toBeGreaterThan(0)
     }
   })
+
+  // T12 — streaming cursor
+  describe('streaming cursor', () => {
+    it('shows ▎ cursor when isStreaming=true', () => {
+      const msg: AgentMessage = {
+        id: 'sc-1',
+        type: 'assistant',
+        markdown: 'Hello world',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(true)
+      expect(wrapper.find('.streaming-cursor').text()).toBe('▎')
+    })
+
+    it('hides cursor when isStreaming=false', () => {
+      const msg: AgentMessage = {
+        id: 'sc-2',
+        type: 'assistant',
+        markdown: 'Done streaming',
+        isStreaming: false,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
+    })
+
+    it('hides cursor when isStreaming is absent', () => {
+      const msg: AgentMessage = {
+        id: 'sc-3',
+        type: 'assistant',
+        markdown: 'No streaming field',
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
+    })
+
+    it('cursor stays at end as markdown grows (re-render)', async () => {
+      const msg: AgentMessage = {
+        id: 'sc-4',
+        type: 'assistant',
+        markdown: 'Start',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(true)
+
+      // simulate token delta by updating the prop
+      await wrapper.setProps({
+        msg: { ...msg, markdown: 'Start growing text...' }
+      })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(true)
+      // cursor must be the last child inside .text
+      const textEl = wrapper.find('.msg-assistant .text')
+      const children = textEl.element.childNodes
+      const lastChild = children[children.length - 1] as Element
+      expect(lastChild.textContent).toBe('▎')
+    })
+
+    it('cursor disappears when isStreaming transitions to false', async () => {
+      const msg: AgentMessage = {
+        id: 'sc-5',
+        type: 'assistant',
+        markdown: 'Streaming...',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(true)
+
+      await wrapper.setProps({
+        msg: { ...msg, markdown: 'Streaming... done', isStreaming: false }
+      })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
+    })
+  })
 })

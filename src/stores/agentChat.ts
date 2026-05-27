@@ -6,9 +6,11 @@
  * - narration 事件累积 + stuck 检测
  * - run lifecycle actions（create / poll / cancel / extend / feedback）
  * - 历史会话恢复（loadSessionSnapshot）
+ * - 流式事件处理（applyStreamEvent / applyError）— T10
  * - reset() 完整清理 16 个 ref 字段
  *
  * Refs: docs/agent-mode/feature-11-spec.md §6
+ * Spec: docs/superpowers/specs/2026-05-27-agent-react-streaming-design.md §5.3
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
@@ -17,6 +19,7 @@ import type {
   AgentSkill,
   AgentRun,
   AgentMessage,
+  AssistantMessage,
   NarrationEvent,
   EstimateResponse,
   RecentSession,
@@ -25,6 +28,19 @@ import type {
   UploadResponse,
   QuestionPromptMessage
 } from '@/types/agent'
+import type { AgentStreamEvent } from '@/types/agent-stream'
+import type {
+  TokenDeltaPayload,
+  ReasoningDeltaPayload,
+  AssistantMessagePayload,
+  ToolCallStartPayload,
+  ToolCallProgressPayload,
+  ToolCallResultPayload,
+  ToolCallErrorPayload,
+  QuestionPromptPayload,
+  TerminalPayload,
+  ErrorPayload
+} from '@/types/agent-stream'
 
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -45,6 +61,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // AgentToolCallList when `msg.type === 'tool_group'`, but nothing was
   // injecting such a message into `messages`. Hotfix narration-tool-group-message-wire.
   const currentToolGroupId = ref<string | null>(null)
+
+  // Tracks the streaming tool_group message id during SSE streaming (T10).
+  // Separate from currentToolGroupId so polling and streaming paths don't interfere.
+  // Keyed by step index (string) so multi-step runs each get their own group.
+  const streamingToolGroupIds = ref<Map<number, string>>(new Map())
 
   const inputText = ref('')
   const attachments = ref<UploadResponse[]>([])
@@ -412,6 +433,312 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     recentSessions.value = recentSessions.value.filter((s) => s.session_id !== sessionId)
   }
 
+  // ── Streaming helpers (T10) ─────────────────────────────────────────
+
+  /**
+   * Find an assistant message by its streaming message_id, or create a new one
+   * and push it into messages[]. Returns the found/created message (mutable ref).
+   */
+  const ensureStreamingAssistantMessage = (messageId: string): AssistantMessage => {
+    const existing = messages.value.find(
+      (m): m is AssistantMessage =>
+        m.type === 'assistant' &&
+        (m as AssistantMessage & { _stream_id?: string })._stream_id === messageId
+    )
+    if (existing) return existing
+
+    const msg: AssistantMessage & { _stream_id: string } = {
+      id: uuid(),
+      _stream_id: messageId,
+      type: 'assistant',
+      markdown: '',
+      isStreaming: true,
+      timestamp: new Date().toISOString()
+    }
+    messages.value.push(msg)
+    return msg
+  }
+
+  /**
+   * Find the streaming tool_group message for a given step, or create + push one.
+   * Returns the ToolGroupMessage.
+   */
+  const ensureStreamingToolGroupForStep = (step: number): ToolGroupMessage => {
+    const existingId = streamingToolGroupIds.value.get(step)
+    if (existingId) {
+      const existing = messages.value.find(
+        (m): m is ToolGroupMessage => m.id === existingId && m.type === 'tool_group'
+      )
+      if (existing) return existing
+    }
+
+    const tgId = uuid()
+    streamingToolGroupIds.value.set(step, tgId)
+    const tgMsg: ToolGroupMessage = {
+      id: tgId,
+      type: 'tool_group',
+      tool_calls: [],
+      timestamp: new Date().toISOString()
+    }
+    messages.value.push(tgMsg)
+    return tgMsg
+  }
+
+  /**
+   * Locate a ToolCallAggregate by tool_call_id across all streaming tool_group
+   * messages and apply a mutator. No-ops gracefully if not found.
+   */
+  const updateStreamingToolCall = (
+    toolCallId: string,
+    mutator: (tc: ToolCallAggregate) => void
+  ): void => {
+    for (let i = 0; i < messages.value.length; i++) {
+      const msg = messages.value[i]
+      if (msg.type !== 'tool_group') continue
+      const tgMsg = msg as ToolGroupMessage
+      const tc = tgMsg.tool_calls.find((t) => t.tool_call_id === toolCallId)
+      if (tc) {
+        mutator(tc)
+        // Trigger Vue reactivity — replace the array reference
+        messages.value[i] = { ...tgMsg, tool_calls: [...tgMsg.tool_calls] }
+        return
+      }
+    }
+  }
+
+  /**
+   * After receiving a terminal event, fetch the authoritative run state from DB
+   * and replace messages with the DB version (R5 reconciliation).
+   */
+  const reconcileFromDB = async (runId: number): Promise<void> => {
+    try {
+      const run = await api.getRun(runId)
+      currentRun.value = run
+      // If the server provides messages via session snapshot, prefer that.
+      // For now, if the run has a final_output, inject a final_answer message
+      // that replaces any streaming-accumulated assistant messages.
+      const finalOut = run.final_output ?? ''
+      const alreadyHasFinal = messages.value.some(
+        (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId
+      )
+      if (finalOut && !alreadyHasFinal) {
+        messages.value.push({
+          id: uuid(),
+          type: 'final_answer',
+          markdown: finalOut,
+          run_id: runId,
+          timestamp: new Date().toISOString()
+        })
+      }
+    } catch {
+      // Network error during reconcile — streaming UI is already visible, silently ignore
+    }
+  }
+
+  // ── Streaming actions (T10) ──────────────────────────────────────────
+
+  /**
+   * applyStreamEvent — dispatch an AgentStreamEvent from the SSE stream into
+   * the store's reactive state. Called by useAgentStream composable (T11).
+   *
+   * Covers all 14 EventType values per spec §5.3.
+   */
+  const applyStreamEvent = (e: AgentStreamEvent): void => {
+    switch (e.type) {
+      case 'stream_start':
+        // Connection live — no UI action needed
+        break
+
+      case 'ping':
+        // Keepalive — no-op
+        break
+
+      case 'token_delta': {
+        const payload = e.data as TokenDeltaPayload
+        if (!payload?.message_id) break
+        const msg = ensureStreamingAssistantMessage(payload.message_id)
+        msg.markdown += payload.text
+        msg.isStreaming = true
+        break
+      }
+
+      case 'reasoning_delta': {
+        const payload = e.data as ReasoningDeltaPayload
+        if (!payload?.message_id) break
+        const msg = ensureStreamingAssistantMessage(payload.message_id)
+        msg.reasoning = (msg.reasoning ?? '') + payload.text
+        break
+      }
+
+      case 'assistant_message': {
+        const payload = e.data as AssistantMessagePayload
+        if (!payload?.message_id) break
+        // Find by _stream_id and finalize
+        const existing = messages.value.find(
+          (m): m is AssistantMessage =>
+            m.type === 'assistant' &&
+            (m as AssistantMessage & { _stream_id?: string })._stream_id === payload.message_id
+        )
+        if (existing) {
+          existing.markdown = payload.content // authoritative final from DB
+          existing.isStreaming = false
+          if (payload.reasoning_content) {
+            existing.reasoning = payload.reasoning_content
+          }
+        }
+        break
+      }
+
+      case 'tool_call_start': {
+        const payload = e.data as ToolCallStartPayload
+        if (!payload?.tool_call_id) break
+        const step = e.step ?? 0
+        const group = ensureStreamingToolGroupForStep(step)
+        // Avoid duplicates (idempotent)
+        if (!group.tool_calls.find((t) => t.tool_call_id === payload.tool_call_id)) {
+          group.tool_calls = [
+            ...group.tool_calls,
+            {
+              tool_call_id: payload.tool_call_id,
+              tool_name: payload.tool_name,
+              current_state: 'queued',
+              events: []
+            }
+          ]
+          // Trigger reactivity
+          const idx = messages.value.findIndex((m) => m.id === group.id)
+          if (idx !== -1) {
+            messages.value[idx] = { ...group }
+          }
+        }
+        break
+      }
+
+      case 'tool_call_progress': {
+        const payload = e.data as ToolCallProgressPayload
+        if (!payload?.tool_call_id) break
+        updateStreamingToolCall(payload.tool_call_id, (tc) => {
+          tc.current_state = 'progress'
+          // Push a synthetic NarrationEvent for display consistency
+          tc.events.push({
+            run_id: e.run_id,
+            tool_call_id: payload.tool_call_id,
+            tool_name: tc.tool_name,
+            state: 'progress',
+            message: payload.message,
+            verb: payload.verb,
+            timestamp: e.ts
+          })
+        })
+        break
+      }
+
+      case 'tool_call_result': {
+        const payload = e.data as ToolCallResultPayload
+        if (!payload?.tool_call_id) break
+        updateStreamingToolCall(payload.tool_call_id, (tc) => {
+          tc.current_state = 'result'
+          tc.preview = payload.preview
+          tc.events.push({
+            run_id: e.run_id,
+            tool_call_id: payload.tool_call_id,
+            tool_name: tc.tool_name,
+            state: 'result',
+            message: payload.preview,
+            timestamp: e.ts
+          })
+        })
+        break
+      }
+
+      case 'tool_call_error': {
+        const payload = e.data as ToolCallErrorPayload
+        if (!payload?.tool_call_id) break
+        updateStreamingToolCall(payload.tool_call_id, (tc) => {
+          tc.current_state = 'error'
+          tc.error_message = payload.error
+          tc.events.push({
+            run_id: e.run_id,
+            tool_call_id: payload.tool_call_id,
+            tool_name: tc.tool_name,
+            state: 'error',
+            message: payload.error,
+            timestamp: e.ts
+          })
+        })
+        break
+      }
+
+      case 'step_done':
+        // Step boundary — no direct UI action; just log
+        console.debug('[agent-stream] step_done', e.step)
+        break
+
+      case 'state_change':
+        // State machine transition — log only
+        console.debug('[agent-stream] state_change', e.data)
+        break
+
+      case 'question_prompt': {
+        const payload = e.data as QuestionPromptPayload
+        if (!payload) break
+        const promptMsg: QuestionPromptMessage = {
+          id: uuid(),
+          type: 'question_prompt',
+          run_id: e.run_id,
+          question: payload.question,
+          options: (payload.options ?? []).map((opt) => ({ label: opt })),
+          header: payload.header,
+          multi_select: payload.multi_select ?? false,
+          answer_status: 'pending',
+          timestamp: e.ts
+        }
+        messages.value.push(promptMsg)
+        break
+      }
+
+      case 'terminal': {
+        const payload = e.data as TerminalPayload
+        // Update currentRun status locally so UI reacts immediately
+        if (currentRun.value) {
+          currentRun.value = {
+            ...currentRun.value,
+            status: payload?.reason === 'done' ? 'completed' : 'failed',
+            state_reason: payload?.reason
+          }
+        }
+        // R5: pull authoritative messages from DB
+        void reconcileFromDB(e.run_id)
+        break
+      }
+
+      case 'error': {
+        const payload = e.data as ErrorPayload
+        applyError(new Error(payload?.message ?? 'unknown stream error'))
+        break
+      }
+
+      default:
+        // Unknown event type — ignore gracefully
+        break
+    }
+  }
+
+  /**
+   * applyError — translate a non-409 stream error into a system message visible
+   * in the chat UI. Called by useAgentStream composable on catch (T11).
+   */
+  const applyError = (err: Error | unknown): void => {
+    const message = err instanceof Error ? err.message : String(err)
+    messages.value.push({
+      id: uuid(),
+      type: 'system',
+      system_subtype: 'failed',
+      markdown: message,
+      timestamp: new Date().toISOString()
+    })
+  }
+
   const reset = (): void => {
     availableAgents.value = []
     recentSessions.value = []
@@ -422,6 +749,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     lastNarrationTs.value = ''
     stuckSince.value = null
     currentToolGroupId.value = null
+    streamingToolGroupIds.value = new Map()
     inputText.value = ''
     attachments.value = []
     estimate.value = null
@@ -474,6 +802,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     pinSession,
     renameSession,
     deleteSession,
-    reset
+    reset,
+    applyStreamEvent,
+    applyError
   }
 })
