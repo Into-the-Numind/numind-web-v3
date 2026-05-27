@@ -78,6 +78,7 @@ const processing = ref(false)
 const columns: Column[] = [
   { key: 'icon', title: '', width: '52px', align: 'center' },
   { key: 'name', title: '名称', width: '220px', align: 'left' },
+  { key: 'origin_type', title: '来源', width: '100px' },
   { key: 'description', title: '描述', align: 'left' },
   { key: 'bound_agent_count', title: '装载 Agent', width: '110px' },
   { key: 'version', title: '版本', width: '70px' },
@@ -211,6 +212,7 @@ const showEmpty = computed(
         </option>
       </select>
       <div class="skill-list__actions">
+        <AppButton variant="secondary" @click="router.push('/config/skills/templates')" style="margin-right: 8px">🌟 官方模板库</AppButton>
         <AppButton variant="primary" @click="goNew">+ 新建 Skill</AppButton>
       </div>
     </div>
@@ -258,6 +260,13 @@ const showEmpty = computed(
           title="已发布到技能市场 (is_public=1)"
           >已发布</span
         >
+      </template>
+
+      <!-- 来源类型标签 -->
+      <template #cell-origin_type="{ value }">
+        <span v-if="value === 'official'" class="origin-badge origin-badge--official">🌟 官方出品</span>
+        <span v-else-if="value === 'tenant'" class="origin-badge origin-badge--tenant">🏢 机构出品</span>
+        <span v-else class="origin-badge origin-badge--user">👤 自建技能</span>
       </template>
 
       <!-- 描述（截断显示） -->
@@ -447,5 +456,38 @@ const showEmpty = computed(
 .skill-binding-count.active {
   background: rgba(34, 197, 94, 0.1);
   color: #16a34a;
+}
+
+/* 出品标签样式 */
+.origin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid transparent;
+}
+
+.origin-badge--official {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7c3aed;
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.origin-badge--tenant {
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
+  border-color: rgba(13, 148, 136, 0.2);
+}
+
+.origin-badge--user {
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.2);
 }
 </style>

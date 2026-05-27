@@ -125,8 +125,13 @@ function goBack() {
           </div>
         </div>
         <div class="meta-row">
-          <span class="meta-label">来源</span>
-          <span class="meta-value">{{ store.current.source_type }}</span>
+          <span class="meta-label">出品来源</span>
+          <div class="meta-value" style="display: flex; align-items: center; gap: 8px">
+            <span v-if="store.current.origin_type === 'official'" class="origin-badge origin-badge--official">🌟 官方出品</span>
+            <span v-else-if="store.current.origin_type === 'tenant'" class="origin-badge origin-badge--tenant">🏢 机构出品</span>
+            <span v-else class="origin-badge origin-badge--user">👤 自建技能</span>
+            <span class="source-type-label">({{ store.current.source_type }})</span>
+          </div>
         </div>
         <div class="meta-row">
           <span class="meta-label">最近修改</span>
@@ -320,5 +325,43 @@ function goBack() {
   border-left: 3px solid var(--primary);
   background: var(--surface-tint);
   color: var(--text-secondary);
+}
+
+/* 出品标签样式 */
+.origin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid transparent;
+}
+
+.origin-badge--official {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7c3aed;
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.origin-badge--tenant {
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
+  border-color: rgba(13, 148, 136, 0.2);
+}
+
+.origin-badge--user {
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.2);
+}
+
+.source-type-label {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 </style>

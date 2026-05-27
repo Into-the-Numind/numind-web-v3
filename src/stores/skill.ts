@@ -22,7 +22,8 @@ import {
   attachSkillToAgent,
   detachSkillFromAgent,
   reorderAgentSkills,
-  listAgentSkills
+  listAgentSkills,
+  importSkillTemplate
 } from '@/api/skill'
 import type {
   Skill,
@@ -239,6 +240,17 @@ export const useSkillStore = defineStore('skill', () => {
     }
   }
 
+  async function importTemplate(templateId: number): Promise<Skill> {
+    saving.value = true
+    try {
+      const s = await importSkillTemplate(templateId)
+      current.value = s
+      return s
+    } finally {
+      saving.value = false
+    }
+  }
+
   // Pinia setup-syntax stores need explicit reset (no auto $reset).
   function $reset() {
     list.value = []
@@ -292,6 +304,7 @@ export const useSkillStore = defineStore('skill', () => {
     attach,
     detach,
     reorder,
+    importTemplate,
     $reset
   }
 })
