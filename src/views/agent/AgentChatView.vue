@@ -7,10 +7,9 @@ import {
   MessageSquare,
   MoreVertical,
   Pin,
+  PinOff,
   Edit3,
-  Trash2,
-  Check,
-  X
+  Trash2
 } from 'lucide-vue-next'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useCreditsStore } from '@/stores/credits'
@@ -164,28 +163,29 @@ const switchToSession = async (session: (typeof store.recentSessions)[0]): Promi
   router.push({
     name: 'agent-chat',
     params: { sessionId: session.session_id },
-    query: { agent_id: props.agentId, read_only: session.status === 'completed' ? '1' : undefined }
+    query: { agent_id: props.agentId }
   })
 }
 
-// ─── 会话管理 (置顶、删除、重命名) ───
-const activeMenuSessionId = ref<string | null>(null)
-const editingSessionId = ref<string | null>(null)
-const editingName = ref('')
+// ─── 会话管理对齐 Chatbot 交互 ───
+const openMenuSessionId = ref<string | null>(null)
+const renameModalOpen = ref(false)
+const renameInputValue = ref('')
+const renameTargetSession = ref<(typeof store.recentSessions)[0] | null>(null)
+const deleteConfirmId = ref<string | null>(null)
 const renameInputRef = ref<HTMLInputElement | null>(null)
-const confirmDeleteSessionId = ref<string | null>(null)
 
-const toggleMenu = (sessionId: string): void => {
-  if (activeMenuSessionId.value === sessionId) {
-    activeMenuSessionId.value = null
+const openMenu = (sessionId: string): void => {
+  if (openMenuSessionId.value === sessionId) {
+    openMenuSessionId.value = null
   } else {
-    activeMenuSessionId.value = sessionId
+    openMenuSessionId.value = sessionId
   }
 }
 
-const handlePin = async (session: (typeof store.recentSessions)[0], event?: Event): Promise<void> => {
+const onTogglePinClick = async (session: (typeof store.recentSessions)[0], event?: Event): Promise<void> => {
   if (event) event.stopPropagation()
-  activeMenuSessionId.value = null
+  openMenuSessionId.value = null
   const nextPinned = !session.is_pinned
   try {
     await store.pinSession(session.session_id, nextPinned)
@@ -195,11 +195,12 @@ const handlePin = async (session: (typeof store.recentSessions)[0], event?: Even
   }
 }
 
-const startRename = (session: (typeof store.recentSessions)[0], event?: Event): void => {
+const onRenameClick = (session: (typeof store.recentSessions)[0], event?: Event): void => {
   if (event) event.stopPropagation()
-  activeMenuSessionId.value = null
-  editingSessionId.value = session.session_id
-  editingName.value = session.session_name || session.preview_text || '新对话'
+  openMenuSessionId.value = null
+  renameTargetSession.value = session
+  renameInputValue.value = session.session_name || session.preview_text || '新对话'
+  renameModalOpen.value = true
   setTimeout(() => {
     if (renameInputRef.value) {
       renameInputRef.value.focus()
@@ -208,48 +209,47 @@ const startRename = (session: (typeof store.recentSessions)[0], event?: Event): 
   }, 50)
 }
 
-const isSavingRename = ref(false)
-const saveRename = async (session: (typeof store.recentSessions)[0]): Promise<void> => {
-  if (isSavingRename.value) return
-  const trimmed = editingName.value.trim()
+const closeRenameModal = (): void => {
+  renameModalOpen.value = false
+  renameTargetSession.value = null
+  renameInputValue.value = ''
+}
+
+const confirmRename = async (): Promise<void> => {
+  if (!renameTargetSession.value) return
+  const trimmed = renameInputValue.value.trim()
   if (!trimmed) {
-    editingSessionId.value = null
+    notifications.warning('标题不能为空')
     return
   }
-  if (trimmed === (session.session_name || session.preview_text || '新对话')) {
-    editingSessionId.value = null
-    return
-  }
-  isSavingRename.value = true
   try {
-    await store.renameSession(session.session_id, trimmed)
+    await store.renameSession(renameTargetSession.value.session_id, trimmed)
     notifications.success('重命名成功')
+    closeRenameModal()
   } catch (err) {
     notifications.error(`重命名失败：${(err as Error).message}`)
-  } finally {
-    editingSessionId.value = null
-    isSavingRename.value = false
   }
 }
 
-const cancelRename = (): void => {
-  editingSessionId.value = null
-}
-
-const triggerDelete = (session: (typeof store.recentSessions)[0], event?: Event): void => {
+const onDeleteClick = (sessionId: string, event?: Event): void => {
   if (event) event.stopPropagation()
-  activeMenuSessionId.value = null
-  confirmDeleteSessionId.value = session.session_id
+  openMenuSessionId.value = null
+  deleteConfirmId.value = sessionId
 }
 
-const confirmDelete = async (session: (typeof store.recentSessions)[0], event?: Event): Promise<void> => {
+const cancelDelete = (event?: Event): void => {
+  if (event) event.stopPropagation()
+  deleteConfirmId.value = null
+}
+
+const doDelete = async (sessionId: string, event?: Event): Promise<void> => {
   if (event) event.stopPropagation()
   try {
-    await store.deleteSession(session.session_id)
+    await store.deleteSession(sessionId)
     notifications.success('会话已删除')
     
     // 如果删除的是当前会话，需要平滑切换
-    if (session.session_id === props.sessionId) {
+    if (sessionId === props.sessionId) {
       const remaining = filteredSessions.value
       if (remaining.length > 0) {
         await switchToSession(remaining[0])
@@ -260,17 +260,12 @@ const confirmDelete = async (session: (typeof store.recentSessions)[0], event?: 
   } catch (err) {
     notifications.error(`删除失败：${(err as Error).message}`)
   } finally {
-    confirmDeleteSessionId.value = null
+    deleteConfirmId.value = null
   }
 }
 
-const cancelDelete = (event?: Event): void => {
-  if (event) event.stopPropagation()
-  confirmDeleteSessionId.value = null
-}
-
 const closeAllMenus = (): void => {
-  activeMenuSessionId.value = null
+  openMenuSessionId.value = null
 }
 
 onMounted(async () => {
@@ -414,80 +409,42 @@ const handleRetrySnapshot = async (): Promise<void> => {
             class="session-item"
             :class="{
               'session-item--active': session.session_id === props.sessionId,
-              active: session.session_id === props.sessionId,
-              pinned: session.is_pinned
+              'session-item--pinned': session.is_pinned,
+              active: session.session_id === props.sessionId
             }"
             @click="switchToSession(session)"
           >
-            <!-- 逻辑删除中 -->
-            <template v-if="confirmDeleteSessionId === session.session_id">
-              <div class="delete-confirm-wrapper" @click.stop>
-                <span class="delete-confirm-text">确定删除？</span>
-                <button class="confirm-btn success-color" @click.stop="confirmDelete(session)" title="确认">
-                  <Check :size="14" />
-                </button>
-                <button class="confirm-btn cancel-color" @click.stop="cancelDelete" title="取消">
-                  <X :size="14" />
-                </button>
-              </div>
-            </template>
-
-            <!-- 重命名中 -->
-            <template v-else-if="editingSessionId === session.session_id">
-              <input
-                ref="renameInputRef"
-                v-model="editingName"
-                class="rename-input"
-                type="text"
-                maxlength="50"
-                @keydown.enter.stop="saveRename(session)"
-                @keydown.esc.stop="cancelRename"
-                @blur="saveRename(session)"
-                @click.stop
-              />
-            </template>
-
-            <!-- 正常状态 -->
-            <template v-else>
-              <MessageSquare class="session-icon" :size="16" />
-              <span class="session-title" :title="session.session_name || session.preview_text || '新对话'">
-                {{ session.session_name || session.preview_text || '新对话' }}
-              </span>
-              
-              <!-- 置顶徽章 -->
-              <Pin v-if="session.is_pinned" class="pinned-badge" :size="12" />
-
-              <!-- 三点菜单触发按钮 -->
+            <MessageSquare class="session-icon" :size="16" />
+            <span class="session-title">{{ session.session_name || session.preview_text || '新对话' }}</span>
+            <div class="session-menu-container">
               <button
-                type="button"
-                class="action-trigger"
-                :class="{ 'action-trigger--active': activeMenuSessionId === session.session_id }"
-                @click.stop="toggleMenu(session.session_id)"
+                class="session-menu-btn"
+                @click.stop="openMenu(session.session_id)"
+                aria-label="更多操作"
               >
-                <MoreVertical :size="14" />
+                <MoreVertical :size="16" />
               </button>
 
-              <!-- 气泡 Dropdown 菜单 -->
               <div
-                v-if="activeMenuSessionId === session.session_id"
                 class="session-menu-dropdown"
+                :class="{ show: openMenuSessionId === session.session_id }"
                 @click.stop
               >
-                <button class="menu-item" @click="handlePin(session, $event)">
-                  <Pin :size="14" :class="{ 'pinned-active': session.is_pinned }" />
-                  <span>{{ session.is_pinned ? '取消置顶' : '置顶会话' }}</span>
+                <button class="session-menu-item" @click.stop="onTogglePinClick(session, $event)">
+                  <PinOff v-if="session.is_pinned" :size="14" />
+                  <Pin v-else :size="14" />
+                  <span>{{ session.is_pinned ? '取消置顶' : '置顶' }}</span>
                 </button>
-                <button class="menu-item" @click="startRename(session, $event)">
+                <button class="session-menu-item" @click.stop="onRenameClick(session, $event)">
                   <Edit3 :size="14" />
                   <span>重命名</span>
                 </button>
-                <div class="menu-divider" />
-                <button class="menu-item menu-item--danger" @click="triggerDelete(session, $event)">
+                <button class="session-menu-item danger" @click.stop="onDeleteClick(session.session_id, $event)">
                   <Trash2 :size="14" />
-                  <span>删除会话</span>
+                  <span>删除</span>
                 </button>
               </div>
-            </template>
+            </div>
           </div>
           <div v-if="filteredSessions.length === 0" class="sessions-empty">暂无对话</div>
         </div>
@@ -557,6 +514,51 @@ const handleRetrySnapshot = async (): Promise<void> => {
       @try="handleTryDemoTask"
       @close="handleCloseLowBalance"
     />
+
+    <!-- 重命名对话 Modal (复用 sales-modal.css 视觉) -->
+    <Teleport to="body">
+      <div class="modal-overlay" :class="{ open: renameModalOpen }">
+        <div
+          class="modal-card modal-card-simple"
+          role="dialog"
+          aria-modal="true"
+          @keydown.escape="closeRenameModal"
+        >
+          <div class="modal-header">
+            <span class="modal-title">重命名对话</span>
+          </div>
+          <div class="modal-body-simple">
+            <input
+              ref="renameInputRef"
+              v-model="renameInputValue"
+              type="text"
+              maxlength="200"
+              class="form-input"
+              placeholder="对话名称"
+              @keydown.enter="confirmRename"
+            />
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" @click="closeRenameModal">取消</button>
+            <button class="btn-primary" @click="confirmRename"><span>保存</span></button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 删除确认 Modal -->
+    <Teleport to="body">
+      <div v-if="deleteConfirmId !== null" class="modal-overlay" @click.self="cancelDelete">
+        <div class="modal-dialog">
+          <div class="modal-title">删除对话</div>
+          <div class="modal-desc">确定删除这个对话吗？删除后无法恢复。</div>
+          <div class="modal-actions">
+            <button class="modal-btn secondary" @click="cancelDelete">取消</button>
+            <button class="modal-btn danger" @click="doDelete(deleteConfirmId!)">删除</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -583,6 +585,8 @@ body.agent-chat-route #app {
 </style>
 
 <style scoped>
+@import '@/assets/styles/sales-modal.css';
+
 .agent-view {
   width: 100%;
   height: 100%;
@@ -819,185 +823,103 @@ body.agent-chat-route #app {
   gap: 8px;
 }
 
-/* ─── 会话管理样式 ─── */
-/* 置顶会话左侧翡翠绿竖条指示 */
-.session-item.pinned::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 15%;
-  height: 70%;
-  width: 3.5px;
-  background: hsl(160, 50%, 45%);
-  border-radius: 0 3px 3px 0;
-}
-
-.pinned-badge {
-  color: hsl(160, 45%, 45%);
-  margin-left: 6px;
-  transform: rotate(45deg);
-  opacity: 0.8;
-  flex-shrink: 0;
-}
-
-.pinned-active {
-  color: hsl(160, 50%, 45%);
-}
-
-/* 三点操作菜单触发器 */
-.action-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-light);
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  margin-left: 4px;
-}
-
-.session-item:hover .action-trigger {
+/* ─── 会话管理样式对齐 Chatbot ─── */
+.session-item:hover .session-menu-btn {
   opacity: 1;
 }
 
-.action-trigger:hover,
-.action-trigger--active {
-  background: hsla(160, 45%, 50%, 0.12);
-  color: hsla(160, 45%, 35%, 1);
-  opacity: 1 !important;
+.session-item--pinned {
+  border-left: 2px solid var(--primary) !important;
+  padding-left: 10px !important;
 }
 
-/* 玻璃气泡下拉菜单 */
-.session-menu-dropdown {
-  position: absolute;
-  right: 12px;
-  top: 36px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid hsla(160, 20%, 88%, 0.95);
-  border-radius: 8px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  padding: 4px;
-  min-width: 120px;
-  animation: fadeIn 0.15s ease-out;
+.session-menu-container {
+  margin-left: auto;
+  position: relative;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+.session-menu-btn {
   background: transparent;
   border: none;
-  border-radius: 6px;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  font-family: var(--font-sans);
+  opacity: 0;
+  padding: 4px;
   cursor: pointer;
-  text-align: left;
-  transition: all 0.15s ease;
-  width: 100%;
-}
-
-.menu-item:hover {
-  background: hsla(160, 45%, 50%, 0.08);
-  color: hsla(160, 45%, 35%, 1);
-}
-
-.menu-item--danger {
-  color: #ef4444;
-}
-
-.menu-item--danger:hover {
-  background: rgba(239, 68, 68, 0.08);
-  color: #dc2626;
-}
-
-.menu-divider {
-  height: 1px;
-  background: hsla(160, 20%, 88%, 0.6);
-  margin: 4px 0;
-}
-
-/* 内联重命名输入框 */
-.rename-input {
-  flex: 1;
-  min-width: 0;
-  height: 24px;
-  padding: 0 6px;
-  border: 1.5px solid hsl(160, 50%, 45%);
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--text);
-  font-size: 0.85rem;
-  outline: none;
-  font-family: var(--font-sans);
-}
-
-/* 内联二次删除确认 */
-.delete-confirm-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding-right: 4px;
-}
-
-.delete-confirm-text {
-  font-size: 0.8rem;
-  color: #ef4444;
-  font-weight: 600;
-  white-space: nowrap;
-  margin-right: auto;
-}
-
-.confirm-btn {
+  transition: all 0.2s;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  background: transparent;
 }
 
-.confirm-btn.success-color {
-  color: hsl(160, 50%, 40%);
+.session-menu-btn :deep(svg) {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
 }
 
-.confirm-btn.success-color:hover {
-  background: hsla(160, 50%, 40%, 0.12);
-}
-
-.confirm-btn.cancel-color {
-  color: var(--text-light);
-}
-
-.confirm-btn.cancel-color:hover {
+.session-menu-btn:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.session-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 140px;
+  z-index: 100;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    visibility 150ms ease;
+}
+
+.session-menu-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.session-menu-item {
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.session-menu-item :deep(svg) {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+
+.session-menu-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.session-menu-item.danger {
+  color: #ef4444;
+}
+
+.session-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
 }
 </style>

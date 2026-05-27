@@ -34,8 +34,7 @@ const handleContinue = (sessionId: string): void => {
 const handleView = (sessionId: string): void => {
   router.push({
     name: 'agent-chat',
-    params: { sessionId },
-    query: { read_only: '1' }
+    params: { sessionId }
   })
 }
 
