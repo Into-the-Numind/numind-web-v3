@@ -148,3 +148,18 @@ export const postAgentAnswer = async (
   const res = (await request.post(`/v1/agent-runs/${runId}/answer`, payload)) as any
   return res.data as AnswerResponse
 }
+
+// 15. 置顶会话
+export const pinSession = async (sessionId: string, isPinned: boolean): Promise<void> => {
+  await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/pin`, { is_pinned: isPinned })
+}
+
+// 16. 重命名会话
+export const renameSession = async (sessionId: string, name: string): Promise<void> => {
+  await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/rename`, { name })
+}
+
+// 17. 删除会话
+export const deleteSession = async (sessionId: string): Promise<void> => {
+  await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/delete`)
+}

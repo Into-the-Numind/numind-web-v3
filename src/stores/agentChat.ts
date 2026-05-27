@@ -383,6 +383,35 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
+  const pinSession = async (sessionId: string, isPinned: boolean): Promise<void> => {
+    await api.pinSession(sessionId, isPinned)
+    const sess = recentSessions.value.find((s) => s.session_id === sessionId)
+    if (sess) {
+      sess.is_pinned = isPinned
+      recentSessions.value.sort((a, b) => {
+        const pinA = a.is_pinned ? 1 : 0
+        const pinB = b.is_pinned ? 1 : 0
+        if (pinA !== pinB) return pinB - pinA
+        const timeA = new Date(a.last_active_at || 0).getTime()
+        const timeB = new Date(b.last_active_at || 0).getTime()
+        return timeB - timeA
+      })
+    }
+  }
+
+  const renameSession = async (sessionId: string, name: string): Promise<void> => {
+    await api.renameSession(sessionId, name)
+    const sess = recentSessions.value.find((s) => s.session_id === sessionId)
+    if (sess) {
+      sess.session_name = name
+    }
+  }
+
+  const deleteSession = async (sessionId: string): Promise<void> => {
+    await api.deleteSession(sessionId)
+    recentSessions.value = recentSessions.value.filter((s) => s.session_id !== sessionId)
+  }
+
   const reset = (): void => {
     availableAgents.value = []
     recentSessions.value = []
@@ -442,6 +471,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     uploadAttachment,
     removeAttachment,
     loadSessionSnapshot,
+    pinSession,
+    renameSession,
+    deleteSession,
     reset
   }
 })
