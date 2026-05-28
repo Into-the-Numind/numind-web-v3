@@ -93,9 +93,12 @@ watch(
     <!-- T13: Status badge — upper-right colored dot reflecting current_state.
          NOTE: role="status" removed (P1 fix). With 10+ concurrent tool calls
          the implicit aria-live="polite" causes screen readers to announce every
-         state transition per card, making the chat unusable for SR users. The
-         :title attribute still surfaces the state label when users focus-navigate. -->
-    <span :class="badgeClass" :aria-label="badgeLabel" :title="badgeLabel">
+         state transition per card, making the chat unusable for SR users.
+         :title attribute also removed (2026-05-28 follow-up): on some
+         browsers / IME states the native tooltip rendered overlapping the
+         inline <span class="status-label"> text and produced a "ghost text"
+         doubling effect. aria-label alone preserves SR accessibility. -->
+    <span :class="badgeClass" :aria-label="badgeLabel">
       <span class="status-dot" />
       <span class="status-label">{{ badgeLabel }}</span>
     </span>
