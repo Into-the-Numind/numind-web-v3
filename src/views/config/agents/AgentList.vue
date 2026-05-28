@@ -21,7 +21,6 @@ const listError = ref('')
 const confirmVisible = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
-const confirmDanger = ref(false)
 const pendingAgent = ref<Agent | null>(null)
 const processing = ref(false)
 
@@ -50,7 +49,7 @@ async function fetchList() {
     if (status === HTTP_CHILD_ACCOUNT_FORBIDDEN) {
       listError.value = '仅父账户可配置 AI 助手，请联系机构主'
     } else if (status === 404) {
-      listError.value = '智能体不存在或已被删除'
+      listError.value = '智能体不存在或已被下架'
     } else {
       listError.value = errorMessage(e, '加载失败')
     }
@@ -77,7 +76,6 @@ function confirmTakedown(agent: Agent) {
   confirmTitle.value = `确认下架「${agent.name}」？`
   confirmMessage.value =
     '下架后：\n- 学员将无法启动新会话\n- 历史会话仍可查看\n- 如需恢复请联系运营'
-  confirmDanger.value = true
   confirmVisible.value = true
 }
 
@@ -91,14 +89,14 @@ async function executeTakedown() {
     notifications.error(errorMessage(e, '下架失败'))
   } finally {
     processing.value = false
-    confirmVisible.value = false
+    // ConfirmModal v-model 已经会在 confirm/cancel emit 后通过 update:modelValue 把 confirmVisible 置 false
     pendingAgent.value = null
     void fetchList()
   }
 }
 
 function cancelTakedown() {
-  confirmVisible.value = false
+  // ConfirmModal v-model 自动关闭，这里只清理 pending state
   pendingAgent.value = null
 }
 </script>
@@ -132,7 +130,9 @@ function cancelTakedown() {
       <AppButton variant="secondary" size="sm" @click="fetchList">重试</AppButton>
     </div>
 
-    <!-- 管理端列表（ui-ux.md §1 hard rule：必须用 DataTable，不可用 raw table） -->
+    <!-- 管理端列表（ui-ux.md §1 hard rule：必须用 DataTable，不可用 raw table）。
+         不传 :total —— 列表是 client-side filter（searchTerm），page_size=20 已覆盖全部行；
+         未来切服务端分页时再补 :total + @update:page。 -->
     <DataTable
       :columns="columns"
       :data="filtered"
@@ -161,12 +161,13 @@ function cancelTakedown() {
       </template>
     </DataTable>
 
-    <!-- 确认下架弹窗 -->
+    <!-- 确认下架弹窗（v-model 双向绑定 —— ConfirmModal 在 Esc/overlay/confirm/cancel
+         emit update:modelValue=false，父级 confirmVisible 自动同步关闭） -->
     <ConfirmModal
-      :model-value="confirmVisible"
+      v-model="confirmVisible"
       :title="confirmTitle"
       :message="confirmMessage"
-      :variant="confirmDanger ? 'danger' : 'default'"
+      variant="danger"
       confirm-text="确认下架"
       cancel-text="取消"
       @confirm="executeTakedown"
