@@ -51,7 +51,9 @@ describe('BoosterPurchaseCard — credits 正常态', () => {
 
     expect(card.attributes('data-state')).toBe('credits')
     expect(card.classes()).not.toContain('is-disabled')
-    expect(card.text()).toContain('立即购买')
+    // 票券风改版：CTA label 'credits' 模式下渲染为 '加量' 按钮（参见 BoosterPurchaseCard.vue .cta）
+    expect(wrapper.find('.cta').exists()).toBe(true)
+    expect(wrapper.find('.cta').text()).toBe('加量')
 
     await card.trigger('click')
     expect(wrapper.emitted('purchase')).toHaveLength(1)
