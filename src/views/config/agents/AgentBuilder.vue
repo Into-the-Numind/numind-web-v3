@@ -181,7 +181,11 @@ function scrollToFirstError() {
   const firstKey = Object.keys(errors.value)[0]
   if (!firstKey) return
   const el = document.querySelector(`[data-question="${firstKey}"]`)
-  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  // jsdom 不实现 scrollIntoView；浏览器里始终存在。守住 typeof 避免单测里
+  // unhandled rejection 污染（同时也兜底极旧浏览器 / WebView 缺失）。
+  if (el && typeof (el as Element & { scrollIntoView?: unknown }).scrollIntoView === 'function') {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 }
 
 // ── formToPayload ──────────────────────────────────────────────────────────

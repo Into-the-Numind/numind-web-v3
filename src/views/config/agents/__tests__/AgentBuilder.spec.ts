@@ -150,8 +150,11 @@ describe('AgentBuilder — create mode (scratch)', () => {
 
   it('shows validation errors when save clicked with empty form', async () => {
     const wrapper = await mountBuilder()
-    // Click save — form is empty, should fail validation
-    await wrapper.find('button').trigger('click') // AppButton triggers handleSave via @click
+    // 模板第一个 <button> 是 header 里的"返回"按钮，必须按文案找"保存"
+    // 才能触发 handleSave（之前 find('button') 点的是返回按钮，不会跑校验）
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('保存'))
+    expect(saveBtn).toBeDefined()
+    await saveBtn!.trigger('click')
     await flushPromises()
     // Should NOT call createAgent
     expect(agentApi.createAgent).not.toHaveBeenCalled()
