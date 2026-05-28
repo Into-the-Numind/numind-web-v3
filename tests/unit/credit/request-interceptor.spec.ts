@@ -60,8 +60,10 @@ describe('request.ts — 402 Credits.Insufficient 拦截器', () => {
     const evt = dispatchSpy.mock.calls[0]?.[0] as CustomEvent
     expect(evt).toBeInstanceOf(CustomEvent)
     expect(evt.type).toBe('insufficient-credits')
+    // detail.message 走 friendlyErrorMessage(code='Credits.Insufficient') 统一文案，
+    // 覆盖后端原始 message（参见 utils/errorMessage.ts ERRNO_FRIENDLY 表）
     expect(evt.detail).toEqual({
-      message: '积分不足，请购买加量包',
+      message: '积分不足，请前往会员中心查看额度',
       reason: 'booster_empty'
     })
   })
@@ -104,6 +106,10 @@ describe('request.ts — 402 Credits.Insufficient 拦截器', () => {
     })
 
     const evt = dispatchSpy.mock.calls[0]?.[0] as CustomEvent
-    expect(evt.detail).toEqual({ message: '积分不足', reason: undefined })
+    // detail.message 走 friendlyErrorMessage 统一文案；reason 可缺失
+    expect(evt.detail).toEqual({
+      message: '积分不足，请前往会员中心查看额度',
+      reason: undefined
+    })
   })
 })

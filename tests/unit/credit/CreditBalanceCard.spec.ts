@@ -16,6 +16,15 @@ import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
 import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 import type { QuotaBreakdown } from '@/api/credits'
+import type { VueWrapper } from '@vue/test-utils'
+
+/**
+ * 仪表盘改版后用 `.pool` + `.pool-label` 文本来识别三档；
+ * 不再有 `.credit-row.subscription/booster/trial` 类。
+ */
+function hasPool(wrapper: VueWrapper, label: '会员积分' | '试用积分' | '加量包'): boolean {
+  return wrapper.findAll('.pool-label').some((el) => el.text().trim() === label)
+}
 
 // vue-router mock：组件已不再直接 useRouter，但保留 mock 避免
 // 其它未来用例潜在依赖。
@@ -46,8 +55,8 @@ describe('CreditBalanceCard — free 状态（Q2: 联系管理员）', () => {
     // Q2: 不应再渲染"升级会员"按钮（B2B2C 模式移除 C 端自购 CTA）
     expect(wrapper.find('button').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('升级会员')
-    // 不应出现积分数字相关元素
-    expect(wrapper.find('.credit-row.subscription').exists()).toBe(false)
+    // 不应出现积分数字相关元素（free 分支模板里不渲染 .pools）
+    expect(hasPool(wrapper, '会员积分')).toBe(false)
   })
 
   it('tier=free + 全零余额 → 判 free', async () => {
@@ -104,8 +113,8 @@ describe('CreditBalanceCard — credits 状态', () => {
     await flushPromises()
 
     expect(wrapper.attributes('data-state')).toBe('credits')
-    expect(wrapper.find('.credit-row.subscription').exists()).toBe(true)
-    expect(wrapper.find('.credit-row.booster').exists()).toBe(true)
+    expect(hasPool(wrapper, '会员积分')).toBe(true)
+    expect(hasPool(wrapper, '加量包')).toBe(true)
     // cycleRemaining=700 显示
     expect(wrapper.text()).toContain('700')
     // 新版加量包改单数字 boosterTotal=400（不再用 booster_remain 作分子）
@@ -130,8 +139,8 @@ describe('CreditBalanceCard — credits 状态', () => {
     const wrapper = mountCard()
     await flushPromises()
     expect(wrapper.attributes('data-state')).toBe('credits')
-    expect(wrapper.find('.credit-row.subscription').exists()).toBe(true)
-    expect(wrapper.find('.credit-row.booster').exists()).toBe(false)
+    expect(hasPool(wrapper, '会员积分')).toBe(true)
+    expect(hasPool(wrapper, '加量包')).toBe(false)
   })
 
   it('trial 会员有试用积分 → 视为 credits（试用档渲染）', async () => {
@@ -151,7 +160,7 @@ describe('CreditBalanceCard — credits 状态', () => {
     const wrapper = mountCard()
     await flushPromises()
     expect(wrapper.attributes('data-state')).toBe('credits')
-    expect(wrapper.find('.credit-row.trial').exists()).toBe(true)
+    expect(hasPool(wrapper, '试用积分')).toBe(true)
     expect(wrapper.text()).toContain('100')
   })
 
@@ -170,7 +179,7 @@ describe('CreditBalanceCard — credits 状态', () => {
     const wrapper = mountCard()
     await flushPromises()
     expect(wrapper.attributes('data-state')).toBe('credits')
-    expect(wrapper.find('.credit-row.booster').exists()).toBe(true)
+    expect(hasPool(wrapper, '加量包')).toBe(true)
     expect(wrapper.text()).toContain('580')
     expect(wrapper.text()).toContain('需开通会员后可用')
   })

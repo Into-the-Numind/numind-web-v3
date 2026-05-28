@@ -29,7 +29,11 @@ const balanceFixture: QuotaBreakdown = {
   booster_total: 200,
   booster_remain: 150,
   sub_expires_at: '2026-04-30T23:59:59Z',
-  booster_earliest_expires_at: '2026-07-15T23:59:59Z'
+  booster_earliest_expires_at: '2026-07-15T23:59:59Z',
+  // 三池 SOT 字段（totalRemain getter 读这些）
+  trial_remaining: 0,
+  cycle_remaining: 600,
+  booster_usable: 150
 }
 
 const estimateFixture: EstimateResp = {
@@ -117,7 +121,7 @@ describe('credits store', () => {
 
     const store = useCreditsStore()
     await store.fetchBalance()
-    // sub_remain 600 + booster_remain 150
+    // cycle_remaining 600 + booster_usable 150 + trial_remaining 0
     expect(store.totalRemain).toBe(750)
   })
 
