@@ -716,13 +716,34 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         const group = ensureStreamingToolGroupForStep(step)
         // Avoid duplicates (idempotent)
         if (!group.tool_calls.find((t) => t.tool_call_id === payload.tool_call_id)) {
+          const actionLabels: Record<string, string> = {
+            web_search: '正在搜索网络...',
+            web_fetch: '正在抓取网页内容...',
+            use_skill: '正在调用技能...',
+            ask_user_question: '正在准备提问...',
+            remember: '正在写入记忆...',
+            file_read: '正在读取文件...',
+            file_write: '正在写入文件...',
+            run_python: '正在运行 Python 代码...'
+          }
+          const message = actionLabels[payload.tool_name] || `正在调用工具 ${payload.tool_name}...`
+
           group.tool_calls = [
             ...group.tool_calls,
             {
               tool_call_id: payload.tool_call_id,
               tool_name: payload.tool_name,
-              current_state: 'queued',
-              events: []
+              current_state: 'use',
+              events: [
+                {
+                  run_id: e.run_id,
+                  tool_call_id: payload.tool_call_id,
+                  tool_name: payload.tool_name,
+                  state: 'use',
+                  message: message,
+                  timestamp: e.ts
+                }
+              ]
             }
           ]
           // Trigger reactivity

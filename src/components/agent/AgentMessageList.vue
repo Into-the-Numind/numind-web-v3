@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
-import type { AgentMessage } from '@/types/agent'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
+import type { AgentMessage, AssistantMessage } from '@/types/agent'
+import { useScrollFollow } from '@/composables/useScrollFollow'
 import AgentMessageItem from './AgentMessageItem.vue'
 import { ChevronDown } from 'lucide-vue-next'
 
@@ -12,65 +13,63 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { readOnly: false })
 
 const scroller = ref<HTMLDivElement | null>(null)
-const userScrolled = ref(false)
-const showBackToBottom = ref(false)
+const scrollFollow = useScrollFollow()
 
-const isAtBottom = (): boolean => {
-  const el = scroller.value
-  if (!el) return true
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 30
-}
+// 精准计算当前处于 streaming 状态的助理消息文本长度（合并思考过程 reasoning 与回答 markdown）
+const streamingMessageText = computed<string>(() => {
+  const streamingMsg = props.messages.find(
+    (m): m is AssistantMessage => m.type === 'assistant' && !!(m as any).isStreaming
+  )
+  if (!streamingMsg) return ''
+  return (streamingMsg.markdown || '') + (streamingMsg.reasoning || '')
+})
 
-const scrollToBottom = (smooth = true): void => {
-  const el = scroller.value
-  if (!el) return
-  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
-}
+// 监听流式输出文本增长，在 Following 状态下实时平滑滚动到底部
+watch(streamingMessageText, () => {
+  nextTick(() => {
+    if (scroller.value) {
+      scrollFollow.checkAndScroll(scroller.value)
+    }
+  })
+})
 
-const handleScroll = (): void => {
-  if (isAtBottom()) {
-    userScrolled.value = false
-    showBackToBottom.value = false
-  } else {
-    userScrolled.value = true
-    showBackToBottom.value = true
-  }
-}
-
-const backToBottom = (): void => {
-  scrollToBottom(true)
-  userScrolled.value = false
-  showBackToBottom.value = false
-}
-
-// 新消息到达时自动滚到底（除非用户手动向上滚）
+// 新增消息（如新节点执行、用户消息发送、系统通知等导致 length 变化）时，自动触发跳到底部并重置跟随状态
 watch(
   () => props.messages.length,
   async () => {
     await nextTick()
-    if (!userScrolled.value) {
-      scrollToBottom(true)
+    if (scroller.value) {
+      scrollFollow.resume(scroller.value)
     }
   }
 )
 
 onMounted(async () => {
   await nextTick()
-  scrollToBottom(false)
+  if (scroller.value) {
+    scrollFollow.install(scroller.value)
+    // 首次挂载时直接无动画瞬间滚动到最下方
+    scrollFollow.resume(scroller.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  scrollFollow.uninstall()
 })
 </script>
 
 <template>
   <div class="message-list">
-    <div ref="scroller" class="scroller" @scroll="handleScroll">
+    <div ref="scroller" class="scroller">
       <div class="messages-container">
         <AgentMessageItem v-for="msg in messages" :key="msg.id" :msg="msg" :read-only="readOnly" />
       </div>
     </div>
+    <!-- 当用户手动向上滚动打断跟随状态时，显示优美的“跳回底部”按钮 -->
     <button
-      v-if="showBackToBottom"
+      v-if="scrollFollow.isInterrupted.value"
       class="back-to-bottom"
-      @click="backToBottom"
+      @click="scrollFollow.resume(scroller!)"
       aria-label="回到底部"
     >
       <ChevronDown :size="16" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { renderMarkdown } from '@/utils/markdown'
 import type {
   AgentMessage,
   UserMessage,
@@ -16,6 +17,7 @@ import AgentToolCallList from './AgentToolCallList.vue'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentFinalAnswer from './AgentFinalAnswer.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
+import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import { Copy, Check } from 'lucide-vue-next'
 
 interface Props {
@@ -53,6 +55,17 @@ const copyText = async (text: string): Promise<void> => {
     }
   }
 }
+
+const renderedMarkdown = computed<string>(() => {
+  return renderMarkdown(asAssistant.value?.markdown || '')
+})
+
+const thinkingFinished = computed<boolean>(() => {
+  if (asAssistant.value?.isStreaming) {
+    return !!asAssistant.value.markdown
+  }
+  return true
+})
 
 // Type guard helpers (discriminated union 收窄)
 const asUser = computed<UserMessage | null>(() => (props.msg.type === 'user' ? props.msg : null))
@@ -140,11 +153,17 @@ const systemText = computed<string>(() => {
         <line x1="16" y1="16" x2="16" y2="16" />
       </svg>
     </span>
-    <div class="bubble">
-      <p class="text">
-        {{ asAssistant.markdown
-        }}<span v-if="asAssistant.isStreaming" class="streaming-cursor" aria-hidden="true">▎</span>
-      </p>
+    <div class="content-wrap">
+      <div class="streaming-answer">
+        <ThinkingBlock
+          v-if="asAssistant.reasoning"
+          :content="asAssistant.reasoning"
+          :finished="thinkingFinished"
+        />
+        <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
+        <div class="markdown-body" v-html="renderedMarkdown"></div>
+        <span v-if="asAssistant.isStreaming" class="streaming-cursor" aria-hidden="true">▎</span>
+      </div>
     </div>
   </div>
 
@@ -453,10 +472,74 @@ const systemText = computed<string>(() => {
   }
 }
 
+.streaming-answer {
+  position: relative;
+  width: 100%;
+}
+
+.streaming-answer :deep(.markdown-body) {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text, #1f2937);
+}
+
+.streaming-answer :deep(.markdown-body h1),
+.streaming-answer :deep(.markdown-body h2),
+.streaming-answer :deep(.markdown-body h3) {
+  margin: 16px 0 8px;
+  color: var(--color-text, #1f2937);
+}
+
+.streaming-answer :deep(.markdown-body p) {
+  margin: 8px 0;
+}
+
+.streaming-answer :deep(.markdown-body code) {
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.streaming-answer :deep(.markdown-body pre) {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.streaming-answer :deep(.markdown-body pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.streaming-answer :deep(.markdown-body table) {
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.streaming-answer :deep(.markdown-body th),
+.streaming-answer :deep(.markdown-body td) {
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.streaming-answer :deep(.markdown-body th) {
+  background: #f9fafb;
+}
+
 .streaming-cursor {
-  display: inline;
-  color: currentColor;
+  display: inline-block;
+  color: var(--primary, #2563eb);
   animation: blink-cursor 1s linear infinite;
   user-select: none;
+  margin-left: 2px;
+  vertical-align: middle;
 }
 </style>
