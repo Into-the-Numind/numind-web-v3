@@ -132,22 +132,6 @@
           <path d="M9 14C9 15.6569 10.3431 17 12 17C13.6569 17 15 15.6569 15 14" />
         </svg>
         <svg
-          v-else-if="item.icon === 'agent'"
-          class="nav-icon-svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.6"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <rect x="3" y="11" width="18" height="10" rx="2" />
-          <circle cx="12" cy="5" r="2" />
-          <path d="M12 7v4" />
-          <circle cx="8" cy="16" r="1" fill="currentColor" stroke="none" />
-          <circle cx="16" cy="16" r="1" fill="currentColor" stroke="none" />
-        </svg>
-        <svg
           v-else-if="item.icon === 'settings'"
           class="nav-icon-svg"
           viewBox="0 0 24 24"
@@ -228,7 +212,6 @@ const menuItems = computed(() => {
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
-  items.push({ path: '/agent', title: 'AI 助手', icon: 'agent' })
   // 竞品监控暂时隐藏（开发中，未对用户开放）
   // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
 
