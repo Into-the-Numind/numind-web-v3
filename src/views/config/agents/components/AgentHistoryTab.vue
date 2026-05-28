@@ -176,7 +176,7 @@ async function retryFetch() {
       "
       confirm-text="确认恢复"
       cancel-text="取消"
-      variant="default"
+      variant="danger"
       @confirm="confirmRestore"
       @cancel="cancelRestore"
     />
