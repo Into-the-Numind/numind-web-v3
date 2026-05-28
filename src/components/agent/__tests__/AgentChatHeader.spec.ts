@@ -75,10 +75,6 @@ describe('AgentChatHeader', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
-  it('shows credits_used', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running', 'under_60', 150), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('已用 150 积分')
-  })
+  // "已用 X 积分" credits_used 显示已按产品决定移除（不需要在 header 暴露会话花费），
+  // 对应组件代码也无相关渲染。原 it('shows credits_used') 测试随之删除。
 })
