@@ -101,25 +101,30 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
     <!-- Multi-select: show checkboxes -->
     <div v-if="multiSelect" class="question-prompt__options question-prompt__options--multi">
-      <label
+      <!-- 多选用 <button type="button">（不是 <label><input>），原因：
+           (a) jsdom + vue-test-utils 不实现 label-click activation，trigger('click') 不会
+               触发 input 的 change → 测试和浏览器路径分裂；
+           (b) button @click 在所有环境都可靠触发；
+           (c) aria-pressed 表达"已选/未选"语义，无障碍含义清晰。
+           视觉上用 ☑/☐ 字符做 checkbox 视觉占位。 -->
+      <button
         v-for="opt in options"
         :key="opt.label"
+        type="button"
         class="question-prompt__option question-prompt__option--checkbox"
         :class="{ 'is-selected': isSelected(opt.label), 'is-disabled': answered || submitting }"
+        :disabled="answered || submitting"
+        :aria-pressed="isSelected(opt.label)"
+        @click="toggleOption(opt.label)"
       >
-        <input
-          type="checkbox"
-          :value="opt.label"
-          :checked="isSelected(opt.label)"
-          :disabled="answered || submitting"
-          class="question-prompt__checkbox"
-          @change="toggleOption(opt.label)"
-        />
+        <span class="question-prompt__checkbox-visual" aria-hidden="true">
+          {{ isSelected(opt.label) ? '☑' : '☐' }}
+        </span>
         <span class="question-prompt__option-label">{{ opt.label }}</span>
         <span v-if="opt.description" class="question-prompt__option-desc">{{
           opt.description
         }}</span>
-      </label>
+      </button>
 
       <!-- Free text area -->
       <div class="question-prompt__free-text">
@@ -243,21 +248,25 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   opacity: 0.6;
 }
 
-/* Multi-select checkboxes */
+/* Multi-select checkboxes（button 实现，视觉上还是 checkbox） */
 .question-prompt__option--checkbox {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 8px 12px;
+  background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
   cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
   transition:
     background 0.12s,
     border-color 0.12s;
 }
 
-.question-prompt__option--checkbox:hover:not(.is-disabled) {
+.question-prompt__option--checkbox:hover:not(:disabled):not(.is-disabled) {
   background: var(--color-surface-hover, #f9fafb);
 }
 
@@ -266,15 +275,18 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   border-color: var(--color-primary, #2563eb);
 }
 
+.question-prompt__option--checkbox:disabled,
 .question-prompt__option--checkbox.is-disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.question-prompt__checkbox {
-  margin-top: 2px;
+.question-prompt__checkbox-visual {
+  margin-top: 1px;
   flex-shrink: 0;
-  accent-color: var(--color-primary, #2563eb);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-primary, #2563eb);
 }
 
 .question-prompt__option-label {
