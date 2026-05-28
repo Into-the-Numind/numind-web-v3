@@ -232,7 +232,7 @@ describe('AgentAdvancedEdit', () => {
     // Confirm modal should be hidden initially; dangerous confirm is the first ConfirmModal
     const allModals = wrapper.findAllComponents({ name: 'ConfirmModal' })
     const dangerousModal = allModals[0]
-    expect(dangerousModal.props('visible')).toBe(false)
+    expect(dangerousModal.props('modelValue')).toBe(false)
 
     // Check the dangerous checkbox
     const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
@@ -241,7 +241,7 @@ describe('AgentAdvancedEdit', () => {
     await dangerousCheckbox.trigger('change')
 
     // Modal should now be visible
-    expect(wrapper.findAllComponents({ name: 'ConfirmModal' })[0].props('visible')).toBe(true)
+    expect(wrapper.findAllComponents({ name: 'ConfirmModal' })[0].props('modelValue')).toBe(true)
   })
 
   it('reverts dangerous checkbox to false when user cancels the confirm modal', async () => {
@@ -264,7 +264,7 @@ describe('AgentAdvancedEdit', () => {
     await wrapper.vm.$nextTick()
 
     // Modal closed and dangerous is back to false
-    expect(dangerousModal.props('visible')).toBe(false)
+    expect(dangerousModal.props('modelValue')).toBe(false)
     const updatedCheckboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
     expect(updatedCheckboxes[2].element.checked).toBe(false)
   })
@@ -289,7 +289,7 @@ describe('AgentAdvancedEdit', () => {
     await wrapper.vm.$nextTick()
 
     // Modal closed and dangerous stays true
-    expect(dangerousModal.props('visible')).toBe(false)
+    expect(dangerousModal.props('modelValue')).toBe(false)
     const updatedCheckboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
     expect(updatedCheckboxes[2].element.checked).toBe(true)
   })
@@ -312,7 +312,7 @@ describe('AgentAdvancedEdit', () => {
     const dangerousModal = wrapper.findAllComponents({
       name: 'ConfirmModal'
     })[0]
-    expect(dangerousModal.props('visible')).toBe(false)
+    expect(dangerousModal.props('modelValue')).toBe(false)
   })
 
   // ── Save ───────────────────────────────────────────────────────────────
