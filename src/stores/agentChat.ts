@@ -509,27 +509,64 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   /**
    * After receiving a terminal event, fetch the authoritative run state from DB
-   * and replace messages with the DB version (R5 reconciliation).
+   * and reconcile with the streaming UI (R5 reconciliation).
+   *
+   * Backend `GetRun.RunDetail.FinalOutput` is synthesized from
+   * agent_run.messages last assistant turn — i.e. NON-empty for any completed
+   * run that wrote messages. If we naively push a `final_answer` message
+   * here, the user sees TWO identical bubbles: the streaming AssistantMessage
+   * (accumulated via token_delta, never finalized) AND the new final_answer
+   * (dev 2026-05-28 agent_run 46/47).
+   *
+   * Order of preference:
+   *   1. If a streaming AssistantMessage exists (token_delta path): finalize
+   *      it in-place — DB is authoritative for the markdown content.
+   *   2. Otherwise, if final_output is non-empty: fall back to pushing a
+   *      stand-alone final_answer (covers paths where token_delta never
+   *      fired, e.g. tool-only steps or future protocol changes).
    */
   const reconcileFromDB = async (runId: number): Promise<void> => {
     try {
       const run = await api.getRun(runId)
       currentRun.value = run
-      // If the server provides messages via session snapshot, prefer that.
-      // For now, if the run has a final_output, inject a final_answer message
-      // that replaces any streaming-accumulated assistant messages.
       const finalOut = run.final_output ?? ''
-      const alreadyHasFinal = messages.value.some(
-        (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId
-      )
-      if (finalOut && !alreadyHasFinal) {
-        messages.value.push({
-          id: uuid(),
-          type: 'final_answer',
-          markdown: finalOut,
-          run_id: runId,
-          timestamp: new Date().toISOString()
-        })
+
+      // Find the most recent streaming assistant message (carries _stream_id).
+      const streamingBubble = [...messages.value]
+        .reverse()
+        .find(
+          (m): m is AssistantMessage =>
+            m.type === 'assistant' &&
+            (m as AssistantMessage & { _stream_id?: string })._stream_id !== undefined
+        ) as (AssistantMessage & { _stream_id?: string }) | undefined
+
+      if (streamingBubble) {
+        // Finalize in place — kills the streaming cursor and aligns markdown
+        // with the DB authoritative content.
+        if (finalOut) {
+          streamingBubble.markdown = finalOut
+        }
+        streamingBubble.isStreaming = false
+        return
+      }
+
+      // Fallback: no streaming bubble for this run (e.g. token_delta never
+      // emitted because the only assistant action was tool calls). Push the
+      // DB final_output as a stand-alone final_answer, guarded against
+      // duplicates from a second reconcile call.
+      if (finalOut) {
+        const alreadyHasFinal = messages.value.some(
+          (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId
+        )
+        if (!alreadyHasFinal) {
+          messages.value.push({
+            id: uuid(),
+            type: 'final_answer',
+            markdown: finalOut,
+            run_id: runId,
+            timestamp: new Date().toISOString()
+          })
+        }
       }
     } catch {
       // Network error during reconcile — streaming UI is already visible, silently ignore
