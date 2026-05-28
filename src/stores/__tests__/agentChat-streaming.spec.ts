@@ -408,6 +408,79 @@ describe('applyStreamEvent', () => {
     )
   })
 
+  // REPRODUCES BUG (2026-05-28, agent_run 46/47): when token_delta has
+  // already accumulated a streaming AssistantMessage for this run, the
+  // terminal handler used to push a SEPARATE final_answer message with the
+  // same content (because reconcileFromDB reads run.final_output, which the
+  // backend GetRun synthesises from agent_run.messages last assistant turn).
+  // Result: user sees TWO identical bubbles, one still showing the streaming
+  // cursor (never finalized) and one with the action footer.
+  //
+  // Contract: reconcileFromDB must prefer to finalize the existing streaming
+  // bubble in-place (markdown = authoritative final_output, isStreaming=false).
+  // It should fall back to pushing a final_answer ONLY when no streaming
+  // bubble exists for the run (e.g. backend never emitted token_delta).
+  it('reproduce: terminal must not duplicate a streaming bubble as final_answer', async () => {
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce({
+        id: 999,
+        session_id: 'sess-999',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'running',
+        credits_used: 0,
+        credits_budget: 200,
+        credits_threshold_state: 'under_60',
+        created_at: '',
+        updated_at: ''
+      })
+      .mockResolvedValueOnce({
+        id: 999,
+        session_id: 'sess-999',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'completed',
+        // Same content as what token_delta accumulated below.
+        final_output: 'Hello world from streaming',
+        credits_used: 10,
+        credits_budget: 200,
+        credits_threshold_state: 'under_60',
+        created_at: '',
+        updated_at: ''
+      })
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'test')
+
+    // Simulate the streaming path: token_delta accumulates into an AssistantMessage.
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-stream-1', text: 'Hello world from streaming' })
+    )
+    const streamingBefore = store.messages.filter((m) => m.type === 'assistant')
+    expect(streamingBefore.length).toBe(1)
+    expect(streamingBefore[0].type === 'assistant' && streamingBefore[0].isStreaming).toBe(true)
+
+    // Terminal event triggers reconcileFromDB which sees run.final_output.
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 1000, step_count: 1 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    // EXACTLY ONE bubble for this assistant turn — no duplicate.
+    const assistantLike = store.messages.filter(
+      (m) => m.type === 'assistant' || m.type === 'final_answer'
+    )
+    expect(assistantLike.length).toBe(1)
+
+    // The bubble carries the authoritative content + is no longer streaming.
+    const bubble = assistantLike[0]
+    expect(bubble.type).toBe('assistant')
+    if (bubble.type === 'assistant') {
+      expect(bubble.markdown).toBe('Hello world from streaming')
+      expect(bubble.isStreaming).toBe(false)
+    }
+  })
+
   it('terminal: reconcileFromDB is idempotent — does not push duplicate final_answer', async () => {
     vi.mocked(api.getRun).mockResolvedValue({
       id: 999,
