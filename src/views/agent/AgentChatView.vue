@@ -1,16 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, watch, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  ArrowLeft,
-  Plus,
-  MoreVertical,
-  Pin,
-  PinOff,
-  Edit3,
-  Trash2,
-  Square
-} from 'lucide-vue-next'
+import { ArrowLeft, Plus, MoreVertical, Pin, PinOff, Edit3, Trash2, Square } from 'lucide-vue-next'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useCreditsStore } from '@/stores/credits'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -19,6 +10,7 @@ import { useAgentRun } from '@/composables/useAgentRun'
 import { useAgentStream } from '@/composables/useAgentStream'
 import { useAgentCost } from '@/composables/useAgentCost'
 import * as api from '@/api/agent'
+import { handleSessionIdTransition } from './session-watchers'
 import AppButton from '@/components/common/AppButton.vue'
 import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
 import AgentFirstRun from '@/components/agent/AgentFirstRun.vue'
@@ -315,22 +307,24 @@ onMounted(async () => {
 
 watch(
   () => props.sessionId,
-  async (newSessionId) => {
-    if (newSessionId === 'new') {
-      store.messages = []
-      store.currentRun = null
-      store.narrationEvents = []
-      store.lastNarrationTs = ''
-      store.stuckSince = null
-      store.attachments = []
-      store.inputText = ''
-      store.estimate = null
-      store.isReadOnly = false
-      sessionStorage.removeItem('agentChat:currentRunId')
-      sessionStorage.removeItem('agentChat:currentSessionId')
-    } else {
-      await store.loadSessionSnapshot(newSessionId, props.readOnly)
-    }
+  async (newSessionId, oldSessionId) => {
+    await handleSessionIdTransition(newSessionId, oldSessionId, {
+      loadSnapshot: (id, ro) => store.loadSessionSnapshot(id, ro),
+      resetLocal: () => {
+        store.messages = []
+        store.currentRun = null
+        store.narrationEvents = []
+        store.lastNarrationTs = ''
+        store.stuckSince = null
+        store.attachments = []
+        store.inputText = ''
+        store.estimate = null
+        store.isReadOnly = false
+        sessionStorage.removeItem('agentChat:currentRunId')
+        sessionStorage.removeItem('agentChat:currentSessionId')
+      },
+      readOnly: props.readOnly
+    })
   }
 )
 
