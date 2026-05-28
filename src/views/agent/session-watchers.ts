@@ -40,8 +40,13 @@ export async function handleSessionIdTransition(
     deps.resetLocal()
     return
   }
-  // BUG (pending fix): on a 'new' → real-uuid transition, calling loadSnapshot
-  // here clobbers the still-streaming chat UI with an empty backend snapshot.
-  // See reproducing test "new → real-uuid transition does not call loadSnapshot".
+  if (oldSessionId === 'new') {
+    // 'new' → real-uuid: SSE terminal → reconcileFromDB → store.currentRun set
+    // → watcher fired router.replace, so we're here mid-stream. The streaming
+    // UI is the SoT; calling loadSnapshot would clobber the still-rendering
+    // messages with an empty backend snapshot (DB persistence races finalizeRun).
+    // The next true session switch (uuid → uuid) will load the snapshot normally.
+    return
+  }
   await deps.loadSnapshot(newSessionId, deps.readOnly)
 }
