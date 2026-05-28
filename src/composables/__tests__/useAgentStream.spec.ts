@@ -32,10 +32,12 @@ vi.mock('@/api/agent-stream', () => ({
 // Mock the store
 const mockApplyStreamEvent = vi.fn()
 const mockApplyError = vi.fn()
+const mockAppendUserMessage = vi.fn()
 vi.mock('@/stores/agentChat', () => ({
   useAgentChatStore: () => ({
     applyStreamEvent: mockApplyStreamEvent,
-    applyError: mockApplyError
+    applyError: mockApplyError,
+    appendUserMessage: mockAppendUserMessage
   })
 }))
 
@@ -200,6 +202,43 @@ describe('useAgentStream', () => {
 
     resolveFirst()
     await first
+  })
+
+  // 8. REPRODUCES BUG (2026-05-28): user bubble never appears in chat
+  //
+  // T14 commit 07dad3f wired AgentChatView.handleSend to useAgentStream.start
+  // but the new streaming path does NOT push the user's message into store.messages
+  // (the old startNewRun path at agentChat.ts:176 did). Because applyStreamEvent
+  // has no `user_message` case either, the user's chat bubble never appears even
+  // when the SSE stream works perfectly.
+  //
+  // Contract: start() must call store.appendUserMessage with input_text + attachments
+  // BEFORE invoking streamAgentRun, so the bubble is optimistically rendered.
+  it('reproduce: start() must append user message to store before opening SSE', async () => {
+    // streamAgentRun resolves immediately (we are not testing the stream itself)
+    mockStreamAgentRun.mockResolvedValueOnce(undefined)
+
+    const { start } = useAgentStream()
+    await start({
+      agent_skill_id: 1,
+      input_text: 'hello agent',
+      session_id: 'sess-1',
+      attachment_urls: ['cos://a.png']
+    })
+
+    // 1) appendUserMessage MUST be called
+    expect(mockAppendUserMessage).toHaveBeenCalledOnce()
+
+    // 2) called with the user's text + attachments
+    expect(mockAppendUserMessage.mock.calls[0][0]).toMatchObject({
+      input_text: 'hello agent',
+      attachment_urls: ['cos://a.png']
+    })
+
+    // 3) called BEFORE streamAgentRun (optimistic push, not after stream finishes)
+    const appendOrder = mockAppendUserMessage.mock.invocationCallOrder[0]
+    const streamOrder = mockStreamAgentRun.mock.invocationCallOrder[0]
+    expect(appendOrder).toBeLessThan(streamOrder)
   })
 
   // 7. fallbackPolling resets to false on next start()
