@@ -51,8 +51,6 @@ const showCancel = computed(() => {
 })
 
 const cancelDisabled = computed(() => props.cancelling)
-
-const creditsUsed = computed(() => props.run?.credits_used ?? 0)
 </script>
 
 <template>
@@ -74,17 +72,7 @@ const creditsUsed = computed(() => props.run?.credits_used ?? 0)
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
       </button>
-      <span class="emoji">
-        <span v-if="agent?.emoji">{{ agent.emoji }}</span>
-        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bot-header-svg"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
-      </span>
       <h2 class="name">{{ agent?.name ?? 'AI 助手' }}</h2>
-      
-      <div class="center-info">
-        <span class="credits">已用 {{ creditsUsed }} 积分</span>
-        <span class="separator desktop-only" aria-hidden="true">·</span>
-        <span class="balance desktop-only">余额 {{ balance }}</span>
-      </div>
     </div>
 
     <div class="right">
