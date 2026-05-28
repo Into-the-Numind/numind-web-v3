@@ -8,8 +8,8 @@
  */
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useAgentChatStore } from '../agentChat'
-import type { AgentRun } from '@/types/agent'
+import { useAgentChatStore, type StreamingAssistantMessage } from '../agentChat'
+import type { AgentRun, AssistantMessage } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 
 // ---------------------------------------------------------------------------
@@ -600,5 +600,290 @@ describe('reset() clears streamingToolGroupIds', () => {
     // After reset, a new tool_call_start for step 0 should create a fresh group
     await seedToolCall(store, 'tc-new', 0)
     expect(store.messages.filter((m) => m.type === 'tool_group').length).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// reconcileFromDB multi-run / multi-step isolation (P1#1 + P1#2)
+//
+// Reviewer-flagged latent issues in agent-stream-reconcile-deduplicate hotfix:
+//
+//   P1#1: streamingBubble search ignores run_id. When multiple runs leave
+//         streaming bubbles in messages[] (multi-run concurrency or session
+//         restore), reconcileFromDB(runA) silently finalizes runB's bubble
+//         because `[...messages].reverse().find()` grabs the most-recently-
+//         pushed bubble regardless of which run it belongs to.
+//
+//   P1#2: Multi-step ReAct produces multiple streaming bubbles for the same
+//         run (one per step). Earlier-step bubbles SHOULD be finalized by
+//         their own assistant_message events, but if one is dropped (network
+//         jitter, partial SSE), the final terminal handler must catch them
+//         all — not just the last one. Current find()-then-mutate finalizes
+//         only the last bubble; earlier bubbles stay isStreaming=true.
+// ---------------------------------------------------------------------------
+
+/** Build a completed AgentRun fixture for getRun mock returns. */
+function completedRun(id: number, finalOutput: string): AgentRun {
+  return {
+    id,
+    session_id: `sess-${id}`,
+    user_id: 1,
+    agent_skill_id: 1,
+    status: 'completed',
+    final_output: finalOutput,
+    credits_used: 10,
+    credits_budget: 200,
+    credits_threshold_state: 'under_60',
+    created_at: '',
+    updated_at: ''
+  }
+}
+
+/** Build a running AgentRun fixture used by startNewRun bootstrap. */
+function runningRun(id: number): AgentRun {
+  return {
+    id,
+    session_id: `sess-${id}`,
+    user_id: 1,
+    agent_skill_id: 1,
+    status: 'running',
+    credits_used: 0,
+    credits_budget: 200,
+    credits_threshold_state: 'under_60',
+    created_at: '',
+    updated_at: ''
+  }
+}
+
+describe('reconcileFromDB multi-run isolation (P1#1)', () => {
+  it('reproduce: reconcileFromDB(runA) must not finalize runB streaming bubble', async () => {
+    // Sequencing:
+    //   getRun call #1: startNewRun bootstrap for run 100 (running)
+    //   getRun call #2: reconcileFromDB(100) — returns final_output for run A
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce(runningRun(100))
+      .mockResolvedValueOnce(completedRun(100, 'Run A FINAL'))
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'kickoff for run A')
+
+    // Token deltas for run 100 (A)
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-A', text: 'Run A response' }, { run_id: 100 })
+    )
+    // Token deltas for run 200 (B) — simulates concurrent run / session restore;
+    // pushes a second streaming bubble that is LAST in messages[].
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-B', text: 'Run B response' }, { run_id: 200 })
+    )
+
+    expect(store.messages.filter((m) => m.type === 'assistant').length).toBe(2)
+
+    // Terminal for run A → reconcileFromDB(100)
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 1000, step_count: 1 }, { run_id: 100 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    const bubbles = store.messages.filter(
+      (m): m is import('@/types/agent').AssistantMessage => m.type === 'assistant'
+    )
+    const runABubble = bubbles.find(
+      (m) => (m as StreamingAssistantMessage)._stream_id === 'msg-A'
+    ) as StreamingAssistantMessage | undefined
+    const runBBubble = bubbles.find(
+      (m) => (m as StreamingAssistantMessage)._stream_id === 'msg-B'
+    ) as StreamingAssistantMessage | undefined
+
+    // Run A's bubble is the one that should be finalized.
+    expect(runABubble?.markdown).toBe('Run A FINAL')
+    expect(runABubble?.isStreaming).toBe(false)
+
+    // Run B's bubble must be untouched — still streaming, original content.
+    expect(runBBubble?.markdown).toBe('Run B response')
+    expect(runBBubble?.isStreaming).toBe(true)
+  })
+
+  it('finalize tags streaming bubble with _run_id matching the event run_id', async () => {
+    // Only startNewRun calls getRun in this test — DO NOT queue a second
+    // once-value, or it will bleed into the next test (vi.clearAllMocks does
+    // NOT drain the mockResolvedValueOnce queue).
+    vi.mocked(api.getRun).mockResolvedValueOnce(runningRun(100))
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'kickoff')
+
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-A', text: 'A...' }, { run_id: 100 })
+    )
+
+    const bubble = store.messages.find((m) => m.type === 'assistant')
+    // After fix: streaming bubble must carry _run_id=100.
+    expect((bubble as StreamingAssistantMessage | undefined)?._run_id).toBe(100)
+  })
+})
+
+describe('reconcileFromDB multi-step finalize (P1#2)', () => {
+  it('reproduce: multi-step bubbles for same run — terminal finalizes ALL, not only last', async () => {
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce(runningRun(999))
+      .mockResolvedValueOnce(completedRun(999, 'Final step output'))
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'multi-step')
+
+    // Two streaming bubbles for SAME run, different steps.
+    // Simulates assistant_message being dropped for step 0 (network jitter / partial SSE).
+    store.applyStreamEvent(
+      makeEvent(
+        'token_delta',
+        { message_id: 'msg-step0', text: 'step 0 thinking' },
+        { run_id: 999, step: 0 }
+      )
+    )
+    store.applyStreamEvent(
+      makeEvent(
+        'token_delta',
+        { message_id: 'msg-step1', text: 'step 1 thinking' },
+        { run_id: 999, step: 1 }
+      )
+    )
+
+    const before = store.messages.filter((m) => m.type === 'assistant')
+    expect(before.length).toBe(2)
+    expect(
+      before.every((m) => m.type === 'assistant' && (m as { isStreaming?: boolean }).isStreaming)
+    ).toBe(true)
+
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 1000, step_count: 2 }, { run_id: 999 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    const after = store.messages.filter((m): m is AssistantMessage => m.type === 'assistant')
+    expect(after.length).toBe(2)
+
+    // ALL bubbles for run 999 are no longer streaming.
+    expect(after.every((m) => m.isStreaming === false)).toBe(true)
+
+    // Address bubbles by their _stream_id (semantic identity) rather than
+    // by array index — guards against future ordering changes if a
+    // tool_group is interleaved between steps.
+    const findByStreamId = (sid: string) =>
+      after.find((m) => (m as StreamingAssistantMessage)._stream_id === sid)
+    const step0 = findByStreamId('msg-step0')
+    const step1 = findByStreamId('msg-step1')
+
+    // The LAST step's bubble carries the DB-authoritative final_output.
+    expect(step1?.markdown).toBe('Final step output')
+
+    // Earlier step's markdown is preserved (not overwritten with final_output).
+    expect(step0?.markdown).toBe('step 0 thinking')
+  })
+
+  it('terminal does not finalize bubbles belonging to a different run (cross-run guard)', async () => {
+    // Start run 999, mock reconcile to return final for run 999
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce(runningRun(999))
+      .mockResolvedValueOnce(completedRun(999, 'For 999 only'))
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'cross-run guard')
+
+    // Bubble for run 999
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-999', text: 'belongs to 999' }, { run_id: 999 })
+    )
+    // Bubble for run 888 (stale from earlier session)
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-888', text: 'stale 888' }, { run_id: 888 })
+    )
+
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 500, step_count: 1 }, { run_id: 999 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    const stale = store.messages.find(
+      (m) => m.type === 'assistant' && (m as StreamingAssistantMessage)._stream_id === 'msg-888'
+    ) as StreamingAssistantMessage | undefined
+    expect(stale?.markdown).toBe('stale 888')
+    expect(stale?.isStreaming).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// reconcileFromDB edge cases (P2 — regression protection)
+// ---------------------------------------------------------------------------
+
+describe('reconcileFromDB edge cases (P2)', () => {
+  it('idempotent on early-return path: double terminal with streaming bubble', async () => {
+    // Different content on each reconcile call — proves the second call
+    // doesn't re-overwrite a finalized bubble (would write 'GHOST-overwrite'
+    // if the isStreaming guard were missing) AND doesn't fall through to
+    // push a duplicate final_answer (the fallback now dedups by any
+    // existing UI for the run, not just final_answer).
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce(runningRun(999))
+      .mockResolvedValueOnce(completedRun(999, 'Answer'))
+      .mockResolvedValueOnce(completedRun(999, 'GHOST-overwrite'))
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'idem-early')
+
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-1', text: 'draft' }, { run_id: 999 })
+    )
+
+    // First terminal — finalizes bubble in place with 'Answer'.
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 1000, step_count: 1 }, { run_id: 999 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    // Second terminal — must be a no-op on UI surface.
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 1000, step_count: 1 }, { run_id: 999 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    const assistants = store.messages.filter((m): m is AssistantMessage => m.type === 'assistant')
+    const finals = store.messages.filter((m) => m.type === 'final_answer')
+    expect(assistants.length).toBe(1)
+    expect(assistants[0].markdown).toBe('Answer') // NOT 'GHOST-overwrite'
+    expect(assistants[0].isStreaming).toBe(false)
+    expect(finals.length).toBe(0)
+  })
+
+  it('empty final_output: streaming bubble preserves accumulated markdown, just stops streaming', async () => {
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce(runningRun(999))
+      .mockResolvedValueOnce(completedRun(999, '')) // empty final_output
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'empty-final')
+
+    store.applyStreamEvent(
+      makeEvent(
+        'token_delta',
+        { message_id: 'msg-1', text: 'accumulated content' },
+        { run_id: 999 }
+      )
+    )
+
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 500, step_count: 1 }, { run_id: 999 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    const bubble = store.messages.find((m) => m.type === 'assistant')
+    expect(bubble?.type === 'assistant' && (bubble as { markdown: string }).markdown).toBe(
+      'accumulated content'
+    )
+    expect(bubble?.type === 'assistant' && (bubble as { isStreaming?: boolean }).isStreaming).toBe(
+      false
+    )
+    // No fallback final_answer pushed (since bubble exists).
+    expect(store.messages.filter((m) => m.type === 'final_answer').length).toBe(0)
   })
 })
