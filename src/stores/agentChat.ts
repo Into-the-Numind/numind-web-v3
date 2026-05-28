@@ -549,6 +549,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *
    * Mirrors the relevant state reset from startNewRun (clears narration,
    * tool-group cursor, attachments, input box, estimate).
+   *
+   * NOTE on attachments: this reads `store.attachments.value` (which carries
+   * filenames), NOT `req.attachment_urls` (URL-only). Callers MUST invoke
+   * this BEFORE the request's attachments are mutated/cleared elsewhere; in
+   * the only caller (useAgentStream.start) the order is guaranteed because
+   * the `isStreaming` guard runs synchronously beforehand and this action
+   * itself clears `attachments.value` at the end.
    */
   const appendUserMessage = (req: CreateRunRequest): void => {
     const userMsg: AgentMessage = {
