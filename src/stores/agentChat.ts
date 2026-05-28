@@ -46,6 +46,20 @@ import type {
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
+/**
+ * StreamingAssistantMessage — AssistantMessage carrying SSE bookkeeping fields.
+ * `_stream_id`: backend-provided message_id used to deduplicate token_delta
+ * accumulation; `_run_id`: agent_run.id this bubble belongs to (used by
+ * reconcileFromDB to scope finalization to a specific run).
+ *
+ * Exported so tests can assert on the internal fields without duplicating
+ * the intersection.
+ */
+export type StreamingAssistantMessage = AssistantMessage & {
+  _stream_id?: string
+  _run_id?: number
+}
+
 export const useAgentChatStore = defineStore('agentChat', () => {
   // ── State (16 refs) ─────────────────────────────────────────────────
   const availableAgents = ref<AgentSkill[]>([])
@@ -438,26 +452,35 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   /**
    * Find an assistant message by its streaming message_id, or create a new one
-   * and push it into messages[]. Returns the found/created message (mutable ref).
+   * tagged with both _stream_id and _run_id. Returns the found/created message
+   * (mutable ref).
+   *
+   * _run_id is required so reconcileFromDB can finalize only bubbles belonging
+   * to a specific run — guards against multi-run concurrency / session-restore
+   * bleeding into the wrong run's terminal handler.
    */
-  const ensureStreamingAssistantMessage = (messageId: string): AssistantMessage => {
+  const ensureStreamingAssistantMessage = (messageId: string, runId: number): AssistantMessage => {
     const existing = messages.value.find(
       (m): m is AssistantMessage =>
-        m.type === 'assistant' &&
-        (m as AssistantMessage & { _stream_id?: string })._stream_id === messageId
+        m.type === 'assistant' && (m as StreamingAssistantMessage)._stream_id === messageId
     )
     if (existing) return existing
 
-    const msg: AssistantMessage & { _stream_id: string } = {
+    const msg: AssistantMessage & { _stream_id: string; _run_id: number } = {
       id: uuid(),
       _stream_id: messageId,
+      _run_id: runId,
       type: 'assistant',
       markdown: '',
       isStreaming: true,
       timestamp: new Date().toISOString()
     }
     messages.value.push(msg)
-    return msg
+    // Return the reactive proxy element from messages.value (not the raw `msg`
+    // local) so callers' mutations consistently route through Vue's reactivity
+    // graph. In practice the raw object IS the proxy target so both work, but
+    // returning the array element removes ambiguity.
+    return messages.value[messages.value.length - 1] as AssistantMessage
   }
 
   /**
@@ -518,12 +541,20 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    * (accumulated via token_delta, never finalized) AND the new final_answer
    * (dev 2026-05-28 agent_run 46/47).
    *
-   * Order of preference:
-   *   1. If a streaming AssistantMessage exists (token_delta path): finalize
-   *      it in-place — DB is authoritative for the markdown content.
-   *   2. Otherwise, if final_output is non-empty: fall back to pushing a
-   *      stand-alone final_answer (covers paths where token_delta never
-   *      fired, e.g. tool-only steps or future protocol changes).
+   * Resolution:
+   *   1. Filter messages[] for streaming AssistantMessages whose _run_id matches
+   *      runId. Earlier hotfix used reverse().find() which (a) ignored run_id
+   *      so a concurrent run / restored session bubble in messages[] would be
+   *      wrong-finalized, and (b) caught only the last bubble so multi-step
+   *      ReAct left earlier-step bubbles stuck in isStreaming=true if their
+   *      assistant_message event was dropped.
+   *   2. For every matched bubble: set isStreaming=false (cursor disappears).
+   *   3. For the LAST matched bubble: overwrite markdown with DB final_output
+   *      (authoritative answer). Earlier steps keep their accumulated text —
+   *      they were intermediate ReAct thoughts, not the final answer.
+   *   4. If no matched bubble exists (token_delta never fired for this run,
+   *      e.g. tool-only steps), fall back to pushing a stand-alone
+   *      final_answer, deduped against re-entrant calls.
    */
   const reconcileFromDB = async (runId: number): Promise<void> => {
     try {
@@ -531,34 +562,46 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       currentRun.value = run
       const finalOut = run.final_output ?? ''
 
-      // Find the most recent streaming assistant message (carries _stream_id).
-      const streamingBubble = [...messages.value]
-        .reverse()
-        .find(
-          (m): m is AssistantMessage =>
-            m.type === 'assistant' &&
-            (m as AssistantMessage & { _stream_id?: string })._stream_id !== undefined
-        ) as (AssistantMessage & { _stream_id?: string }) | undefined
+      // Match only bubbles that BELONG to this run AND are still streaming.
+      // The isStreaming guard makes reconcile re-entry truly idempotent: a
+      // duplicate terminal SSE frame would otherwise re-overwrite markdown
+      // (current backend returns a stable final_output, so it's invisible —
+      // but reviewer flagged this as a latent correctness bug masked by the
+      // test using identical mock values).
+      const streamingBubbles = messages.value.filter(
+        (m): m is StreamingAssistantMessage =>
+          m.type === 'assistant' &&
+          (m as StreamingAssistantMessage)._stream_id !== undefined &&
+          (m as StreamingAssistantMessage)._run_id === runId &&
+          (m as StreamingAssistantMessage).isStreaming === true
+      )
 
-      if (streamingBubble) {
-        // Finalize in place — kills the streaming cursor and aligns markdown
-        // with the DB authoritative content.
-        if (finalOut) {
-          streamingBubble.markdown = finalOut
+      if (streamingBubbles.length > 0) {
+        for (const b of streamingBubbles) {
+          b.isStreaming = false
         }
-        streamingBubble.isStreaming = false
+        if (finalOut) {
+          streamingBubbles[streamingBubbles.length - 1].markdown = finalOut
+        }
         return
       }
 
-      // Fallback: no streaming bubble for this run (e.g. token_delta never
-      // emitted because the only assistant action was tool calls). Push the
-      // DB final_output as a stand-alone final_answer, guarded against
-      // duplicates from a second reconcile call.
+      // Fallback: no ACTIVE streaming bubble for this run. Push the DB
+      // final_output as a stand-alone final_answer, but only if this run
+      // has NO existing UI representation. A second reconcile fires when:
+      //   (a) duplicate terminal SSE frame — the first reconcile already
+      //       finalized a bubble (filter now empty because isStreaming=false);
+      //       must NOT push final_answer because the finalized bubble IS the
+      //       UI for this run.
+      //   (b) the first reconcile already pushed a final_answer (tool-only
+      //       run path); subsequent calls must dedup against that.
       if (finalOut) {
-        const alreadyHasFinal = messages.value.some(
-          (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId
+        const hasAnyUiForRun = messages.value.some(
+          (m) =>
+            (m.type === 'assistant' && (m as StreamingAssistantMessage)._run_id === runId) ||
+            (m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId)
         )
-        if (!alreadyHasFinal) {
+        if (!hasAnyUiForRun) {
           messages.value.push({
             id: uuid(),
             type: 'final_answer',
@@ -631,7 +674,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       case 'token_delta': {
         const payload = e.data as TokenDeltaPayload
         if (!payload?.message_id) break
-        const msg = ensureStreamingAssistantMessage(payload.message_id)
+        const msg = ensureStreamingAssistantMessage(payload.message_id, e.run_id)
         msg.markdown += payload.text
         msg.isStreaming = true
         break
@@ -640,7 +683,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       case 'reasoning_delta': {
         const payload = e.data as ReasoningDeltaPayload
         if (!payload?.message_id) break
-        const msg = ensureStreamingAssistantMessage(payload.message_id)
+        const msg = ensureStreamingAssistantMessage(payload.message_id, e.run_id)
         msg.reasoning = (msg.reasoning ?? '') + payload.text
         break
       }
@@ -648,11 +691,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       case 'assistant_message': {
         const payload = e.data as AssistantMessagePayload
         if (!payload?.message_id) break
-        // Find by _stream_id and finalize
+        // Find by _stream_id AND _run_id — defense in depth against
+        // cross-run message_id collisions (very unlikely but cheap to guard).
         const existing = messages.value.find(
           (m): m is AssistantMessage =>
             m.type === 'assistant' &&
-            (m as AssistantMessage & { _stream_id?: string })._stream_id === payload.message_id
+            (m as StreamingAssistantMessage)._stream_id === payload.message_id &&
+            (m as StreamingAssistantMessage)._run_id === e.run_id
         )
         if (existing) {
           existing.markdown = payload.content // authoritative final from DB
