@@ -20,6 +20,7 @@ import type {
   AgentRun,
   AgentMessage,
   AssistantMessage,
+  CreateRunRequest,
   NarrationEvent,
   EstimateResponse,
   RecentSession,
@@ -538,6 +539,36 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // ── Streaming actions (T10) ──────────────────────────────────────────
 
   /**
+   * appendUserMessage — optimistically push the user's input as a UserMessage
+   * before the SSE stream starts. Called by useAgentStream.start (T14 fix).
+   *
+   * The streaming path (handleSend → useAgentStream.start → streamAgentRun)
+   * has no DB round-trip that would echo the user message back, and the SSE
+   * event protocol has no user_message frame either, so without this call
+   * the user's bubble would never render even when the stream succeeds.
+   *
+   * Mirrors the relevant state reset from startNewRun (clears narration,
+   * tool-group cursor, attachments, input box, estimate).
+   */
+  const appendUserMessage = (req: CreateRunRequest): void => {
+    const userMsg: AgentMessage = {
+      id: uuid(),
+      type: 'user',
+      text: req.input_text,
+      attachments: attachments.value.map((a) => ({ url: a.url, filename: a.filename })),
+      timestamp: new Date().toISOString()
+    }
+    messages.value.push(userMsg)
+    narrationEvents.value = []
+    lastNarrationTs.value = ''
+    stuckSince.value = null
+    currentToolGroupId.value = null
+    attachments.value = []
+    inputText.value = ''
+    estimate.value = null
+  }
+
+  /**
    * applyStreamEvent — dispatch an AgentStreamEvent from the SSE stream into
    * the store's reactive state. Called by useAgentStream composable (T11).
    *
@@ -803,6 +834,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     renameSession,
     deleteSession,
     reset,
+    appendUserMessage,
     applyStreamEvent,
     applyError
   }

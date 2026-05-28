@@ -45,6 +45,11 @@ export function useAgentStream(): UseAgentStreamApi {
     fallbackPolling.value = false
     abort.value = new AbortController()
 
+    // Optimistically render the user's bubble before the SSE round-trip
+    // (T14 wire commit missed this; the streaming path has no DB echo or
+    // user_message SSE event, so without this the bubble never appears).
+    store.appendUserMessage(req)
+
     try {
       await streamAgentRun(req, (e) => store.applyStreamEvent(e), abort.value.signal)
     } catch (err) {
