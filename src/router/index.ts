@@ -239,12 +239,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/agent',
-    name: 'agent-select',
-    component: () => import('@/views/agent/AgentSelectView.vue'),
-    meta: { title: 'AI 助手', requiresAuth: true }
-  },
-  {
     path: '/agent/history',
     name: 'agent-history',
     component: () => import('@/views/agent/AgentHistoryView.vue'),

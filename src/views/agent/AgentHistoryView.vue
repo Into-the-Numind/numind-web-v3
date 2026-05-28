@@ -11,7 +11,7 @@ import AppButton from '@/components/common/AppButton.vue'
 const router = useRouter()
 
 const goBack = (): void => {
-  router.push({ name: 'agent-select' })
+  router.push({ name: 'home' })
 }
 const sessions = ref<RecentSession[]>([])
 const loading = ref(true)
@@ -49,7 +49,7 @@ const handleSearch = (): void => {
     <div class="agent-history-page">
       <div class="back-link" @click="goBack">
         <ArrowLeft :size="16" />
-        <span>返回 AI 助手</span>
+        <span>返回工作台</span>
       </div>
 
       <header class="page-header">
