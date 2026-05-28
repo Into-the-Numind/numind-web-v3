@@ -7,7 +7,6 @@ import { Pause } from 'lucide-vue-next'
 interface Props {
   agent: AgentSkill | null
   run: AgentRun | null
-  balance: number
   readOnly?: boolean
   cancelling?: boolean
   /** stuck 60s 之后强制 enable 取消按钮 */
@@ -128,63 +127,11 @@ const cancelDisabled = computed(() => props.cancelling)
   color: var(--text);
 }
 
-.emoji {
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-}
-
-.bot-header-svg {
-  color: hsl(160, 50%, 45%);
-}
-
 .name {
   font-size: 16px;
   font-weight: 600;
   color: var(--color-text, #1f2937);
   margin: 0;
-}
-
-.center-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-muted, #6b7280);
-  margin-left: 12px;
-  padding-left: 12px;
-  border-left: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.badge {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-
-.badge-green {
-  color: #059669;
-  background: #d1fae5;
-}
-
-.badge-orange {
-  color: #d97706;
-  background: #fef3c7;
-}
-
-.badge-red {
-  color: #b91c1c;
-  background: #fee2e2;
-}
-
-.badge-gray {
-  color: #4b5563;
-  background: #f3f4f6;
-}
-
-.separator {
-  color: #e5e7eb;
 }
 
 .right {
@@ -207,11 +154,6 @@ const cancelDisabled = computed(() => props.cancelling)
 @media (max-width: 768px) {
   .sidebar-toggle {
     display: flex;
-  }
-  .agent-chat-header {
-  }
-  .desktop-only {
-    display: none;
   }
 }
 </style>

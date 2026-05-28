@@ -472,7 +472,6 @@ const handleRetrySnapshot = async (): Promise<void> => {
         <AgentChatHeader
           :agent="store.currentAgent"
           :run="store.currentRun"
-          :balance="currentBalance"
           :read-only="readOnly"
           :cancelling="store.cancelling"
           :cancel-always-enabled="narration.cancelAlwaysEnabled.value"
