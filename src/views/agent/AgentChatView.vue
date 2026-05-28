@@ -367,8 +367,8 @@ onUnmounted(() => {
   window.removeEventListener('click', closeAllMenus)
 })
 
-const goBackToList = (): void => {
-  router.push({ name: 'agent-select' })
+const goBackToHome = (): void => {
+  router.push({ name: 'home' })
 }
 
 const handleRetrySnapshot = async (): Promise<void> => {
@@ -393,7 +393,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
       <p class="error-msg">{{ store.sessionError }}</p>
       <div class="error-actions">
         <AppButton @click="handleRetrySnapshot">重试</AppButton>
-        <AppButton variant="secondary" @click="goBackToList">返回 Agent 列表</AppButton>
+        <AppButton variant="secondary" @click="goBackToHome">返回首页</AppButton>
       </div>
     </div>
 
@@ -401,10 +401,10 @@ const handleRetrySnapshot = async (): Promise<void> => {
     <div v-else class="app-container">
       <!-- Sidebar -->
       <aside class="sidebar" :class="{ 'mobile-open': sidebarOpen }">
-        <!-- 返回列表 -->
-        <button type="button" class="nav__back" @click="goBackToList">
+        <!-- 返回首页 -->
+        <button type="button" class="nav__back" @click="goBackToHome">
           <ArrowLeft :size="16" aria-hidden="true" />
-          <span>返回助手列表</span>
+          <span>返回首页</span>
         </button>
 
         <button class="new-chat-btn" @click="createNewSession">
