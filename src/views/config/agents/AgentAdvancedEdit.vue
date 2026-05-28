@@ -6,6 +6,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import NoticeBanner from '@/components/common/NoticeBanner.vue'
 import type { ToolFlags } from '@/types/agentBuilder'
 
 interface Props {
@@ -35,8 +36,6 @@ let prevDangerous = false
 
 // --- Computed ---
 const agent = computed(() => store.current)
-
-
 
 const charCount = computed(() => localBody.value.length)
 
@@ -157,7 +156,6 @@ function goBack() {
 
 <template>
   <div class="advanced-editor">
-
     <!-- Loading state -->
     <div v-if="store.currentLoading" class="advanced-editor__loading">加载中…</div>
 
@@ -179,12 +177,18 @@ function goBack() {
         </span>
       </header>
 
-      <!-- Edit body textarea -->
+      <!-- v1 限制提示：当前仅查看 + 切换工具开关，Prompt 编辑下个版本支持 -->
+      <NoticeBanner type="info">
+        自定义 Prompt 编辑功能即将上线。v1 仅可查看 + 切换工具开关。
+      </NoticeBanner>
+
+      <!-- Edit body textarea（v1 disabled，等 Prompt 编辑功能上线后改为可编辑） -->
       <textarea
         v-model="localBody"
         class="advanced-textarea"
         rows="30"
         spellcheck="false"
+        disabled
         placeholder="请输入系统提示词（Prompt）..."
       />
 
@@ -206,7 +210,7 @@ function goBack() {
       </section>
 
       <footer class="advanced-editor__footer">
-        <AppButton @click="handleSave" :loading="store.saving">保存</AppButton>
+        <AppButton @click="handleSave" :loading="store.saving">保存工具开关</AppButton>
         <AppButton variant="secondary" @click="goBack">返回</AppButton>
       </footer>
     </template>
