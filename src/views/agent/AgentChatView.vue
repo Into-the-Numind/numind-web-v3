@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import {
   ArrowLeft,
   Plus,
-  MessageSquare,
   MoreVertical,
   Pin,
   PinOff,
@@ -424,7 +423,6 @@ const handleRetrySnapshot = async (): Promise<void> => {
             }"
             @click="switchToSession(session)"
           >
-            <MessageSquare class="session-icon" :size="16" />
             <span class="session-title">{{
               session.session_name || session.preview_text || '新对话'
             }}</span>
