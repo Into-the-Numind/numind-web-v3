@@ -26,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const text = ref('')
+const isComposing = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
@@ -70,6 +71,7 @@ const handleSend = (): void => {
 }
 
 const handleKeydown = (e: KeyboardEvent): void => {
+  if (isComposing.value) return
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     handleSend()
@@ -158,6 +160,8 @@ onUnmounted(() => {
         :disabled="disabled"
         placeholder="输入你的问题，或拖入文件到这里..."
         @keydown="handleKeydown"
+        @compositionstart="isComposing = true"
+        @compositionend="isComposing = false"
         @paste="handlePaste"
         @input="autoResize"
       />
