@@ -5,7 +5,6 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft,
   Plus,
-  MessageSquare,
   ArrowUp,
   Send,
   Square,
@@ -497,7 +496,6 @@ function handleDocClick(e: MouseEvent) {
             }"
             @click="switchToSession(session)"
           >
-            <MessageSquare class="session-icon" :size="16" />
             <span class="session-title">{{ session.title || '新对话' }}</span>
             <div class="session-menu-container">
               <button
