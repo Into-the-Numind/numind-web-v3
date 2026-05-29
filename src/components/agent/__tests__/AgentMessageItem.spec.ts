@@ -203,10 +203,9 @@ describe('AgentMessageItem', () => {
         msg: { ...msg, markdown: 'Start growing text...' }
       })
       expect(wrapper.find('.streaming-cursor').exists()).toBe(true)
-      // cursor must be the last child inside .text
-      const textEl = wrapper.find('.msg-assistant .text')
-      const children = textEl.element.childNodes
-      const lastChild = children[children.length - 1] as Element
+      // cursor must remain the last child of .streaming-answer (after .markdown-body) as markdown grows
+      const answerEl = wrapper.find('.msg-assistant .streaming-answer')
+      const lastChild = answerEl.element.lastElementChild as Element
       expect(lastChild.textContent).toBe('▎')
     })
 
