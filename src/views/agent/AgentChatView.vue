@@ -323,7 +323,9 @@ watch(
         sessionStorage.removeItem('agentChat:currentRunId')
         sessionStorage.removeItem('agentChat:currentSessionId')
       },
-      readOnly: props.readOnly
+      readOnly: props.readOnly,
+      isStreaming: isStreaming.value,
+      isRunning: store.isRunning
     })
   }
 )
