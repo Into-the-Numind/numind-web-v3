@@ -207,14 +207,22 @@ describe('applyStreamEvent', () => {
   })
 
   // 6. tool_call_start — creates tool_group message
-  it('tool_call_start: creates tool_group message with queued tool_call', async () => {
+  // The handler seeds the tool_call with current_state='use' AND an initial
+  // 'use' NarrationEvent so the UI shows immediate progress feedback (some
+  // tools — e.g. file generation — run for tens of seconds with no further
+  // progress events; an empty event list made the UI look frozen). See
+  // agentChat.ts tool_call_start handler + commit cf5a77e.
+  it('tool_call_start: creates tool_group with tool_call seeded in use state', async () => {
     const store = useAgentChatStore()
     await seedToolCall(store, 'tc-1', 0)
     const groups = store.messages.filter((m) => m.type === 'tool_group')
     expect(groups.length).toBe(1)
     expect(groups[0].type === 'tool_group' && groups[0].tool_calls.length).toBe(1)
-    expect(groups[0].type === 'tool_group' && groups[0].tool_calls[0].current_state).toBe('queued')
+    expect(groups[0].type === 'tool_group' && groups[0].tool_calls[0].current_state).toBe('use')
     expect(groups[0].type === 'tool_group' && groups[0].tool_calls[0].tool_call_id).toBe('tc-1')
+    // The seeded initial event is the first entry, in 'use' state.
+    expect(groups[0].type === 'tool_group' && groups[0].tool_calls[0].events.length).toBe(1)
+    expect(groups[0].type === 'tool_group' && groups[0].tool_calls[0].events[0].state).toBe('use')
   })
 
   it('tool_call_start: idempotent — duplicate event does not push duplicate tool_call', async () => {
@@ -247,8 +255,11 @@ describe('applyStreamEvent', () => {
     const group = store.messages.find((m) => m.type === 'tool_group')
     const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
     expect(tc?.current_state).toBe('progress')
-    expect(tc?.events.length).toBe(1)
-    expect(tc?.events[0].message).toBe('Searching the web')
+    // events[0] is the seeded 'use' event from tool_call_start; the progress
+    // handler pushes a second event.
+    expect(tc?.events.length).toBe(2)
+    expect(tc?.events[1].state).toBe('progress')
+    expect(tc?.events[1].message).toBe('Searching the web')
   })
 
   it('tool_call_progress: no-op when tool_call_id not found', () => {
@@ -273,8 +284,9 @@ describe('applyStreamEvent', () => {
     const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
     expect(tc?.current_state).toBe('result')
     expect(tc?.preview).toBe('Result snippet...')
-    expect(tc?.events.length).toBe(1)
-    expect(tc?.events[0].state).toBe('result')
+    // events[0] is the seeded 'use' event; the result handler pushes a second.
+    expect(tc?.events.length).toBe(2)
+    expect(tc?.events[1].state).toBe('result')
   })
 
   // 9. tool_call_error — sets state to error + error_message
@@ -292,7 +304,9 @@ describe('applyStreamEvent', () => {
     const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
     expect(tc?.current_state).toBe('error')
     expect(tc?.error_message).toBe('tool timed out')
-    expect(tc?.events[0].state).toBe('error')
+    // events[0] is the seeded 'use' event; the error handler pushes a second.
+    expect(tc?.events.length).toBe(2)
+    expect(tc?.events[1].state).toBe('error')
   })
 
   // 10. step_done — no visible messages
