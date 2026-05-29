@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { ToolCallAggregate } from '@/types/agent'
 import AgentToolCallItem from './AgentToolCallItem.vue'
 import { ChevronDown, ChevronUp } from 'lucide-vue-next'
@@ -10,7 +10,16 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const open = ref(false)
+const ACTIVE_STATES = ['queued', 'use', 'progress']
+const hasActiveTools = computed<boolean>(() => {
+  return props.toolGroups.some((group) => ACTIVE_STATES.includes(group.current_state))
+})
+
+const open = ref(hasActiveTools.value)
+
+watch(hasActiveTools, (active) => {
+  open.value = active
+})
 
 const summaryText = computed<string>(() => {
   return `已运行 ${props.toolGroups.length} 步`
