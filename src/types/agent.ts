@@ -192,6 +192,7 @@ export interface ArtifactMessage extends BaseMessage {
 export interface FinalAnswerMessage extends BaseMessage {
   type: 'final_answer'
   markdown: string
+  reasoning?: string
   feedback?: 'positive' | 'negative' | null
   feedback_note?: string
   /** associated run for submitting feedback */

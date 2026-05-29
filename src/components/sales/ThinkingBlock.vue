@@ -9,14 +9,7 @@ const props = defineProps<{
 }>()
 
 const { render } = useMarkdown()
-const collapsed = ref(props.finished)
-
-watch(
-  () => props.finished,
-  (val) => {
-    if (val) collapsed.value = true
-  }
-)
+const collapsed = ref(false)
 </script>
 
 <template>
