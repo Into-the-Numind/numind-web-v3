@@ -261,3 +261,68 @@ describe('AgentToolCallItem — status badge (T13)', () => {
     expect(badge.find('.status-dot').exists()).toBe(true)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// Live elapsed timer (2026-05-29) — the "it's alive" signal for long-running
+// file-generation tools. Regression for the "looks frozen during 30–60s
+// generation" UX bug. Uses fake timers to drive the 1s ticker.
+// ─────────────────────────────────────────────────────────────────────────
+describe('AgentToolCallItem — live elapsed timer', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const inFlightGroup = (): ToolCallAggregate =>
+    mkGroup(
+      [mkEvent({ state: 'use', message: '正在生成 PPT 演示文稿...', tool_name: 'invoke_skill' })],
+      'invoke_skill',
+      'tc-gen-1'
+    )
+
+  it('hides the timer for the first 2 seconds (fast tools stay clean)', async () => {
+    const wrapper = mount(AgentToolCallItem, { props: { group: inFlightGroup() } })
+    expect(wrapper.find('.tool-elapsed').exists()).toBe(false)
+    vi.advanceTimersByTime(1000)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.tool-elapsed').exists()).toBe(false)
+  })
+
+  it('shows a counting-up timer once a tool runs ≥2s', async () => {
+    const wrapper = mount(AgentToolCallItem, { props: { group: inFlightGroup() } })
+    vi.advanceTimersByTime(3000)
+    await wrapper.vm.$nextTick()
+    const el = wrapper.find('.tool-elapsed')
+    expect(el.exists()).toBe(true)
+    expect(el.text()).toContain('已用时 3 秒')
+  })
+
+  it('formats minutes past 60s', async () => {
+    const wrapper = mount(AgentToolCallItem, { props: { group: inFlightGroup() } })
+    vi.advanceTimersByTime(75000)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.tool-elapsed').text()).toContain('已用时 1 分 15 秒')
+  })
+
+  it('stops showing the timer once the tool completes (state=result)', async () => {
+    const wrapper = mount(AgentToolCallItem, { props: { group: inFlightGroup() } })
+    vi.advanceTimersByTime(3000)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.tool-elapsed').exists()).toBe(true)
+
+    await wrapper.setProps({
+      group: mkGroup(
+        [
+          mkEvent({ state: 'use', message: '正在生成 PPT 演示文稿...', tool_name: 'invoke_skill' }),
+          mkEvent({ state: 'result', message: '文件已生成', tool_name: 'invoke_skill' })
+        ],
+        'invoke_skill',
+        'tc-gen-1'
+      )
+    })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.tool-elapsed').exists()).toBe(false)
+  })
+})
