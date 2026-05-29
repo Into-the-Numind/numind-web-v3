@@ -307,11 +307,6 @@ function nextPage() {
 <style scoped>
 /* 容器及基础设置 */
 .marketplace-container {
-  min-height: 100vh;
-  background: var(--bg-gradient);
-  padding: var(--space-xl) var(--space-3xl);
-  max-width: 1400px;
-  margin: 0 auto;
   font-family: var(--font-sans);
   color: var(--text);
   display: flex;
@@ -496,7 +491,7 @@ function nextPage() {
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--surface-tint);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
