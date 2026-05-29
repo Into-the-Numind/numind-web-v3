@@ -724,9 +724,38 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             remember: '正在写入记忆...',
             file_read: '正在读取文件...',
             file_write: '正在写入文件...',
-            run_python: '正在运行 Python 代码...'
+            // File-generation tools — these run for tens of seconds in the
+            // sandbox and previously fell through to the generic "正在调用工具"
+            // label, which (plus zero progress events) made the UI look frozen.
+            run_python: '正在运行代码生成文件...',
+            create_html: '正在生成网页...',
+            create_csv: '正在生成 CSV 表格...',
+            create_json: '正在生成 JSON 文件...',
+            create_text: '正在生成文本文件...',
+            create_png_chart: '正在生成图表...',
+            image_gen: '正在生成图片...',
+            analyze_image: '正在分析图片...',
+            annotate_image: '正在标注图片...'
           }
-          const message = actionLabels[payload.tool_name] || `正在调用工具 ${payload.tool_name}...`
+          // invoke_skill: derive a format-specific label from the skill being
+          // invoked (skill_name lives in the truncated input_preview). Falls
+          // back to a generic "generating file" message when unavailable.
+          const SKILL_LABELS: Record<string, string> = {
+            'pptx-author': '正在生成 PPT 演示文稿...',
+            'docx-author': '正在生成 Word 文档...',
+            'xlsx-author': '正在生成 Excel 表格...',
+            'pdf-from-html': '正在生成 PDF 文档...'
+          }
+          let message: string
+          if (payload.tool_name === 'invoke_skill') {
+            const skillName =
+              typeof payload.input_preview?.skill_name === 'string'
+                ? (payload.input_preview.skill_name as string)
+                : ''
+            message = SKILL_LABELS[skillName] ?? '正在生成文件...'
+          } else {
+            message = actionLabels[payload.tool_name] ?? `正在调用工具 ${payload.tool_name}...`
+          }
 
           group.tool_calls = [
             ...group.tool_calls,

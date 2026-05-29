@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, watch, ref, onUnmounted } from 'vue'
 import type { ToolCallAggregate, NarrationState } from '@/types/agent'
 import { STATE_ICON, STATE_COLOR_CLASS } from '@/shared/agent-icons'
 
@@ -35,6 +35,67 @@ const badgeLabel = computed<string>(() => {
 
 const latestEvent = computed(() => props.group.events[props.group.events.length - 1])
 
+// ──────────────────────────────────────────────────────────────────
+// Live elapsed timer for in-flight tool calls.
+//
+// Why: long-running file-generation tools (invoke_skill / run_python) sit in
+// the `use` state for 30–60s while the sandbox executes, and the backend emits
+// NO intermediate events during that window. Without a ticking signal the UI
+// looks frozen. A purely client-side timer (anchored to when this card first
+// observed an in-flight state, NOT a server timestamp — avoids clock skew)
+// ticks every second and proves the run is alive, regardless of backend events.
+// Hidden for the first 2s so fast tools (web_search ~1s) don't flash a timer.
+// ──────────────────────────────────────────────────────────────────
+const IN_FLIGHT_STATES: NarrationState[] = ['queued', 'use', 'progress']
+const isInFlight = computed<boolean>(() => IN_FLIGHT_STATES.includes(props.group.current_state))
+
+const startedAtMs = ref<number | null>(null)
+const nowMs = ref<number>(Date.now())
+let ticker: ReturnType<typeof setInterval> | null = null
+
+const stopTicker = (): void => {
+  if (ticker != null) {
+    clearInterval(ticker)
+    ticker = null
+  }
+}
+
+watch(
+  isInFlight,
+  (active) => {
+    if (active) {
+      if (startedAtMs.value == null) startedAtMs.value = Date.now()
+      nowMs.value = Date.now()
+      if (ticker == null) {
+        ticker = setInterval(() => {
+          nowMs.value = Date.now()
+        }, 1000)
+      }
+    } else {
+      stopTicker()
+    }
+  },
+  { immediate: true }
+)
+
+onUnmounted(stopTicker)
+
+const elapsedSec = computed<number>(() => {
+  if (startedAtMs.value == null) return 0
+  return Math.max(0, Math.floor((nowMs.value - startedAtMs.value) / 1000))
+})
+
+/** Only surface the timer once a tool has been running a beat (≥2s). */
+const showElapsed = computed<boolean>(() => isInFlight.value && elapsedSec.value >= 2)
+
+const elapsedText = computed<string>(() => {
+  const s = elapsedSec.value
+  if (s < 60) return `已用时 ${s} 秒`
+  const m = Math.floor(s / 60)
+  const rem = s % 60
+  return rem === 0 ? `已用时 ${m} 分` : `已用时 ${m} 分 ${rem} 秒`
+})
+
 // agent-mode v2 #2 (use_skill): 已知的 platform AgentTool 名集合。
 // 渲染本身完全靠 event.icon + event.message 通用流（backend tool-display.yaml
 // 已模板化好），这里仅做诊断 warn — 后端 emit 陌生 tool 名时提醒前端补 entry。
@@ -46,7 +107,21 @@ const KNOWN_TOOL_NAMES = new Set<string>([
   'plan_emit',
   'final_answer',
   'file_read',
-  'file_write'
+  'file_write',
+  // File-generation platform tools (2026-05-29). Registered here so they
+  // render via the generic icon+message pipeline WITHOUT logging a spurious
+  // "unknown tool" warn on every run. Their narration templates live in
+  // numind-server configs/tool-display.yaml.
+  'invoke_skill',
+  'run_python',
+  'create_html',
+  'create_csv',
+  'create_json',
+  'create_text',
+  'create_png_chart',
+  'image_gen',
+  'analyze_image',
+  'annotate_image'
   // SOP-derived skill tools 走 binding 动态生成，名字以 sop_ 前缀 — 见 isKnownTool()。
 ])
 const warnedUnknown = new Set<string>()
@@ -116,6 +191,7 @@ watch(
       <span v-if="latestEvent.state === 'progress' && latestEvent.detail" class="tool-detail-text">
         · {{ latestEvent.detail }}
       </span>
+      <span v-if="showElapsed" class="tool-elapsed">· {{ elapsedText }}</span>
       <span v-if="latestEvent.state === 'rejected' && latestEvent.reason" class="tool-detail-text">
         ({{ latestEvent.reason }})
       </span>
@@ -139,6 +215,9 @@ watch(
         <span class="tool-msg">{{ ev.message }}</span>
         <span v-if="ev.state === 'progress' && ev.detail" class="tool-detail-text">
           · {{ ev.detail }}
+        </span>
+        <span v-if="showElapsed && idx === group.events.length - 1" class="tool-elapsed">
+          · {{ elapsedText }}
         </span>
         <span v-if="ev.state === 'rejected' && ev.reason" class="tool-detail-text">
           ({{ ev.reason }})
@@ -171,6 +250,35 @@ watch(
   color: #9ca3af;
   margin-left: 4px;
   font-size: 12px;
+}
+
+/* Live elapsed timer on an in-flight tool call. Subtle muted text with a
+   gentle opacity pulse so it reads as actively counting (the "it's alive"
+   signal for long file-generation tools). Uses tabular-nums so the seconds
+   digit doesn't cause horizontal jitter as it ticks. */
+.tool-elapsed {
+  color: #6b7280;
+  margin-left: 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: elapsed-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes elapsed-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-elapsed {
+    animation: none;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────
