@@ -259,6 +259,11 @@ const systemText = computed<string>(() => {
       </svg>
     </span>
     <div class="content-wrap">
+      <ThinkingBlock
+        v-if="asFinalAnswer.reasoning"
+        :content="asFinalAnswer.reasoning"
+        :finished="true"
+      />
       <AgentFinalAnswer
         :markdown="asFinalAnswer.markdown"
         :run-id="asFinalAnswer.run_id"
