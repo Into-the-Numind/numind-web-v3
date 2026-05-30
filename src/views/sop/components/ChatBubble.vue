@@ -399,10 +399,9 @@ watch(
   font-style: italic;
 }
 
+/* Markdown 分割线：AI/用户输出的横向分割线在前端完全隐藏 */
 .chat-bubble--assistant :deep(.chat-bubble-text hr) {
-  border: none;
-  border-top: 1px solid var(--divider, var(--border-light));
-  margin: 24px 0;
+  display: none !important;
 }
 
 .chat-bubble--assistant :deep(.chat-bubble-text a) {
