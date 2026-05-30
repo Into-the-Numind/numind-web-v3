@@ -545,11 +545,9 @@ async function copyMessage() {
   margin-bottom: 0.8em;
 }
 
-/* Markdown 分割线：浏览器默认黑色 inset 太抢眼，改成浅灰（gray-200） */
+/* Markdown 分割线：AI/用户输出的横向分割线在前端完全隐藏 */
 .markdown-body :deep(hr) {
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 16px 0;
+  display: none !important;
 }
 
 .markdown-body :deep(p:last-child) {

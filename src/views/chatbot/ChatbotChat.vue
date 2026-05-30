@@ -1617,10 +1617,9 @@ body.chatbot-chat-route #app {
   font-style: italic;
 }
 
+/* Markdown 分割线：AI/用户输出的横向分割线在前端完全隐藏 */
 .message-bubble.assistant :deep(hr) {
-  border: none;
-  border-top: 1px solid var(--divider, var(--border-light));
-  margin: var(--space-xl, 24px) 0;
+  display: none !important;
 }
 
 .message-bubble.assistant :deep(a) {
