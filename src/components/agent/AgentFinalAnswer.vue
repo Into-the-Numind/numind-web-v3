@@ -117,6 +117,11 @@ const copyText = async (): Promise<void> => {
   color: var(--color-text, #1f2937);
 }
 
+/* Markdown 分割线：AI/用户输出的横向分割线在前端完全隐藏 */
+.markdown-body :deep(hr) {
+  display: none !important;
+}
+
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3) {
