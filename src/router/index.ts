@@ -60,6 +60,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/customers/billing',
+    name: 'customers-billing',
+    component: () => import('@/views/CustomersBillingView.vue'),
+    meta: {
+      title: '费用对账',
+      requiresAuth: true,
+      parentOnly: true
+    }
+  },
+  {
     path: '/knowledge',
     name: 'knowledge',
     component: () => import('@/views/KnowledgeView.vue'),
