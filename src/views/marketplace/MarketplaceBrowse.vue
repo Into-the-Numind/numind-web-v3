@@ -240,7 +240,7 @@ function nextPage() {
           <!-- 4. 成功非对称 Bento 网格 -->
           <div v-else class="bento-grid">
             <article
-              v-for="(item, index) in store.items"
+              v-for="item in store.items"
               :key="item.id"
               class="bento-card"
               :class="{ 'md:col-span-2 recommended-card': item.is_platform_recommended }"
