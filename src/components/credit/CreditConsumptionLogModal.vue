@@ -33,14 +33,14 @@
                     <thead>
                       <tr>
                         <th class="col-time">时间</th>
-                        <th class="col-action">动作</th>
+                        <th class="col-action">任务</th>
                         <th class="col-credits">消耗积分</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="r in store.records" :key="r.id" class="data-row">
                         <td class="col-time">{{ formatTime(r.created_at) }}</td>
-                        <td class="col-action">{{ r.action_label }}</td>
+                        <td class="col-action" :title="r.detail_name || r.action_label">{{ r.detail_name || r.action_label }}</td>
                         <td class="col-credits">{{ r.credits }}</td>
                       </tr>
                     </tbody>
@@ -198,6 +198,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed; /* 让 col-action 的 max-width + ellipsis 截断稳定生效 */
   font-size: 14px;
 }
 .data-table th {
@@ -235,6 +236,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 }
 .col-action {
   text-align: center;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .col-credits {
   text-align: center;
