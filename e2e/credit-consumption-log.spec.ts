@@ -4,7 +4,7 @@ import { test, expect, type Page } from '@playwright/test'
  * 用户端「积分消耗记录」回归测试（NDF feature: credit-consumption-log，S5 永久回归）。
  *
  * 入口：设置页(/settings)「积分与加量包」section 头右侧的「积分消耗记录」按钮，
- * 点击弹出 modal（CreditConsumptionLogModal），表格展示 时间/任务/消耗积分。
+ * 点击弹出 modal（CreditConsumptionLogModal），表格展示 时间/类型/任务/消耗积分。
  *
  * 鉴权：由 e2e/auth.setup.ts 预先登录并缓存 storageState（playwright.config 的 e2e
  * project 自动复用），故测试可直接 goto('/settings')。
@@ -51,6 +51,7 @@ test.describe('积分消耗记录 (credit consumption log)', () => {
 
     const dialog = page.locator(DIALOG)
     await expect(dialog.locator('th').filter({ hasText: '时间' })).toBeVisible()
+    await expect(dialog.locator('th').filter({ hasText: '类型' })).toBeVisible() // 新增类型列（credit-log-type-column）
     await expect(dialog.locator('th').filter({ hasText: '任务' })).toBeVisible() // 动作→任务（credit-log-task-names）
     await expect(dialog.locator('th').filter({ hasText: '消耗积分' })).toBeVisible()
   })
