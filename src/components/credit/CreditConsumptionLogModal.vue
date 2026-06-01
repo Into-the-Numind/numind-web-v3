@@ -28,11 +28,12 @@
             <!-- table (与「客户管理」表格风格一致) -->
             <template v-else>
               <div class="table-container" :class="{ 'is-loading': store.loading }">
-                <div class="table-scroll" :class="{ 'is-paged': totalPages > 1 }">
+                <div class="table-scroll" :class="{ 'is-paged': totalPages > 1 }" @scroll="hideTip">
                   <table class="data-table">
                     <thead>
                       <tr>
                         <th class="col-time">时间</th>
+                        <th class="col-type">类型</th>
                         <th class="col-action">任务</th>
                         <th class="col-credits">消耗积分</th>
                       </tr>
@@ -40,7 +41,14 @@
                     <tbody>
                       <tr v-for="r in store.records" :key="r.id" class="data-row">
                         <td class="col-time">{{ formatTime(r.created_at) }}</td>
-                        <td class="col-action" :title="r.detail_name || r.action_label">{{ r.detail_name || r.action_label }}</td>
+                        <td class="col-type"><span class="type-pill">{{ typeLabel(r.action) }}</span></td>
+                        <td
+                          class="col-action"
+                          @mouseenter="showTip($event, r.detail_name || r.action_label)"
+                          @mouseleave="hideTip"
+                        >
+                          {{ r.detail_name || r.action_label }}
+                        </td>
                         <td class="col-credits">{{ r.credits }}</td>
                       </tr>
                     </tbody>
@@ -71,12 +79,18 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- 长任务名悬停气泡：Teleport 到 body + fixed 定位，避开 .table-scroll 的 overflow 裁切 -->
+  <Teleport to="body">
+    <div v-if="tip" class="ccl-tip" :style="{ left: `${tip.x}px`, top: `${tip.y}px` }">{{ tip.text }}</div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useConsumptionLogStore } from '@/stores/consumptionLog'
+import { consumptionTypeLabel } from '@/utils/consumptionType'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
@@ -84,6 +98,21 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 const store = useConsumptionLogStore()
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / store.pageSize)))
+
+// 类型列：机读 operation → 产品化标签（AI 工作流 / AI 助手 / AI 智能体 / 其他）
+const typeLabel = consumptionTypeLabel
+
+// 长任务名悬停气泡：仅当单元格文本被截断（scrollWidth > clientWidth）时弹出，显示全称
+const tip = ref<{ text: string; x: number; y: number } | null>(null)
+function showTip(e: MouseEvent, text: string): void {
+  const el = e.currentTarget as HTMLElement | null
+  if (!el || el.scrollWidth <= el.clientWidth) return // 未截断则不弹（短名无需提示）
+  const rect = el.getBoundingClientRect()
+  tip.value = { text, x: rect.left + rect.width / 2, y: rect.top - 8 }
+}
+function hideTip(): void {
+  tip.value = null
+}
 
 // 时间格式化为 YYYY-MM-DD HH:mm
 function formatTime(iso: string): string {
@@ -94,6 +123,7 @@ function formatTime(iso: string): string {
 }
 
 function close(): void {
+  hideTip()
   emit('update:open', false)
 }
 
@@ -132,7 +162,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 }
 .ccl-dialog {
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -228,15 +258,30 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
   background: hsl(155, 20%, 98%);
 }
 
-/* 列对齐：时间/动作左对齐，消耗积分右对齐（数值） */
+/* 列宽：4 列（时间/类型/任务/消耗积分）；任务列吃剩余空间 + 截断，长名靠悬停气泡看全称 */
 .col-time {
   text-align: center;
   white-space: nowrap;
-  width: 180px;
+  width: 156px;
+}
+.col-type {
+  text-align: center;
+  white-space: nowrap;
+  width: 120px;
+}
+.type-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: hsl(155, 28%, 36%);
+  background: hsl(150, 30%, 95%);
+  white-space: nowrap;
 }
 .col-action {
   text-align: center;
-  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -244,12 +289,30 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 .col-credits {
   text-align: center;
   white-space: nowrap;
-  width: 110px;
+  width: 96px;
   font-variant-numeric: tabular-nums;
 }
 .data-table td.col-credits {
   color: hsl(155, 18%, 22%);
   font-weight: 600;
+}
+
+/* ===== 长任务名悬停气泡（Teleport 到 body，fixed 定位避开滚动容器裁切）===== */
+.ccl-tip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  max-width: 380px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: hsl(155, 22%, 18%);
+  color: hsl(0, 0%, 100%);
+  font-size: 13px;
+  line-height: 1.45;
+  z-index: 1100;
+  box-shadow: 0 10px 28px hsl(150 15% 5% / 0.28);
+  pointer-events: none;
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* ===== Pagination（复刻客户管理 .pagination）===== */
