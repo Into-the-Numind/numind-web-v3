@@ -29,6 +29,9 @@ export function listChildren(): Promise<ApiResponse<ChildUser[]>> {
   return request.get('/v1/users/children')
 }
 
+/** 会员产品类型：trial = 体验包，monthly = 月度会员。 */
+export type MembershipProductType = 'trial' | 'monthly'
+
 /**
  * 帮子账户开通会员的请求体。
  *
@@ -37,7 +40,7 @@ export function listChildren(): Promise<ApiResponse<ChildUser[]>> {
  * - `reason`：开通原因，可选，进 action_log 供 B2B 月度结算报表审计
  */
 export interface GrantMembershipReq {
-  product_type: 'trial' | 'monthly'
+  product_type: MembershipProductType
   /** 月数，仅在 product_type='monthly' 时必填，取值 1-12。 */
   months?: number
   /** 开通原因，可选。 */
@@ -92,9 +95,48 @@ export interface GrantResponse {
  */
 export const grantMembership = (
   childId: number,
-  body: { product_type: 'trial' | 'monthly'; months?: number },
+  body: { product_type: MembershipProductType; months?: number },
   idempotencyKey: string
 ): Promise<ApiResponse<GrantResponse>> =>
   request.post(`/v1/users/children/${childId}/grant-membership`, body, {
     headers: { 'Idempotency-Key': idempotencyKey }
   })
+
+// ---------------------------------------------------------------------------
+// 父账户自助费用对账（parent self-service billing report）
+// 后端路由：GET /v1/users/me/billing-report?month=YYYY-MM
+// ---------------------------------------------------------------------------
+
+/** 账单明细行：子账户单次开通记录。 */
+export interface ParentBillingDetail {
+  child_user_id: number
+  child_username: string
+  /** 产品类型：trial = 体验包，monthly = 月度会员。 */
+  product_type: MembershipProductType
+  /** 开通月数；trial 时为 0。 */
+  months: number
+  /** 金额，单位：分（cents）。 */
+  amount_cents: number
+  /** 开通时间，ISO 8601 字符串。 */
+  granted_at: string
+}
+
+/** 父账户按月账单汇总。 */
+export interface ParentBillingReport {
+  /** 账单月份，格式 YYYY-MM。 */
+  month: string
+  parent_user_id: number
+  /** 当月开通总笔数。 */
+  grants_count: number
+  /** 当月合计金额，单位：分（cents）。 */
+  total_amount_cents: number
+  details: ParentBillingDetail[]
+}
+
+/**
+ * 父账户自助费用对账：按月查询当前登录父账户名下子账号的开通明细。
+ *
+ * @param month 账单月份，格式 YYYY-MM（如 "2026-06"）
+ */
+export const getParentBillingReport = (month: string): Promise<ApiResponse<ParentBillingReport>> =>
+  request.get('/v1/users/me/billing-report', { params: { month } })
