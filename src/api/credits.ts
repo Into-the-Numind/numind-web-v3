@@ -122,7 +122,8 @@ export const getOrderStatus = (orderId: number) =>
 export interface ConsumptionLogItem {
   id: number
   action: string // 机读 operation
-  action_label: string // 中文展示名
+  action_label: string // 通用动作名
+  detail_name: string // 具体任务名（空=回退 action_label）
   credits: number // 本次消耗积分
   created_at: string // ISO 时间
 }
