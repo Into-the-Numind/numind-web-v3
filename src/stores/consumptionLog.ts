@@ -17,7 +17,7 @@ export const useConsumptionLogStore = defineStore('consumptionLog', () => {
     error.value = false
     try {
       const res = await getConsumptionLog(targetPage, pageSize.value)
-      const payload = (res as unknown as { data: ConsumptionLogResp }).data
+      const payload = (res as unknown as { data: ConsumptionLogResp | null }).data
       records.value = payload?.list ?? []
       total.value = payload?.total ?? 0
       page.value = targetPage
