@@ -117,3 +117,23 @@ export const placeOrder = (
  */
 export const getOrderStatus = (orderId: number) =>
   request.get<OrderStatus>(`/v1/orders/${orderId}/status`)
+
+// ── 积分消耗记录（credit-consumption-log）──────────────────────────
+export interface ConsumptionLogItem {
+  id: number
+  action: string // 机读 operation
+  action_label: string // 中文展示名
+  credits: number // 本次消耗积分
+  created_at: string // ISO 时间
+}
+
+export interface ConsumptionLogResp {
+  list: ConsumptionLogItem[]
+  total: number
+}
+
+/** GET /v1/credits/consumption-log — 当前用户「平账后真实消耗」流水（分页） */
+export const getConsumptionLog = (page = 1, pageSize = 20) =>
+  request.get<ConsumptionLogResp>('/v1/credits/consumption-log', {
+    params: { page, page_size: pageSize }
+  })
