@@ -197,3 +197,71 @@ test.describe('Parent Billing — Error & retry', () => {
     await expect(page.locator(sel.footTotal)).toHaveText('¥306.90')
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// 5. Filter (#1) + Search (#2) + Sort (#3) + Month picker (#6)
+// ══════════════════════════════════════════════════════════════════
+
+test.describe('Parent Billing — Filter / Search / Sort / Month picker', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBilling(page, REPORT_WITH_DATA)
+    await page.goto('/customers/billing')
+    await expect(page.locator(sel.row)).toHaveCount(2, { timeout: 15_000 })
+  })
+
+  test('type filter narrows to 体验包; footer = filtered subset, summary = full month', async ({
+    page
+  }) => {
+    await page.locator('.type-filter button', { hasText: '体验包' }).click()
+    const rows = page.locator(sel.row)
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first().locator(sel.badge)).toHaveText('体验包')
+    await expect(page.locator(sel.footTotal)).toHaveText('¥9.90')
+    await expect(page.locator(sel.summaryTotal)).toHaveText('¥306.90')
+
+    await page.locator('.type-filter button', { hasText: '全部' }).click()
+    await expect(rows).toHaveCount(2)
+  })
+
+  test('search by username and by id filters rows; no match shows hint', async ({ page }) => {
+    await page.locator('.search-input').fill('张三')
+    const rows = page.locator(sel.row)
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toContainText('张三测试')
+
+    await page.locator('.search-input').fill('56')
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toContainText('李四测试')
+
+    await page.locator('.search-input').fill('zzz-none')
+    await expect(page.locator('.no-match')).toBeVisible()
+  })
+
+  test('3-state sort on 价格: asc → desc → default', async ({ page }) => {
+    const amountHeader = page.locator('.th-sortable', { hasText: '价格' })
+    const firstAmount = () => page.locator(`${sel.row} ${sel.amount}`).first()
+
+    await expect(firstAmount()).toHaveText('¥297.00') // default order
+
+    await amountHeader.click()
+    await expect(amountHeader).toHaveClass(/sort-asc/)
+    await expect(firstAmount()).toHaveText('¥9.90')
+
+    await amountHeader.click()
+    await expect(amountHeader).toHaveClass(/sort-desc/)
+    await expect(firstAmount()).toHaveText('¥297.00')
+
+    await amountHeader.click()
+    await expect(amountHeader).not.toHaveClass(/sort-asc|sort-desc/)
+  })
+
+  test('custom month picker opens a styled panel; selecting a month reloads', async ({ page }) => {
+    await expect(page.locator('.month-panel')).toHaveCount(0)
+    await page.locator('.month-trigger').click()
+    await expect(page.locator('.month-panel')).toBeVisible()
+    await expect(page.locator('.month-cell')).toHaveCount(12)
+    await page.locator('.month-cell', { hasText: /^1 月$/ }).click()
+    await expect(page.locator('.month-panel')).toHaveCount(0)
+    await expect(page.locator(sel.row)).toHaveCount(2, { timeout: 10_000 })
+  })
+})
