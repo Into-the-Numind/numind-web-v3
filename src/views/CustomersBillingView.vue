@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '@/components/layout/MainLayout.vue'
-import { getParentBillingReport, type ParentBillingReport } from '@/api/parent'
+import {
+  getParentBillingReport,
+  type ParentBillingReport,
+  type ParentBillingDetail
+} from '@/api/parent'
 
 const router = useRouter()
 
@@ -11,16 +15,27 @@ function currentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 const maxMonth = currentMonth()
+const curYear = parseInt(maxMonth.split('-')[0], 10)
+const curMonthNum = parseInt(maxMonth.split('-')[1], 10)
 
 const month = ref(currentMonth())
 const report = ref<ParentBillingReport | null>(null)
 const loading = ref(false)
 const error = ref('')
 
+// ── filter (#1) + search (#2) + sort (#3) ─────────────────────────────
+type TypeFilter = 'all' | 'monthly' | 'trial'
+const typeFilter = ref<TypeFilter>('all')
+const searchQuery = ref('')
+
+type SortKey = 'child' | 'type' | 'months' | 'amount' | 'granted'
+const sortKey = ref<SortKey | null>(null)
+const sortDir = ref<'asc' | 'desc'>('asc')
+
 function yuan(cents: number): string {
   return `¥${(cents / 100).toFixed(2)}`
 }
-function durationLabel(d: ParentBillingReport['details'][number]): string {
+function durationLabel(d: ParentBillingDetail): string {
   return d.product_type === 'trial' ? '3 天' : `${d.months} 个月`
 }
 function productLabel(t: string): string {
@@ -33,6 +48,114 @@ function formatDate(iso: string): string {
     month: '2-digit',
     day: '2-digit'
   })
+}
+
+function sortValueFor(d: ParentBillingDetail, key: SortKey): number | string {
+  switch (key) {
+    case 'child':
+      return (d.child_username || '').toLowerCase()
+    case 'type':
+      return d.product_type === 'trial' ? 0 : 1 // 体验包 < 月订阅
+    case 'months':
+      return d.months
+    case 'amount':
+      return d.amount_cents
+    case 'granted': {
+      const t = Date.parse(d.granted_at)
+      return Number.isFinite(t) ? t : 0
+    }
+  }
+}
+
+// filter → search → sort，作用在已取回的 details 上（纯客户端）
+const displayDetails = computed<ParentBillingDetail[]>(() => {
+  if (!report.value) return []
+  let list = report.value.details
+  if (typeFilter.value !== 'all') {
+    list = list.filter((d) => d.product_type === typeFilter.value)
+  }
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(
+      (d) =>
+        String(d.child_user_id).toLowerCase().includes(q) ||
+        (d.child_username || '').toLowerCase().includes(q)
+    )
+  }
+  if (sortKey.value) {
+    const key = sortKey.value
+    const dir = sortDir.value
+    list = [...list].sort((a, b) => {
+      const av = sortValueFor(a, key)
+      const bv = sortValueFor(b, key)
+      if (av === bv) return 0
+      const cmp = av < bv ? -1 : 1
+      return dir === 'asc' ? cmp : -cmp
+    })
+  }
+  return list
+})
+const displayTotalCents = computed(() =>
+  displayDetails.value.reduce((s, d) => s + d.amount_cents, 0)
+)
+const isFiltered = computed(
+  () => typeFilter.value !== 'all' || searchQuery.value.trim() !== ''
+)
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value !== key) {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  } else if (sortDir.value === 'asc') {
+    sortDir.value = 'desc'
+  } else {
+    sortKey.value = null
+  }
+}
+function sortClassFor(key: SortKey): string {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? 'sort-asc' : 'sort-desc'
+}
+
+// ── custom month picker (#6) ──────────────────────────────────────────
+const showMonthPanel = ref(false)
+const panelYear = ref(curYear)
+const monthPickerRef = ref<HTMLElement | null>(null)
+
+const monthLabel = computed(() => {
+  const [y, m] = month.value.split('-')
+  return `${y} 年 ${parseInt(m, 10)} 月`
+})
+const selectedYear = computed(() => parseInt(month.value.split('-')[0], 10))
+const selectedMonthNum = computed(() => parseInt(month.value.split('-')[1], 10))
+
+function toggleMonthPanel() {
+  if (!showMonthPanel.value) panelYear.value = selectedYear.value
+  showMonthPanel.value = !showMonthPanel.value
+}
+function isMonthDisabled(m: number): boolean {
+  return panelYear.value > curYear || (panelYear.value === curYear && m > curMonthNum)
+}
+function selectMonth(m: number) {
+  if (isMonthDisabled(m)) return
+  month.value = `${panelYear.value}-${String(m).padStart(2, '0')}`
+  showMonthPanel.value = false
+  load()
+}
+function prevYear() {
+  panelYear.value -= 1
+}
+function nextYear() {
+  if (panelYear.value < curYear) panelYear.value += 1
+}
+function onDocMouseDown(e: MouseEvent) {
+  if (
+    showMonthPanel.value &&
+    monthPickerRef.value &&
+    !monthPickerRef.value.contains(e.target as Node)
+  ) {
+    showMonthPanel.value = false
+  }
 }
 
 async function load() {
@@ -52,11 +175,11 @@ async function load() {
   }
 }
 
-function onMonthChange() {
+onMounted(() => {
   load()
-}
-
-onMounted(load)
+  document.addEventListener('mousedown', onDocMouseDown)
+})
+onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 </script>
 
 <template>
@@ -78,21 +201,63 @@ onMounted(load)
             >
               <path d="m15 18-6-6 6-6" />
             </svg>
-            返回客户管理
+            返回
           </button>
           <h1 class="page-title">费用对账</h1>
-          <p class="page-subtitle">查看名下子账户的会员开通明细与月度汇总</p>
         </div>
-        <label class="month-picker">
+
+        <!-- 自研月份选择器（#6）：替代原生 input[type=month]，套用页面设计 token -->
+        <div ref="monthPickerRef" class="month-picker">
           <span class="month-label">月份</span>
-          <input
-            type="month"
-            v-model="month"
-            :max="maxMonth"
-            class="month-input"
-            @change="onMonthChange"
-          />
-        </label>
+          <button class="month-trigger" :class="{ open: showMonthPanel }" @click="toggleMonthPanel">
+            <span>{{ monthLabel }}</span>
+            <svg
+              class="month-caret"
+              viewBox="0 0 12 12"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m3 4.5 3 3 3-3" />
+            </svg>
+          </button>
+          <Transition name="month-pop">
+            <div v-if="showMonthPanel" class="month-panel">
+              <div class="month-panel-head">
+                <button class="year-nav" type="button" @click="prevYear" aria-label="上一年">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                </button>
+                <span class="year-label">{{ panelYear }} 年</span>
+                <button
+                  class="year-nav"
+                  type="button"
+                  :disabled="panelYear >= curYear"
+                  @click="nextYear"
+                  aria-label="下一年"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                </button>
+              </div>
+              <div class="month-grid">
+                <button
+                  v-for="m in 12"
+                  :key="m"
+                  type="button"
+                  class="month-cell"
+                  :class="{ active: panelYear === selectedYear && m === selectedMonthNum }"
+                  :disabled="isMonthDisabled(m)"
+                  @click="selectMonth(m)"
+                >
+                  {{ m }} 月
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -122,24 +287,10 @@ onMounted(load)
         <button class="retry-btn" @click="load">重试</button>
       </div>
 
-      <!-- Empty -->
+      <!-- Empty: 该月完全无开通 -->
       <div v-else-if="report && report.details.length === 0" class="state-empty">
-        <svg
-          viewBox="0 0 48 48"
-          fill="none"
-          width="48"
-          height="48"
-          class="state-icon"
-        >
-          <rect
-            x="8"
-            y="6"
-            width="32"
-            height="36"
-            rx="4"
-            stroke="currentColor"
-            stroke-width="2"
-          />
+        <svg viewBox="0 0 48 48" fill="none" width="48" height="48" class="state-icon">
+          <rect x="8" y="6" width="32" height="36" rx="4" stroke="currentColor" stroke-width="2" />
           <path d="M16 16h16M16 22h12M16 28h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         </svg>
         <p class="state-title">本月（{{ report.month }}）暂无开通记录</p>
@@ -148,7 +299,7 @@ onMounted(load)
 
       <!-- Success -->
       <template v-else-if="report">
-        <!-- Summary bar -->
+        <!-- Summary bar：全月权威合计（不随筛选变化）-->
         <div class="summary-bar">
           <div class="summary-item">
             <span class="summary-label">账单月份</span>
@@ -166,22 +317,63 @@ onMounted(load)
           </div>
         </div>
 
+        <!-- Toolbar：类型筛选(#1) + 搜索(#2) -->
+        <div class="billing-toolbar">
+          <div class="type-filter" role="group" aria-label="会员类型筛选">
+            <button :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'">全部</button>
+            <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">月订阅</button>
+            <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">体验包</button>
+          </div>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input v-model="searchQuery" class="search-input" type="text" placeholder="搜索 ID / 昵称" />
+          </div>
+        </div>
+
         <!-- Table -->
         <div class="table-container">
           <div class="table-scroll">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>子账号</th>
-                  <th>会员类型</th>
-                  <th>时长</th>
-                  <th>价格</th>
-                  <th>开通时间</th>
+                  <th class="th-sortable col-user-th" :class="sortClassFor('child')" @click="toggleSort('child')">
+                    <span class="th-label">子账号</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                    </span>
+                  </th>
+                  <th class="th-sortable" :class="sortClassFor('type')" @click="toggleSort('type')">
+                    <span class="th-label">会员类型</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                    </span>
+                  </th>
+                  <th class="th-sortable" :class="sortClassFor('months')" @click="toggleSort('months')">
+                    <span class="th-label">时长</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                    </span>
+                  </th>
+                  <th class="th-sortable" :class="sortClassFor('amount')" @click="toggleSort('amount')">
+                    <span class="th-label">价格</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                    </span>
+                  </th>
+                  <th class="th-sortable" :class="sortClassFor('granted')" @click="toggleSort('granted')">
+                    <span class="th-label">开通时间</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="(d, idx) in report.details"
+                  v-for="(d, idx) in displayDetails"
                   :key="`${d.child_user_id}-${d.granted_at}-${idx}`"
                 >
                   <td class="col-user">
@@ -193,25 +385,20 @@ onMounted(load)
                       {{ productLabel(d.product_type) }}
                     </span>
                   </td>
-                  <td>
-                    <span class="cell-secondary">{{ durationLabel(d) }}</span>
-                  </td>
-                  <td>
-                    <span class="cell-amount">{{ yuan(d.amount_cents) }}</span>
-                  </td>
-                  <td>
-                    <span class="cell-secondary">{{ formatDate(d.granted_at) }}</span>
-                  </td>
+                  <td><span class="cell-secondary">{{ durationLabel(d) }}</span></td>
+                  <td><span class="cell-amount">{{ yuan(d.amount_cents) }}</span></td>
+                  <td><span class="cell-secondary">{{ formatDate(d.granted_at) }}</span></td>
+                </tr>
+                <tr v-if="displayDetails.length === 0">
+                  <td colspan="5" class="no-match">没有符合筛选 / 搜索条件的记录</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr class="total-row">
                   <td colspan="3">
-                    <span class="total-label">本月合计（{{ report.grants_count }} 笔）</span>
+                    <span class="total-label">{{ isFiltered ? '当前显示' : '本月合计' }}（{{ displayDetails.length }} 笔）</span>
                   </td>
-                  <td colspan="2">
-                    <span class="total-amount">{{ yuan(report.total_amount_cents) }}</span>
-                  </td>
+                  <td colspan="2"><span class="total-amount">{{ yuan(displayTotalCents) }}</span></td>
                 </tr>
               </tfoot>
             </table>
@@ -277,17 +464,12 @@ onMounted(load)
   color: hsl(155, 30%, 15%);
   line-height: 1.3;
   letter-spacing: -0.02em;
-  margin: 0 0 6px;
-}
-
-.page-subtitle {
-  font-size: 15px;
-  color: hsl(158, 20%, 45%);
   margin: 0;
 }
 
-/* ===== Month Picker ===== */
+/* ===== Month Picker (#6 自研) ===== */
 .month-picker {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
@@ -302,15 +484,20 @@ onMounted(load)
   letter-spacing: 0.04em;
 }
 
-.month-input {
+.month-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 132px;
   height: 36px;
   padding: 0 var(--space-md);
   border-radius: var(--radius-sm);
   border: 1px solid hsla(155, 30%, 90%, 0.7);
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
   font-size: 13px;
+  font-weight: 500;
   color: hsl(155, 25%, 18%);
-  outline: none;
   cursor: pointer;
   transition: all var(--transition-base);
   box-shadow:
@@ -318,9 +505,114 @@ onMounted(load)
     0 0 0 1px hsl(155 20% 92% / 0.3);
 }
 
-.month-input:focus {
-  border-color: hsl(158, 64%, 50%);
-  box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
+.month-trigger:hover,
+.month-trigger.open {
+  border-color: hsl(158, 40%, 82%);
+}
+
+.month-caret {
+  color: hsl(155, 15%, 55%);
+  transition: transform var(--transition-base);
+}
+
+.month-trigger.open .month-caret {
+  transform: rotate(180deg);
+}
+
+.month-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 240px;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid hsla(155, 30%, 90%, 0.9);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.98), hsla(150, 12%, 98%, 0.96));
+  box-shadow:
+    0 12px 32px hsl(150 15% 0% / 0.12),
+    0 0 0 1px hsl(155 20% 92% / 0.4);
+}
+
+.month-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.year-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: hsl(155, 25%, 18%);
+}
+
+.year-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: hsl(155, 20%, 40%);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.year-nav:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.year-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+}
+
+.month-cell {
+  padding: 8px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 13px;
+  color: hsl(155, 20%, 30%);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.month-cell:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.month-cell.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.month-cell:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.month-pop-enter-active,
+.month-pop-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.month-pop-enter-from,
+.month-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 /* ===== Summary Bar ===== */
@@ -328,7 +620,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding: 16px 24px;
   background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
   border: 1px solid hsla(155, 30%, 90%, 0.7);
@@ -368,6 +660,82 @@ onMounted(load)
 
 .summary-total {
   color: var(--accent);
+}
+
+/* ===== Toolbar (#1 filter + #2 search) ===== */
+.billing-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.type-filter {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  background: hsla(150, 15%, 98%, 0.7);
+  gap: 2px;
+}
+
+.type-filter button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 15%, 45%);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.type-filter button:hover {
+  color: var(--accent);
+}
+
+.type-filter button.active {
+  background: #fff;
+  color: hsl(155, 30%, 20%);
+  font-weight: 600;
+  box-shadow: 0 1px 4px hsl(150 15% 0% / 0.08);
+}
+
+.search-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  color: hsl(155, 15%, 55%);
+  pointer-events: none;
+}
+
+.search-input {
+  height: 36px;
+  width: 220px;
+  padding: 0 12px 0 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  font-size: 13px;
+  color: hsl(155, 25%, 18%);
+  outline: none;
+  transition: all var(--transition-base);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
+}
+
+.search-input:focus {
+  border-color: hsl(158, 64%, 50%);
+  box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
 }
 
 /* ===== Table ===== */
@@ -430,6 +798,47 @@ onMounted(load)
   background: hsla(150, 15%, 98%, 0.6);
 }
 
+/* Sortable header (照搬客户管理页) */
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.th-sortable .th-label {
+  margin-right: 4px;
+}
+.th-sortable:hover {
+  color: var(--accent);
+}
+.sort-indicator {
+  display: inline-flex;
+  vertical-align: middle;
+  color: hsl(155, 15%, 70%);
+  transition: color 0.15s;
+}
+.sort-indicator svg {
+  display: block;
+}
+.sort-arrow-up,
+.sort-arrow-down {
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.th-sortable.sort-asc,
+.th-sortable.sort-desc {
+  color: var(--accent);
+}
+.th-sortable.sort-asc .sort-indicator,
+.th-sortable.sort-desc .sort-indicator {
+  color: var(--accent);
+}
+.th-sortable.sort-asc .sort-arrow-up {
+  opacity: 1;
+}
+.th-sortable.sort-desc .sort-arrow-down {
+  opacity: 1;
+}
+
 /* User cell — higher specificity than `.data-table td` removes need for !important */
 .data-table td.col-user {
   text-align: left;
@@ -444,6 +853,12 @@ onMounted(load)
   font-size: 12px;
   color: hsl(155, 15%, 55%);
   margin-top: 2px;
+}
+
+.no-match {
+  padding: 36px 16px !important;
+  color: hsl(155, 12%, 55%);
+  font-size: 14px;
 }
 
 /* Product badge */
