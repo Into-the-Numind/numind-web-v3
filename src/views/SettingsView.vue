@@ -11,7 +11,24 @@
            BoosterPurchaseCard 三态交互（credits / trial / free）按同一 displayState。
            余额数据由 creditsStore.fetchBalance()（onMounted 触发）填充。 -->
       <div class="settings-section">
-        <div class="section-label">积分与加量包</div>
+        <div class="section-header">
+          <div class="section-label">积分与加量包</div>
+          <button type="button" class="section-action" @click="logOpen = true">
+            积分消耗记录
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
         <div class="credit-grid">
           <CreditBalanceCard />
           <BoosterPurchaseCard @purchase="handleBoosterPurchase" />
@@ -119,6 +136,7 @@
       :user-id="currentUserId"
       @success="handleBoosterPaid"
     />
+    <CreditConsumptionLogModal v-model:open="logOpen" />
 
     <!-- Logout Confirm Dialog -->
     <Teleport to="body">
@@ -147,6 +165,7 @@ import MainLayout from '@/components/layout/MainLayout.vue'
 import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
 import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
 import BoosterPurchaseDialog from '@/components/BoosterPurchaseDialog.vue'
+import CreditConsumptionLogModal from '@/components/credit/CreditConsumptionLogModal.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -162,6 +181,9 @@ const confirmVisible = ref(false)
 
 // 加量包购买弹窗（BoosterPurchaseCard 点击 → 打开多份数购买 Dialog）
 const purchaseDialogOpen = ref(false)
+
+// 积分消耗记录弹窗
+const logOpen = ref(false)
 
 // 受益人 user_id（自购场景 = 当前登录用户）。Dialog 要求 number 类型，缺失时降级 0。
 const currentUserId = computed((): number => {
@@ -487,6 +509,30 @@ onMounted(() => {
 
 .confirm-btn-ok:hover {
   background: #dc2626;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-header .section-label {
+  margin-bottom: 0; /* 头部已提供间距，避免 flex 子项 margin 叠加 + 基线偏移 */
+}
+.section-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--color-primary, #2563eb);
+  cursor: pointer;
+}
+.section-action:hover {
+  opacity: 0.8;
 }
 
 /* ===== Responsive ===== */
