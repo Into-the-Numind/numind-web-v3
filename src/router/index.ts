@@ -61,6 +61,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/customers/billing',
+    name: 'customers-billing',
+    component: () => import('@/views/CustomersBillingView.vue'),
+    meta: {
+      title: '费用对账',
+      requiresAuth: true,
+      parentOnly: true
+    }
+  },
+  {
     path: '/knowledge',
     name: 'knowledge',
     component: () => import('@/views/KnowledgeView.vue'),
@@ -343,7 +353,9 @@ router.beforeEach(async (to) => {
       // 其它父账户专属路径仍用 "AI 助手配置..." 默认。避免子账户看到混淆提示.
       const msg = to.path.startsWith('/marketplace')
         ? '技能市场仅父账户可访问'
-        : 'AI 助手配置仅父账户可访问'
+        : to.path.startsWith('/customers')
+          ? '客户管理仅父账户可访问'
+          : 'AI 助手配置仅父账户可访问'
       useNotificationsStore().info(msg)
       return { path: '/' }
     }
