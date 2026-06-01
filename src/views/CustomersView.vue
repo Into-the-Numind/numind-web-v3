@@ -14,24 +14,43 @@
             <h1 class="hero-title">客户管理</h1>
             <p class="hero-subtitle">管理您的子用户、模板权限与会员等级</p>
           </div>
-          <button class="hero-action-btn" @click="showRegisterModal = true">
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <line x1="19" x2="19" y1="8" y2="14" />
-              <line x1="22" x2="16" y1="11" y2="11" />
-            </svg>
-            注册新用户
-          </button>
+          <div class="hero-actions">
+            <button class="hero-action-btn secondary" @click="$router.push('/customers/billing')">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M9 21V9" />
+              </svg>
+              费用对账
+            </button>
+            <button class="hero-action-btn" @click="showRegisterModal = true">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" x2="19" y1="8" y2="14" />
+                <line x1="22" x2="16" y1="11" y2="11" />
+              </svg>
+              注册新用户
+            </button>
+          </div>
         </div>
 
         <!-- 统计卡片 -->
@@ -1818,6 +1837,13 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
   margin: 0;
 }
 
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .hero-action-btn {
   display: flex;
   align-items: center;
@@ -1838,6 +1864,26 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
   background: var(--accent-hover);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px hsl(158 64% 50% / 0.3);
+}
+
+.hero-action-btn.secondary {
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  color: hsl(155, 25%, 30%);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
+}
+
+.hero-action-btn.secondary:hover {
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 1), hsla(150, 12%, 97%, 1));
+  color: var(--accent);
+  border-color: hsl(158, 40%, 82%);
+  box-shadow:
+    0 4px 16px hsl(150 15% 0% / 0.08),
+    0 0 0 1px hsl(155 20% 88% / 0.5),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.7);
 }
 
 /* ===== Stats Grid ===== */
