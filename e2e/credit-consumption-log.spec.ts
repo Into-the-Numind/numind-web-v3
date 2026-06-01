@@ -73,8 +73,8 @@ test.describe('积分消耗记录 (credit consumption log)', () => {
 
     const rowCount = await dialog.locator('.data-row').count()
     if (rowCount > 0) {
-      // 有数据：分页信息「共 N 条」可见。
-      await expect(dialog.locator('.pagination__info')).toContainText(/共\s*\d+\s*条/)
+      // 有数据：首行「消耗积分」列渲染为数字（restyle 后表格风格对齐客户管理）。
+      await expect(dialog.locator('.data-row').first().locator('.col-credits')).toHaveText(/\d+/)
     } else {
       // 无数据：空状态文案。
       await expect(dialog.locator('.empty-state')).toContainText('暂无积分消耗记录')
