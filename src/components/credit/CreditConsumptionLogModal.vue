@@ -14,8 +14,8 @@
               加载失败，<button class="ccl-retry" type="button" @click="store.fetchPage(1)">重试</button>
             </div>
 
-            <!-- loading -->
-            <div v-else-if="store.loading" class="loading-state">
+            <!-- loading：仅首次加载显示 spinner；翻页时保留表格不重排，避免弹窗高度跳变 -->
+            <div v-else-if="store.loading && store.records.length === 0" class="loading-state">
               <div class="loading-spinner"></div>
               <div class="loading-text">加载中…</div>
             </div>
@@ -27,8 +27,8 @@
 
             <!-- table (与「客户管理」表格风格一致) -->
             <template v-else>
-              <div class="table-container">
-                <div class="table-scroll">
+              <div class="table-container" :class="{ 'is-loading': store.loading }">
+                <div class="table-scroll" :class="{ 'is-paged': totalPages > 1 }">
                   <table class="data-table">
                     <thead>
                       <tr>
@@ -184,12 +184,24 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 .table-scroll {
   overflow-x: auto;
 }
+/* 翻页态固定高度，避免每页行数不同导致弹窗上下缩放 */
+.table-scroll.is-paged {
+  height: 52vh;
+  overflow-y: auto;
+}
+/* 翻页加载时表格保持挂载、轻微变暗，不重排 */
+.table-container.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
 .data-table th {
+  text-align: center;
   padding: 13px 16px;
   font-size: 12px;
   font-weight: 600;
@@ -217,15 +229,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 
 /* 列对齐：时间/动作左对齐，消耗积分右对齐（数值） */
 .col-time {
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
   width: 180px;
 }
 .col-action {
-  text-align: left;
+  text-align: center;
 }
 .col-credits {
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
   width: 110px;
   font-variant-numeric: tabular-nums;
