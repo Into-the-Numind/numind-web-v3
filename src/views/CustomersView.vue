@@ -630,7 +630,7 @@
           <div v-if="showPermModal" class="modal-overlay" @click.self="closePermissionModal">
             <div class="modal-dialog perm-dialog">
               <div class="modal-header">
-                <h2 class="modal-title">管理模板权限</h2>
+                <h2 class="modal-title">管理权限</h2>
                 <button class="modal-close" @click="closePermissionModal">
                   <svg
                     viewBox="0 0 24 24"
