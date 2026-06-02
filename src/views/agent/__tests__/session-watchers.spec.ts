@@ -22,15 +22,45 @@ describe('handleSessionIdTransition', () => {
   // store.messages with an empty backend snapshot (DB hadn't persisted
   // messages yet because of the controller's pre-finalize ctx cancel).
   //
-  // Contract: a 'new' → real-uuid transition MUST NOT call loadSnapshot.
-  it('reproduce: new → real-uuid transition does not call loadSnapshot', async () => {
+  // Contract (post-621ab4a): the new→uuid skip is CONDITIONAL on an active
+  // stream/run — a manual new→uuid click with no active run SHOULD load the
+  // snapshot, but the mid-stream auto URL-replace MUST NOT. The original test
+  // passed no isStreaming/isRunning flags (→ undefined → load branch), so it
+  // went stale red on develop once 621ab4a added the gating; both branches are
+  // asserted below. (agent-stream-interactivity T1 also makes isRunning true
+  // during streaming, reinforcing this guard.)
+  it('reproduce: new → real-uuid MID-STREAM does not call loadSnapshot', async () => {
     await handleSessionIdTransition('42e277c7-6471-4d39-8866-e65bbbd7e016', 'new', {
       loadSnapshot,
       resetLocal,
-      readOnly: false
+      readOnly: false,
+      isStreaming: true,
+      isRunning: false
     })
     expect(loadSnapshot).not.toHaveBeenCalled()
     expect(resetLocal).not.toHaveBeenCalled()
+  })
+
+  it('new → real-uuid while a run is active (not streaming) also skips loadSnapshot', async () => {
+    await handleSessionIdTransition('42e277c7-6471-4d39-8866-e65bbbd7e016', 'new', {
+      loadSnapshot,
+      resetLocal,
+      readOnly: false,
+      isStreaming: false,
+      isRunning: true
+    })
+    expect(loadSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('new → real-uuid with NO active stream/run (manual switch) loads the snapshot', async () => {
+    await handleSessionIdTransition('42e277c7-6471-4d39-8866-e65bbbd7e016', 'new', {
+      loadSnapshot,
+      resetLocal,
+      readOnly: false,
+      isStreaming: false,
+      isRunning: false
+    })
+    expect(loadSnapshot).toHaveBeenCalledWith('42e277c7-6471-4d39-8866-e65bbbd7e016', false)
   })
 
   it('normal session switch (uuid → uuid) calls loadSnapshot with new id', async () => {
