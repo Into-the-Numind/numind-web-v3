@@ -18,6 +18,7 @@ import * as api from '@/api/agent'
 import type {
   AgentSkill,
   AgentRun,
+  AgentRunStatus,
   AgentMessage,
   AssistantMessage,
   CreateRunRequest,
@@ -45,6 +46,38 @@ import type {
 
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+/**
+ * statusFromTerminalReason — map a backend TerminalReason (SSE terminal payload
+ * `reason`) to the frontend AgentRunStatus for the OPTIMISTIC local update.
+ * Mirrors backend frontendStatus (student_query.go). reconcileFromDB(getRun) is
+ * authoritative immediately after, so this only governs the brief window before
+ * that resolves — but it must be correct, because with currentRun now live
+ * during streaming (stream_start bootstrap), a wrong map would flash the header
+ * status for every run. 'done' is accepted as a legacy alias for 'completed'.
+ * 'waiting_for_user_choice' → 'running' keeps an ask_user_question-paused run
+ * active (the question card carries the interaction; isWaitingForUser drives the
+ * input-disable) rather than flashing 'failed'.
+ */
+function statusFromTerminalReason(reason?: string): AgentRunStatus {
+  switch (reason) {
+    case 'completed':
+    case 'done':
+      return 'completed'
+    case 'waiting_for_user_choice':
+      return 'running'
+    case 'error_max_budget':
+      return 'budget_exhausted'
+    case 'max_turns':
+      return 'timeout'
+    case 'cancelled':
+    case 'aborted_streaming':
+    case 'aborted_tools':
+      return 'cancelled'
+    default:
+      return 'failed'
+  }
+}
 
 /**
  * StreamingAssistantMessage — AssistantMessage carrying SSE bookkeeping fields.
@@ -663,9 +696,31 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    */
   const applyStreamEvent = (e: AgentStreamEvent): void => {
     switch (e.type) {
-      case 'stream_start':
-        // Connection live — no UI action needed
+      case 'stream_start': {
+        // Optimistically establish currentRun so the chat header status badge,
+        // the cancel button, and budget logic work DURING streaming. Before this
+        // the streaming path left currentRun null until the terminal event, so
+        // those run-scoped features were dead on the default (streaming) path
+        // (BLK-5). Mirrors startNewRun's currentRun bootstrap minus the DB round
+        // trip. session_id is intentionally left empty so the new-session route
+        // replace still fires later from reconcileFromDB (URL timing unchanged).
+        if (!currentRun.value || currentRun.value.id !== e.run_id) {
+          currentRun.value = {
+            id: e.run_id,
+            session_id: '',
+            user_id: 0,
+            agent_skill_id: currentAgent.value?.id ?? 0,
+            status: 'running',
+            state_reason: 'running',
+            credits_used: 0,
+            credits_budget: 0,
+            credits_threshold_state: 'under_60',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        }
         break
+      }
 
       case 'ping':
         // Keepalive — no-op
@@ -869,15 +924,21 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
       case 'terminal': {
         const payload = e.data as TerminalPayload
-        // Update currentRun status locally so UI reacts immediately
+        // Update currentRun status locally so the UI reacts immediately;
+        // reconcileFromDB (getRun, authoritative) follows. Map the raw backend
+        // TerminalReason → frontend AgentRunStatus via statusFromTerminalReason
+        // ('done' legacy alias = 'completed'; 'waiting_for_user_choice' →
+        // 'running'). The previous inline `reason === 'done' ? 'completed' :
+        // 'failed'` flashed 'failed' for every real completed run (backend sends
+        // 'completed', not 'done') once currentRun is live during streaming.
         if (currentRun.value) {
           currentRun.value = {
             ...currentRun.value,
-            status: payload?.reason === 'done' ? 'completed' : 'failed',
+            status: statusFromTerminalReason(payload?.reason),
             state_reason: payload?.reason
           }
         }
-        // R5: pull authoritative messages from DB
+        // R5: pull authoritative messages + status from DB
         void reconcileFromDB(e.run_id)
         break
       }

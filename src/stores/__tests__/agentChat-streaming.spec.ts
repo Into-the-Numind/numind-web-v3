@@ -108,11 +108,17 @@ async function seedToolCall(
 // ---------------------------------------------------------------------------
 
 describe('applyStreamEvent', () => {
-  // 1. stream_start — no-op
-  it('stream_start: no-op, messages unchanged', () => {
+  // 1. stream_start — establishes optimistic currentRun (T1: BLK-5)
+  it('stream_start: sets optimistic running currentRun without adding messages', () => {
     const store = useAgentChatStore()
-    store.applyStreamEvent(makeEvent('stream_start'))
+    store.applyStreamEvent(makeEvent('stream_start', { session_id: 'sess-999', run_id: 999 }))
+    // No chat bubble is added by stream_start...
     expect(store.messages.length).toBe(0)
+    // ...but currentRun is now live so header status / cancel / budget work
+    // during streaming (previously stayed null until terminal — BLK-5).
+    expect(store.currentRun).not.toBeNull()
+    expect(store.currentRun?.id).toBe(999)
+    expect(store.currentRun?.status).toBe('running')
   })
 
   // 2. ping — no-op
@@ -376,6 +382,24 @@ describe('applyStreamEvent', () => {
       makeEvent('terminal', { reason: 'error', duration_ms: 500, step_count: 1 })
     )
     expect(store.currentRun?.status).toBe('failed')
+  })
+
+  // T1: a run paused for ask_user_question must stay active ("running"), not
+  // flash "failed". The question card carries the interaction; isWaitingForUser
+  // (state_reason) drives input-disable. Backend frontendStatus (T2) maps the
+  // same reason → "running" so reconcileFromDB agrees.
+  it('terminal: reason=waiting_for_user_choice keeps run active (running)', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'test')
+    store.applyStreamEvent(
+      makeEvent('terminal', {
+        reason: 'waiting_for_user_choice',
+        duration_ms: 100,
+        step_count: 1
+      })
+    )
+    expect(store.currentRun?.status).toBe('running')
+    expect(store.currentRun?.state_reason).toBe('waiting_for_user_choice')
   })
 
   it('terminal: triggers reconcileFromDB and pushes final_answer when run has final_output', async () => {
