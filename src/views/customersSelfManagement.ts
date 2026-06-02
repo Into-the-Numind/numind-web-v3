@@ -10,11 +10,12 @@
  *
  * id 在前后端有 number / string 两种形态，统一转 string 比较。
  */
-// TODO(parent-self-permission-display): 当前为占位实现，等价于现状——从不识别 self，
-// 弹窗对父账户自己走与子账户相同的逻辑（拉取失败 → 空）。下个 commit 实现真正比较。
 export function isSelfRow(
-  _target: { id?: number | string; user_id?: number | string } | null | undefined,
-  _currentUserId: number | string | null | undefined
+  target: { id?: number | string; user_id?: number | string } | null | undefined,
+  currentUserId: number | string | null | undefined
 ): boolean {
-  return false
+  if (target == null || currentUserId == null) return false
+  const targetId = target.user_id ?? target.id
+  if (targetId == null) return false
+  return String(targetId) === String(currentUserId)
 }

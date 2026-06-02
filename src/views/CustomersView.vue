@@ -679,12 +679,22 @@
                   <div class="loading-spinner"></div>
                 </div>
 
+                <!-- 父账户管理自己：父账户对所有功能 bypass，无需单独授权 -->
+                <div v-if="!permLoading && isManagingSelf" class="perm-self-note">
+                  父账户拥有全部权限，无需单独授权（以下仅作展示）
+                </div>
+
                 <!-- Template Permissions -->
                 <div v-if="!permLoading" class="perm-group">
                   <div class="perm-group-title">
                     <span>AI 工作流</span>
                     <span class="perm-badge">{{ allTemplates.length }}</span>
-                    <button type="button" class="perm-toggle-all" @click="togglePermSelectAll">
+                    <button
+                      v-if="!isManagingSelf"
+                      type="button"
+                      class="perm-toggle-all"
+                      @click="togglePermSelectAll"
+                    >
                       {{ isPermAllSelected ? '取消全选' : '全选' }}
                     </button>
                   </div>
@@ -693,8 +703,8 @@
                       v-for="tpl in allTemplates"
                       :key="tpl.id"
                       class="perm-item"
-                      :class="{ checked: permSelectedIds[String(tpl.id)] }"
-                      @click="togglePermTemplate(String(tpl.id))"
+                      :class="{ checked: permSelectedIds[String(tpl.id)], readonly: isManagingSelf }"
+                      @click="!isManagingSelf && togglePermTemplate(String(tpl.id))"
                     >
                       <span
                         class="checkbox-mark"
@@ -727,6 +737,7 @@
                     <span>AI 助手</span>
                     <span class="perm-badge">{{ allChatbots.length + 1 }}</span>
                     <button
+                      v-if="!isManagingSelf"
                       type="button"
                       class="perm-toggle-all"
                       @click="togglePermChatbotSelectAll"
@@ -738,8 +749,8 @@
                     <!-- 销售智能体（功能权限） -->
                     <div
                       class="perm-item"
-                      :class="{ checked: featurePermissions['sales_agent'] }"
-                      @click="toggleSalesAgent"
+                      :class="{ checked: featurePermissions['sales_agent'], readonly: isManagingSelf }"
+                      @click="!isManagingSelf && toggleSalesAgent()"
                     >
                       <span
                         class="checkbox-mark"
@@ -768,8 +779,11 @@
                       v-for="bot in allChatbots"
                       :key="bot.id"
                       class="perm-item"
-                      :class="{ checked: permChatbotSelectedIds[String(bot.id)] }"
-                      @click="togglePermChatbot(String(bot.id))"
+                      :class="{
+                        checked: permChatbotSelectedIds[String(bot.id)],
+                        readonly: isManagingSelf
+                      }"
+                      @click="!isManagingSelf && togglePermChatbot(String(bot.id))"
                     >
                       <span
                         class="checkbox-mark"
@@ -797,8 +811,11 @@
                 </div>
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn-cancel" @click="closePermissionModal">取消</button>
+                <button type="button" class="btn-cancel" @click="closePermissionModal">
+                  {{ isManagingSelf ? '关闭' : '取消' }}
+                </button>
                 <button
+                  v-if="!isManagingSelf"
                   type="button"
                   class="btn-primary"
                   :disabled="permSaving"
@@ -970,7 +987,11 @@ import {
 } from '@/api/customers'
 import type { GrantResponse } from '@/api/parent'
 import { formatDate } from '@/utils/datetime'
+import { useUserStore } from '@/stores/user'
+import { isSelfRow } from './customersSelfManagement'
 import { diffSelection } from './customersPermissionDiff'
+
+const userStore = useUserStore()
 
 // ── State ──────────────────────────────────────────────────────────
 const statistics = reactive({
@@ -1130,6 +1151,13 @@ const isPermChatbotAllSelected = computed(() => {
     allChatbots.value.every((c) => !!permChatbotSelectedIds[String(c.id)])
   )
 })
+
+// 父账户管理「自己」这一行：父账户对所有功能 bypass，无需也无法授权自己（后端
+// GetSubUser 自我归属校验失败）。识别后弹窗只读全勾显示「全部可用」，不再调那三个
+// 会报错的接口，也不显示保存按钮。
+const isManagingSelf = computed(
+  () => isSelfRow(permTarget.value, userStore.userInfo?.id) && userStore.isParentUser
+)
 
 const freeCount = computed(
   () => allSubUsers.value.filter((u) => getMemberStatus(u) === 'free').length
@@ -1425,6 +1453,18 @@ async function openPermissionModal(user: SubUser) {
   Object.keys(permChatbotSelectedIds).forEach((k) => delete permChatbotSelectedIds[k])
   permOriginalIds.value = new Set()
   permChatbotOriginalIds.value = new Set()
+  Object.keys(featurePermissions).forEach((k) => delete featurePermissions[k])
+  featurePermOriginal.value = new Set()
+
+  // 父账户管理自己：跳过那三个会因自我归属校验失败而报错的接口，直接只读全勾。
+  if (isManagingSelf.value) {
+    allTemplates.value.forEach((t) => (permSelectedIds[String(t.id)] = true))
+    allChatbots.value.forEach((c) => (permChatbotSelectedIds[String(c.id)] = true))
+    featurePermissions['sales_agent'] = true
+    permLoading.value = false
+    return
+  }
+
   const userId = user.user_id ?? user.id
   try {
     const [templateRes, featureRes, chatbotRes] = await Promise.all([
@@ -3074,6 +3114,21 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
 .perm-item.checked {
   background: hsl(158, 50%, 97%);
   border-color: hsl(158, 40%, 80%);
+}
+.perm-item.readonly {
+  cursor: default;
+}
+.perm-item.readonly:hover {
+  background: hsl(158, 50%, 97%);
+}
+.perm-self-note {
+  padding: 10px 14px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  background: hsl(158, 50%, 97%);
+  border: 1px solid hsl(158, 40%, 85%);
+  font-size: 13px;
+  color: hsl(155, 25%, 30%);
 }
 .perm-item-label {
   font-size: 14px;
