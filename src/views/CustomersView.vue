@@ -739,9 +739,7 @@
                     <div
                       class="perm-item"
                       :class="{ checked: featurePermissions['sales_agent'] }"
-                      @click="
-                        featurePermissions['sales_agent'] = !featurePermissions['sales_agent']
-                      "
+                      @click="toggleSalesAgent"
                     >
                       <span
                         class="checkbox-mark"
@@ -972,6 +970,7 @@ import {
 } from '@/api/customers'
 import type { GrantResponse } from '@/api/parent'
 import { formatDate } from '@/utils/datetime'
+import { diffSelection } from './customersPermissionDiff'
 
 // ── State ──────────────────────────────────────────────────────────
 const statistics = reactive({
@@ -1516,9 +1515,19 @@ function togglePermChatbot(id: string) {
   }
 }
 
+// 销售智能体（功能权限）：取消时 delete key（而非置 false），与模板/chatbot 的
+// 「Record 当 Set 用」约定一致，避免残留 key=false 被保存逻辑误判为授权。
+function toggleSalesAgent() {
+  if (featurePermissions['sales_agent']) {
+    delete featurePermissions['sales_agent']
+  } else {
+    featurePermissions['sales_agent'] = true
+  }
+}
+
 function togglePermChatbotSelectAll() {
   if (isPermChatbotAllSelected.value) {
-    featurePermissions['sales_agent'] = false
+    delete featurePermissions['sales_agent']
     allChatbots.value.forEach((c) => delete permChatbotSelectedIds[String(c.id)])
   } else {
     featurePermissions['sales_agent'] = true
@@ -1533,31 +1542,17 @@ async function savePermissions() {
   const userId = permTarget.value.user_id ?? permTarget.value.id
   permSaving.value = true
   try {
-    const featuresToGrant: string[] = []
-    const featuresToRevoke: string[] = []
-    Object.keys(featurePermissions).forEach((key) => {
-      if (!featurePermOriginal.value.has(key)) featuresToGrant.push(key)
-    })
-    featurePermOriginal.value.forEach((key) => {
-      if (!featurePermissions[key]) featuresToRevoke.push(key)
-    })
-    const toGrant: string[] = []
-    const toRevoke: string[] = []
-    Object.keys(permSelectedIds).forEach((id) => {
-      if (!permOriginalIds.value.has(id)) toGrant.push(id)
-    })
-    permOriginalIds.value.forEach((id) => {
-      if (!permSelectedIds[id]) toRevoke.push(id)
-    })
-
-    const toGrantChatbots: string[] = []
-    const toRevokeChatbots: string[] = []
-    Object.keys(permChatbotSelectedIds).forEach((id) => {
-      if (!permChatbotOriginalIds.value.has(id)) toGrantChatbots.push(id)
-    })
-    permChatbotOriginalIds.value.forEach((id) => {
-      if (!permChatbotSelectedIds[id]) toRevokeChatbots.push(id)
-    })
+    // 三类权限统一走 diffSelection：grant 看「值为真」而非仅 key 存在，
+    // 避免残留 key=false（全选后再取消）被误判为新增授权（sales-agent bug 根因）。
+    const { toGrant: featuresToGrant, toRevoke: featuresToRevoke } = diffSelection(
+      featurePermissions,
+      featurePermOriginal.value
+    )
+    const { toGrant, toRevoke } = diffSelection(permSelectedIds, permOriginalIds.value)
+    const { toGrant: toGrantChatbots, toRevoke: toRevokeChatbots } = diffSelection(
+      permChatbotSelectedIds,
+      permChatbotOriginalIds.value
+    )
 
     if (
       toGrant.length === 0 &&
