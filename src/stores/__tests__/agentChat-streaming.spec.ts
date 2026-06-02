@@ -111,7 +111,8 @@ describe('applyStreamEvent', () => {
   // 1. stream_start — establishes optimistic currentRun (T1: BLK-5)
   it('stream_start: sets optimistic running currentRun without adding messages', () => {
     const store = useAgentChatStore()
-    store.applyStreamEvent(makeEvent('stream_start', { session_id: 'sess-999', run_id: 999 }))
+    // stream_start reads only e.run_id from the envelope (data is ignored).
+    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 999 }))
     // No chat bubble is added by stream_start...
     expect(store.messages.length).toBe(0)
     // ...but currentRun is now live so header status / cancel / budget work
@@ -397,6 +398,27 @@ describe('applyStreamEvent', () => {
     expect(q777?.answer_status).toBe('pending')
   })
 
+  // Regression (review P1): waiting_for_user_choice maps to a 'running' status,
+  // so narration polling no longer bails on the isRunning guard. It must bail on
+  // isWaitingForUser instead, or it fires a false "任务卡住" alarm during the
+  // (legitimate) pause while the user reads/answers the question.
+  it('pollNarration: no false stuck accumulation while waiting for the user answer', async () => {
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 999,
+      session_id: 'sess-999',
+      user_id: 1,
+      agent_skill_id: 1,
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    }
+    await store.pollNarration()
+    expect(store.stuckSince).toBeNull()
+    expect(vi.mocked(api.fetchNarrationEvents)).not.toHaveBeenCalled()
+  })
+
   // 13. terminal — updates currentRun.status + triggers reconcileFromDB
   it('terminal: sets currentRun.status to completed when reason=done', async () => {
     const store = useAgentChatStore()
@@ -409,7 +431,7 @@ describe('applyStreamEvent', () => {
     expect(store.currentRun?.status).toBe('completed')
   })
 
-  it('terminal: sets currentRun.status to failed when reason != done', async () => {
+  it('terminal: sets currentRun.status to failed for unknown reasons (e.g. "error")', async () => {
     const store = useAgentChatStore()
     await store.startNewRun(1, 'test')
     store.applyStreamEvent(

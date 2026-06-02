@@ -250,6 +250,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const pollNarration = async (): Promise<void> => {
     if (!currentRun.value || !isRunning.value) return
+    // While paused for an ask_user_question answer the run legitimately produces
+    // no narration. Since waiting_for_user_choice now maps to a 'running' status
+    // (so the header/cancel stay live — T1/T2), pollNarration would otherwise
+    // tick every cycle, see 0 events, accumulate stuckSince, and fire a false
+    // "任务卡住" bubble (+ force-enable cancel at 60s). Bail and clear any stale
+    // stuck marker; refreshRunStatus flips isWaitingForUser off once the answered
+    // run resumes, after which narration polling continues normally.
+    if (isWaitingForUser.value) {
+      stuckSince.value = null
+      return
+    }
     try {
       const events = await api.fetchNarrationEvents(currentRun.value.id, lastNarrationTs.value)
       if (events.length > 0) {
