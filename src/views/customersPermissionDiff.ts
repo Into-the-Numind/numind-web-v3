@@ -17,7 +17,8 @@ export function diffSelection(
   const toGrant: string[] = []
   const toRevoke: string[] = []
   Object.keys(current).forEach((key) => {
-    if (!original.has(key)) toGrant.push(key)
+    // 必须看「值为真」而非仅「key 存在」：残留的 key=false（全选后再取消）不是授权
+    if (current[key] && !original.has(key)) toGrant.push(key)
   })
   original.forEach((key) => {
     if (!current[key]) toRevoke.push(key)
