@@ -549,8 +549,10 @@ const handleRetrySnapshot = async (): Promise<void> => {
     />
 
     <!-- 重命名对话 Modal (复用 sales-modal.css 视觉) -->
+    <!-- v-if (与下方删除 Modal 一致)：关闭时移出 DOM，避免遗留一个 opacity:0 的
+         role="dialog" 幽灵节点污染无障碍树 / 误导自动化 DOM 快照 -->
     <Teleport to="body">
-      <div class="modal-overlay" :class="{ open: renameModalOpen }">
+      <div v-if="renameModalOpen" class="modal-overlay open">
         <div
           class="modal-card modal-card-simple"
           role="dialog"
