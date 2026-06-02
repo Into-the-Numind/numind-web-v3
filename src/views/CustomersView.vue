@@ -1527,6 +1527,7 @@ function closePermissionModal() {
   Object.keys(featurePermissions).forEach((k) => delete featurePermissions[k])
   featurePermOriginal.value = new Set()
   permChatbotOriginalIds.value = new Set()
+  permOriginalIds.value = new Set()
 }
 
 function togglePermTemplate(id: string) {
