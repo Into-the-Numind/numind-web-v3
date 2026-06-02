@@ -681,7 +681,7 @@
 
                 <!-- 父账户管理自己：父账户对所有功能 bypass，无需单独授权 -->
                 <div v-if="!permLoading && isManagingSelf" class="perm-self-note">
-                  父账户拥有全部权限，无需单独授权（以下仅作展示）
+                  管理员拥有全部运行权限
                 </div>
 
                 <!-- Template Permissions -->
