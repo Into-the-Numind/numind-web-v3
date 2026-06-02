@@ -682,7 +682,7 @@
                 <!-- Template Permissions -->
                 <div v-if="!permLoading" class="perm-group">
                   <div class="perm-group-title">
-                    <span>SOP</span>
+                    <span>AI 工作流</span>
                     <span class="perm-badge">{{ allTemplates.length }}</span>
                     <button type="button" class="perm-toggle-all" @click="togglePermSelectAll">
                       {{ isPermAllSelected ? '取消全选' : '全选' }}
@@ -724,7 +724,7 @@
                 <!-- Chatbot Permissions -->
                 <div v-if="!permLoading" class="perm-group">
                   <div class="perm-group-title">
-                    <span>智能体</span>
+                    <span>AI 助手</span>
                     <span class="perm-badge">{{ allChatbots.length + 1 }}</span>
                     <button
                       type="button"
