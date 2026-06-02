@@ -3117,9 +3117,7 @@ function handleGrantSuccess(resp: GrantResponse & { _toastMsg?: string }) {
 }
 .perm-item.readonly {
   cursor: default;
-}
-.perm-item.readonly:hover {
-  background: hsl(158, 50%, 97%);
+  pointer-events: none;
 }
 .perm-self-note {
   padding: 10px 14px;

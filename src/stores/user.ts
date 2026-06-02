@@ -13,6 +13,8 @@ export interface UserInfo {
   email?: string
   phone?: string
   role?: string
+  /** 父账户 id；null/undefined 表示当前用户本身就是父账户（见 isParentUser）。 */
+  parent_user_id?: number | string | null
   [key: string]: any
 }
 
