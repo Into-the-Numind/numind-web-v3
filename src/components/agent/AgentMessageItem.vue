@@ -27,6 +27,11 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), { readOnly: false })
 
+// Bubble QuestionPrompt's answer-submitted up to AgentChatView (via
+// AgentMessageList) so it can resume the run. Carries the answered question's
+// run_id so the view knows which run to poll.
+defineEmits<{ 'answer-submitted': [runId: number] }>()
+
 const copied = ref(false)
 
 const copyText = async (text: string): Promise<void> => {
@@ -305,6 +310,7 @@ const systemText = computed<string>(() => {
         :header="asQuestionPrompt.header"
         :multi-select="asQuestionPrompt.multi_select"
         :answered="asQuestionPrompt.answer_status === 'answered'"
+        @answer-submitted="$emit('answer-submitted', asQuestionPrompt.run_id)"
       />
     </div>
   </div>

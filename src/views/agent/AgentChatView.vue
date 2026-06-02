@@ -92,6 +92,17 @@ const handleCancel = async (): Promise<void> => {
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
 }
 
+const handleAnswerSubmitted = (runId: number): void => {
+  // The run paused for ask_user_question and the SSE stream already ended at the
+  // waiting terminal. The backend re-runs the agent (non-stream) on /answer,
+  // writing narration + final to the DB — so resume by polling rather than
+  // reopening the stream. Optimistically flip the card to "已回答" for instant
+  // feedback (the polling run_resumed handler sets the same flag idempotently).
+  store.markQuestionAnswered(runId)
+  narration.start()
+  runCtrl.startStatusPolling()
+}
+
 const handleEstimateRequest = async (text: string): Promise<void> => {
   if (!store.currentAgent) return
   await store.estimateInput(store.currentAgent.id, text)
@@ -483,7 +494,12 @@ const handleRetrySnapshot = async (): Promise<void> => {
             @select-starter="handleSelectStarter"
           />
 
-          <AgentMessageList v-else :messages="store.messages" :read-only="readOnly" />
+          <AgentMessageList
+            v-else
+            :messages="store.messages"
+            :read-only="readOnly"
+            @answer-submitted="handleAnswerSubmitted"
+          />
         </div>
 
         <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">

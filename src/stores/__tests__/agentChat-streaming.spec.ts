@@ -108,11 +108,18 @@ async function seedToolCall(
 // ---------------------------------------------------------------------------
 
 describe('applyStreamEvent', () => {
-  // 1. stream_start — no-op
-  it('stream_start: no-op, messages unchanged', () => {
+  // 1. stream_start — establishes optimistic currentRun (T1: BLK-5)
+  it('stream_start: sets optimistic running currentRun without adding messages', () => {
     const store = useAgentChatStore()
-    store.applyStreamEvent(makeEvent('stream_start'))
+    // stream_start reads only e.run_id from the envelope (data is ignored).
+    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 999 }))
+    // No chat bubble is added by stream_start...
     expect(store.messages.length).toBe(0)
+    // ...but currentRun is now live so header status / cancel / budget work
+    // during streaming (previously stayed null until terminal — BLK-5).
+    expect(store.currentRun).not.toBeNull()
+    expect(store.currentRun?.id).toBe(999)
+    expect(store.currentRun?.status).toBe('running')
   })
 
   // 2. ping — no-op
@@ -331,7 +338,7 @@ describe('applyStreamEvent', () => {
     store.applyStreamEvent(
       makeEvent('question_prompt', {
         question: 'Which option?',
-        options: ['A', 'B'],
+        options: [{ label: 'A' }, { label: 'B' }],
         multi_select: false
       })
     )
@@ -344,17 +351,72 @@ describe('applyStreamEvent', () => {
     expect(p.type === 'question_prompt' && p.multi_select).toBe(false)
   })
 
-  it('question_prompt: maps string options to {label} objects', () => {
+  it('question_prompt: passes through structured {label, description} options', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(
       makeEvent('question_prompt', {
         question: 'Pick one',
-        options: ['option-x', 'option-y'],
+        options: [{ label: 'option-x', description: 'desc-x' }, { label: 'option-y' }],
         multi_select: false
       })
     )
     const p = store.messages.find((m) => m.type === 'question_prompt')
-    expect(p?.type === 'question_prompt' && p.options[0]).toEqual({ label: 'option-x' })
+    expect(p?.type === 'question_prompt' && p.options[0]).toEqual({
+      label: 'option-x',
+      description: 'desc-x'
+    })
+  })
+
+  // T5: answering resumes the run via polling; markQuestionAnswered gives the
+  // optimistic "answered" flip for the matching run only.
+  it('markQuestionAnswered: flips the matching run pending prompt to answered', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent(
+        'question_prompt',
+        { question: 'Q1', options: [{ label: 'A' }, { label: 'B' }], multi_select: false },
+        { run_id: 555 }
+      )
+    )
+    store.applyStreamEvent(
+      makeEvent(
+        'question_prompt',
+        { question: 'Q2', options: [{ label: 'X' }, { label: 'Y' }], multi_select: false },
+        { run_id: 777 }
+      )
+    )
+
+    store.markQuestionAnswered(555)
+
+    const prompts = store.messages.filter(
+      (m): m is import('@/types/agent').QuestionPromptMessage => m.type === 'question_prompt'
+    )
+    const q555 = prompts.find((p) => p.run_id === 555)
+    const q777 = prompts.find((p) => p.run_id === 777)
+    expect(q555?.answer_status).toBe('answered')
+    // Other run's prompt is untouched.
+    expect(q777?.answer_status).toBe('pending')
+  })
+
+  // Regression (review P1): waiting_for_user_choice maps to a 'running' status,
+  // so narration polling no longer bails on the isRunning guard. It must bail on
+  // isWaitingForUser instead, or it fires a false "任务卡住" alarm during the
+  // (legitimate) pause while the user reads/answers the question.
+  it('pollNarration: no false stuck accumulation while waiting for the user answer', async () => {
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 999,
+      session_id: 'sess-999',
+      user_id: 1,
+      agent_skill_id: 1,
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    }
+    await store.pollNarration()
+    expect(store.stuckSince).toBeNull()
+    expect(vi.mocked(api.fetchNarrationEvents)).not.toHaveBeenCalled()
   })
 
   // 13. terminal — updates currentRun.status + triggers reconcileFromDB
@@ -369,13 +431,31 @@ describe('applyStreamEvent', () => {
     expect(store.currentRun?.status).toBe('completed')
   })
 
-  it('terminal: sets currentRun.status to failed when reason != done', async () => {
+  it('terminal: sets currentRun.status to failed for unknown reasons (e.g. "error")', async () => {
     const store = useAgentChatStore()
     await store.startNewRun(1, 'test')
     store.applyStreamEvent(
       makeEvent('terminal', { reason: 'error', duration_ms: 500, step_count: 1 })
     )
     expect(store.currentRun?.status).toBe('failed')
+  })
+
+  // T1: a run paused for ask_user_question must stay active ("running"), not
+  // flash "failed". The question card carries the interaction; isWaitingForUser
+  // (state_reason) drives input-disable. Backend frontendStatus (T2) maps the
+  // same reason → "running" so reconcileFromDB agrees.
+  it('terminal: reason=waiting_for_user_choice keeps run active (running)', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'test')
+    store.applyStreamEvent(
+      makeEvent('terminal', {
+        reason: 'waiting_for_user_choice',
+        duration_ms: 100,
+        step_count: 1
+      })
+    )
+    expect(store.currentRun?.status).toBe('running')
+    expect(store.currentRun?.state_reason).toBe('waiting_for_user_choice')
   })
 
   it('terminal: triggers reconcileFromDB and pushes final_answer when run has final_output', async () => {

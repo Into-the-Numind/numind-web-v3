@@ -12,6 +12,9 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), { readOnly: false })
 
+// Forward QuestionPrompt's answer-submitted (with run_id) up to AgentChatView.
+defineEmits<{ 'answer-submitted': [runId: number] }>()
+
 const scroller = ref<HTMLDivElement | null>(null)
 const scrollFollow = useScrollFollow()
 
@@ -62,7 +65,13 @@ onBeforeUnmount(() => {
   <div class="message-list">
     <div ref="scroller" class="scroller">
       <div class="messages-container">
-        <AgentMessageItem v-for="msg in messages" :key="msg.id" :msg="msg" :read-only="readOnly" />
+        <AgentMessageItem
+          v-for="msg in messages"
+          :key="msg.id"
+          :msg="msg"
+          :read-only="readOnly"
+          @answer-submitted="$emit('answer-submitted', $event)"
+        />
       </div>
     </div>
     <!-- 当用户手动向上滚动打断跟随状态时，显示优美的“跳回底部”按钮 -->
