@@ -912,7 +912,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           type: 'question_prompt',
           run_id: e.run_id,
           question: payload.question,
-          options: (payload.options ?? []).map((opt) => ({ label: opt })),
+          // Backend (T3) now sends structured options {label, description};
+          // pass them through directly (was stringified to {label: opt}, which
+          // rendered [object Object] once the backend contract changed).
+          options: payload.options ?? [],
           header: payload.header,
           multi_select: payload.multi_select ?? false,
           answer_status: 'pending',
@@ -968,6 +971,25 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       markdown: message,
       timestamp: new Date().toISOString()
     })
+  }
+
+  /**
+   * markQuestionAnswered — flip any pending question_prompt for this run to
+   * 'answered' (optimistic). Called when the user submits an ask_user_question
+   * answer; gives immediate "已回答，等待 agent 继续..." feedback before the
+   * resumed run's narration arrives via polling. Idempotent (the polling
+   * run_resumed handler sets the same flag).
+   */
+  const markQuestionAnswered = (runId: number): void => {
+    for (const msg of messages.value) {
+      if (
+        msg.type === 'question_prompt' &&
+        (msg as QuestionPromptMessage).run_id === runId &&
+        (msg as QuestionPromptMessage).answer_status === 'pending'
+      ) {
+        ;(msg as QuestionPromptMessage).answer_status = 'answered'
+      }
+    }
   }
 
   const reset = (): void => {
@@ -1036,6 +1058,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     reset,
     appendUserMessage,
     applyStreamEvent,
-    applyError
+    applyError,
+    markQuestionAnswered
   }
 })

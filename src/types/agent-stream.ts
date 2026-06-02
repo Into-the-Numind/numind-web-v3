@@ -127,7 +127,8 @@ export interface StateChangePayload {
 /** question_prompt — agent is waiting for user input via ask_user_question */
 export interface QuestionPromptPayload {
   question: string
-  options: string[]
+  /** Structured options — mirrors backend stream.QuestionOption ({label, description}). */
+  options: Array<{ label: string; description?: string }>
   header?: string
   multi_select: boolean
 }

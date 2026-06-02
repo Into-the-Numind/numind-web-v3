@@ -337,7 +337,7 @@ describe('applyStreamEvent', () => {
     store.applyStreamEvent(
       makeEvent('question_prompt', {
         question: 'Which option?',
-        options: ['A', 'B'],
+        options: [{ label: 'A' }, { label: 'B' }],
         multi_select: false
       })
     )
@@ -350,17 +350,51 @@ describe('applyStreamEvent', () => {
     expect(p.type === 'question_prompt' && p.multi_select).toBe(false)
   })
 
-  it('question_prompt: maps string options to {label} objects', () => {
+  it('question_prompt: passes through structured {label, description} options', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(
       makeEvent('question_prompt', {
         question: 'Pick one',
-        options: ['option-x', 'option-y'],
+        options: [{ label: 'option-x', description: 'desc-x' }, { label: 'option-y' }],
         multi_select: false
       })
     )
     const p = store.messages.find((m) => m.type === 'question_prompt')
-    expect(p?.type === 'question_prompt' && p.options[0]).toEqual({ label: 'option-x' })
+    expect(p?.type === 'question_prompt' && p.options[0]).toEqual({
+      label: 'option-x',
+      description: 'desc-x'
+    })
+  })
+
+  // T5: answering resumes the run via polling; markQuestionAnswered gives the
+  // optimistic "answered" flip for the matching run only.
+  it('markQuestionAnswered: flips the matching run pending prompt to answered', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent(
+        'question_prompt',
+        { question: 'Q1', options: [{ label: 'A' }, { label: 'B' }], multi_select: false },
+        { run_id: 555 }
+      )
+    )
+    store.applyStreamEvent(
+      makeEvent(
+        'question_prompt',
+        { question: 'Q2', options: [{ label: 'X' }, { label: 'Y' }], multi_select: false },
+        { run_id: 777 }
+      )
+    )
+
+    store.markQuestionAnswered(555)
+
+    const prompts = store.messages.filter(
+      (m): m is import('@/types/agent').QuestionPromptMessage => m.type === 'question_prompt'
+    )
+    const q555 = prompts.find((p) => p.run_id === 555)
+    const q777 = prompts.find((p) => p.run_id === 777)
+    expect(q555?.answer_status).toBe('answered')
+    // Other run's prompt is untouched.
+    expect(q777?.answer_status).toBe('pending')
   })
 
   // 13. terminal — updates currentRun.status + triggers reconcileFromDB
