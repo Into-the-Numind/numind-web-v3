@@ -11,20 +11,7 @@ import type { Agent } from '@/types/agentBuilder'
 // vue-router
 const mockRouterBack = vi.fn()
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ back: mockRouterBack }),
-  onBeforeRouteLeave: vi.fn() // no-op in unit tests
-}))
-
-// useToast
-const mockToastSuccess = vi.fn()
-const mockToastError = vi.fn()
-vi.mock('@/stores/notifications', () => ({
-  useNotificationsStore: () => ({
-    toasts: [],
-    success: mockToastSuccess,
-    error: mockToastError,
-    info: vi.fn()
-  })
+  useRouter: () => ({ back: mockRouterBack })
 }))
 
 // useAgentBuilderStore — we control the store mock per test
@@ -112,7 +99,7 @@ describe('AgentAdvancedEdit', () => {
     const banner = wrapper.find('.notice-banner')
     expect(banner.exists()).toBe(true)
     expect(banner.text()).toContain('自定义 Prompt 编辑功能即将上线')
-    expect(banner.text()).toContain('v1 仅可查看 + 切换工具开关')
+    expect(banner.text()).toContain('只读查看')
   })
 
   it('renders body text in a disabled textarea when agent is loaded', async () => {
@@ -206,163 +193,24 @@ describe('AgentAdvancedEdit', () => {
     expect(charCountEl.classes()).toContain('char-count--warn')
   })
 
-  // ── tool_flags checkboxes ──────────────────────────────────────────────
+  // ── tool switches removed (remove-agent-tool-switches) ──────────────────
 
-  it('renders tool flags checkboxes initialized from agent.tool_flags', async () => {
+  it('does NOT render any tool flag checkboxes (switches removed)', async () => {
     const agent = buildAgent({
-      tool_flags: { code_sandbox: true, media: false, dangerous: false }
+      tool_flags: { code_sandbox: true, media: true, dangerous: true }
     })
     const wrapper = await mountComponent(agent)
 
-    const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    // code_sandbox = index 0, media = index 1, dangerous = index 2
-    expect(checkboxes[0].element.checked).toBe(true)
-    expect(checkboxes[1].element.checked).toBe(false)
-    expect(checkboxes[2].element.checked).toBe(false)
+    expect(wrapper.findAll("input[type='checkbox']")).toHaveLength(0)
+    expect(wrapper.find('.tool-flags').exists()).toBe(false)
   })
 
-  // ── dangerous toggle ───────────────────────────────────────────────────
-
-  it('opens dangerous confirm modal when dangerous checkbox is newly checked', async () => {
-    const agent = buildAgent({
-      tool_flags: { code_sandbox: false, media: false, dangerous: false }
-    })
-    const wrapper = await mountComponent(agent)
-
-    // Confirm modal should be hidden initially; dangerous confirm is the first ConfirmModal
-    const allModals = wrapper.findAllComponents({ name: 'ConfirmModal' })
-    const dangerousModal = allModals[0]
-    expect(dangerousModal.props('modelValue')).toBe(false)
-
-    // Check the dangerous checkbox
-    const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    const dangerousCheckbox = checkboxes[2]
-    dangerousCheckbox.element.checked = true
-    await dangerousCheckbox.trigger('change')
-
-    // Modal should now be visible
-    expect(wrapper.findAllComponents({ name: 'ConfirmModal' })[0].props('modelValue')).toBe(true)
-  })
-
-  it('reverts dangerous checkbox to false when user cancels the confirm modal', async () => {
-    const agent = buildAgent({
-      tool_flags: { code_sandbox: false, media: false, dangerous: false }
-    })
-    const wrapper = await mountComponent(agent)
-
-    // Open dangerous confirm
-    const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    const dangerousCheckbox = checkboxes[2]
-    dangerousCheckbox.element.checked = true
-    await dangerousCheckbox.trigger('change')
-
-    // Cancel from modal
-    const dangerousModal = wrapper.findAllComponents({
-      name: 'ConfirmModal'
-    })[0]
-    await dangerousModal.vm.$emit('cancel')
-    await wrapper.vm.$nextTick()
-
-    // Modal closed and dangerous is back to false
-    expect(dangerousModal.props('modelValue')).toBe(false)
-    const updatedCheckboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    expect(updatedCheckboxes[2].element.checked).toBe(false)
-  })
-
-  it('keeps dangerous checkbox true when user confirms the dangerous modal', async () => {
-    const agent = buildAgent({
-      tool_flags: { code_sandbox: false, media: false, dangerous: false }
-    })
-    const wrapper = await mountComponent(agent)
-
-    // Open dangerous confirm
-    const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    const dangerousCheckbox = checkboxes[2]
-    dangerousCheckbox.element.checked = true
-    await dangerousCheckbox.trigger('change')
-
-    // Confirm from modal
-    const dangerousModal = wrapper.findAllComponents({
-      name: 'ConfirmModal'
-    })[0]
-    await dangerousModal.vm.$emit('confirm')
-    await wrapper.vm.$nextTick()
-
-    // Modal closed and dangerous stays true
-    expect(dangerousModal.props('modelValue')).toBe(false)
-    const updatedCheckboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    expect(updatedCheckboxes[2].element.checked).toBe(true)
-  })
-
-  it('does NOT open confirm modal when dangerous is unchecked (was true)', async () => {
-    const agent = buildAgent({
-      tool_flags: { code_sandbox: false, media: false, dangerous: true }
-    })
-    const wrapper = await mountComponent(agent)
-
-    // Uncheck the dangerous checkbox (was true → false)
-    const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    const dangerousCheckbox = checkboxes[2]
-    expect(dangerousCheckbox.element.checked).toBe(true)
-
-    dangerousCheckbox.element.checked = false
-    await dangerousCheckbox.trigger('change')
-
-    // Modal should remain hidden
-    const dangerousModal = wrapper.findAllComponents({
-      name: 'ConfirmModal'
-    })[0]
-    expect(dangerousModal.props('modelValue')).toBe(false)
-  })
-
-  // ── Save ───────────────────────────────────────────────────────────────
-
-  it('calls store.update with current tool_flags when save button is clicked', async () => {
-    const agent = buildAgent({
-      tool_flags: { code_sandbox: false, media: false, dangerous: false }
-    })
-    const wrapper = await mountComponent(agent)
-
-    // Toggle code_sandbox on
-    const checkboxes = wrapper.findAll<HTMLInputElement>("input[type='checkbox']")
-    checkboxes[0].element.checked = true
-    await checkboxes[0].trigger('change')
-
-    // Click save button
-    const saveButton = wrapper.findAll('button').find((b) => b.text().includes('保存工具开关'))
-    expect(saveButton).toBeDefined()
-    await saveButton!.trigger('click')
-    await flushPromises()
-
-    expect(mockUpdate).toHaveBeenCalledOnce()
-    const [id, payload] = mockUpdate.mock.calls[0]
-    expect(id).toBe(1)
-    expect(payload).toMatchObject({
-      tool_flags: expect.objectContaining({ code_sandbox: true })
-    })
-  })
-
-  it('shows success toast after successful save', async () => {
+  it('does NOT render a save button and never calls store.update (read-only view)', async () => {
     const wrapper = await mountComponent()
 
-    const saveButton = wrapper.findAll('button').find((b) => b.text().includes('保存工具开关'))
-    await saveButton!.trigger('click')
-    await flushPromises()
-
-    expect(mockToastSuccess).toHaveBeenCalledWith('已保存')
-  })
-
-  it('shows error toast when store.update throws', async () => {
-    mockUpdate.mockRejectedValueOnce(new Error('服务器错误'))
-
-    const wrapper = await mountComponent()
-
-    const saveButton = wrapper.findAll('button').find((b) => b.text().includes('保存工具开关'))
-    await saveButton!.trigger('click')
-    await flushPromises()
-
-    expect(mockToastError).toHaveBeenCalledWith('服务器错误')
-    expect(mockToastSuccess).not.toHaveBeenCalled()
+    const saveButton = wrapper.findAll('button').find((b) => b.text().includes('保存'))
+    expect(saveButton).toBeUndefined()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   // ── Navigation ─────────────────────────────────────────────────────────
