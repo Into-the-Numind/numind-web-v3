@@ -8,12 +8,12 @@ function makeForm() {
 }
 
 describe('QuestionnaireForm', () => {
-  describe('12 questions rendered', () => {
-    it('renders all 8 data-question attributes', () => {
+  describe('question blocks rendered', () => {
+    it('renders all 7 data-question attributes', () => {
       const wrapper = mount(QuestionnaireForm, {
         props: { modelValue: makeForm() }
       })
-      // 模板新增 system_prompt block（行为指引输入框），见 QuestionnaireForm.vue:210
+      // 工具开关 block 已移除（remove-agent-tool-switches）——工具默认全开，安全由后端权限门禁负责
       const expectedAttrs = [
         'name',
         'icon_url',
@@ -21,8 +21,7 @@ describe('QuestionnaireForm', () => {
         'welcome_message',
         'system_prompt',
         'starters',
-        'q8',
-        'tool_flags'
+        'q8'
       ]
       expectedAttrs.forEach((attr) => {
         expect(
@@ -32,11 +31,19 @@ describe('QuestionnaireForm', () => {
       })
     })
 
-    it('renders 8 question blocks total', () => {
+    it('does not render the tool_flags switch block', () => {
       const wrapper = mount(QuestionnaireForm, {
         props: { modelValue: makeForm() }
       })
-      expect(wrapper.findAll('.questionnaire-form__question')).toHaveLength(8)
+      expect(wrapper.find('[data-question="tool_flags"]').exists()).toBe(false)
+      expect(wrapper.find('.tool-flags').exists()).toBe(false)
+    })
+
+    it('renders 7 question blocks total', () => {
+      const wrapper = mount(QuestionnaireForm, {
+        props: { modelValue: makeForm() }
+      })
+      expect(wrapper.findAll('.questionnaire-form__question')).toHaveLength(7)
     })
   })
 

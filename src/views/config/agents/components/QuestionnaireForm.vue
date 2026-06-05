@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import type { AgentFormState } from '@/types/agentBuilder'
 import ChipInput from './ChipInput.vue'
 import CreditSlider from './CreditSlider.vue'
 import AvatarPicker from './AvatarPicker.vue'
-import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 interface Props {
   modelValue: AgentFormState
@@ -78,67 +77,6 @@ const q8 = computed({
   get: () => props.modelValue.questionnaire_answers.q8 ?? 800,
   set: (v) => patchQA('q8', v)
 })
-
-// Computed proxies for tool_flags
-const codeSandbox = computed({
-  get: () => !!props.modelValue.tool_flags?.code_sandbox,
-  set: (v) => patchToolFlag('code_sandbox', v)
-})
-
-const media = computed({
-  get: () => !!props.modelValue.tool_flags?.media,
-  set: (v) => patchToolFlag('media', v)
-})
-
-const dangerous = computed({
-  get: () => !!props.modelValue.tool_flags?.dangerous,
-  set: (v) => patchToolFlag('dangerous', v)
-})
-
-function patchToolFlag(key: string, value: boolean) {
-  emit('update:modelValue', {
-    ...props.modelValue,
-    tool_flags: {
-      ...props.modelValue.tool_flags,
-      [key]: value
-    }
-  })
-}
-
-const dangerousConfirmVisible = ref(false)
-let prevDangerous = false
-
-watch(
-  () => props.modelValue.tool_flags?.dangerous,
-  (newVal) => {
-    prevDangerous = !!newVal
-  },
-  { immediate: true }
-)
-
-function onDangerousChange() {
-  if (dangerous.value && !prevDangerous) {
-    dangerousConfirmVisible.value = true
-  } else {
-    prevDangerous = dangerous.value
-  }
-}
-
-function onDangerousCheckboxChange(ev: Event) {
-  dangerous.value = (ev.target as HTMLInputElement).checked
-  onDangerousChange()
-}
-
-function confirmDangerous() {
-  prevDangerous = true
-  dangerousConfirmVisible.value = false
-}
-
-function cancelDangerous() {
-  patchToolFlag('dangerous', false)
-  prevDangerous = false
-  dangerousConfirmVisible.value = false
-}
 </script>
 
 <template>
@@ -242,52 +180,6 @@ function cancelDangerous() {
         {{ errors['q8'] }}
       </p>
     </div>
-
-    <!-- 工具开关 -->
-    <div class="questionnaire-form__question" data-question="tool_flags">
-      <label class="questionnaire-form__label">工具开关</label>
-      <div class="tool-flags">
-        <label class="tool-flags__item">
-          <input
-            type="checkbox"
-            :checked="codeSandbox"
-            :disabled="readonly"
-            @change="codeSandbox = ($event.target as HTMLInputElement).checked"
-          />
-          <span>沙箱代码执行（允许执行 Python 等沙箱代码）</span>
-        </label>
-        <label class="tool-flags__item">
-          <input
-            type="checkbox"
-            :checked="media"
-            :disabled="readonly"
-            @change="media = ($event.target as HTMLInputElement).checked"
-          />
-          <span>多媒体处理（包含图像生成工具，如 Nano Banana 2）</span>
-        </label>
-        <label class="tool-flags__item tool-flags__item--dangerous">
-          <input
-            type="checkbox"
-            :checked="dangerous"
-            :disabled="readonly"
-            @change="onDangerousCheckboxChange($event)"
-          />
-          <span>高危工具（谨慎开启）</span>
-        </label>
-      </div>
-    </div>
-
-    <!-- 高危确认弹窗 -->
-    <ConfirmModal
-      :model-value="dangerousConfirmVisible"
-      title="开启高危工具"
-      message="高危工具可能造成不可逆操作（如发送邮件、修改学员数据），仅在你充分理解后果时启用。"
-      variant="danger"
-      confirm-text="确认开启"
-      cancel-text="取消"
-      @confirm="confirmDangerous"
-      @cancel="cancelDangerous"
-    />
   </div>
 </template>
 
@@ -391,40 +283,5 @@ function cancelDangerous() {
 
 .questionnaire-form__radio-label input[type='radio']:disabled {
   cursor: not-allowed;
-}
-
-.tool-flags {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-4, 16px);
-  border: 1px solid var(--outline-variant, rgba(169, 180, 185, 0.2));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--surface-lowest, #fff);
-}
-
-.tool-flags__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-  font-size: 14px;
-  color: var(--on-surface, #2a3439);
-  cursor: pointer;
-  user-select: none;
-}
-
-.tool-flags__item input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--tertiary, #005eb6);
-}
-
-.tool-flags__item input[type='checkbox']:disabled {
-  cursor: not-allowed;
-}
-
-.tool-flags__item--dangerous {
-  color: var(--danger, #9f403d);
 }
 </style>
