@@ -37,11 +37,13 @@ export function validateQ5(starters: string[]): ValidationResult {
   return "";
 }
 
-export function validateQ6(_q6: string[]): ValidationResult {
+export function validateQ6(q6: string[]): ValidationResult {
+  if (!q6 || q6.length === 0) return "请至少选择一种任务类型";
   return "";
 }
 
-export function validateQ7(_q7: string[]): ValidationResult {
+export function validateQ7(q7: string[]): ValidationResult {
+  if (!q7 || q7.length === 0) return "请至少选择一种材料类型";
   return "";
 }
 
@@ -90,6 +92,12 @@ export function validateForm(form: AgentFormState): Record<string, string> {
 
   const e5 = validateQ5(form.starters);
   if (e5) errors.starters = e5;
+
+  const e6 = validateQ6(q.q6 ?? []);
+  if (e6) errors.q6 = e6;
+
+  const e7 = validateQ7(q.q7 ?? []);
+  if (e7) errors.q7 = e7;
 
   const e8 = validateQ8(q.q8 ?? 800);
   if (e8) errors.q8 = e8;

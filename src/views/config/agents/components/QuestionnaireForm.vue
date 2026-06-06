@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { AgentFormState } from '@/types/agentBuilder'
+import type { AgentFormState, Q6TaskType, Q7MaterialType } from '@/types/agentBuilder'
 import ChipInput from './ChipInput.vue'
 import CreditSlider from './CreditSlider.vue'
 import AvatarPicker from './AvatarPicker.vue'
@@ -77,6 +77,62 @@ const q8 = computed({
   get: () => props.modelValue.questionnaire_answers.q8 ?? 800,
   set: (v) => patchQA('q8', v)
 })
+
+// ── Q6 任务类型（多选：5 个内置 code + 自由文本透传） ──────────────────────────
+const Q6_OPTIONS: { value: Q6TaskType; label: string }[] = [
+  { value: 'analyze_data', label: '分析数据 / 报表' },
+  { value: 'generate_content', label: '生成文字内容' },
+  { value: 'answer_questions', label: '回答问题 / 答疑' },
+  { value: 'make_plan', label: '帮助制定计划' },
+  { value: 'grade_assignment', label: '批改 / 评分学员作业' }
+]
+const Q6_CODES: string[] = Q6_OPTIONS.map((o) => o.value)
+
+function currentQ6(): string[] {
+  return props.modelValue.questionnaire_answers.q6 ?? []
+}
+function isQ6Checked(code: Q6TaskType): boolean {
+  return currentQ6().includes(code)
+}
+/** Toggle a built-in task-type code, preserving any free-text entries. */
+function toggleQ6(code: Q6TaskType, checked: boolean): void {
+  const cur = currentQ6()
+  const codes = Q6_CODES.filter((c) => (c === code ? checked : cur.includes(c)))
+  const custom = cur.filter((v) => !Q6_CODES.includes(v))
+  patchQA('q6', [...codes, ...custom])
+}
+/** Free-text q6 entries = items not matching a built-in code. */
+const q6Custom = computed<string[]>({
+  get: () => currentQ6().filter((v) => !Q6_CODES.includes(v)),
+  set: (chips) => {
+    const codes = currentQ6().filter((v) => Q6_CODES.includes(v))
+    // Drop free-text that collides with a built-in code, so it can't be stored
+    // as "custom" then silently reclassified as the checkbox option on re-render.
+    const custom = chips.filter((v) => !Q6_CODES.includes(v))
+    patchQA('q6', [...codes, ...custom])
+  }
+})
+
+// ── Q7 材料类型（多选：4 个内置 code） ─────────────────────────────────────────
+const Q7_OPTIONS: { value: Q7MaterialType; label: string }[] = [
+  { value: 'text', label: '文字（笔记、日报、复盘）' },
+  { value: 'csv', label: 'Excel / CSV 数据表格' },
+  { value: 'image', label: '图片（截图、海报）' },
+  { value: 'none', label: '不需要上传' }
+]
+const Q7_CODES = Q7_OPTIONS.map((o) => o.value)
+
+function currentQ7(): Q7MaterialType[] {
+  return props.modelValue.questionnaire_answers.q7 ?? []
+}
+function isQ7Checked(code: Q7MaterialType): boolean {
+  return currentQ7().includes(code)
+}
+function toggleQ7(code: Q7MaterialType, checked: boolean): void {
+  const cur = currentQ7()
+  const codes = Q7_CODES.filter((c) => (c === code ? checked : cur.includes(c)))
+  patchQA('q7', codes)
+}
 </script>
 
 <template>
@@ -169,6 +225,66 @@ const q8 = computed({
       <ChipInput v-model="starters" :max="4" :min-len="5" :max-len="50" :readonly="readonly" />
       <p v-if="errors['starters']" class="questionnaire-form__error">
         {{ errors['starters'] }}
+      </p>
+    </div>
+
+    <!-- Q6: 任务类型 -->
+    <div class="questionnaire-form__question" data-question="q6">
+      <label class="questionnaire-form__label questionnaire-form__label--required">
+        任务类型（可多选）
+      </label>
+      <p class="questionnaire-form__hint">这个助手主要帮学员做什么？至少选一项</p>
+      <div class="questionnaire-form__checkbox-group">
+        <label
+          v-for="opt in Q6_OPTIONS"
+          :key="opt.value"
+          class="questionnaire-form__checkbox-label"
+        >
+          <input
+            type="checkbox"
+            :checked="isQ6Checked(opt.value)"
+            :disabled="readonly"
+            @change="toggleQ6(opt.value, ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ opt.label }}</span>
+        </label>
+      </div>
+      <ChipInput
+        v-model="q6Custom"
+        :max="5"
+        :min-len="2"
+        :max-len="20"
+        :readonly="readonly"
+        placeholder="其他任务类型，回车添加"
+      />
+      <p v-if="errors['q6']" class="questionnaire-form__error">
+        {{ errors['q6'] }}
+      </p>
+    </div>
+
+    <!-- Q7: 材料类型 -->
+    <div class="questionnaire-form__question" data-question="q7">
+      <label class="questionnaire-form__label questionnaire-form__label--required">
+        材料类型（可多选）
+      </label>
+      <p class="questionnaire-form__hint">学员会给助手提供什么材料？至少选一项</p>
+      <div class="questionnaire-form__checkbox-group">
+        <label
+          v-for="opt in Q7_OPTIONS"
+          :key="opt.value"
+          class="questionnaire-form__checkbox-label"
+        >
+          <input
+            type="checkbox"
+            :checked="isQ7Checked(opt.value)"
+            :disabled="readonly"
+            @change="toggleQ7(opt.value, ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ opt.label }}</span>
+        </label>
+      </div>
+      <p v-if="errors['q7']" class="questionnaire-form__error">
+        {{ errors['q7'] }}
       </p>
     </div>
 
@@ -282,6 +398,40 @@ const q8 = computed({
 }
 
 .questionnaire-form__radio-label input[type='radio']:disabled {
+  cursor: not-allowed;
+}
+
+.questionnaire-form__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--on-surface-variant, #566166);
+}
+
+.questionnaire-form__checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.questionnaire-form__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--on-surface, #2a3439);
+  cursor: pointer;
+  user-select: none;
+}
+
+.questionnaire-form__checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--tertiary, #005eb6);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.questionnaire-form__checkbox-label input[type='checkbox']:disabled {
   cursor: not-allowed;
 }
 </style>

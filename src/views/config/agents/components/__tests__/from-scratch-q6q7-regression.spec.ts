@@ -46,7 +46,8 @@ describe('from-scratch q6/q7 regression (manifest: agent-from-scratch-q6q7)', ()
     const emitted = wrapper.emitted('update:modelValue')
     expect(emitted).toBeTruthy()
     const last = emitted![emitted!.length - 1][0] as ReturnType<typeof initialFormState>
-    expect(last.questionnaire_answers.q6?.length ?? 0).toBeGreaterThan(0)
+    // first q6 checkbox = analyze_data
+    expect(last.questionnaire_answers.q6).toContain('analyze_data')
   })
 
   it('checking a q7 material type emits it into questionnaire_answers.q7', async () => {
@@ -56,7 +57,8 @@ describe('from-scratch q6/q7 regression (manifest: agent-from-scratch-q6q7)', ()
     const emitted = wrapper.emitted('update:modelValue')
     expect(emitted).toBeTruthy()
     const last = emitted![emitted!.length - 1][0] as ReturnType<typeof initialFormState>
-    expect(last.questionnaire_answers.q7?.length ?? 0).toBeGreaterThan(0)
+    // first q7 checkbox = text
+    expect(last.questionnaire_answers.q7).toContain('text')
   })
 
   it('validateQ6 / validateQ7 require at least one selection', () => {

@@ -62,15 +62,21 @@ describe("validation.ts — 12 question validators", () => {
       expect(validateQ5(["aaaaa", "bbbbb", "ccccc", "ddddd"])).toBe(""));
   });
 
-  describe("validateQ6 (task types)", () => {
-    it("empty array → empty", () => expect(validateQ6([])).toBe(""));
+  describe("validateQ6 (task types) — required (agent-from-scratch-q6q7)", () => {
+    it("empty array → error", () =>
+      expect(validateQ6([])).toBe("请至少选择一种任务类型"));
     it("one selected → empty", () =>
       expect(validateQ6(["analyze_data"])).toBe(""));
+    it("free-text only → empty", () =>
+      expect(validateQ6(["自定义任务"])).toBe(""));
   });
 
-  describe("validateQ7 (materials)", () => {
-    it("empty → empty", () => expect(validateQ7([])).toBe(""));
+  describe("validateQ7 (materials) — required (agent-from-scratch-q6q7)", () => {
+    it("empty → error", () =>
+      expect(validateQ7([])).toBe("请至少选择一种材料类型"));
     it("one → empty", () => expect(validateQ7(["text"])).toBe(""));
+    it("'none' counts as a selection → empty", () =>
+      expect(validateQ7(["none"])).toBe(""));
   });
 
   describe("validateQ8 (credit cap)", () => {
@@ -117,9 +123,9 @@ describe("validation.ts — 12 question validators", () => {
       expect(errors.name).toBeTruthy();
       expect(errors.description).toBeTruthy();
       expect(errors.welcome_message).toBeTruthy();
-      // q6/q7 are not required anymore
-      expect(errors.q6).toBeFalsy();
-      expect(errors.q7).toBeFalsy();
+      // q6/q7 are required again (agent-from-scratch-q6q7): initial defaults are []
+      expect(errors.q6).toBeTruthy();
+      expect(errors.q7).toBeTruthy();
     });
 
     it("complete valid form → no errors", () => {
@@ -127,6 +133,8 @@ describe("validation.ts — 12 question validators", () => {
       form.name = "爆款分析师";
       form.description = "分析小红书笔记找爆款";
       form.welcome_message = "你好我是爆款分析师，可以分析你的笔记内容找规律。";
+      form.questionnaire_answers.q6 = ["answer_questions"];
+      form.questionnaire_answers.q7 = ["text"];
       const errors = validateForm(form);
       expect(Object.keys(errors)).toHaveLength(0);
     });
