@@ -1059,6 +1059,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     cancelling.value = false
     agentsError.value = null
     sessionError.value = null
+    erroredRuns.clear()
     sessionStorage.removeItem('agentChat:currentRunId')
     sessionStorage.removeItem('agentChat:currentSessionId')
   }

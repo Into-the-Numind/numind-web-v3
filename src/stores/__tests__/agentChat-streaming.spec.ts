@@ -370,10 +370,22 @@ describe('applyStreamEvent', () => {
       )
     )
     const failures = store.messages.filter(
-      (m) => m.type === 'system' && (m as { system_subtype?: string }).system_subtype === 'failed'
+      (m) => m.type === 'system' && m.system_subtype === 'failed'
     )
     expect(failures.length).toBe(1)
     expect(failures[0].type === 'system' ? failures[0].markdown : '').toContain('超时')
+  })
+
+  // issue #2: a successful terminal (no user_message) must NOT add a failed bubble.
+  it('terminal: success terminal does not push a failed bubble', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'completed', duration_ms: 1, step_count: 1 }, { run_id: 702 })
+    )
+    const failures = store.messages.filter(
+      (m) => m.type === 'system' && m.system_subtype === 'failed'
+    )
+    expect(failures.length).toBe(0)
   })
 
   // 9. tool_call_error — sets state to error + error_message
