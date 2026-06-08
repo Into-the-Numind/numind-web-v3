@@ -16,7 +16,9 @@ import AgentPlanCard from './AgentPlanCard.vue'
 import AgentToolCallList from './AgentToolCallList.vue'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentFinalAnswer from './AgentFinalAnswer.vue'
+import AgentImagePreview from './AgentImagePreview.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
+import { useImagePreview } from '@/composables/useImagePreview'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import { Copy, Check } from 'lucide-vue-next'
 
@@ -64,6 +66,10 @@ const copyText = async (text: string): Promise<void> => {
 const renderedMarkdown = computed<string>(() => {
   return renderMarkdown(asAssistant.value?.markdown || '')
 })
+
+// 流式助手气泡里内联渲染的图片（markdown ![](url)）点击放大，与 AgentFinalAnswer
+// 保持一致的预览/下载体验（共享 useImagePreview + AgentImagePreview）。
+const { previewImageUrl, handleImageClick, closePreview } = useImagePreview()
 
 const thinkingFinished = computed<boolean>(() => {
   if (asAssistant.value?.isStreaming) {
@@ -166,9 +172,10 @@ const systemText = computed<string>(() => {
           :finished="thinkingFinished"
         />
         <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
-        <div class="markdown-body" v-html="renderedMarkdown"></div>
+        <div class="markdown-body" v-html="renderedMarkdown" @click="handleImageClick"></div>
         <span v-if="asAssistant.isStreaming" class="streaming-cursor" aria-hidden="true">▎</span>
       </div>
+      <AgentImagePreview :url="previewImageUrl" @close="closePreview" />
     </div>
   </div>
 
@@ -492,6 +499,28 @@ const systemText = computed<string>(() => {
   font-size: 14px;
   line-height: 1.7;
   color: var(--color-text, #1f2937);
+}
+
+/* 内联图片缩略图：点击可放大（见 handleImageClick + AgentImagePreview） */
+.streaming-answer :deep(.markdown-body img) {
+  max-width: 240px;
+  max-height: 180px;
+  border-radius: 8px;
+  cursor: zoom-in;
+  border: 1px solid #e5e7eb;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  display: block;
+  margin: 8px 0;
+  /* contain（非 cover）— AI 生成图比例任意，cover 会裁掉主体；缩略图也要完整展示 */
+  object-fit: contain;
+  background: var(--surface-low, #f9fafb);
+}
+
+.streaming-answer :deep(.markdown-body img:hover) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .streaming-answer :deep(.markdown-body h1),
