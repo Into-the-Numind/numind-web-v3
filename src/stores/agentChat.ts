@@ -887,22 +887,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             timestamp: e.ts
           })
         })
-        // Deliver a generated image artifact (image_gen / create_*) as a
-        // renderable bubble. Previously the image URL was never surfaced, so the
-        // user saw only "图片已生成" text with no image (dev 2026-06-08).
-        if (payload.artifact_url && payload.artifact_mime?.startsWith('image/')) {
-          messages.value.push({
-            id: uuid(),
-            type: 'artifact',
-            artifact: {
-              id: 0,
-              filename: payload.artifact_filename || '生成的图片',
-              url: payload.artifact_url,
-              mime: payload.artifact_mime
-            },
-            timestamp: e.ts
-          })
-        }
+        // NOTE: generated images are NOT pushed as a transient artifact bubble
+        // here — that bubble was lost on reload (loadSessionSnapshot rebuilds from
+        // agent_run.messages, which never persisted it). The backend now embeds
+        // the image as markdown in the final answer, which IS persisted and
+        // renders durably via AgentFinalAnswer / the assistant markdown body.
         break
       }
 
