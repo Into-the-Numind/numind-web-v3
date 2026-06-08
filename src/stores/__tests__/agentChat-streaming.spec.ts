@@ -296,8 +296,11 @@ describe('applyStreamEvent', () => {
     expect(tc?.events[1].state).toBe('result')
   })
 
-  // issue #4: a generated image must surface as a renderable artifact bubble.
-  it('tool_call_result: image artifact pushes a renderable artifact message', async () => {
+  // issue #4 (durable render): a generated image must NOT be pushed as a
+  // transient artifact bubble — that bubble was lost on reload. The image is now
+  // embedded as markdown in the persisted final answer by the backend, which
+  // survives loadSessionSnapshot. So tool_call_result must create NO artifact msg.
+  it('tool_call_result: image result does NOT push a transient artifact bubble', async () => {
     const store = useAgentChatStore()
     await seedToolCall(store, 'tc-img', 0)
     store.applyStreamEvent(
@@ -310,22 +313,11 @@ describe('applyStreamEvent', () => {
         duration_ms: 100
       })
     )
-    const art = store.messages.find((m) => m.type === 'artifact')
-    expect(art).toBeTruthy()
-    if (art?.type === 'artifact') {
-      expect(art.artifact.url).toBe('https://cos.example/agent-outputs/1/x.png?sign=abc')
-      expect(art.artifact.mime).toBe('image/png')
-      expect(art.artifact.filename).toBe('x.png')
-    }
-  })
-
-  it('tool_call_result: non-image result does NOT push an artifact message', async () => {
-    const store = useAgentChatStore()
-    await seedToolCall(store, 'tc-txt', 0)
-    store.applyStreamEvent(
-      makeEvent('tool_call_result', { tool_call_id: 'tc-txt', preview: 'plain', duration_ms: 10 })
-    )
     expect(store.messages.some((m) => m.type === 'artifact')).toBe(false)
+    // The tool call itself still records the result preview.
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    expect(tc?.current_state).toBe('result')
   })
 
   // issue #2: error-only terminals (no preceding 'error' event) surface user_message.
