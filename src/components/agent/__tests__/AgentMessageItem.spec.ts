@@ -25,6 +25,10 @@ const globalStubs = {
   AgentFinalAnswer: {
     props: ['markdown', 'runId', 'initialFeedback', 'initialNote'],
     template: '<div class="final-stub">{{ markdown }}</div>'
+  },
+  AgentImagePreview: {
+    props: ['url'],
+    template: '<div class="img-preview-stub" :data-url="url"></div>'
   }
 }
 
@@ -50,6 +54,23 @@ describe('AgentMessageItem', () => {
     const msg: AgentMessage = { id: '2', type: 'assistant', markdown: 'hi there', timestamp: ts }
     const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
     expect(wrapper.text()).toContain('hi there')
+  })
+
+  it('enlarges inline images in the streaming assistant bubble on click', async () => {
+    const msg: AgentMessage = {
+      id: 'img-1',
+      type: 'assistant',
+      markdown: '生成好了：\n![图](https://example.com/gen.png)',
+      timestamp: ts
+    }
+    const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+    const img = wrapper.find('.markdown-body img')
+    expect(img.exists()).toBe(true)
+    await img.trigger('click')
+    // 点击图片把 URL 传给共享预览组件
+    expect(wrapper.find('.img-preview-stub').attributes('data-url')).toBe(
+      'https://example.com/gen.png'
+    )
   })
 
   it('renders plan steps via AgentPlanCard', () => {

@@ -75,4 +75,23 @@ describe('AgentFinalAnswer', () => {
     await closeBtn.trigger('click')
     expect(wrapper.find('.image-preview-overlay').exists()).toBe(false)
   })
+
+  it('shows a download button in the enlarged preview', async () => {
+    const markdown = '![测试图](https://example.com/test.png)'
+    const wrapper = mount(AgentFinalAnswer, {
+      props: {
+        markdown
+      },
+      global: {
+        stubs: {
+          AgentFeedbackBar: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await wrapper.find('.markdown-body img').trigger('click')
+    // 放大预览里有一个独立的下载按钮
+    expect(wrapper.find('.download-btn').exists()).toBe(true)
+  })
 })
