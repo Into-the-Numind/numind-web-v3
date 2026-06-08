@@ -138,7 +138,21 @@ export async function streamAgentRun(
   }
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+    // Friendly, user-facing messages instead of a bare "HTTP <N>". The raw
+    // status is logged for debugging.
+    console.error('[agent-stream] non-2xx response', response.status)
+    if (response.status === 402) {
+      throw new Error('积分不足，请充值后再试。')
+    }
+    if (response.status === 401) {
+      // Match the no-token path (and axios interceptor): clear auth + redirect.
+      clearAuth()
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      throw new Error('登录已过期，请重新登录。')
+    }
+    throw new Error('服务暂时不可用，请稍后再试。')
   }
 
   await readAgentSSEStream(response, (chunk) => {

@@ -185,14 +185,23 @@ describe('streamAgentRun', () => {
     expect((caught as Error).message).toBe('未登录，请重新登录')
   })
 
-  it('throws generic Error for other non-2xx responses', async () => {
+  it('throws a friendly Chinese error for generic non-2xx responses (not "HTTP <N>")', async () => {
     const mockFetch = vi
       .fn()
       .mockResolvedValue(new Response('Internal Server Error', { status: 500 }))
     vi.stubGlobal('fetch', mockFetch)
 
     await expect(streamAgentRun({ agent_skill_id: 1, input_text: 'hi' }, () => {})).rejects.toThrow(
-      'HTTP 500'
+      '服务暂时不可用，请稍后再试。'
+    )
+  })
+
+  it('throws a 积分不足 message on 402 (not "HTTP 402") — issue #2', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('payment required', { status: 402 }))
+    vi.stubGlobal('fetch', mockFetch)
+
+    await expect(streamAgentRun({ agent_skill_id: 1, input_text: 'hi' }, () => {})).rejects.toThrow(
+      '积分不足，请充值后再试。'
     )
   })
 

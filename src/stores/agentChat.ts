@@ -100,6 +100,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const currentAgent = ref<AgentSkill | null>(null)
   const currentRun = ref<AgentRun | null>(null)
   const messages = ref<AgentMessage[]>([])
+  // Runs that already surfaced an 'error' event — so the following 'terminal'
+  // event's user_message is not shown as a duplicate failure bubble.
+  const erroredRuns = new Set<number>()
   const narrationEvents = ref<NarrationEvent[]>([])
   const lastNarrationTs = ref<string>('')
   const stuckSince = ref<number | null>(null)
@@ -884,6 +887,22 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             timestamp: e.ts
           })
         })
+        // Deliver a generated image artifact (image_gen / create_*) as a
+        // renderable bubble. Previously the image URL was never surfaced, so the
+        // user saw only "图片已生成" text with no image (dev 2026-06-08).
+        if (payload.artifact_url && payload.artifact_mime?.startsWith('image/')) {
+          messages.value.push({
+            id: uuid(),
+            type: 'artifact',
+            artifact: {
+              id: 0,
+              filename: payload.artifact_filename || '生成的图片',
+              url: payload.artifact_url,
+              mime: payload.artifact_mime
+            },
+            timestamp: e.ts
+          })
+        }
         break
       }
 
@@ -952,6 +971,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             state_reason: payload?.reason
           }
         }
+        // Surface a friendly failure message for error terminals that did NOT
+        // already emit an 'error' event (e.g. max_turns / budget / aborted).
+        // user_message is empty for successful / waiting terminals.
+        if (payload?.user_message && !erroredRuns.has(e.run_id)) {
+          messages.value.push({
+            id: uuid(),
+            type: 'system',
+            system_subtype: 'failed',
+            markdown: payload.user_message,
+            timestamp: e.ts
+          })
+        }
         // R5: pull authoritative messages + status from DB
         void reconcileFromDB(e.run_id)
         break
@@ -959,7 +990,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
       case 'error': {
         const payload = e.data as ErrorPayload
-        applyError(new Error(payload?.message ?? 'unknown stream error'))
+        // payload.message is already a friendly Chinese message (backend
+        // user_error translation layer). Mark the run so the following terminal
+        // event does not show a second failure bubble.
+        erroredRuns.add(e.run_id)
+        applyError(new Error(payload?.message ?? '服务暂时不可用，请稍后再试。'))
         break
       }
 
@@ -1024,6 +1059,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     cancelling.value = false
     agentsError.value = null
     sessionError.value = null
+    erroredRuns.clear()
     sessionStorage.removeItem('agentChat:currentRunId')
     sessionStorage.removeItem('agentChat:currentSessionId')
   }

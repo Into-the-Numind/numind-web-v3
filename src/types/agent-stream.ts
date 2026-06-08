@@ -98,8 +98,12 @@ export interface ToolCallResultPayload {
   tool_call_id: string
   /** Truncated result (first 500 chars) */
   preview: string
-  /** If present, fetch full result from this URL */
+  /** Generated-file artifact URL (image_gen / create_*), if any */
   artifact_url?: string
+  /** Artifact filename (for download name / alt text) */
+  artifact_filename?: string
+  /** Artifact MIME type (e.g. image/png) — frontend uses it to render inline images */
+  artifact_mime?: string
   duration_ms: number
 }
 
@@ -139,6 +143,8 @@ export interface TerminalPayload {
   reason: string
   duration_ms: number
   step_count: number
+  /** Friendly Chinese message derived from reason for error terminals (empty for success) */
+  user_message?: string
   final_output?: string
   terminal_metadata?: Record<string, unknown>
   permission_denial?: Record<string, unknown>

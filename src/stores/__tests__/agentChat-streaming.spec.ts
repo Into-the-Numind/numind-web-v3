@@ -296,6 +296,98 @@ describe('applyStreamEvent', () => {
     expect(tc?.events[1].state).toBe('result')
   })
 
+  // issue #4: a generated image must surface as a renderable artifact bubble.
+  it('tool_call_result: image artifact pushes a renderable artifact message', async () => {
+    const store = useAgentChatStore()
+    await seedToolCall(store, 'tc-img', 0)
+    store.applyStreamEvent(
+      makeEvent('tool_call_result', {
+        tool_call_id: 'tc-img',
+        preview: '图片已生成',
+        artifact_url: 'https://cos.example/agent-outputs/1/x.png?sign=abc',
+        artifact_filename: 'x.png',
+        artifact_mime: 'image/png',
+        duration_ms: 100
+      })
+    )
+    const art = store.messages.find((m) => m.type === 'artifact')
+    expect(art).toBeTruthy()
+    if (art?.type === 'artifact') {
+      expect(art.artifact.url).toBe('https://cos.example/agent-outputs/1/x.png?sign=abc')
+      expect(art.artifact.mime).toBe('image/png')
+      expect(art.artifact.filename).toBe('x.png')
+    }
+  })
+
+  it('tool_call_result: non-image result does NOT push an artifact message', async () => {
+    const store = useAgentChatStore()
+    await seedToolCall(store, 'tc-txt', 0)
+    store.applyStreamEvent(
+      makeEvent('tool_call_result', { tool_call_id: 'tc-txt', preview: 'plain', duration_ms: 10 })
+    )
+    expect(store.messages.some((m) => m.type === 'artifact')).toBe(false)
+  })
+
+  // issue #2: error-only terminals (no preceding 'error' event) surface user_message.
+  it('terminal: shows user_message as a failed bubble for error-only terminals', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent(
+        'terminal',
+        {
+          reason: 'max_turns',
+          duration_ms: 1,
+          step_count: 30,
+          user_message: '任务步骤过多，已自动停止。'
+        },
+        { run_id: 700 }
+      )
+    )
+    const sys = store.messages.find((m) => m.type === 'system')
+    expect(sys?.type === 'system' ? sys.markdown : '').toContain('任务步骤过多')
+  })
+
+  // issue #2: when an 'error' event already fired, terminal must NOT add a 2nd bubble.
+  it('terminal: does not duplicate the failure bubble after an error event', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent(
+        'error',
+        { code: 'model_error', message: 'AI 服务响应超时，请稍后再试。' },
+        { run_id: 701 }
+      )
+    )
+    store.applyStreamEvent(
+      makeEvent(
+        'terminal',
+        {
+          reason: 'model_error',
+          duration_ms: 1,
+          step_count: 1,
+          user_message: 'AI 一时没能完成这次任务。'
+        },
+        { run_id: 701 }
+      )
+    )
+    const failures = store.messages.filter(
+      (m) => m.type === 'system' && m.system_subtype === 'failed'
+    )
+    expect(failures.length).toBe(1)
+    expect(failures[0].type === 'system' ? failures[0].markdown : '').toContain('超时')
+  })
+
+  // issue #2: a successful terminal (no user_message) must NOT add a failed bubble.
+  it('terminal: success terminal does not push a failed bubble', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'completed', duration_ms: 1, step_count: 1 }, { run_id: 702 })
+    )
+    const failures = store.messages.filter(
+      (m) => m.type === 'system' && m.system_subtype === 'failed'
+    )
+    expect(failures.length).toBe(0)
+  })
+
   // 9. tool_call_error — sets state to error + error_message
   it('tool_call_error: sets current_state=error + error_message + appends event', async () => {
     const store = useAgentChatStore()
@@ -645,11 +737,11 @@ describe('applyStreamEvent', () => {
     expect(sysMsgs[0].type === 'system' && sysMsgs[0].markdown).toBe('rate limit exceeded')
   })
 
-  it('error: uses fallback message when payload.message is absent', () => {
+  it('error: uses a friendly Chinese fallback when payload.message is absent', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(makeEvent('error', { code: 'internal' }))
     const sysMsgs = store.messages.filter((m) => m.type === 'system')
-    expect(sysMsgs[0].type === 'system' && sysMsgs[0].markdown).toBe('unknown stream error')
+    expect(sysMsgs[0].type === 'system' && sysMsgs[0].markdown).toBe('服务暂时不可用，请稍后再试。')
   })
 })
 
