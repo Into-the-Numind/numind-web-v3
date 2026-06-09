@@ -7,6 +7,7 @@ import {
   type ParentBillingReport,
   type ParentBillingDetail
 } from '@/api/parent'
+import { buildCsv, downloadCsv } from '@/utils/csv'
 
 const router = useRouter()
 
@@ -101,6 +102,24 @@ const displayTotalCents = computed(() =>
 const isFiltered = computed(
   () => typeFilter.value !== 'all' || searchQuery.value.trim() !== ''
 )
+
+// ── CSV 导出（#7）─────────────────────────────────────────────────────
+// WYSIWYG：导出 displayDetails（已应用类型筛选 / 搜索 / 排序的可见行集，与
+// 页脚「当前显示 N 笔」一致），而非整月 report.details。价格导出为「元」数值
+// （非 ¥ 文案）便于在 Excel 中直接求和；中文经 utils/csv 的 UTF-8 BOM 保证不乱码。
+function exportCsv() {
+  if (!report.value || displayDetails.value.length === 0) return
+  const headers = ['子账号', '子账号ID', '会员类型', '时长', '价格(元)', '开通时间']
+  const rows = displayDetails.value.map((d) => [
+    d.child_username,
+    d.child_user_id,
+    productLabel(d.product_type),
+    durationLabel(d),
+    (d.amount_cents / 100).toFixed(2),
+    formatDate(d.granted_at)
+  ])
+  downloadCsv(`费用对账_${report.value.month}.csv`, buildCsv(headers, rows))
+}
 
 function toggleSort(key: SortKey) {
   if (sortKey.value !== key) {
@@ -324,12 +343,57 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
             <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">月订阅</button>
             <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">体验包</button>
           </div>
-          <div class="search-box">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input v-model="searchQuery" class="search-input" type="text" placeholder="搜索 ID / 昵称" />
+          <div class="toolbar-right">
+            <div class="search-box">
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="search-icon"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                v-model="searchQuery"
+                class="search-input"
+                type="text"
+                placeholder="搜索 ID / 昵称"
+              />
+            </div>
+            <!-- 导出 CSV(#7)：导出当前可见行集（displayDetails），无可导行时禁用 -->
+            <button
+              class="export-btn"
+              type="button"
+              :disabled="displayDetails.length === 0"
+              :title="
+                displayDetails.length === 0
+                  ? '当前没有可导出的记录'
+                  : `导出当前 ${displayDetails.length} 条记录`
+              "
+              @click="exportCsv"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>导出 CSV</span>
+            </button>
           </div>
         </div>
 
@@ -736,6 +800,54 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 .search-input:focus {
   border-color: hsl(158, 64%, 50%);
   box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
+}
+
+/* ===== Export button (#7) ===== */
+.toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 20%, 35%);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
+}
+
+.export-btn svg {
+  color: hsl(155, 15%, 50%);
+  transition: color var(--transition-base);
+}
+
+.export-btn:hover:not(:disabled) {
+  border-color: hsl(158, 40%, 82%);
+  color: hsl(155, 25%, 25%);
+  transform: translateY(-1px);
+}
+
+.export-btn:hover:not(:disabled) svg {
+  color: var(--accent);
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===== Table ===== */
