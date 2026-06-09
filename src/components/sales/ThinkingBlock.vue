@@ -3,13 +3,36 @@ import { ref, watch } from 'vue'
 import { ChevronDown } from 'lucide-vue-next'
 import { useMarkdown } from '@/composables/useMarkdown'
 
-const props = defineProps<{
-  content: string
-  finished: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    content: string
+    finished: boolean
+    /**
+     * When true, the block auto-collapses once `finished` is true (agent mode:
+     * fold the thinking record on completion / on reload). Default false keeps
+     * the sales + chatbot behaviour (always expanded). Users can still toggle.
+     */
+    autoCollapse?: boolean
+  }>(),
+  { autoCollapse: false }
+)
 
 const { render } = useMarkdown()
-const collapsed = ref(false)
+// Start collapsed only when we should auto-collapse AND it's already finished
+// (e.g. a reloaded/historical thinking block). While streaming it stays open.
+const collapsed = ref(props.autoCollapse && props.finished)
+
+// Auto-collapse the moment thinking finishes (the answer begins / run completes),
+// so the completed transcript shows folded thinking with the answer below.
+// One-directional by design: `finished` only goes false→true within a message's
+// life (the discriminated-union message model never resets it), and after the
+// fold the user can still manually re-expand via the header — we never re-fold.
+watch(
+  () => props.finished,
+  (fin) => {
+    if (props.autoCollapse && fin) collapsed.value = true
+  }
+)
 </script>
 
 <template>

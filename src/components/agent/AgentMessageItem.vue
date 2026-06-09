@@ -170,6 +170,7 @@ const systemText = computed<string>(() => {
           v-if="asAssistant.reasoning"
           :content="asAssistant.reasoning"
           :finished="thinkingFinished"
+          auto-collapse
         />
         <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
         <div class="markdown-body" v-html="renderedMarkdown" @click="handleImageClick"></div>
@@ -275,6 +276,7 @@ const systemText = computed<string>(() => {
         v-if="asFinalAnswer.reasoning"
         :content="asFinalAnswer.reasoning"
         :finished="true"
+        auto-collapse
       />
       <AgentFinalAnswer
         :markdown="asFinalAnswer.markdown"
