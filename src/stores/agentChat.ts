@@ -59,6 +59,47 @@ const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 
  * active (the question card carries the interaction; isWaitingForUser drives the
  * input-disable) rather than flashing 'failed'.
  */
+// 工具完成态的友好文案 — 学员可见。SSE tool_call_result 只带 payload.preview
+// （工具的原始截断输出，常是 JSON/代码），绝不能直接当作展示文案。这里给每个
+// 工具一个简洁的完成提示，与后端 narration 模板 (configs/tool-display.yaml 的
+// result_template) 保持一致，未知工具回退「已完成」。
+// NOTE(tech-debt): 与后端 yaml + tool_call_start 的 actionLabels 一样，前端这份
+// 标签是重复来源。理想是后端在 SSE 事件里直接下发友好文案做单一真源；当前沿用
+// 既有的「前端拥有 live 标签」模式，原始输出保留在 tc.preview 供未来「查看详情」。
+// NOTE: use_skill/load_skill 的后端 result_template 含动态技能名（如
+// '📚 已调用技能：{{.input.name}}'），此处前端静态文案有意省略名字——SSE
+// tool_call_result 不携带 input 字段；轮询路径的 narration 事件才带完整渲染串。
+// 仅收录确有 FullTool 实现的工具；未实现/未登记的（曾经的 file_write）走「已完成」兜底。
+const TOOL_RESULT_LABELS: Record<string, string> = {
+  web_search: '已获取搜索结果',
+  web_fetch: '已读取网页',
+  kb_search: '已查到相关内容',
+  file_read: '已读取文件',
+  memory_read: '已读取记忆',
+  memory_write: '已写入记忆',
+  load_skill: '已加载技能',
+  use_skill: '已调用技能',
+  read_skill: '已查阅技能指南',
+  run_python: '文件已生成',
+  invoke_skill: '文件已生成',
+  create_html: '网页已生成',
+  create_csv: 'CSV 表格已生成',
+  create_json: 'JSON 文件已生成',
+  create_text: '文本文件已生成',
+  create_png_chart: '图表已生成',
+  image_gen: '图片已生成',
+  analyze_image: '图片分析完成',
+  annotate_image: '图片标注完成',
+  document_generate: '文档已生成',
+  get_current_date: '已获取当前日期',
+  bash_exec: '命令执行完成'
+}
+
+/** 返回工具完成态的学员友好文案，未知工具回退「已完成」。 */
+function toolResultLabel(toolName: string): string {
+  return TOOL_RESULT_LABELS[toolName] ?? '已完成'
+}
+
 function statusFromTerminalReason(reason?: string): AgentRunStatus {
   switch (reason) {
     case 'completed':
@@ -877,13 +918,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         if (!payload?.tool_call_id) break
         updateStreamingToolCall(payload.tool_call_id, (tc) => {
           tc.current_state = 'result'
+          // Keep the raw output on preview (not rendered as the headline) for a
+          // possible future "view details"; show a friendly summary instead.
           tc.preview = payload.preview
           tc.events.push({
             run_id: e.run_id,
             tool_call_id: payload.tool_call_id,
             tool_name: tc.tool_name,
             state: 'result',
-            message: payload.preview,
+            message: toolResultLabel(tc.tool_name),
             timestamp: e.ts
           })
         })
@@ -900,13 +943,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         if (!payload?.tool_call_id) break
         updateStreamingToolCall(payload.tool_call_id, (tc) => {
           tc.current_state = 'error'
+          // Keep the raw error on error_message (not rendered as the headline);
+          // show a friendly line so learners don't see a technical error string.
+          // Neutral wording — a tool error terminates the run (eino CompositeInterrupt),
+          // so we must NOT imply it was skipped / that the agent keeps going.
           tc.error_message = payload.error
           tc.events.push({
             run_id: e.run_id,
             tool_call_id: payload.tool_call_id,
             tool_name: tc.tool_name,
             state: 'error',
-            message: payload.error,
+            message: '执行出错',
             timestamp: e.ts
           })
         })

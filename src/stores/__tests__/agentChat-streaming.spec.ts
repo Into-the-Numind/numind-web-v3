@@ -320,6 +320,57 @@ describe('applyStreamEvent', () => {
     expect(tc?.current_state).toBe('result')
   })
 
+  // REPRO (customer bug, screenshots 2026-06-09): the tool-call card dumped the
+  // raw tool output JSON ({"results":[...]}) as the visible result line. Learners
+  // must see a friendly summary, not code. Raw output stays on `preview` for an
+  // optional detail view, but the rendered event message must be friendly.
+  it('tool_call_result: shows a friendly summary, NOT the raw output JSON', async () => {
+    const store = useAgentChatStore()
+    await seedToolCall(store, 'tc-raw', 0) // seeded tool_name = web_search
+    const rawJson = '{"results":[{"title":"x","url":"https://e.com","snippet":"..."}]}'
+    store.applyStreamEvent(
+      makeEvent('tool_call_result', {
+        tool_call_id: 'tc-raw',
+        preview: rawJson,
+        duration_ms: 100
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    const resultEvent = tc?.events[tc.events.length - 1]
+    // raw output is retained on preview (for a future detail view)…
+    expect(tc?.preview).toBe(rawJson)
+    // …but the VISIBLE message must be a friendly label, never the raw JSON.
+    expect(resultEvent?.message).not.toContain('{')
+    expect(resultEvent?.message).not.toContain('results')
+    expect(resultEvent?.message).toBe('已获取搜索结果')
+  })
+
+  // Unmapped tool → friendly fallback '已完成' (never the raw output).
+  it('tool_call_result: unknown tool falls back to a friendly 已完成', async () => {
+    const store = useAgentChatStore()
+    // seed a tool_call with a tool_name not in TOOL_RESULT_LABELS
+    store.applyStreamEvent(
+      makeEvent(
+        'tool_call_start',
+        { tool_call_id: 'tc-x', tool_name: 'some_future_tool', input_digest: 'd' },
+        { step: 0 }
+      )
+    )
+    store.applyStreamEvent(
+      makeEvent('tool_call_result', {
+        tool_call_id: 'tc-x',
+        preview: '{"raw":"output"}',
+        duration_ms: 1
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    const ev = tc?.events[tc.events.length - 1]
+    expect(ev?.message).toBe('已完成')
+    expect(ev?.message).not.toContain('{')
+  })
+
   // issue #2: error-only terminals (no preceding 'error' event) surface user_message.
   it('terminal: shows user_message as a failed bubble for error-only terminals', () => {
     const store = useAgentChatStore()
@@ -398,6 +449,10 @@ describe('applyStreamEvent', () => {
     // events[0] is the seeded 'use' event; the error handler pushes a second.
     expect(tc?.events.length).toBe(2)
     expect(tc?.events[1].state).toBe('error')
+    // VISIBLE message must be a neutral friendly line, never the raw error, and
+    // must NOT claim the run was skipped/continued (a tool error terminates it).
+    expect(tc?.events[1].message).toBe('执行出错')
+    expect(tc?.events[1].message).not.toContain('timed out')
   })
 
   // 10. step_done — no visible messages
