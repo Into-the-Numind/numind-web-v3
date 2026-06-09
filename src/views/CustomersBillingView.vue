@@ -7,6 +7,7 @@ import {
   type ParentBillingReport,
   type ParentBillingDetail
 } from '@/api/parent'
+import { buildCsv, downloadCsv } from '@/utils/csv'
 
 const router = useRouter()
 
@@ -98,9 +99,25 @@ const displayDetails = computed<ParentBillingDetail[]>(() => {
 const displayTotalCents = computed(() =>
   displayDetails.value.reduce((s, d) => s + d.amount_cents, 0)
 )
-const isFiltered = computed(
-  () => typeFilter.value !== 'all' || searchQuery.value.trim() !== ''
-)
+const isFiltered = computed(() => typeFilter.value !== 'all' || searchQuery.value.trim() !== '')
+
+// ── CSV 导出（#7）─────────────────────────────────────────────────────
+// WYSIWYG：导出 displayDetails（已应用类型筛选 / 搜索 / 排序的可见行集，与
+// 页脚「当前显示 N 笔」一致），而非整月 report.details。价格导出为「元」数值
+// （非 ¥ 文案）便于在 Excel 中直接求和；中文经 utils/csv 的 UTF-8 BOM 保证不乱码。
+function exportCsv() {
+  if (!report.value || displayDetails.value.length === 0) return
+  const headers = ['子账号', '子账号ID', '会员类型', '时长', '价格(元)', '开通时间']
+  const rows = displayDetails.value.map((d) => [
+    d.child_username,
+    d.child_user_id,
+    productLabel(d.product_type),
+    durationLabel(d),
+    (d.amount_cents / 100).toFixed(2),
+    formatDate(d.granted_at)
+  ])
+  downloadCsv(`费用对账_${report.value.month}.csv`, buildCsv(headers, rows))
+}
 
 function toggleSort(key: SortKey) {
   if (sortKey.value !== key) {
@@ -229,7 +246,18 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
             <div v-if="showMonthPanel" class="month-panel">
               <div class="month-panel-head">
                 <button class="year-nav" type="button" @click="prevYear" aria-label="上一年">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
                 </button>
                 <span class="year-label">{{ panelYear }} 年</span>
                 <button
@@ -239,7 +267,18 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                   @click="nextYear"
                   aria-label="下一年"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
                 </button>
               </div>
               <div class="month-grid">
@@ -291,7 +330,12 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
       <div v-else-if="report && report.details.length === 0" class="state-empty">
         <svg viewBox="0 0 48 48" fill="none" width="48" height="48" class="state-icon">
           <rect x="8" y="6" width="32" height="36" rx="4" stroke="currentColor" stroke-width="2" />
-          <path d="M16 16h16M16 22h12M16 28h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <path
+            d="M16 16h16M16 22h12M16 28h8"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
         </svg>
         <p class="state-title">本月（{{ report.month }}）暂无开通记录</p>
         <p class="state-sub">本月合计 <strong>¥0.00</strong></p>
@@ -320,16 +364,67 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
         <!-- Toolbar：类型筛选(#1) + 搜索(#2) -->
         <div class="billing-toolbar">
           <div class="type-filter" role="group" aria-label="会员类型筛选">
-            <button :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'">全部</button>
-            <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">月订阅</button>
-            <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">体验包</button>
+            <button :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'">
+              全部
+            </button>
+            <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">
+              月订阅
+            </button>
+            <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">
+              体验包
+            </button>
           </div>
-          <div class="search-box">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input v-model="searchQuery" class="search-input" type="text" placeholder="搜索 ID / 昵称" />
+          <div class="toolbar-right">
+            <div class="search-box">
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="search-icon"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                v-model="searchQuery"
+                class="search-input"
+                type="text"
+                placeholder="搜索 ID / 昵称"
+              />
+            </div>
+            <!-- 导出 CSV(#7)：导出当前可见行集（displayDetails），无可导行时禁用 -->
+            <button
+              class="export-btn"
+              type="button"
+              :disabled="displayDetails.length === 0"
+              :title="
+                displayDetails.length === 0
+                  ? '当前没有可导出的记录'
+                  : `导出当前 ${displayDetails.length} 条记录`
+              "
+              @click="exportCsv"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>导出 CSV</span>
+            </button>
           </div>
         </div>
 
@@ -339,34 +434,65 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
             <table class="data-table">
               <thead>
                 <tr>
-                  <th class="th-sortable col-user-th" :class="sortClassFor('child')" @click="toggleSort('child')">
+                  <th
+                    class="th-sortable col-user-th"
+                    :class="sortClassFor('child')"
+                    @click="toggleSort('child')"
+                  >
                     <span class="th-label">子账号</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
                   <th class="th-sortable" :class="sortClassFor('type')" @click="toggleSort('type')">
                     <span class="th-label">会员类型</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
-                  <th class="th-sortable" :class="sortClassFor('months')" @click="toggleSort('months')">
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('months')"
+                    @click="toggleSort('months')"
+                  >
                     <span class="th-label">时长</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
-                  <th class="th-sortable" :class="sortClassFor('amount')" @click="toggleSort('amount')">
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('amount')"
+                    @click="toggleSort('amount')"
+                  >
                     <span class="th-label">价格</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
-                  <th class="th-sortable" :class="sortClassFor('granted')" @click="toggleSort('granted')">
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('granted')"
+                    @click="toggleSort('granted')"
+                  >
                     <span class="th-label">开通时间</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
                 </tr>
@@ -385,9 +511,15 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                       {{ productLabel(d.product_type) }}
                     </span>
                   </td>
-                  <td><span class="cell-secondary">{{ durationLabel(d) }}</span></td>
-                  <td><span class="cell-amount">{{ yuan(d.amount_cents) }}</span></td>
-                  <td><span class="cell-secondary">{{ formatDate(d.granted_at) }}</span></td>
+                  <td>
+                    <span class="cell-secondary">{{ durationLabel(d) }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-amount">{{ yuan(d.amount_cents) }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-secondary">{{ formatDate(d.granted_at) }}</span>
+                  </td>
                 </tr>
                 <tr v-if="displayDetails.length === 0">
                   <td colspan="5" class="no-match">没有符合筛选 / 搜索条件的记录</td>
@@ -396,9 +528,16 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
               <tfoot>
                 <tr class="total-row">
                   <td colspan="3">
-                    <span class="total-label">{{ isFiltered ? '当前显示' : '本月合计' }}（{{ displayDetails.length }} 笔）</span>
+                    <span class="total-label"
+                      >{{ isFiltered ? '当前显示' : '本月合计' }}（{{
+                        displayDetails.length
+                      }}
+                      笔）</span
+                    >
                   </td>
-                  <td colspan="2"><span class="total-amount">{{ yuan(displayTotalCents) }}</span></td>
+                  <td colspan="2">
+                    <span class="total-amount">{{ yuan(displayTotalCents) }}</span>
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -606,7 +745,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 
 .month-pop-enter-active,
 .month-pop-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .month-pop-enter-from,
@@ -736,6 +877,54 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 .search-input:focus {
   border-color: hsl(158, 64%, 50%);
   box-shadow: 0 0 0 3px hsl(158 50% 50% / 0.12);
+}
+
+/* ===== Export button (#7) ===== */
+.toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(155, 20%, 35%);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3);
+}
+
+.export-btn svg {
+  color: hsl(155, 15%, 50%);
+  transition: color var(--transition-base);
+}
+
+.export-btn:hover:not(:disabled) {
+  border-color: hsl(158, 40%, 82%);
+  color: hsl(155, 25%, 25%);
+  transform: translateY(-1px);
+}
+
+.export-btn:hover:not(:disabled) svg {
+  color: var(--accent);
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===== Table ===== */
