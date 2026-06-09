@@ -320,6 +320,32 @@ describe('applyStreamEvent', () => {
     expect(tc?.current_state).toBe('result')
   })
 
+  // REPRO (customer bug, screenshots 2026-06-09): the tool-call card dumped the
+  // raw tool output JSON ({"results":[...]}) as the visible result line. Learners
+  // must see a friendly summary, not code. Raw output stays on `preview` for an
+  // optional detail view, but the rendered event message must be friendly.
+  it('tool_call_result: shows a friendly summary, NOT the raw output JSON', async () => {
+    const store = useAgentChatStore()
+    await seedToolCall(store, 'tc-raw', 0) // seeded tool_name = web_search
+    const rawJson = '{"results":[{"title":"x","url":"https://e.com","snippet":"..."}]}'
+    store.applyStreamEvent(
+      makeEvent('tool_call_result', {
+        tool_call_id: 'tc-raw',
+        preview: rawJson,
+        duration_ms: 100
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    const resultEvent = tc?.events[tc.events.length - 1]
+    // raw output is retained on preview (for a future detail view)…
+    expect(tc?.preview).toBe(rawJson)
+    // …but the VISIBLE message must be a friendly label, never the raw JSON.
+    expect(resultEvent?.message).not.toContain('{')
+    expect(resultEvent?.message).not.toContain('results')
+    expect(resultEvent?.message).toBe('已获取搜索结果')
+  })
+
   // issue #2: error-only terminals (no preceding 'error' event) surface user_message.
   it('terminal: shows user_message as a failed bubble for error-only terminals', () => {
     const store = useAgentChatStore()
