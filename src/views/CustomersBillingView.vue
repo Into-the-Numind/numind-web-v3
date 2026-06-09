@@ -98,9 +98,7 @@ const displayDetails = computed<ParentBillingDetail[]>(() => {
 const displayTotalCents = computed(() =>
   displayDetails.value.reduce((s, d) => s + d.amount_cents, 0)
 )
-const isFiltered = computed(
-  () => typeFilter.value !== 'all' || searchQuery.value.trim() !== ''
-)
+const isFiltered = computed(() => typeFilter.value !== 'all' || searchQuery.value.trim() !== '')
 
 function toggleSort(key: SortKey) {
   if (sortKey.value !== key) {
@@ -229,7 +227,18 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
             <div v-if="showMonthPanel" class="month-panel">
               <div class="month-panel-head">
                 <button class="year-nav" type="button" @click="prevYear" aria-label="上一年">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
                 </button>
                 <span class="year-label">{{ panelYear }} 年</span>
                 <button
@@ -239,7 +248,18 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                   @click="nextYear"
                   aria-label="下一年"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
                 </button>
               </div>
               <div class="month-grid">
@@ -291,7 +311,12 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
       <div v-else-if="report && report.details.length === 0" class="state-empty">
         <svg viewBox="0 0 48 48" fill="none" width="48" height="48" class="state-icon">
           <rect x="8" y="6" width="32" height="36" rx="4" stroke="currentColor" stroke-width="2" />
-          <path d="M16 16h16M16 22h12M16 28h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <path
+            d="M16 16h16M16 22h12M16 28h8"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
         </svg>
         <p class="state-title">本月（{{ report.month }}）暂无开通记录</p>
         <p class="state-sub">本月合计 <strong>¥0.00</strong></p>
@@ -320,16 +345,37 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
         <!-- Toolbar：类型筛选(#1) + 搜索(#2) -->
         <div class="billing-toolbar">
           <div class="type-filter" role="group" aria-label="会员类型筛选">
-            <button :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'">全部</button>
-            <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">月订阅</button>
-            <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">体验包</button>
+            <button :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'">
+              全部
+            </button>
+            <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">
+              月订阅
+            </button>
+            <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">
+              体验包
+            </button>
           </div>
           <div class="search-box">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="search-icon"
+            >
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.3-4.3" />
             </svg>
-            <input v-model="searchQuery" class="search-input" type="text" placeholder="搜索 ID / 昵称" />
+            <input
+              v-model="searchQuery"
+              class="search-input"
+              type="text"
+              placeholder="搜索 ID / 昵称"
+            />
           </div>
         </div>
 
@@ -339,34 +385,65 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
             <table class="data-table">
               <thead>
                 <tr>
-                  <th class="th-sortable col-user-th" :class="sortClassFor('child')" @click="toggleSort('child')">
+                  <th
+                    class="th-sortable col-user-th"
+                    :class="sortClassFor('child')"
+                    @click="toggleSort('child')"
+                  >
                     <span class="th-label">子账号</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
                   <th class="th-sortable" :class="sortClassFor('type')" @click="toggleSort('type')">
                     <span class="th-label">会员类型</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
-                  <th class="th-sortable" :class="sortClassFor('months')" @click="toggleSort('months')">
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('months')"
+                    @click="toggleSort('months')"
+                  >
                     <span class="th-label">时长</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
-                  <th class="th-sortable" :class="sortClassFor('amount')" @click="toggleSort('amount')">
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('amount')"
+                    @click="toggleSort('amount')"
+                  >
                     <span class="th-label">价格</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
-                  <th class="th-sortable" :class="sortClassFor('granted')" @click="toggleSort('granted')">
+                  <th
+                    class="th-sortable"
+                    :class="sortClassFor('granted')"
+                    @click="toggleSort('granted')"
+                  >
                     <span class="th-label">开通时间</span>
                     <span class="sort-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
                     </span>
                   </th>
                 </tr>
@@ -385,9 +462,15 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                       {{ productLabel(d.product_type) }}
                     </span>
                   </td>
-                  <td><span class="cell-secondary">{{ durationLabel(d) }}</span></td>
-                  <td><span class="cell-amount">{{ yuan(d.amount_cents) }}</span></td>
-                  <td><span class="cell-secondary">{{ formatDate(d.granted_at) }}</span></td>
+                  <td>
+                    <span class="cell-secondary">{{ durationLabel(d) }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-amount">{{ yuan(d.amount_cents) }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-secondary">{{ formatDate(d.granted_at) }}</span>
+                  </td>
                 </tr>
                 <tr v-if="displayDetails.length === 0">
                   <td colspan="5" class="no-match">没有符合筛选 / 搜索条件的记录</td>
@@ -396,9 +479,16 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
               <tfoot>
                 <tr class="total-row">
                   <td colspan="3">
-                    <span class="total-label">{{ isFiltered ? '当前显示' : '本月合计' }}（{{ displayDetails.length }} 笔）</span>
+                    <span class="total-label"
+                      >{{ isFiltered ? '当前显示' : '本月合计' }}（{{
+                        displayDetails.length
+                      }}
+                      笔）</span
+                    >
                   </td>
-                  <td colspan="2"><span class="total-amount">{{ yuan(displayTotalCents) }}</span></td>
+                  <td colspan="2">
+                    <span class="total-amount">{{ yuan(displayTotalCents) }}</span>
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -606,7 +696,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 
 .month-pop-enter-active,
 .month-pop-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .month-pop-enter-from,
