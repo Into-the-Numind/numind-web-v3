@@ -80,7 +80,8 @@ const displayDetails = computed<ParentBillingDetail[]>(() => {
     list = list.filter(
       (d) =>
         String(d.child_user_id).toLowerCase().includes(q) ||
-        (d.child_username || '').toLowerCase().includes(q)
+        (d.child_username || '').toLowerCase().includes(q) ||
+        (d.child_nickname || '').toLowerCase().includes(q)
     )
   }
   if (sortKey.value) {
@@ -109,10 +110,11 @@ const isFiltered = computed(
 // （非 ¥ 文案）便于在 Excel 中直接求和；中文经 utils/csv 的 UTF-8 BOM 保证不乱码。
 function exportCsv() {
   if (!report.value || displayDetails.value.length === 0) return
-  const headers = ['子账号', '子账号ID', '会员类型', '时长', '价格(元)', '开通时间']
+  const headers = ['账号', '账号ID', '昵称', '会员类型', '时长', '价格(元)', '开通时间']
   const rows = displayDetails.value.map((d) => [
     d.child_username,
     d.child_user_id,
+    d.child_nickname,
     productLabel(d.product_type),
     durationLabel(d),
     (d.amount_cents / 100).toFixed(2),
@@ -392,7 +394,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>导出 CSV</span>
+              <span>导出</span>
             </button>
           </div>
         </div>
@@ -404,10 +406,13 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
               <thead>
                 <tr>
                   <th class="th-sortable col-user-th" :class="sortClassFor('child')" @click="toggleSort('child')">
-                    <span class="th-label">子账号</span>
+                    <span class="th-label">账号</span>
                     <span class="sort-indicator" aria-hidden="true">
                       <svg viewBox="0 0 8 12" width="8" height="12"><path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" /><path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" /></svg>
                     </span>
+                  </th>
+                  <th>
+                    <span class="th-label">昵称</span>
                   </th>
                   <th class="th-sortable" :class="sortClassFor('type')" @click="toggleSort('type')">
                     <span class="th-label">会员类型</span>
@@ -445,6 +450,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                     <div class="user-meta">ID: {{ d.child_user_id }}</div>
                   </td>
                   <td>
+                    <span class="cell-secondary">{{ d.child_nickname || '—' }}</span>
+                  </td>
+                  <td>
                     <span class="product-badge" :class="d.product_type">
                       {{ productLabel(d.product_type) }}
                     </span>
@@ -454,12 +462,12 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
                   <td><span class="cell-secondary">{{ formatDate(d.granted_at) }}</span></td>
                 </tr>
                 <tr v-if="displayDetails.length === 0">
-                  <td colspan="5" class="no-match">没有符合筛选 / 搜索条件的记录</td>
+                  <td colspan="6" class="no-match">没有符合筛选 / 搜索条件的记录</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr class="total-row">
-                  <td colspan="3">
+                  <td colspan="4">
                     <span class="total-label">{{ isFiltered ? '当前显示' : '本月合计' }}（{{ displayDetails.length }} 笔）</span>
                   </td>
                   <td colspan="2"><span class="total-amount">{{ yuan(displayTotalCents) }}</span></td>
@@ -763,6 +771,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 
 .type-filter button.active {
   background: #fff;
+  /* 选中态白色框圆角对齐外层容器（--radius-md），而非按钮基类的 --radius-sm */
+  border-radius: var(--radius-md);
   color: hsl(155, 30%, 20%);
   font-weight: 600;
   box-shadow: 0 1px 4px hsl(150 15% 0% / 0.08);
