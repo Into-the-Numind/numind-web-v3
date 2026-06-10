@@ -92,12 +92,15 @@ const handleCancel = async (): Promise<void> => {
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
 }
 
-const handleAnswerSubmitted = (runId: number): void => {
+const handleAnswerSubmitted = async (runId: number): Promise<void> => {
   // The run paused for ask_user_question and the SSE stream already ended at the
   // waiting terminal. The backend re-runs the agent (non-stream) on /answer,
   // writing narration + final to the DB — so resume by polling rather than
   // reopening the stream. Optimistically flip the card to "已回答" for instant
   // feedback (the polling run_resumed handler sets the same flag idempotently).
+  // ensureCurrentRun guards the reloaded-waiting-session path where currentRun
+  // may be unset, so polling actually advances (yield-session-reload).
+  await store.ensureCurrentRun(runId)
   store.markQuestionAnswered(runId)
   narration.start()
   runCtrl.startStatusPolling()

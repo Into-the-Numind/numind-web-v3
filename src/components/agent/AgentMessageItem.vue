@@ -317,7 +317,7 @@ const systemText = computed<string>(() => {
         :question="asQuestionPrompt.question"
         :options="asQuestionPrompt.options"
         :header="asQuestionPrompt.header"
-        :multi-select="asQuestionPrompt.multi_select"
+        :multi-select="asQuestionPrompt.multi_select ?? false"
         :answered="asQuestionPrompt.answer_status === 'answered'"
         @answer-submitted="$emit('answer-submitted', asQuestionPrompt.run_id)"
       />
