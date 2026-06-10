@@ -491,6 +491,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
       messages.value = snapMsgs
       isReadOnly.value = readOnly
+      // yield-session-reload: a session paused at ask_user_question restores
+      // with a synthesized question_prompt card. Set currentRun from the
+      // snapshot so answer submission can poll the run to completion — without
+      // it, refreshRunStatus's null guard silently stalls the resume.
+      if (snap.run && snap.run.state_reason === 'waiting_for_user_choice') {
+        currentRun.value = snap.run
+      }
       if (snap.compact_summary) {
         messages.value.unshift({
           id: uuid(),
@@ -615,6 +622,20 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         messages.value[i] = { ...tgMsg, tool_calls: [...tgMsg.tool_calls] }
         return
       }
+    }
+  }
+
+  // ensureCurrentRun guarantees currentRun is populated for runId before a
+  // resume poll. Normally loadSessionSnapshot already set it; this is the
+  // defensive fallback for a restored waiting session whose run object was
+  // absent (yield-session-reload).
+  const ensureCurrentRun = async (runId: number): Promise<void> => {
+    if (currentRun.value && currentRun.value.id === runId) return
+    try {
+      currentRun.value = await api.getRun(runId)
+    } catch {
+      // Non-fatal: polling will no-op via its null guard; the card stays
+      // answerable on a subsequent attempt.
     }
   }
 
@@ -1101,6 +1122,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   return {
+    ensureCurrentRun,
     availableAgents,
     recentSessions,
     currentAgent,

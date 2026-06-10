@@ -222,7 +222,8 @@ export interface QuestionPromptMessage extends BaseMessage {
   question: string
   options: QuestionPromptOption[]
   header?: string
-  multi_select: boolean
+  /** optional: backend omits when false (shared agentMessage struct); treat absent as false */
+  multi_select?: boolean
   /** 'pending' until user submits; 'answered' after successful POST */
   answer_status: 'pending' | 'answered'
 }
@@ -258,6 +259,10 @@ export interface SessionSnapshot {
   session_id: string
   agent_skill_id: number
   messages: AgentMessage[]
+  /** Backend RunSummary for the session's latest run. Used to restore
+   *  currentRun when a session is paused at ask_user_question so answer
+   *  submission can poll to completion (yield-session-reload). */
+  run?: AgentRun
   compact_summary?: string
   /** returned by backend; #11 does not render */
   agent_run_ids?: number[]

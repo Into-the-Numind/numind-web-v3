@@ -285,6 +285,41 @@ describe('agentChat store', () => {
     expect(store.isReadOnly).toBe(true)
   })
 
+  it('loadSessionSnapshot restores currentRun when session is waiting for an answer', async () => {
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 1,
+      agent_skill_id: 1,
+      messages: [
+        {
+          id: 'q-50',
+          type: 'question_prompt',
+          run_id: 50,
+          question: '创办初心是什么？',
+          options: [{ label: 'A' }, { label: 'B' }],
+          multi_select: false,
+          answer_status: 'pending',
+          timestamp: ''
+        } as never
+      ],
+      run: { id: 50, status: 'running', state_reason: 'waiting_for_user_choice' } as AgentRun,
+      agent_run_ids: [50],
+      last_active_at: '',
+      status: 'running'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot(1, false)
+    expect(store.currentRun?.id).toBe(50)
+    expect(store.messages.some((m) => m.type === 'question_prompt')).toBe(true)
+  })
+
+  it('ensureCurrentRun hydrates currentRun from getRun when unset', async () => {
+    vi.mocked(api.getRun).mockResolvedValueOnce({ id: 77, status: 'running' } as AgentRun)
+    const store = useAgentChatStore()
+    expect(store.currentRun).toBeNull()
+    await store.ensureCurrentRun(77)
+    expect(store.currentRun?.id).toBe(77)
+  })
+
   it('loadSessionSnapshot records sessionError on failure', async () => {
     vi.mocked(api.getSessionSnapshot).mockRejectedValueOnce(new Error('not found'))
     const store = useAgentChatStore()
