@@ -111,6 +111,8 @@ export const grantMembership = (
 export interface ParentBillingDetail {
   child_user_id: number
   child_username: string
+  /** 子账户昵称；可能为空字符串。 */
+  child_nickname: string
   /** 产品类型：trial = 体验包，monthly = 月度会员。 */
   product_type: MembershipProductType
   /** 开通月数；trial 时为 0。 */
