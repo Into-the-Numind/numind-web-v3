@@ -961,9 +961,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
   opacity: 1;
 }
 
-/* User cell — higher specificity than `.data-table td` removes need for !important */
+/* Account cell — centered to match the sibling columns */
 .data-table td.col-user {
-  text-align: left;
+  text-align: center;
 }
 
 .user-name {
