@@ -9,11 +9,12 @@ function makeForm() {
 
 describe('QuestionnaireForm', () => {
   describe('question blocks rendered', () => {
-    it('renders all 7 data-question attributes', () => {
+    it('renders all 9 data-question attributes', () => {
       const wrapper = mount(QuestionnaireForm, {
         props: { modelValue: makeForm() }
       })
       // 工具开关 block 已移除（remove-agent-tool-switches）——工具默认全开，安全由后端权限门禁负责
+      // q6/q7 控件补回（agent-from-scratch-q6q7）——修复从零创建 422
       const expectedAttrs = [
         'name',
         'icon_url',
@@ -21,6 +22,8 @@ describe('QuestionnaireForm', () => {
         'welcome_message',
         'system_prompt',
         'starters',
+        'q6',
+        'q7',
         'q8'
       ]
       expectedAttrs.forEach((attr) => {
@@ -39,11 +42,11 @@ describe('QuestionnaireForm', () => {
       expect(wrapper.find('.tool-flags').exists()).toBe(false)
     })
 
-    it('renders 7 question blocks total', () => {
+    it('renders 9 question blocks total', () => {
       const wrapper = mount(QuestionnaireForm, {
         props: { modelValue: makeForm() }
       })
-      expect(wrapper.findAll('.questionnaire-form__question')).toHaveLength(7)
+      expect(wrapper.findAll('.questionnaire-form__question')).toHaveLength(9)
     })
   })
 
@@ -53,8 +56,8 @@ describe('QuestionnaireForm', () => {
         props: { modelValue: makeForm() }
       })
       const requiredLabels = wrapper.findAll('.questionnaire-form__label--required')
-      // Q1, Q3, Q4 = 3 required questions
-      expect(requiredLabels.length).toBe(3)
+      // Q1, Q3, Q4, Q6, Q7 = 5 required questions
+      expect(requiredLabels.length).toBe(5)
     })
 
     it('required label text includes * via CSS (class present)', () => {
