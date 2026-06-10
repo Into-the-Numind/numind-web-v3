@@ -2,8 +2,9 @@
 /**
  * QuestionPrompt.vue — Renders ask_user_question yield UI.
  *
- * Single-select: clicking an option immediately submits.
- * Multi-select:  checkboxes + optional free-text + explicit submit button.
+ * Both modes: options + an always-present free-text box + explicit submit button.
+ * Single-select toggles one option; multi-select toggles many. The free-text box
+ * lets the user supply an answer the options don't cover (ask-question-freetext).
  *
  * Props:
  *   runId      — agent_run.id to POST the answer to
@@ -58,8 +59,9 @@ const toggleOption = (label: string): void => {
       selected.value = [...selected.value, label]
     }
   } else {
-    selected.value = [label]
-    void submitAnswer()
+    // Single-select: clicking toggles selection but does NOT auto-submit, so the
+    // user can still add free text below before submitting (yield-resume UX).
+    selected.value = selected.value[0] === label ? [] : [label]
   }
 }
 
@@ -99,7 +101,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
     <p class="question-prompt__question">{{ question }}</p>
 
-    <!-- Multi-select: show checkboxes -->
+    <!-- Multi-select: checkboxes -->
     <div v-if="multiSelect" class="question-prompt__options question-prompt__options--multi">
       <!-- 多选用 <button type="button">（不是 <label><input>），原因：
            (a) jsdom + vue-test-utils 不实现 label-click activation，trigger('click') 不会
@@ -125,36 +127,14 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
           opt.description
         }}</span>
       </button>
-
-      <!-- Free text area -->
-      <div class="question-prompt__free-text">
-        <textarea
-          v-model="freeText"
-          placeholder="补充说明（可选）"
-          rows="2"
-          :disabled="answered || submitting"
-          class="question-prompt__textarea"
-          aria-label="补充说明"
-        />
-      </div>
-
-      <button
-        class="question-prompt__submit"
-        :disabled="!canSubmit || answered || submitting"
-        :aria-busy="submitting"
-        aria-label="提交回答"
-        @click="submitAnswer"
-      >
-        <span v-if="submitting" class="question-prompt__spinner" aria-hidden="true">⏳</span>
-        <span>{{ submitting ? '提交中...' : '提交' }}</span>
-      </button>
     </div>
 
-    <!-- Single-select: click-to-submit buttons -->
+    <!-- Single-select: click selects (no auto-submit — user may add free text below) -->
     <div v-else class="question-prompt__options question-prompt__options--single">
       <button
         v-for="opt in options"
         :key="opt.label"
+        type="button"
         class="question-prompt__option question-prompt__option--btn"
         :class="{ 'is-selected': isSelected(opt.label), 'is-disabled': answered || submitting }"
         :disabled="answered || submitting"
@@ -169,6 +149,33 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         }}</span>
       </button>
     </div>
+
+    <!-- Free-text box — ALWAYS present so the user can supply their own answer the
+         options don't cover. The agent's options are suggestions, not exhaustive. -->
+    <!-- :disabled only needs submitting — v-if="!answered" already hides this when answered -->
+    <div v-if="!answered" class="question-prompt__free-text">
+      <textarea
+        v-model="freeText"
+        :placeholder="options.length ? '没有合适的选项？在此自由填写你的答案' : '在此输入你的回答'"
+        rows="2"
+        :disabled="submitting"
+        class="question-prompt__textarea"
+        aria-label="自由填写你的回答"
+      />
+    </div>
+
+    <!-- Submit — both modes (single-select is no longer click-to-submit). -->
+    <button
+      v-if="!answered"
+      class="question-prompt__submit"
+      :disabled="!canSubmit || submitting"
+      :aria-busy="submitting"
+      aria-label="提交回答"
+      @click="submitAnswer"
+    >
+      <span v-if="submitting" class="question-prompt__spinner" aria-hidden="true">⏳</span>
+      <span>{{ submitting ? '提交中...' : '提交' }}</span>
+    </button>
 
     <!-- Answered overlay -->
     <p v-if="answered" class="question-prompt__answered-note">已回答，等待 agent 继续...</p>
@@ -304,6 +311,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
 /* Free text */
 .question-prompt__free-text {
+  margin-top: 8px;
   margin-top: 4px;
 }
 
@@ -333,6 +341,8 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
 /* Submit button */
 .question-prompt__submit {
+  display: block;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
