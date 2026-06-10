@@ -471,36 +471,69 @@ describe('applyStreamEvent', () => {
     expect(store.messages.length).toBe(0)
   })
 
-  // 12. question_prompt — pushes QuestionPromptMessage
+  // 12. question_prompt — pushes QuestionPromptMessage (questions array)
   it('question_prompt: pushes question_prompt message', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(
       makeEvent('question_prompt', {
-        question: 'Which option?',
-        options: [{ label: 'A' }, { label: 'B' }],
-        multi_select: false
+        questions: [
+          {
+            question: 'Which option?',
+            options: [{ label: 'A' }, { label: 'B' }],
+            multi_select: false
+          }
+        ]
       })
     )
     const prompts = store.messages.filter((m) => m.type === 'question_prompt')
     expect(prompts.length).toBe(1)
     const p = prompts[0]
-    expect(p.type === 'question_prompt' && p.question).toBe('Which option?')
-    expect(p.type === 'question_prompt' && p.options.length).toBe(2)
+    expect(p.type === 'question_prompt' && p.questions.length).toBe(1)
+    expect(p.type === 'question_prompt' && p.questions[0].question).toBe('Which option?')
+    expect(p.type === 'question_prompt' && p.questions[0].options.length).toBe(2)
     expect(p.type === 'question_prompt' && p.answer_status).toBe('pending')
-    expect(p.type === 'question_prompt' && p.multi_select).toBe(false)
+    expect(p.type === 'question_prompt' && p.questions[0].multi_select).toBe(false)
+  })
+
+  it('question_prompt: pushes ALL questions for a multi-question yield', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('question_prompt', {
+        questions: [
+          {
+            question: '周期？',
+            options: [{ label: '90天' }, { label: '180天' }],
+            multi_select: false
+          },
+          {
+            question: '客群？',
+            options: [{ label: '宝妈' }, { label: '职场人' }],
+            multi_select: true
+          }
+        ]
+      })
+    )
+    const p = store.messages.find((m) => m.type === 'question_prompt')
+    expect(p?.type === 'question_prompt' && p.questions.length).toBe(2)
+    expect(p?.type === 'question_prompt' && p.questions[1].question).toBe('客群？')
+    expect(p?.type === 'question_prompt' && p.questions[1].multi_select).toBe(true)
   })
 
   it('question_prompt: passes through structured {label, description} options', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(
       makeEvent('question_prompt', {
-        question: 'Pick one',
-        options: [{ label: 'option-x', description: 'desc-x' }, { label: 'option-y' }],
-        multi_select: false
+        questions: [
+          {
+            question: 'Pick one',
+            options: [{ label: 'option-x', description: 'desc-x' }, { label: 'option-y' }],
+            multi_select: false
+          }
+        ]
       })
     )
     const p = store.messages.find((m) => m.type === 'question_prompt')
-    expect(p?.type === 'question_prompt' && p.options[0]).toEqual({
+    expect(p?.type === 'question_prompt' && p.questions[0].options[0]).toEqual({
       label: 'option-x',
       description: 'desc-x'
     })
@@ -513,14 +546,22 @@ describe('applyStreamEvent', () => {
     store.applyStreamEvent(
       makeEvent(
         'question_prompt',
-        { question: 'Q1', options: [{ label: 'A' }, { label: 'B' }], multi_select: false },
+        {
+          questions: [
+            { question: 'Q1', options: [{ label: 'A' }, { label: 'B' }], multi_select: false }
+          ]
+        },
         { run_id: 555 }
       )
     )
     store.applyStreamEvent(
       makeEvent(
         'question_prompt',
-        { question: 'Q2', options: [{ label: 'X' }, { label: 'Y' }], multi_select: false },
+        {
+          questions: [
+            { question: 'Q2', options: [{ label: 'X' }, { label: 'Y' }], multi_select: false }
+          ]
+        },
         { run_id: 777 }
       )
     )

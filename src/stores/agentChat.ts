@@ -310,16 +310,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (events.length > 0) {
         for (const ev of events) {
           if (ev.event_type === 'tool_call_yield' && ev.yield_payload) {
-            // ask_user_question yield — inject a question_prompt message into the chat
+            // ask_user_question yield — inject a question_prompt message into the
+            // chat. NOTE: the backend currently delivers the pending question via
+            // the question_prompt stream event and the session snapshot, not this
+            // poll field; kept for shape parity / forward-compat.
             const qp = ev.yield_payload
             const promptMsg: QuestionPromptMessage = {
               id: uuid(),
               type: 'question_prompt',
               run_id: qp.run_id,
-              question: qp.question,
-              options: qp.options,
-              header: qp.header,
-              multi_select: qp.multi_select,
+              questions: qp.questions ?? [],
               answer_status: 'pending',
               timestamp: ev.timestamp
             }
@@ -998,13 +998,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           id: uuid(),
           type: 'question_prompt',
           run_id: e.run_id,
-          question: payload.question,
-          // Backend (T3) now sends structured options {label, description};
-          // pass them through directly (was stringified to {label: opt}, which
-          // rendered [object Object] once the backend contract changed).
-          options: payload.options ?? [],
-          header: payload.header,
-          multi_select: payload.multi_select ?? false,
+          // agent-multi-question: 1-4 independent questions, each with its own
+          // structured options {label, description}.
+          questions: payload.questions ?? [],
           answer_status: 'pending',
           timestamp: e.ts
         }

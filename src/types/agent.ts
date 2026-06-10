@@ -28,14 +28,14 @@ export interface NarrationEvent {
   reason?: string
   /** ISO 8601 with TZ */
   timestamp: string
-  /** Present only for tool_call_yield events (ask_user_question tool) */
+  /** Present only for tool_call_yield events (ask_user_question tool).
+   *  NOTE: the backend currently delivers a pending question via the
+   *  question_prompt stream event and the session snapshot, not via this poll
+   *  field — kept for forward-compat and shape parity. */
   event_type?: 'tool_call_yield' | 'run_resumed'
   /** Present when event_type === 'tool_call_yield' */
   yield_payload?: {
-    question: string
-    options: Array<{ label: string; description?: string }>
-    header?: string
-    multi_select: boolean
+    questions: QuestionPromptItem[]
     run_id: number
   }
 }
@@ -216,14 +216,24 @@ export interface QuestionPromptOption {
   description?: string
 }
 
-export interface QuestionPromptMessage extends BaseMessage {
-  type: 'question_prompt'
-  run_id: number
+/**
+ * One question in a multi-question ask_user_question prompt. Its shape mirrors
+ * the backend stream.QuestionPromptItem (live) and snapshot questionPromptItem
+ * (reload), so streamed and reloaded questions render identically.
+ */
+export interface QuestionPromptItem {
   question: string
   options: QuestionPromptOption[]
   header?: string
-  /** optional: backend omits when false (shared agentMessage struct); treat absent as false */
-  multi_select?: boolean
+  /** backend always serializes this on question items (no omitempty) */
+  multi_select: boolean
+}
+
+export interface QuestionPromptMessage extends BaseMessage {
+  type: 'question_prompt'
+  run_id: number
+  /** 1-4 independent questions (Claude Code's AskUserQuestion model) */
+  questions: QuestionPromptItem[]
   /** 'pending' until user submits; 'answered' after successful POST */
   answer_status: 'pending' | 'answered'
 }

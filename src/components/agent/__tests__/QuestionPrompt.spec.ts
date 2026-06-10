@@ -1,15 +1,10 @@
 /**
- * QuestionPrompt.spec.ts — vitest unit tests for QuestionPrompt.vue
+ * QuestionPrompt.spec.ts — vitest unit tests for the multi-question
+ * QuestionPrompt.vue navigator (agent-multi-question).
  *
- * Tests:
- *  1. Renders question + 2 option buttons in single-select mode
- *  2. Single-select: clicking an option selects it (no auto-submit); free-text box always present
- *  2. Single-select: clicking option immediately calls postAgentAnswer
- *  3. Multi-select: selecting 2 + free_text + clicking submit calls postAgentAnswer
- *  4. Submitting state: buttons disabled while submitting
- *  5. Error: API rejects → notifications.error called; button re-enabled
- *  6. answered prop: options disabled, answered note shown
- *  7. a11y: ARIA label on group + aria-pressed on option buttons
+ * Covers: single-question form, multi-question tab navigation + per-question
+ * state isolation, single/multi select, free text, the Review step, the answers
+ * map payload shape, skip-a-question, answered state, API errors, a11y.
  */
 
 import { mount, flushPromises } from '@vue/test-utils'
@@ -31,30 +26,36 @@ vi.mock('@/stores/notifications', () => ({
   })
 }))
 
-// ── Test helpers ─────────────────────────────────────────────────────────────
-const OPTS = [{ label: '选项 A', description: 'A 的描述' }, { label: '选项 B' }]
+// ── Fixtures ─────────────────────────────────────────────────────────────────
+const SINGLE = [
+  {
+    question: '你想要哪个格式？',
+    options: [{ label: 'PDF', description: '便携文档' }, { label: 'Word' }],
+    multi_select: false
+  }
+]
 
-const mountSingleSelect = (extra: Record<string, unknown> = {}) =>
-  mount(QuestionPrompt, {
-    props: {
-      runId: 42,
-      question: '你想要哪个选项？',
-      options: OPTS,
-      multiSelect: false,
-      ...extra
-    }
-  })
+const MULTI = [
+  {
+    question: '陪跑周期多长？',
+    header: '陪跑',
+    options: [{ label: '90天' }, { label: '180天' }],
+    multi_select: false
+  },
+  {
+    question: '主要客群是谁？',
+    options: [{ label: '宝妈' }, { label: '职场人' }],
+    multi_select: true
+  }
+]
 
-const mountMultiSelect = (extra: Record<string, unknown> = {}) =>
-  mount(QuestionPrompt, {
-    props: {
-      runId: 42,
-      question: '请选择所有适用选项',
-      options: OPTS,
-      multiSelect: true,
-      ...extra
-    }
-  })
+const mountSingle = (extra: Record<string, unknown> = {}) =>
+  mount(QuestionPrompt, { props: { runId: 42, questions: SINGLE, ...extra } })
+
+const mountMulti = (extra: Record<string, unknown> = {}) =>
+  mount(QuestionPrompt, { props: { runId: 42, questions: MULTI, ...extra } })
+
+const lastPayload = () => mockPostAgentAnswer.mock.calls.at(-1)?.[1]
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -66,139 +67,213 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('QuestionPrompt — single-select mode', () => {
-  it('1. renders question text and 2 option buttons', () => {
-    const wrapper = mountSingleSelect()
-    expect(wrapper.text()).toContain('你想要哪个选项？')
-    const buttons = wrapper.findAll('.question-prompt__option--btn')
-    expect(buttons).toHaveLength(2)
-    expect(buttons[0].text()).toContain('选项 A')
-    expect(buttons[1].text()).toContain('选项 B')
+describe('QuestionPrompt — single question', () => {
+  it('renders the question + options, with no tab bar', () => {
+    const wrapper = mountSingle()
+    expect(wrapper.text()).toContain('你想要哪个格式？')
+    expect(wrapper.findAll('.question-prompt__option--btn')).toHaveLength(2)
+    expect(wrapper.find('.question-prompt__tabs').exists()).toBe(false)
   })
 
-  it('2. clicking an option selects it but does NOT auto-submit (user may add free text)', async () => {
-    const wrapper = mountSingleSelect()
-    const firstBtn = wrapper.find('.question-prompt__option--btn')
-    await firstBtn.trigger('click')
-    expect(mockPostAgentAnswer).not.toHaveBeenCalled()
-    expect(firstBtn.attributes('aria-pressed')).toBe('true')
+  it('cannot submit until something is answered', () => {
+    const wrapper = mountSingle()
+    expect(wrapper.find('.question-prompt__submit').attributes('disabled')).toBeDefined()
   })
 
-  it('2b. single-select always shows a free-text box; option + free text + submit', async () => {
+  it('selecting an option + submit POSTs the answers map keyed by question text', async () => {
     mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
-    const wrapper = mountSingleSelect()
-    // free-text box must exist in single-select mode (the always-present补充框)
-    const textarea = wrapper.find('.question-prompt__textarea')
-    expect(textarea.exists()).toBe(true)
+    const wrapper = mountSingle()
     await wrapper.find('.question-prompt__option--btn').trigger('click')
-    await textarea.setValue('我们主要服务留学生，客单价3000')
     await wrapper.find('.question-prompt__submit').trigger('click')
     await flushPromises()
-    expect(mockPostAgentAnswer).toHaveBeenCalledWith(42, {
-      selected: ['选项 A'],
-      free_text: '我们主要服务留学生，客单价3000'
-    })
+
+    expect(mockPostAgentAnswer).toHaveBeenCalledTimes(1)
+    expect(mockPostAgentAnswer.mock.calls[0][0]).toBe(42)
+    expect(lastPayload().answers['你想要哪个格式？'].selected).toEqual(['PDF'])
+    // free_text is omitted (undefined) when empty, per the backend contract
+    expect(lastPayload().answers['你想要哪个格式？'].free_text).toBeUndefined()
+    expect(wrapper.emitted('answer-submitted')).toBeTruthy()
   })
 
-  it('2c. single-select: free text alone (no option) can submit', async () => {
-    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
-    const wrapper = mountSingleSelect()
-    await wrapper.find('.question-prompt__textarea').setValue('我自己补充的答案')
-    await wrapper.find('.question-prompt__submit').trigger('click')
-    await flushPromises()
-    expect(mockPostAgentAnswer).toHaveBeenCalledWith(42, {
-      selected: [],
-      free_text: '我自己补充的答案'
-    })
-  })
-
-  it('7a. group has aria-label matching question', () => {
-    const wrapper = mountSingleSelect()
-    const group = wrapper.find('[role="group"]')
-    expect(group.attributes('aria-label')).toBe('你想要哪个选项？')
-  })
-
-  it('7b. option buttons have aria-pressed attribute', () => {
-    const wrapper = mountSingleSelect()
+  it('single-select: clicking the selected option again deselects it', async () => {
+    const wrapper = mountSingle()
     const btn = wrapper.find('.question-prompt__option--btn')
-    expect(btn.attributes('aria-pressed')).toBeDefined()
+    await btn.trigger('click')
+    expect(btn.attributes('aria-pressed')).toBe('true')
+    await btn.trigger('click')
+    expect(btn.attributes('aria-pressed')).toBe('false')
+    // nothing answered → submit disabled again
+    expect(wrapper.find('.question-prompt__submit').attributes('disabled')).toBeDefined()
   })
-})
 
-describe('QuestionPrompt — multi-select mode', () => {
-  it('3. multi-select: check 2 options + free_text + submit calls postAgentAnswer', async () => {
+  it('free text alone (no option) can submit', async () => {
     mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
-    const wrapper = mountMultiSelect()
-
-    // Click the option labels to toggle checkboxes (label.click → toggleOption called)
-    const optionLabels = wrapper.findAll('.question-prompt__option--checkbox')
-    expect(optionLabels).toHaveLength(2)
-    await optionLabels[0].trigger('click')
-    await optionLabels[1].trigger('click')
-
-    // Fill free text
-    const textarea = wrapper.find('.question-prompt__textarea')
-    await textarea.setValue('额外说明内容')
-
-    // Submit
-    const submitBtn = wrapper.find('.question-prompt__submit')
-    await submitBtn.trigger('click')
+    const wrapper = mountSingle()
+    await wrapper.find('.question-prompt__textarea').setValue('我要 Markdown')
+    await wrapper.find('.question-prompt__submit').trigger('click')
     await flushPromises()
-
-    expect(mockPostAgentAnswer).toHaveBeenCalledWith(42, {
-      selected: ['选项 A', '选项 B'],
-      free_text: '额外说明内容'
+    expect(lastPayload().answers['你想要哪个格式？']).toMatchObject({
+      selected: [],
+      free_text: '我要 Markdown'
     })
   })
 
-  it('4. submitting state disables submit button and shows spinner', async () => {
-    // Never resolve so we can inspect submitting state
-    mockPostAgentAnswer.mockReturnValue(new Promise(() => {}))
-    const wrapper = mountMultiSelect()
-
-    // Select one option to enable submit — click the label
-    const optionLabel = wrapper.find('.question-prompt__option--checkbox')
-    await optionLabel.trigger('click')
-
-    const submitBtn = wrapper.find('.question-prompt__submit')
-    await submitBtn.trigger('click')
-    await wrapper.vm.$nextTick()
-
-    // While submitting: button should be disabled
-    expect(submitBtn.attributes('disabled')).toBeDefined()
-    // Spinner element exists in template when submitting=true
-    expect(wrapper.find('.question-prompt__spinner').exists()).toBe(true)
-  })
-
-  it('5. API error shows notification and re-enables button', async () => {
-    mockPostAgentAnswer.mockRejectedValueOnce(new Error('network error'))
-    const wrapper = mountMultiSelect()
-
-    // Select one option — click the label
-    const optionLabel = wrapper.find('.question-prompt__option--checkbox')
-    await optionLabel.trigger('click')
-
-    const submitBtn = wrapper.find('.question-prompt__submit')
-    await submitBtn.trigger('click')
-    await flushPromises()
-
-    expect(mockNotificationsError).toHaveBeenCalledWith(expect.stringContaining('network error'))
-    // Button should be re-enabled after error (submitting=false)
-    expect(submitBtn.attributes('disabled')).toBeUndefined()
+  it('single-select clicking does NOT auto-submit', async () => {
+    const wrapper = mountSingle()
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    expect(mockPostAgentAnswer).not.toHaveBeenCalled()
   })
 })
 
-describe('QuestionPrompt — answered state', () => {
-  it('6. answered=true disables options and shows answered note', () => {
-    const wrapper = mountSingleSelect({ answered: true })
-    const buttons = wrapper.findAll('.question-prompt__option--btn')
-    buttons.forEach((btn) => {
-      expect(btn.attributes('disabled')).toBeDefined()
-    })
+describe('QuestionPrompt — multi-question navigation', () => {
+  it('renders a tab bar with one chip per question + progress', () => {
+    const wrapper = mountMulti()
+    expect(wrapper.findAll('.question-prompt__tab')).toHaveLength(2)
+    expect(wrapper.find('.question-prompt__progress').text()).toBe('0/2')
+    // first question shown
+    expect(wrapper.find('.question-prompt__question').text()).toBe('陪跑周期多长？')
+  })
+
+  it('advances to the next question and back', async () => {
+    const wrapper = mountMulti()
+    await wrapper.find('.question-prompt__next').trigger('click')
+    expect(wrapper.find('.question-prompt__question').text()).toBe('主要客群是谁？')
+    await wrapper.find('.question-prompt__prev').trigger('click')
+    expect(wrapper.find('.question-prompt__question').text()).toBe('陪跑周期多长？')
+  })
+
+  it('clicking a tab jumps to that question and preserves each selection', async () => {
+    const wrapper = mountMulti()
+    // answer Q1
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    // jump to Q2 via tab
+    await wrapper.findAll('.question-prompt__tab')[1].trigger('click')
+    expect(wrapper.find('.question-prompt__question').text()).toBe('主要客群是谁？')
+    // jump back to Q1 — its selection persists
+    await wrapper.findAll('.question-prompt__tab')[0].trigger('click')
+    expect(wrapper.find('.question-prompt__option--btn.is-selected').text()).toContain('90天')
+  })
+
+  it('marks a tab answered (☑) once its question has an answer', async () => {
+    const wrapper = mountMulti()
+    expect(wrapper.findAll('.question-prompt__tab')[0].classes()).not.toContain('is-answered')
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    expect(wrapper.findAll('.question-prompt__tab')[0].classes()).toContain('is-answered')
+    expect(wrapper.find('.question-prompt__progress').text()).toBe('1/2')
+  })
+
+  it('Review step shows every Q&A and submits the full answers map', async () => {
+    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
+    const wrapper = mountMulti()
+    // Q1: select 90天
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    // next → Q2 (multi-select): pick both + free text
+    await wrapper.find('.question-prompt__next').trigger('click')
+    const checks = wrapper.findAll('.question-prompt__option--checkbox')
+    await checks[0].trigger('click')
+    await checks[1].trigger('click')
+    await wrapper.find('.question-prompt__textarea').setValue('一二线城市')
+    // 检查并提交 → review
+    await wrapper.find('.question-prompt__next').trigger('click')
+    expect(wrapper.find('.question-prompt__review').exists()).toBe(true)
+    expect(wrapper.find('.question-prompt__review').text()).toContain('陪跑周期多长？')
+    expect(wrapper.find('.question-prompt__review').text()).toContain('宝妈、职场人')
+    // submit
+    await wrapper.find('.question-prompt__submit').trigger('click')
+    await flushPromises()
+
+    const ans = lastPayload().answers
+    expect(ans['陪跑周期多长？'].selected).toEqual(['90天'])
+    expect(ans['主要客群是谁？'].selected).toEqual(['宝妈', '职场人'])
+    expect(ans['主要客群是谁？'].free_text).toBe('一二线城市')
+  })
+
+  it('a skipped question is omitted from the answers map', async () => {
+    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
+    const wrapper = mountMulti()
+    // answer Q1 only, skip Q2
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    await wrapper.find('.question-prompt__next').trigger('click') // → Q2
+    await wrapper.find('.question-prompt__next').trigger('click') // → review
+    await wrapper.find('.question-prompt__submit').trigger('click')
+    await flushPromises()
+
+    const ans = lastPayload().answers
+    expect(Object.keys(ans)).toEqual(['陪跑周期多长？'])
+    expect(ans['主要客群是谁？']).toBeUndefined()
+  })
+
+  it('editing from the review jumps back to the question', async () => {
+    const wrapper = mountMulti()
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    await wrapper.find('.question-prompt__next').trigger('click') // Q2
+    await wrapper.find('.question-prompt__next').trigger('click') // review
+    await wrapper.findAll('.question-prompt__edit')[0].trigger('click')
+    expect(wrapper.find('.question-prompt__review').exists()).toBe(false)
+    expect(wrapper.find('.question-prompt__question').text()).toBe('陪跑周期多长？')
+  })
+
+  it('multi-select: clicking a selected option removes only it', async () => {
+    const wrapper = mountMulti()
+    await wrapper.find('.question-prompt__next').trigger('click') // → Q2 (multi-select)
+    const checks = wrapper.findAll('.question-prompt__option--checkbox')
+    await checks[0].trigger('click')
+    await checks[1].trigger('click')
+    expect(checks[0].attributes('aria-pressed')).toBe('true')
+    await checks[0].trigger('click') // toggle off
+    expect(checks[0].attributes('aria-pressed')).toBe('false')
+    expect(checks[1].attributes('aria-pressed')).toBe('true')
+  })
+})
+
+describe('QuestionPrompt — answered & errors', () => {
+  it('answered=true is read-only: note shown, no tabs / submit', () => {
+    const wrapper = mountMulti({ answered: true })
     expect(wrapper.find('.question-prompt__answered-note').exists()).toBe(true)
     expect(wrapper.find('.question-prompt--answered').exists()).toBe(true)
-    // answered state hides the free-text box and submit button (v-if="!answered")
-    expect(wrapper.find('.question-prompt__textarea').exists()).toBe(false)
+    expect(wrapper.find('.question-prompt__tabs').exists()).toBe(false)
     expect(wrapper.find('.question-prompt__submit').exists()).toBe(false)
+    expect(wrapper.find('.question-prompt__next').exists()).toBe(false)
+  })
+
+  it('API error shows a notification and re-enables submit', async () => {
+    mockPostAgentAnswer.mockRejectedValueOnce(new Error('network error'))
+    const wrapper = mountSingle()
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    await wrapper.find('.question-prompt__submit').trigger('click')
+    await flushPromises()
+    expect(mockNotificationsError).toHaveBeenCalledWith(expect.stringContaining('network error'))
+    expect(wrapper.find('.question-prompt__submit').attributes('disabled')).toBeUndefined()
+  })
+
+  it('while submitting: shows spinner, disables submit, and guards double-submit', async () => {
+    let resolvePost: (v: unknown) => void = () => {}
+    mockPostAgentAnswer.mockReturnValue(
+      new Promise((r) => {
+        resolvePost = r
+      })
+    )
+    const wrapper = mountSingle()
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    const submit = wrapper.find('.question-prompt__submit')
+    await submit.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.question-prompt__spinner').exists()).toBe(true)
+    expect(submit.attributes('disabled')).toBeDefined()
+    // a second click while in flight must not fire another POST
+    await submit.trigger('click')
+    expect(mockPostAgentAnswer).toHaveBeenCalledTimes(1)
+
+    resolvePost({ run_id: 42, status: 'resumed' })
+    await flushPromises()
+  })
+})
+
+describe('QuestionPrompt — a11y', () => {
+  it('group has an aria-label; current tab is aria-current', async () => {
+    const wrapper = mountMulti()
+    expect(wrapper.find('[role="group"]').attributes('aria-label')).toContain('2')
+    expect(wrapper.findAll('.question-prompt__tab')[0].attributes('aria-current')).toBe('true')
   })
 })

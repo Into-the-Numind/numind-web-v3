@@ -128,13 +128,17 @@ export interface StateChangePayload {
   previous_state?: string
 }
 
-/** question_prompt — agent is waiting for user input via ask_user_question */
+/** question_prompt — agent is waiting for user input via ask_user_question.
+ *  agent-multi-question: carries 1-4 independent questions (mirrors backend
+ *  stream.QuestionPromptPayload). */
 export interface QuestionPromptPayload {
-  question: string
-  /** Structured options — mirrors backend stream.QuestionOption ({label, description}). */
-  options: Array<{ label: string; description?: string }>
-  header?: string
-  multi_select: boolean
+  questions: Array<{
+    question: string
+    /** Structured options — mirrors backend stream.QuestionOption. */
+    options: Array<{ label: string; description?: string }>
+    header?: string
+    multi_select: boolean
+  }>
 }
 
 /** terminal — stream ended (success or failure) */
