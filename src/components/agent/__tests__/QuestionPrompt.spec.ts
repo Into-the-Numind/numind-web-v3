@@ -3,6 +3,7 @@
  *
  * Tests:
  *  1. Renders question + 2 option buttons in single-select mode
+ *  2. Single-select: clicking an option selects it (no auto-submit); free-text box always present
  *  2. Single-select: clicking option immediately calls postAgentAnswer
  *  3. Multi-select: selecting 2 + free_text + clicking submit calls postAgentAnswer
  *  4. Submitting state: buttons disabled while submitting
@@ -75,14 +76,39 @@ describe('QuestionPrompt — single-select mode', () => {
     expect(buttons[1].text()).toContain('选项 B')
   })
 
-  it('2. clicking option immediately submits with selected label', async () => {
-    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
+  it('2. clicking an option selects it but does NOT auto-submit (user may add free text)', async () => {
     const wrapper = mountSingleSelect()
     const firstBtn = wrapper.find('.question-prompt__option--btn')
     await firstBtn.trigger('click')
+    expect(mockPostAgentAnswer).not.toHaveBeenCalled()
+    expect(firstBtn.attributes('aria-pressed')).toBe('true')
+  })
+
+  it('2b. single-select always shows a free-text box; option + free text + submit', async () => {
+    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
+    const wrapper = mountSingleSelect()
+    // free-text box must exist in single-select mode (the always-present补充框)
+    const textarea = wrapper.find('.question-prompt__textarea')
+    expect(textarea.exists()).toBe(true)
+    await wrapper.find('.question-prompt__option--btn').trigger('click')
+    await textarea.setValue('我们主要服务留学生，客单价3000')
+    await wrapper.find('.question-prompt__submit').trigger('click')
+    await flushPromises()
     expect(mockPostAgentAnswer).toHaveBeenCalledWith(42, {
       selected: ['选项 A'],
-      free_text: undefined
+      free_text: '我们主要服务留学生，客单价3000'
+    })
+  })
+
+  it('2c. single-select: free text alone (no option) can submit', async () => {
+    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
+    const wrapper = mountSingleSelect()
+    await wrapper.find('.question-prompt__textarea').setValue('我自己补充的答案')
+    await wrapper.find('.question-prompt__submit').trigger('click')
+    await flushPromises()
+    expect(mockPostAgentAnswer).toHaveBeenCalledWith(42, {
+      selected: [],
+      free_text: '我自己补充的答案'
     })
   })
 
@@ -171,5 +197,8 @@ describe('QuestionPrompt — answered state', () => {
     })
     expect(wrapper.find('.question-prompt__answered-note').exists()).toBe(true)
     expect(wrapper.find('.question-prompt--answered').exists()).toBe(true)
+    // answered state hides the free-text box and submit button (v-if="!answered")
+    expect(wrapper.find('.question-prompt__textarea').exists()).toBe(false)
+    expect(wrapper.find('.question-prompt__submit').exists()).toBe(false)
   })
 })

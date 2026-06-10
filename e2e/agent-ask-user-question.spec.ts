@@ -133,6 +133,9 @@ test.describe('ask_user_question yield → answer → resume flow', () => {
       timeout: 5_000
     })
     await optionBtns.first().click()
+    // Single-select no longer auto-submits (ask-question-freetext): the user may
+    // add free text, so an explicit submit click is required.
+    await page.locator('.question-prompt__submit').click()
     const answerResponse = await answerResponsePromise
 
     // Verify POST was made
