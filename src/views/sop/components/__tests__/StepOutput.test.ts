@@ -96,93 +96,84 @@ describe('StepOutput — Content 渲染', () => {
   })
 })
 
-// TODO(backlog): 下面这批 it.skip 用了错误选择器（.step-output-thinking* / .step-output-cursor 等，
-// DOM 实际是 .thinking-container / .thinking-header / .streaming-placeholder）。属 develop 既有测试债，
-// 与本次 auto-collapse 修复无关；折叠行为的回归覆盖见文件末尾「thinking 自动折叠」describe（用正确选择器）。
+// 选择器已对齐实际 DOM：思考面板用 .thinking-container / .thinking-header / .thinking-title，
+// 折叠态 class 是 collapsed（非 is-collapsed），占位用 .streaming-placeholder / .streaming-dot。
+// 这批此前因错误选择器（.step-output-thinking* / .step-output-cursor）被 skip，现已修正并重新启用。
 describe('StepOutput — Thinking 折叠面板', () => {
   it('thinking 空时不渲染面板', () => {
     const wrapper = mount(StepOutput, {
       props: { content: '有内容' }
     })
-    expect(wrapper.find('.step-output-thinking').exists()).toBe(false)
+    expect(wrapper.find('.thinking-container').exists()).toBe(false)
   })
 
-  // TODO(backlog): '.step-output-thinking' DOM element absent — pre-existing on develop
-  it.skip('thinking 非空时渲染面板', () => {
+  it('thinking 非空时渲染面板', () => {
     const wrapper = mount(StepOutput, {
       props: { thinking: '思考过程...', content: '结果' }
     })
-    expect(wrapper.find('.step-output-thinking').exists()).toBe(true)
-    expect(wrapper.find('.step-output-thinking-title').exists()).toBe(true)
+    expect(wrapper.find('.thinking-container').exists()).toBe(true)
+    expect(wrapper.find('.thinking-title').exists()).toBe(true)
   })
 
-  // TODO(backlog): thinking panel DOM mismatch — pre-existing on develop
-  it.skip('非 streaming 时默认折叠（显示"思考过程"标题）', () => {
+  it('非 streaming 时默认折叠（显示"思考过程"标题）', () => {
     const wrapper = mount(StepOutput, {
       props: { thinking: '思考', streaming: false }
     })
-    expect(wrapper.find('.step-output-thinking').classes()).toContain('is-collapsed')
-    expect(wrapper.find('.step-output-thinking-title').text()).toBe('思考过程')
-    // 折叠时 v-show 隐藏内容
-    const contentEl = wrapper.find('.step-output-thinking-content')
-    expect((contentEl.element as HTMLElement).style.display).toBe('none')
+    expect(wrapper.find('.thinking-container').classes()).toContain('collapsed')
+    expect(wrapper.find('.thinking-title').text()).toBe('思考过程')
   })
 
-  // TODO(backlog): thinking panel DOM mismatch — pre-existing on develop
-  it.skip('streaming 时默认展开（显示"思考中…"）', () => {
+  it('streaming 时默认展开（显示"思考中…"）', () => {
     const wrapper = mount(StepOutput, {
       props: { thinking: '思考', streaming: true }
     })
-    expect(wrapper.find('.step-output-thinking').classes()).not.toContain('is-collapsed')
-    expect(wrapper.find('.step-output-thinking-title').text()).toBe('思考中…')
+    expect(wrapper.find('.thinking-container').classes()).not.toContain('collapsed')
+    expect(wrapper.find('.thinking-title').text()).toBe('思考中…')
   })
 
-  // TODO(backlog): thinking panel DOM mismatch — pre-existing on develop
-  it.skip('点击 header 切换折叠状态', async () => {
+  it('点击 header 切换折叠状态', async () => {
     const wrapper = mount(StepOutput, {
       props: { thinking: '思考', streaming: false }
     })
     // 初始折叠
-    expect(wrapper.find('.step-output-thinking').classes()).toContain('is-collapsed')
+    expect(wrapper.find('.thinking-container').classes()).toContain('collapsed')
 
     // 点击展开
-    await wrapper.find('.step-output-thinking-header').trigger('click')
-    expect(wrapper.find('.step-output-thinking').classes()).not.toContain('is-collapsed')
+    await wrapper.find('.thinking-header').trigger('click')
+    expect(wrapper.find('.thinking-container').classes()).not.toContain('collapsed')
 
     // 再次点击折叠
-    await wrapper.find('.step-output-thinking-header').trigger('click')
-    expect(wrapper.find('.step-output-thinking').classes()).toContain('is-collapsed')
+    await wrapper.find('.thinking-header').trigger('click')
+    expect(wrapper.find('.thinking-container').classes()).toContain('collapsed')
   })
 })
 
 describe('StepOutput — Streaming 状态', () => {
-  // TODO(backlog): streaming placeholder DOM missing — pre-existing on develop
-  it.skip('streaming=true 且无 content 时显示光标占位', () => {
+  it('streaming=true 且无 content 无 thinking 时显示加载占位（三个点）', () => {
     const wrapper = mount(StepOutput, {
       props: { streaming: true, content: '' }
     })
-    expect(wrapper.find('.step-output-streaming-placeholder').exists()).toBe(true)
-    expect(wrapper.find('.step-output-cursor').exists()).toBe(true)
+    expect(wrapper.find('.streaming-placeholder').exists()).toBe(true)
+    expect(wrapper.findAll('.streaming-dot').length).toBe(3)
   })
 
   it('streaming=true 且有 content 时显示内容（无占位）', () => {
     const wrapper = mount(StepOutput, {
       props: { streaming: true, content: '已生成部分内容' }
     })
-    expect(wrapper.find('.step-output-streaming-placeholder').exists()).toBe(false)
+    expect(wrapper.find('.streaming-placeholder').exists()).toBe(false)
     expect(wrapper.find('.step-output-content').html()).toContain('已生成部分内容')
   })
 
-  // TODO(backlog): thinking panel DOM mismatch — pre-existing on develop
-  it.skip('streaming true→false 时思维链自动折叠', async () => {
+  it('streaming true→false 时思维链自动折叠', async () => {
     const wrapper = mount(StepOutput, {
       props: { thinking: '思考', streaming: true }
     })
-    expect(wrapper.find('.step-output-thinking').classes()).not.toContain('is-collapsed')
+    expect(wrapper.find('.thinking-container').classes()).not.toContain('collapsed')
 
     // 流式结束
     await wrapper.setProps({ streaming: false })
-    expect(wrapper.find('.step-output-thinking').classes()).toContain('is-collapsed')
+    expect(wrapper.find('.thinking-container').classes()).toContain('collapsed')
   })
 })
 
@@ -200,7 +191,9 @@ describe('StepOutput — ScrollFollow 集成', () => {
     expect(exposed.scrollContainerRef).toBeDefined()
   })
 
-  // TODO(backlog): scrollFollow.checkAndScroll not wired in StepOutput — pre-existing on develop
+  // 保持 skip：checkAndScroll 其实已接（见 StepOutput watch content/thinking），但 jsdom 无真实
+  // 布局，scrollHeight/clientHeight/scrollTop 全靠手工 mock，断言脆弱易 flaky。滚动跟随的真实
+  // 验证应走 e2e，非单测范围。（选择器 .step-output-scroll 本就正确，非选择器问题。）
   it.skip('content 变化触发 checkAndScroll（通过 scrollTop 变化验证）', async () => {
     const wrapper = mount(StepOutput, {
       props: { content: '初始内容' },
@@ -238,12 +231,11 @@ describe('StepOutput — ScrollFollow 集成', () => {
 })
 
 describe('StepOutput — ARIA', () => {
-  // TODO(backlog): thinking header aria-expanded mismatch — pre-existing on develop
-  it.skip('thinking header aria-expanded 跟随折叠状态', async () => {
+  it('thinking header aria-expanded 跟随折叠状态', async () => {
     const wrapper = mount(StepOutput, {
       props: { thinking: '思考', streaming: false }
     })
-    const header = wrapper.find('.step-output-thinking-header')
+    const header = wrapper.find('.thinking-header')
     // 初始折叠 → aria-expanded=false
     expect(header.attributes('aria-expanded')).toBe('false')
 
@@ -251,14 +243,14 @@ describe('StepOutput — ARIA', () => {
     expect(header.attributes('aria-expanded')).toBe('true')
   })
 
-  // TODO(backlog): streaming placeholder aria-label missing — pre-existing on develop
-  it.skip('streaming 占位有 aria-label', () => {
+  // 保持 skip：.streaming-placeholder 模板里没有 aria-label（不是选择器问题——元素确实叫
+  // .streaming-placeholder，但组件没给它加 aria-label）。补 aria-label 属组件 a11y 改动、
+  // 超出本次「修测试选择器」范围，记为 a11y follow-up。
+  it.skip('streaming 占位有 aria-label（组件待补 a11y）', () => {
     const wrapper = mount(StepOutput, {
       props: { streaming: true, content: '' }
     })
-    expect(wrapper.find('.step-output-streaming-placeholder').attributes('aria-label')).toBe(
-      'AI 正在生成中'
-    )
+    expect(wrapper.find('.streaming-placeholder').attributes('aria-label')).toBe('AI 正在生成中')
   })
 })
 
