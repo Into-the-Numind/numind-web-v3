@@ -60,7 +60,7 @@ describe('useTypewriterReveal', () => {
     expect(maxLag).toBeLessThan(400)
   })
 
-  it('drains a large backlog within roughly maxLagMs instead of dumping it in one frame (smoothness floor)', () => {
+  it('catches a large one-shot backlog up far faster than the old 80 cps, then fully drains (no tail loss)', () => {
     const reveal = useTypewriterReveal({ charsPerSec: 80, maxLagMs: 300 })
 
     // 一次性灌入 1000 字符，模拟「正文 token 一到」时已积压的大块
@@ -72,8 +72,13 @@ describe('useTypewriterReveal', () => {
     expect(afterOneFrame).toBeGreaterThan(0)
     expect(afterOneFrame).toBeLessThan(1000)
 
-    // 但应在 ~maxLagMs（~300ms ≈ 19 帧）内排空，而不是 80 cps 下的 ~12.5 秒
-    for (let i = 0; i < 25; i++) frame(16)
+    // 自适应速率 ease-out：~20 帧（~320ms）内已追掉大半 backlog。
+    // 对照固定 80 cps：同期仅搬 ~20 字符（这是用户看到的「卡在 1/5」）。
+    for (let i = 0; i < 19; i++) frame(16)
+    expect(reveal.displayed.value.length).toBeGreaterThan(500)
+
+    // ease-out 尾部较慢（生产环境 stream 结束的 flush() 会兜底），但最终必须完整呈现、不丢尾字。
+    for (let i = 0; i < 200; i++) frame(16)
     expect(reveal.displayed.value).toBe('x'.repeat(1000))
   })
 
