@@ -54,7 +54,12 @@ export interface TypewriterReveal {
 
 export function useTypewriterReveal(opts: TypewriterRevealOptions = {}): TypewriterReveal {
   const charsPerSec = opts.charsPerSec ?? 80
-  const maxLagMs = opts.maxLagMs ?? 300
+  // 守卫非法 maxLagMs：0 会让 adaptiveRate=Infinity（一帧瞬间 dump）、NaN 会让 budget=NaN
+  // → displayed 永不追上 → rAF 死循环。public option，故防御取默认。
+  const maxLagMs =
+    opts.maxLagMs != null && Number.isFinite(opts.maxLagMs) && opts.maxLagMs > 0
+      ? opts.maxLagMs
+      : 300
   const hiddenFlushThresholdMs = opts.hiddenFlushThresholdMs ?? 300
 
   const displayed = ref('')
@@ -67,20 +72,21 @@ export function useTypewriterReveal(opts: TypewriterRevealOptions = {}): Typewri
     const dt = ts - lastTs
     lastTs = ts
 
-    const dLen = displayed.value.length
-    const tLen = target.value.length
-
     if (dt > hiddenFlushThresholdMs) {
       // rAF 被挂起（页面切后台）→ 直接整同步，避免切回后看到缓慢滴字
       displayed.value = target.value
-    } else if (dLen < tLen) {
-      const backlog = tLen - dLen
-      // 自适应速率：把可见滞后约束在 maxLagMs 对应字数内，同时不低于 charsPerSec 下限。
-      // backlog 越大速率越高 → 自动追上到达速率，稳态滞后 ≈ maxLagMs 对应字数。
-      const adaptiveRate = Math.max(charsPerSec, (backlog * 1000) / maxLagMs)
-      const budget = Math.max(1, Math.round((dt * adaptiveRate) / 1000))
-      const add = Math.min(budget, backlog)
-      displayed.value = target.value.slice(0, dLen + add)
+    } else {
+      const dLen = displayed.value.length
+      const tLen = target.value.length
+      if (dLen < tLen) {
+        const backlog = tLen - dLen
+        // 自适应速率：把可见滞后约束在 maxLagMs 对应字数内，同时不低于 charsPerSec 下限。
+        // backlog 越大速率越高 → 自动追上到达速率，稳态滞后 ≈ maxLagMs 对应字数。
+        const adaptiveRate = Math.max(charsPerSec, (backlog * 1000) / maxLagMs)
+        const budget = Math.max(1, Math.round((dt * adaptiveRate) / 1000))
+        const add = Math.min(budget, backlog)
+        displayed.value = target.value.slice(0, dLen + add)
+      }
     }
 
     if (displayed.value.length >= target.value.length) {
