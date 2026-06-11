@@ -85,7 +85,7 @@ const confirmSendMessage = computed(() => {
 
 // ==================== Typewriter Reveal ====================
 // 对齐 SOP 的 SSE 渲染方案：后端每 ~250ms burst 推送 ~13 字符，直接渲染会被
-// 肉眼感知为掉帧/卡顿。reveal 层由 rAF 驱动以固定 80 cps 搬字，产生连续流动感。
+// 肉眼感知为掉帧/卡顿。reveal 层由 rAF 驱动以自适应速率搬字（可见滞后约束在 ~maxLagMs 内），产生连续流动感。
 const contentReveal = useTypewriterReveal()
 const thinkingReveal = useTypewriterReveal()
 
