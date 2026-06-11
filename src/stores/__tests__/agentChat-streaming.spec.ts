@@ -682,6 +682,56 @@ describe('applyStreamEvent', () => {
     )
   })
 
+  // REPRODUCES customer bug: when a run YIELDS for ask_user_question, the backend
+  // GetRun still synthesises final_output from the last assistant turn — which is
+  // the agent's pre-question prose ("已挖到大量信息。让我先问你："), NOT a final
+  // answer. reconcileFromDB then pushed it as a final_answer bubble, so a run that
+  // is merely PAUSED for the user's answer looked "回答完毕" (done). A
+  // waiting_for_user_choice run must never get a final_answer bubble — the
+  // question card is its UI.
+  it('reproduce: waiting_for_user_choice must NOT push a final_answer (run is paused)', async () => {
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce({
+        id: 999,
+        session_id: 'sess-999',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'running',
+        credits_used: 0,
+        credits_budget: 200,
+        credits_threshold_state: 'under_60',
+        created_at: '',
+        updated_at: ''
+      })
+      .mockResolvedValueOnce({
+        id: 999,
+        session_id: 'sess-999',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'running', // backend frontendStatus maps waiting_for_user_choice → running
+        state_reason: 'waiting_for_user_choice',
+        final_output: '已挖到大量信息。但在进入竞品分析前，有几个关键信息需要确认。让我先问你：',
+        credits_used: 5,
+        credits_budget: 200,
+        credits_threshold_state: 'under_60',
+        created_at: '',
+        updated_at: ''
+      })
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'test')
+    store.applyStreamEvent(
+      makeEvent('terminal', {
+        reason: 'waiting_for_user_choice',
+        duration_ms: 100,
+        step_count: 1
+      })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+    const finalAnswers = store.messages.filter((m) => m.type === 'final_answer')
+    expect(finalAnswers.length).toBe(0)
+  })
+
   // REPRODUCES BUG (2026-05-28, agent_run 46/47): when token_delta has
   // already accumulated a streaming AssistantMessage for this run, the
   // terminal handler used to push a SEPARATE final_answer message with the
