@@ -60,6 +60,25 @@ describe('useTypewriterReveal', () => {
     expect(maxLag).toBeLessThan(400)
   })
 
+  it('default maxLagMs (150) keeps lag tighter → smaller end-of-stream fill', () => {
+    // 不传 maxLagMs → 走默认 150。到达 ~625 cps。
+    const reveal = useTypewriterReveal({ charsPerSec: 80 })
+
+    let totalAppended = 0
+    let maxLag = 0
+    for (let i = 0; i < 120; i++) {
+      reveal.append('x'.repeat(10))
+      totalAppended += 10
+      frame(16)
+      const lag = totalAppended - reveal.displayed.value.length
+      if (lag > maxLag) maxLag = lag
+    }
+
+    // 默认 150ms：稳态滞后 ≈ 625cps × 0.15s ≈ 94 字（即流式结束时一次性补全的上界）。
+    // 锁死默认=150：若默认回到 300，滞后 ≈ 188 > 150，此断言会失败。
+    expect(maxLag).toBeLessThan(150)
+  })
+
   it('catches a large one-shot backlog up far faster than the old 80 cps, then fully drains (no tail loss)', () => {
     const reveal = useTypewriterReveal({ charsPerSec: 80, maxLagMs: 300 })
 
