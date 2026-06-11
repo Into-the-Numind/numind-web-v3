@@ -370,7 +370,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const alreadyHasFinal = messages.value.some(
         (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === next.id
       )
-      if (wasActive && isTerminal && finalOut && !alreadyHasFinal) {
+      // A run paused for ask_user_question is NOT done (its final_output is the
+      // pre-question prose). Today the backend maps waiting_for_user_choice →
+      // status 'running' so isTerminal is already false, but guard explicitly so
+      // this stays symmetric with reconcileFromDB if that mapping ever changes.
+      const isWaiting = next.state_reason === 'waiting_for_user_choice'
+      if (wasActive && isTerminal && finalOut && !alreadyHasFinal && !isWaiting) {
         messages.value.push({
           id: uuid(),
           type: 'final_answer',
@@ -704,7 +709,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       //       UI for this run.
       //   (b) the first reconcile already pushed a final_answer (tool-only
       //       run path); subsequent calls must dedup against that.
-      if (finalOut) {
+      // A run paused for ask_user_question is NOT done. The backend still
+      // synthesises final_output from the last assistant turn (the agent's
+      // pre-question prose, e.g. "…让我先问你："), but pushing it as a
+      // final_answer makes a merely-paused run look "回答完毕" — the question
+      // card is the UI for a waiting run, not a final answer (customer bug).
+      if (finalOut && run.state_reason !== 'waiting_for_user_choice') {
         const hasAnyUiForRun = messages.value.some(
           (m) =>
             (m.type === 'assistant' && (m as StreamingAssistantMessage)._run_id === runId) ||
