@@ -26,8 +26,9 @@
  *
  * 关键阈值：
  *   - charsPerSec（默认 80）：backlog 很小时的平滑下限，保证"一直在动"
- *   - maxLagMs（默认 300）：可见滞后上界对应的毫秒数。越小越贴近原始 token、
- *     追赶越急；越大追赶越柔和。稳态平滑度与此无关。
+ *   - maxLagMs（默认 150）：可见滞后上界对应的毫秒数。越小越贴近原始 token、
+ *     追赶越急；越大追赶越柔和。稳态平滑度与此无关。150 是在「平滑」与「贴近后端 +
+ *     流式结束时残留补全更小」之间的取值（300→150 把结尾一次性补全的字数减半）。
  *   - dt > 300ms：视为页面被 backgrounded（rAF 被挂起），直接同步 target→displayed
  *     避免用户切回后看到缓慢滴字
  */
@@ -59,7 +60,7 @@ export function useTypewriterReveal(opts: TypewriterRevealOptions = {}): Typewri
   const maxLagMs =
     opts.maxLagMs != null && Number.isFinite(opts.maxLagMs) && opts.maxLagMs > 0
       ? opts.maxLagMs
-      : 300
+      : 150
   const hiddenFlushThresholdMs = opts.hiddenFlushThresholdMs ?? 300
 
   const displayed = ref('')
