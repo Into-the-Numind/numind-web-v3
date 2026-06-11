@@ -614,7 +614,12 @@ function handleDocClick(e: MouseEvent) {
                   <!-- Assistant: bubble + actions row -->
                   <template v-else>
                     <div class="message-bubble assistant">
-                      <ThinkingBlock v-if="msg.thinking" :content="msg.thinking" :finished="true" />
+                      <ThinkingBlock
+                        v-if="msg.thinking"
+                        :content="msg.thinking"
+                        :finished="true"
+                        auto-collapse
+                      />
                       <div v-html="render(msg.content)"></div>
                     </div>
                     <div v-if="msg.content" class="ai-actions-container">
@@ -657,6 +662,7 @@ function handleDocClick(e: MouseEvent) {
                       v-if="thinkingReveal.displayed.value"
                       :content="thinkingReveal.displayed.value"
                       :finished="thinkingFinished"
+                      auto-collapse
                     />
                     <div
                       v-if="contentReveal.displayed.value"

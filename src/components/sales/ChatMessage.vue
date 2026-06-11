@@ -189,6 +189,7 @@ async function copyMessage() {
             v-if="thinkingContent"
             :content="thinkingContent"
             :finished="thinkingFinished"
+            auto-collapse
           />
           <!-- Message content -->
           <div v-if="isAssistant" v-html="renderedContent"></div>

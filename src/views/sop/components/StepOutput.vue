@@ -120,6 +120,19 @@ watch(
 )
 
 /**
+ * 流式期间 content 首次出现 → 深度思考结束，自动折叠思考面板让出正文位置。
+ * （对齐 ChatBubble；避免等到整轮 streaming 结束才折叠）
+ */
+watch(
+  () => props.content,
+  (newContent, oldContent) => {
+    if (props.streaming && !oldContent && newContent) {
+      thinkingCollapsed.value = true
+    }
+  }
+)
+
+/**
  * content/thinking 变化时触发滚动跟随。
  *
  * 使用 nextTick 确保 DOM 已更新（v-html 渲染完成）再检查滚动位置，
