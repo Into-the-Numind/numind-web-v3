@@ -4,7 +4,7 @@
  * 后端 LLM 流式 SSE 典型节奏是每 ~250ms flush 一次 + 每次 ~13 字符，直接渲染
  * 会被肉眼感知为卡顿/掉帧。本 composable 维护 target（后台累积）和 displayed
  * （UI 可读）两个 ref，由 requestAnimationFrame 驱动的循环从 target 向 displayed
- * 以固定速率搬字，产生连续流动感。
+ * 搬字，产生连续流动感。
  *
  * 使用方：
  *   const reveal = useTypewriterReveal()
@@ -13,9 +13,21 @@
  *   reveal.flush()               // onDone/onError 前调用，避免尾部丢字
  *   reveal.reset()               // 开始新一轮流式前调用
  *
+ * 搬字速率（自适应，非固定）：
+ *   旧实现用固定 80 cps，假设到达 ~52 cps。当前快模型（deepseek/glm/doubao 经网关）
+ *   到达速率远超于此，固定速率会让 backlog（target 与 displayed 的差）无界累积，
+ *   最终靠 flush() 瞬间 dump —— 表现为"前端只呈现 1/5，然后啪一下全量补完"。
+ *
+ *   改为自适应：每帧速率 = max(charsPerSec 下限, backlog / maxLagMs)。这保证可见
+ *   滞后不超过 ~maxLagMs 对应字数。关键性质：maxLagMs 只决定"跟随距离"，不影响
+ *   稳态平滑度（稳态每帧揭示量恒等于到达速率 / 帧率）—— 故能收紧滞后而不牺牲打字
+ *   流动感。backlog 越大速率越高，自动追上到达；backlog 小则回落到 charsPerSec
+ *   下限，保留尾部逐字的打字感。
+ *
  * 关键阈值：
- *   - 80 cps：平均到达 ~52 cps 的 1.5x，既保证"一直在动"的流动感，又不积压
- *     到肉眼可见落后
+ *   - charsPerSec（默认 80）：backlog 很小时的平滑下限，保证"一直在动"
+ *   - maxLagMs（默认 300）：可见滞后上界对应的毫秒数。越小越贴近原始 token、
+ *     追赶越急；越大追赶越柔和。稳态平滑度与此无关。
  *   - dt > 300ms：视为页面被 backgrounded（rAF 被挂起），直接同步 target→displayed
  *     避免用户切回后看到缓慢滴字
  */
@@ -23,6 +35,7 @@ import { ref, type Ref } from 'vue'
 
 export interface TypewriterRevealOptions {
   charsPerSec?: number
+  maxLagMs?: number
   hiddenFlushThresholdMs?: number
 }
 
@@ -41,6 +54,12 @@ export interface TypewriterReveal {
 
 export function useTypewriterReveal(opts: TypewriterRevealOptions = {}): TypewriterReveal {
   const charsPerSec = opts.charsPerSec ?? 80
+  // 守卫非法 maxLagMs：0 会让 adaptiveRate=Infinity（一帧瞬间 dump）、NaN 会让 budget=NaN
+  // → displayed 永不追上 → rAF 死循环。public option，故防御取默认。
+  const maxLagMs =
+    opts.maxLagMs != null && Number.isFinite(opts.maxLagMs) && opts.maxLagMs > 0
+      ? opts.maxLagMs
+      : 300
   const hiddenFlushThresholdMs = opts.hiddenFlushThresholdMs ?? 300
 
   const displayed = ref('')
@@ -54,13 +73,18 @@ export function useTypewriterReveal(opts: TypewriterRevealOptions = {}): Typewri
     lastTs = ts
 
     if (dt > hiddenFlushThresholdMs) {
+      // rAF 被挂起（页面切后台）→ 直接整同步，避免切回后看到缓慢滴字
       displayed.value = target.value
     } else {
-      const budget = Math.max(1, Math.round((dt * charsPerSec) / 1000))
       const dLen = displayed.value.length
       const tLen = target.value.length
       if (dLen < tLen) {
-        const add = Math.min(budget, tLen - dLen)
+        const backlog = tLen - dLen
+        // 自适应速率：把可见滞后约束在 maxLagMs 对应字数内，同时不低于 charsPerSec 下限。
+        // backlog 越大速率越高 → 自动追上到达速率，稳态滞后 ≈ maxLagMs 对应字数。
+        const adaptiveRate = Math.max(charsPerSec, (backlog * 1000) / maxLagMs)
+        const budget = Math.max(1, Math.round((dt * adaptiveRate) / 1000))
+        const add = Math.min(budget, backlog)
         displayed.value = target.value.slice(0, dLen + add)
       }
     }
