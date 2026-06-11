@@ -17,9 +17,17 @@ import type {
   UploadResponse
 } from '@/types/agent'
 
-export interface AnswerPayload {
+/** One question's answer in the multi-question answer payload. */
+export interface AnswerItemPayload {
+  /** chosen option labels (0-4); empty when answered only via free text */
   selected: string[]
   free_text?: string
+}
+
+/** POST /answer body — answers keyed by question text (Claude Code's model).
+ *  One entry per answered question; skipping a question = omitting its key. */
+export interface AnswerPayload {
+  answers: Record<string, AnswerItemPayload>
 }
 
 export interface AnswerResponse {
@@ -89,10 +97,9 @@ export const fetchNarrationEvents = async (
   sinceTs: string
 ): Promise<NarrationEvent[]> => {
   if (useMock()) return mock.fetchNarrationEvents(runId, sinceTs)
-  const { data } = await request.get<NarrationEvent[]>(
-    `/v1/agent-runs/${runId}/narration`,
-    { params: { since: sinceTs } }
-  )
+  const { data } = await request.get<NarrationEvent[]>(`/v1/agent-runs/${runId}/narration`, {
+    params: { since: sinceTs }
+  })
   return data
 }
 
@@ -106,10 +113,7 @@ export const cancelRun = async (runId: number): Promise<CancelRunResponse> => {
 // 10. 续费
 export const extendBudget = async (runId: number, req: ExtendBudgetRequest): Promise<AgentRun> => {
   if (useMock()) return mock.extendBudget(runId, req)
-  const { data } = await request.post<AgentRun>(
-    `/v1/agent-runs/${runId}/extend-budget`,
-    req
-  )
+  const { data } = await request.post<AgentRun>(`/v1/agent-runs/${runId}/extend-budget`, req)
   return data
 }
 
@@ -122,9 +126,7 @@ export const submitFeedback = async (runId: number, req: FeedbackRequest): Promi
 // 12. 父账户客服联系方式
 export const getSupportContact = async (): Promise<SupportContact> => {
   if (useMock()) return mock.getSupportContact()
-  const { data } = await request.get<SupportContact>(
-    '/v1/tenant-settings/support-contact'
-  )
+  const { data } = await request.get<SupportContact>('/v1/tenant-settings/support-contact')
   return data
 }
 
@@ -151,7 +153,9 @@ export const postAgentAnswer = async (
 
 // 15. 置顶会话
 export const pinSession = async (sessionId: string, isPinned: boolean): Promise<void> => {
-  await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/pin`, { is_pinned: isPinned })
+  await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/pin`, {
+    is_pinned: isPinned
+  })
 }
 
 // 16. 重命名会话

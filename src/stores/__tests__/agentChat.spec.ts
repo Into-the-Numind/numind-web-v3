@@ -294,9 +294,13 @@ describe('agentChat store', () => {
           id: 'q-50',
           type: 'question_prompt',
           run_id: 50,
-          question: '创办初心是什么？',
-          options: [{ label: 'A' }, { label: 'B' }],
-          multi_select: false,
+          questions: [
+            {
+              question: '创办初心是什么？',
+              options: [{ label: 'A' }, { label: 'B' }],
+              multi_select: false
+            }
+          ],
           answer_status: 'pending',
           timestamp: ''
         } as never
