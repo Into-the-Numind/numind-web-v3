@@ -258,3 +258,40 @@ describe('StepOutput — ARIA', () => {
     )
   })
 })
+
+/**
+ * 思考自动折叠（需求：思考中展开 → 正文开始即折叠 → 结束保持折叠）。
+ *
+ * 注意选择器：实际模板用 `.thinking-container` / `.thinking-header` / `.collapsed`。
+ * 本文件上方一批 `.skip` 旧用例误用 `.step-output-thinking*` 前缀选择器（DOM 不存在），
+ * 属另一处 pre-existing 测试债，与本次无关。
+ */
+describe('StepOutput — thinking 自动折叠', () => {
+  it('(a) 流式中只有思考、无正文 → 思考面板展开', () => {
+    const w = mount(StepOutput, { props: { thinking: '推理过程', content: '', streaming: true } })
+    expect(w.find('.thinking-container').exists()).toBe(true)
+    expect(w.find('.thinking-container').classes()).not.toContain('collapsed')
+  })
+
+  it('(b) 流式中正文首次出现 → 思考自动折叠（回归：此前只在流式结束时折叠）', async () => {
+    const w = mount(StepOutput, { props: { thinking: '推理过程', content: '', streaming: true } })
+    expect(w.find('.thinking-container').classes()).not.toContain('collapsed')
+    await w.setProps({ content: '正文开始了' })
+    expect(w.find('.thinking-container').classes()).toContain('collapsed')
+  })
+
+  it('(c) 整轮流式结束（streaming true→false）→ 思考保持折叠', async () => {
+    const w = mount(StepOutput, { props: { thinking: '推理', content: '', streaming: true } })
+    await w.setProps({ content: '正文' })
+    await w.setProps({ streaming: false })
+    expect(w.find('.thinking-container').classes()).toContain('collapsed')
+  })
+
+  it('自动折叠后用户仍可手动展开（折叠非锁死）', async () => {
+    const w = mount(StepOutput, { props: { thinking: '推理', content: '', streaming: true } })
+    await w.setProps({ content: '正文' })
+    expect(w.find('.thinking-container').classes()).toContain('collapsed')
+    await w.find('.thinking-header').trigger('click')
+    expect(w.find('.thinking-container').classes()).not.toContain('collapsed')
+  })
+})
