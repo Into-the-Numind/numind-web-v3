@@ -126,7 +126,9 @@ watch(
 watch(
   () => props.content,
   (newContent, oldContent) => {
-    if (props.streaming && !oldContent && newContent) {
+    // newContent?.trim()：忽略首个空白 token（LLM 可能先吐换行/空格），
+    // 等真正有可见正文再折叠。
+    if (props.streaming && !oldContent && newContent?.trim()) {
       thinkingCollapsed.value = true
     }
   }

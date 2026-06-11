@@ -96,6 +96,9 @@ describe('StepOutput — Content 渲染', () => {
   })
 })
 
+// TODO(backlog): 下面这批 it.skip 用了错误选择器（.step-output-thinking* / .step-output-cursor 等，
+// DOM 实际是 .thinking-container / .thinking-header / .streaming-placeholder）。属 develop 既有测试债，
+// 与本次 auto-collapse 修复无关；折叠行为的回归覆盖见文件末尾「thinking 自动折叠」describe（用正确选择器）。
 describe('StepOutput — Thinking 折叠面板', () => {
   it('thinking 空时不渲染面板', () => {
     const wrapper = mount(StepOutput, {
