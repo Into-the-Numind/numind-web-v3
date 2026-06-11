@@ -791,6 +791,10 @@ onBeforeUnmount(() => {
     draft.cleanupDraft(store.currentRun.id)
   }
   sseStream.abort()
+  // 停掉两个打字机 rAF 循环，避免流式途中切走页面后 loop 在已卸载组件上空转
+  // （对齐 ChatArea / ChatbotChat 的 onBeforeUnmount dispose 写法）。
+  chatThinkingReveal.dispose()
+  chatContentReveal.dispose()
   store.reset()
   if (typeof document !== 'undefined') {
     document.removeEventListener('keydown', handleEscKey)
