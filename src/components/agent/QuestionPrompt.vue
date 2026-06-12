@@ -57,6 +57,11 @@ const submitting = ref(false)
 const total = computed(() => props.questions.length)
 const isMulti = computed(() => total.value > 1)
 const current = computed(() => props.questions[currentIndex.value])
+// Wire tolerance: the backend contract is "options is always an array", but a
+// missing/null options must never blank the whole card (dev run 147 — an
+// omitted key crashed render on options.length). Normalize once here; the
+// template only reads currentOptions.
+const currentOptions = computed(() => current.value?.options ?? [])
 const currentState = computed(() => state[currentIndex.value])
 const isFirst = computed(() => currentIndex.value === 0)
 const isLast = computed(() => currentIndex.value === total.value - 1)
@@ -229,7 +234,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         <!-- 多选用 <button>（非 <label><input>）：jsdom 不实现 label-click，button @click 可靠；
              aria-pressed 表达已选语义；视觉用 ☑/☐ 占位。 -->
         <button
-          v-for="opt in current.options"
+          v-for="opt in currentOptions"
           :key="opt.label"
           type="button"
           class="question-prompt__option question-prompt__option--checkbox"
@@ -252,7 +257,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
       <!-- Single-select: click selects (no auto-submit) -->
       <div v-else class="question-prompt__options question-prompt__options--single">
         <button
-          v-for="opt in current.options"
+          v-for="opt in currentOptions"
           :key="opt.label"
           type="button"
           class="question-prompt__option question-prompt__option--btn"
@@ -275,7 +280,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         <textarea
           v-model="currentState.freeText"
           :placeholder="
-            current.options.length ? '没有合适的选项？在此自由填写你的答案' : '在此输入你的回答'
+            currentOptions.length ? '没有合适的选项？在此自由填写你的答案' : '在此输入你的回答'
           "
           rows="2"
           :disabled="submitting"
