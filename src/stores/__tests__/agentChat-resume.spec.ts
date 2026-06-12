@@ -81,13 +81,63 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     expect(store.currentRun?.status).toBe('running')
   })
 
-  it('reconcileFromDB also refuses the stale prose for a resuming run', async () => {
+  it('the terminal-event reconcile path also refuses the stale prose for a resuming run', async () => {
     const store = useAgentChatStore()
-    vi.mocked(api.getRun).mockResolvedValueOnce(RESUMING_RUN)
+    vi.mocked(api.getRun).mockResolvedValue(RESUMING_RUN)
 
-    await store.reconcileFromDB(148)
+    // reconcileFromDB is internal; the SSE terminal event is its public trigger.
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: { reason: 'completed', duration_ms: 1, step_count: 1 }
+    } as never)
+    await new Promise((r) => setTimeout(r, 0))
 
     const finals = store.messages.filter((m) => m.type === 'final_answer')
     expect(finals).toHaveLength(0)
+  })
+
+  it('injects the follow-up question card from the snapshot when a resumed run yields again (F4)', async () => {
+    const store = useAgentChatStore()
+    store.currentRun = { id: 148, status: 'running' } as AgentRun
+    const WAITING_RUN = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    vi.mocked(api.getRun).mockResolvedValue(WAITING_RUN)
+    vi.mocked(api.getSessionSnapshot).mockResolvedValue({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: '',
+      status: 'running',
+      messages: [
+        {
+          id: 'q-148',
+          type: 'question_prompt',
+          run_id: 148,
+          questions: [{ question: '第二轮追问？', options: [], multi_select: false }],
+          answer_status: 'pending',
+          timestamp: ''
+        }
+      ]
+    } as never)
+
+    await store.refreshRunStatus()
+    const cards = store.messages.filter((m) => m.type === 'question_prompt')
+    expect(cards).toHaveLength(1)
+    expect((cards[0] as { questions?: { question: string }[] }).questions?.[0]?.question).toBe(
+      '第二轮追问？'
+    )
+
+    // Idempotent: a second poll with the pending card present must not duplicate.
+    await store.refreshRunStatus()
+    expect(store.messages.filter((m) => m.type === 'question_prompt')).toHaveLength(1)
   })
 })

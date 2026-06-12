@@ -360,7 +360,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     try {
       const prevStatus = currentRun.value.status
       const next = await api.getRun(currentRun.value.id)
-      currentRun.value = next
+      // answer-resume-lifecycle F3: state_reason==='running' is the resume
+      // signature (only AnswerAndClear / the takeover correction write it; real
+      // completions carry 'completed' etc.). An old backend may still advertise
+      // status='terminated' during the resumed leg (dev run 148) — keep the run
+      // alive locally so polling/narration continue until a real terminal.
+      const isResuming =
+        next.state_reason === 'running' && next.status !== 'running' && next.status !== 'pending'
+      currentRun.value = isResuming ? { ...next, status: 'running' } : next
       // When the run transitions from active → terminal and the backend
       // surfaced a final_output (extracted from agent_run.messages), push it
       // as a FinalAnswerMessage so the chat UI renders the AI's reply.
@@ -375,7 +382,44 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // status 'running' so isTerminal is already false, but guard explicitly so
       // this stays symmetric with reconcileFromDB if that mapping ever changes.
       const isWaiting = next.state_reason === 'waiting_for_user_choice'
-      if (wasActive && isTerminal && finalOut && !alreadyHasFinal && !isWaiting) {
+      // answer-resume-lifecycle F4: a waiting run must show its question card.
+      // The live SSE question_prompt event only covers the streaming first leg;
+      // when a RESUMED leg yields again (polling mode), nothing else injects the
+      // card — fetch it from the session snapshot (synthesizeQuestionPrompt,
+      // verified by the question-options-omitempty hotfix). Idempotent: skip
+      // when a pending card for this run already exists; failures retry on the
+      // next poll tick.
+      if (isWaiting) {
+        const hasPendingCard = messages.value.some(
+          (m) =>
+            m.type === 'question_prompt' &&
+            (m as QuestionPromptMessage).run_id === next.id &&
+            (m as QuestionPromptMessage).answer_status === 'pending'
+        )
+        if (!hasPendingCard && next.session_id) {
+          try {
+            const snap = await api.getSessionSnapshot(String(next.session_id))
+            const qp = snap.messages.find(
+              (m) =>
+                m.type === 'question_prompt' &&
+                (m as QuestionPromptMessage).run_id === next.id
+            ) as QuestionPromptMessage | undefined
+            if (qp) {
+              messages.value.push({
+                id: qp.id || uuid(),
+                type: 'question_prompt',
+                run_id: next.id,
+                questions: qp.questions ?? [],
+                answer_status: 'pending',
+                timestamp: qp.timestamp ?? new Date().toISOString()
+              })
+            }
+          } catch {
+            // 注入失败静默；下一轮 poll 重试
+          }
+        }
+      }
+      if (wasActive && isTerminal && finalOut && !alreadyHasFinal && !isWaiting && !isResuming) {
         messages.value.push({
           id: uuid(),
           type: 'final_answer',
@@ -714,7 +758,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // pre-question prose, e.g. "…让我先问你："), but pushing it as a
       // final_answer makes a merely-paused run look "回答完毕" — the question
       // card is the UI for a waiting run, not a final answer (customer bug).
-      if (finalOut && run.state_reason !== 'waiting_for_user_choice') {
+      // answer-resume-lifecycle F3: state_reason==='running' = resumed leg in
+      // flight; its final_output is still the stale pre-question prose.
+      if (
+        finalOut &&
+        run.state_reason !== 'waiting_for_user_choice' &&
+        run.state_reason !== 'running'
+      ) {
         const hasAnyUiForRun = messages.value.some(
           (m) =>
             (m.type === 'assistant' && (m as StreamingAssistantMessage)._run_id === runId) ||
