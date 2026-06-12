@@ -244,6 +244,19 @@
                   </th>
                   <th
                     class="th-sortable"
+                    :class="sortClassFor('booster')"
+                    @click="toggleSort('booster')"
+                  >
+                    <span class="th-label">加量包</span>
+                    <span class="sort-indicator" aria-hidden="true">
+                      <svg viewBox="0 0 8 12" width="8" height="12">
+                        <path class="sort-arrow-up" d="M4 0 L8 5 L0 5 Z" fill="currentColor" />
+                        <path class="sort-arrow-down" d="M0 7 L8 7 L4 12 Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                  </th>
+                  <th
+                    class="th-sortable"
                     :class="sortClassFor('expiry')"
                     @click="toggleSort('expiry')"
                   >
@@ -328,6 +341,9 @@
                   </td>
                   <td>
                     <span class="cell-metric">{{ getQuotaDisplay(user) }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-metric">{{ user.booster_balance ?? 0 }}</span>
                   </td>
                   <td>
                     <span class="cell-secondary">{{ getExpiryDisplay(user) }}</span>
@@ -703,7 +719,10 @@
                       v-for="tpl in allTemplates"
                       :key="tpl.id"
                       class="perm-item"
-                      :class="{ checked: permSelectedIds[String(tpl.id)], readonly: isManagingSelf }"
+                      :class="{
+                        checked: permSelectedIds[String(tpl.id)],
+                        readonly: isManagingSelf
+                      }"
                       @click="!isManagingSelf && togglePermTemplate(String(tpl.id))"
                     >
                       <span
@@ -749,7 +768,10 @@
                     <!-- 销售智能体（功能权限） -->
                     <div
                       class="perm-item"
-                      :class="{ checked: featurePermissions['sales_agent'], readonly: isManagingSelf }"
+                      :class="{
+                        checked: featurePermissions['sales_agent'],
+                        readonly: isManagingSelf
+                      }"
                       @click="!isManagingSelf && toggleSalesAgent()"
                     >
                       <span
@@ -1011,7 +1033,7 @@ const pageSize = 20
 const jumpPageInput = ref<string>('')
 
 // 列排序：三态循环 none → asc → desc → none
-type SortKey = 'username' | 'membership' | 'quota' | 'expiry' | 'templates' | 'runs'
+type SortKey = 'username' | 'membership' | 'quota' | 'booster' | 'expiry' | 'templates' | 'runs'
 const sortKey = ref<SortKey | null>(null)
 const sortDir = ref<'asc' | 'desc'>('asc')
 const selectedIds = reactive(new Set<number | string>())
@@ -1090,6 +1112,8 @@ function sortValueFor(user: SubUser, key: SortKey): number | string | null {
     }
     case 'quota':
       return user.credit_balance ?? user.cycle_remaining ?? user.remaining_sop_runs ?? 0
+    case 'booster':
+      return user.booster_balance ?? 0
     case 'expiry': {
       const ms = user.membership_state
       const dateStr =
