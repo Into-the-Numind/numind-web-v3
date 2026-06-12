@@ -59,4 +59,22 @@ describe('QuestionPrompt — options field omitted by backend (dev run 147)', ()
     })
     expect(wrapper.text()).toContain('创始人的创业经历和背景是什么？')
   })
+
+  it('navigating to a question that DOES carry options renders its option buttons', async () => {
+    const mixed = [
+      ...NO_OPTIONS_WIRE,
+      {
+        question: '陪跑模式是怎样的？',
+        options: [{ label: '90天' }, { label: '180天' }],
+        multi_select: false
+      }
+    ] as unknown as QuestionPromptItem[]
+    const wrapper = mount(QuestionPrompt, {
+      props: { runId: 147, questions: mixed }
+    })
+    await wrapper.findAll('.question-prompt__tab')[1]!.trigger('click')
+    expect(wrapper.text()).toContain('陪跑模式是怎样的？')
+    expect(wrapper.text()).toContain('90天')
+    expect(wrapper.text()).toContain('180天')
+  })
 })
