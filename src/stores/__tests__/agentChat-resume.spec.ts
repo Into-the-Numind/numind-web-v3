@@ -19,6 +19,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAgentChatStore } from '../agentChat'
 import type { AgentRun } from '@/types/agent'
+import type { TerminalEvent } from '@/types/agent-stream'
 
 vi.mock('@/api/agent', () => ({
   listAvailableAgents: vi.fn(async () => ({ list: [], total: 0 })),
@@ -92,11 +93,22 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       ts: new Date().toISOString(),
       run_id: 148,
       data: { reason: 'completed', duration_ms: 1, step_count: 1 }
-    } as never)
+    } as TerminalEvent)
     await new Promise((r) => setTimeout(r, 0))
 
     const finals = store.messages.filter((m) => m.type === 'final_answer')
     expect(finals).toHaveLength(0)
+  })
+
+  it('a pending-status run is also kept active through a resume signature', async () => {
+    const store = useAgentChatStore()
+    store.currentRun = { id: 148, status: 'pending' } as AgentRun
+    vi.mocked(api.getRun).mockResolvedValueOnce(RESUMING_RUN)
+
+    await store.refreshRunStatus()
+
+    expect(store.messages.filter((m) => m.type === 'final_answer')).toHaveLength(0)
+    expect(store.currentRun?.status).toBe('running')
   })
 
   it('injects the follow-up question card from the snapshot when a resumed run yields again (F4)', async () => {
