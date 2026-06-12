@@ -42,6 +42,8 @@ export interface SubUser {
   has_used_trial?: boolean
   /** credits 模式下当前周期剩余积分。 */
   cycle_remaining?: number
+  /** 加量包剩余积分（user_booster_balance.credits_remaining）。 */
+  booster_balance?: number
   [key: string]: any
 }
 
