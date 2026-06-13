@@ -57,6 +57,14 @@ export function useVersionCheck(): UseVersionCheckApi {
     }
   }
 
+  const stopPolling = (): void => {
+    if (timer !== null) {
+      clearInterval(timer)
+      timer = null
+    }
+    document.removeEventListener('visibilitychange', onVisible)
+  }
+
   const check = async (): Promise<void> => {
     if (updateAvailable.value) return // already prompting; stop polling work
     const current = await fetchHash()
@@ -67,6 +75,7 @@ export function useVersionCheck(): UseVersionCheckApi {
     }
     if (isNewVersion(baseline, current)) {
       updateAvailable.value = true
+      stopPolling() // nothing more to detect; stop the 5-min no-op ticks
     }
   }
 
@@ -80,10 +89,7 @@ export function useVersionCheck(): UseVersionCheckApi {
     document.addEventListener('visibilitychange', onVisible)
   })
 
-  onUnmounted(() => {
-    if (timer !== null) clearInterval(timer)
-    document.removeEventListener('visibilitychange', onVisible)
-  })
+  onUnmounted(stopPolling)
 
   const reload = (): void => {
     window.location.reload()
