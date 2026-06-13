@@ -4,6 +4,7 @@
     <!-- 全局 dialog + toast 挂载点 -->
     <InsufficientCreditsDialog ref="insufficientCreditsDialog" />
     <AppNotification />
+    <NewVersionBanner />
   </div>
 </template>
 
@@ -12,6 +13,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import InsufficientCreditsDialog from '@/components/common/InsufficientCreditsDialog.vue'
 import AppNotification from '@/components/common/AppNotification.vue'
+import NewVersionBanner from '@/components/common/NewVersionBanner.vue'
 import { useUiDialogsStore } from '@/stores/uiDialogs'
 
 const uiDialogs = useUiDialogsStore()
