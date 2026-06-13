@@ -170,6 +170,17 @@ describe('AgentMessageItem', () => {
     }
   })
 
+  // agent-wait-ux 5a (dev run 150): the long final-report generation has a 1-3
+  // min tool-silent window; the old copy "任务似乎卡住了" framed that normal
+  // wait as a fault. The hint must read as "still working", not "stuck".
+  it('stuck hint reads as still-working, not a fault', () => {
+    const msg: AgentMessage = { id: 's', type: 'system', system_subtype: 'stuck', timestamp: ts }
+    const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+    const text = wrapper.text()
+    expect(text).not.toContain('卡住')
+    expect(text).toMatch(/处理|生成|稍候|耐心|继续/)
+  })
+
   // T12 — streaming cursor
   describe('streaming cursor', () => {
     it('shows ▎ cursor when isStreaming=true', () => {
