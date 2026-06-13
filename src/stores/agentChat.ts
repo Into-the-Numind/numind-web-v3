@@ -343,6 +343,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         lastNarrationTs.value = events[events.length - 1].timestamp
         stuckSince.value = null
 
+        // agent-wait-ux 5a: the run resumed progress — retract any earlier
+        // "still processing" hint so a transient lull never leaves a stale
+        // notice once tool events flow again (self-healing, dev run 150).
+        const stuckIdx = messages.value.findIndex(
+          (m) => m.type === 'system' && m.system_subtype === 'stuck'
+        )
+        if (stuckIdx !== -1) {
+          messages.value.splice(stuckIdx, 1)
+        }
+
         // Bridge: surface narration into the chat stream so AgentMessageItem
         // actually renders AgentToolCallList. Without this, narrationEvents
         // pile up in the store and the user sees no tool-call narration.
@@ -400,9 +410,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           try {
             const snap = await api.getSessionSnapshot(String(next.session_id))
             const qp = snap.messages.find(
-              (m) =>
-                m.type === 'question_prompt' &&
-                (m as QuestionPromptMessage).run_id === next.id
+              (m) => m.type === 'question_prompt' && (m as QuestionPromptMessage).run_id === next.id
             ) as QuestionPromptMessage | undefined
             if (qp) {
               messages.value.push({

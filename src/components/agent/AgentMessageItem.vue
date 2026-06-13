@@ -108,7 +108,7 @@ const systemText = computed<string>(() => {
     case 'restored':
       return '你正在查看之前的对话'
     case 'stuck':
-      return '任务似乎卡住了，可能需要稍等...'
+      return '仍在处理中，复杂调研可能需要几分钟，请耐心等待…'
     case 'cancelled':
       return '好的，已停止。之前生成的内容你可以直接保存。'
     case 'failed':
