@@ -1,6 +1,9 @@
 /**
  * useAgentNarration — 每 500ms 拉取 narration 事件并合并到 store。
- * 自动检测 stuck（30s 插 system message；60s 后取消按钮永不 disabled）。
+ * 自动检测 stuck（90s 插 system message；180s 后取消按钮永不 disabled）。
+ *
+ * agent-wait-ux 5a: 阈值放宽到覆盖正常的长报告生成静默期（写最终报告/续跑启动
+ * 的 1-3min 内没有工具事件是正常的，不是卡死，dev run 150 误报）。
  *
  * Refs: docs/agent-mode/feature-11-spec.md §7.1
  */
@@ -8,6 +11,11 @@ import { onUnmounted, ref, watch } from 'vue'
 import { useAgentChatStore } from '@/stores/agentChat'
 
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+// agent-wait-ux 5a: a long final-report generation is tool-silent for 1-3 min;
+// the hint must wait past that normal window before suggesting a delay.
+export const STUCK_HINT_MS = 90_000
+export const CANCEL_ALWAYS_MS = 180_000
 
 export interface UseAgentNarrationApi {
   stuckMs: import('vue').Ref<number>
@@ -27,7 +35,7 @@ export function useAgentNarration(): UseAgentNarrationApi {
     if (store.stuckSince !== null) {
       stuckMs.value = performance.now() - store.stuckSince
       if (
-        stuckMs.value >= 30_000 &&
+        stuckMs.value >= STUCK_HINT_MS &&
         !store.messages.find((m) => m.type === 'system' && m.system_subtype === 'stuck')
       ) {
         store.messages.push({
@@ -37,7 +45,7 @@ export function useAgentNarration(): UseAgentNarrationApi {
           timestamp: new Date().toISOString()
         })
       }
-      if (stuckMs.value >= 60_000) {
+      if (stuckMs.value >= CANCEL_ALWAYS_MS) {
         cancelAlwaysEnabled.value = true
       }
     } else {

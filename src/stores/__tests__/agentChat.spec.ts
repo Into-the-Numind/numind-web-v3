@@ -120,6 +120,24 @@ describe('agentChat store', () => {
     expect(store.stuckSince).toBe(null)
   })
 
+  it('pollNarration retracts a stale stuck message once narration resumes (agent-wait-ux 5a)', async () => {
+    const ev: NarrationEvent = {
+      run_id: 999,
+      tool_call_id: 'tc-r',
+      tool_name: 'x',
+      state: 'use',
+      message: 'resumed',
+      timestamp: '2026-05-21T10:00:05Z'
+    }
+    vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([ev])
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    // Simulate the false "still processing" hint having been shown earlier.
+    store.messages.push({ id: 'stuck-1', type: 'system', system_subtype: 'stuck', timestamp: '2026-05-21T10:00:00Z' })
+    await store.pollNarration()
+    expect(store.messages.find((m) => m.type === 'system' && m.system_subtype === 'stuck')).toBeUndefined()
+  })
+
   // Hotfix narration-tool-group-message-wire: regression for the
   // visibility bug. Before this fix narrationEvents accumulated in the
   // store but no `tool_group` message was ever injected into messages[],
