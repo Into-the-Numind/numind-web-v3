@@ -23,6 +23,11 @@ import { ref, reactive, computed } from 'vue'
 import { postAgentAnswer, type AnswerItemPayload } from '@/api/agent'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { QuestionPromptItem } from '@/types/agent'
+import { ChevronDown, ChevronUp } from 'lucide-vue-next'
+
+// Answered card is collapsed by default — click to expand and review the
+// questions + answers (keeps the transcript clean while staying revisitable).
+const answeredExpanded = ref(false)
 
 interface Props {
   runId: number
@@ -354,8 +359,23 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
          session `state` is empty (the answer rides in a separate user bubble),
          so we show the questions with a neutral "已回答" marker. -->
     <div v-if="answered" class="question-prompt__answered">
-      <span class="question-prompt__answered-badge">✓ 已回答</span>
-      <ul class="question-prompt__answered-list">
+      <button
+        type="button"
+        class="question-prompt__answered-toggle"
+        :aria-expanded="answeredExpanded"
+        @click="answeredExpanded = !answeredExpanded"
+      >
+        <span class="question-prompt__answered-badge">✓ 已回答</span>
+        <span class="question-prompt__answered-peek">{{
+          answeredExpanded ? '收起' : '查看问题与回答'
+        }}</span>
+        <component
+          :is="answeredExpanded ? ChevronUp : ChevronDown"
+          :size="15"
+          class="question-prompt__answered-chev"
+        />
+      </button>
+      <ul v-show="answeredExpanded" class="question-prompt__answered-list">
         <li v-for="(q, i) in questions" :key="i" class="question-prompt__answered-item">
           <p class="question-prompt__answered-q">{{ q.question }}</p>
           <p class="question-prompt__answered-a" :class="{ 'is-empty': !resolvedAnswer(i) }">
@@ -386,17 +406,35 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   border-color: var(--color-border, #e5e7eb);
 }
 
+.question-prompt__answered-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--color-text-muted, #6b7280);
+}
 .question-prompt__answered-badge {
-  display: inline-block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-primary, #2563eb);
-  margin-bottom: 10px;
+}
+.question-prompt__answered-peek {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+.question-prompt__answered-chev {
+  margin-left: auto;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .question-prompt__answered-list {
   list-style: none;
-  margin: 0;
+  margin: 12px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;

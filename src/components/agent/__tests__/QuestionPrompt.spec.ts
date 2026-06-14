@@ -227,28 +227,36 @@ describe('QuestionPrompt — multi-question navigation', () => {
 })
 
 describe('QuestionPrompt — answered & errors', () => {
-  it('answered=true is a read-only recap: questions stay visible, no controls', () => {
+  it('answered=true: collapsed recap by default, expands on click to review Q&A', async () => {
     const wrapper = mountMulti({ answered: true })
     expect(wrapper.find('.question-prompt__answered').exists()).toBe(true)
-    expect(wrapper.find('.question-prompt--answered').exists()).toBe(true)
-    // the questions remain visible so the user can look back at what was asked
-    expect(wrapper.text()).toContain('陪跑周期多长？')
-    expect(wrapper.text()).toContain('主要客群是谁？')
-    expect(wrapper.findAll('.question-prompt__answered-item')).toHaveLength(2)
+    expect(wrapper.find('.question-prompt__answered-toggle').exists()).toBe(true)
+    // collapsed by default
+    expect(wrapper.find('.question-prompt__answered-toggle').attributes('aria-expanded')).toBe(
+      'false'
+    )
     // no interactive controls in the answered state
     expect(wrapper.find('.question-prompt__tabs').exists()).toBe(false)
     expect(wrapper.find('.question-prompt__submit').exists()).toBe(false)
     expect(wrapper.find('.question-prompt__next').exists()).toBe(false)
+    // click to expand → aria-expanded flips and the questions become visible
+    await wrapper.find('.question-prompt__answered-toggle').trigger('click')
+    expect(wrapper.find('.question-prompt__answered-toggle').attributes('aria-expanded')).toBe(
+      'true'
+    )
+    expect(wrapper.text()).toContain('陪跑周期多长？')
+    expect(wrapper.text()).toContain('主要客群是谁？')
+    expect(wrapper.findAll('.question-prompt__answered-item')).toHaveLength(2)
   })
 
-  it('after answering live, the recap echoes the selected answer', async () => {
+  it('after answering live, the expanded recap echoes the selected answer', async () => {
     mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
     const wrapper = mountSingle()
     await wrapper.find('.question-prompt__option--btn').trigger('click') // select PDF
     await wrapper.find('.question-prompt__submit').trigger('click')
     await flushPromises()
     await wrapper.setProps({ answered: true })
-    expect(wrapper.find('.question-prompt__answered').exists()).toBe(true)
+    await wrapper.find('.question-prompt__answered-toggle').trigger('click') // expand
     expect(wrapper.text()).toContain('你想要哪个格式？')
     expect(wrapper.find('.question-prompt__answered-a').text()).toContain('PDF')
   })

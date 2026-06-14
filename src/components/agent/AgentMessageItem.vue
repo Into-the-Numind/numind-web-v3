@@ -25,9 +25,12 @@ import { Copy, Check } from 'lucide-vue-next'
 interface Props {
   msg: AgentMessage
   readOnly?: boolean
+  /** True when this agent-flow message continues the previous one — render with no
+   *  avatar and tight spacing so the turn reads as one continuous timeline. */
+  continued?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), { readOnly: false })
+const props = withDefaults(defineProps<Props>(), { readOnly: false, continued: false })
 
 // Bubble QuestionPrompt's answer-submitted up to AgentChatView (via
 // AgentMessageList) so it can resume the run. Carries the answered question's
@@ -146,7 +149,7 @@ const systemText = computed<string>(() => {
   </div>
 
   <!-- Assistant text -->
-  <div v-else-if="asAssistant" class="msg msg-assistant">
+  <div v-else-if="asAssistant" class="msg msg-assistant" :class="{ continued }">
     <span class="avatar">
       <svg
         viewBox="0 0 24 24"
@@ -181,7 +184,7 @@ const systemText = computed<string>(() => {
   </div>
 
   <!-- Plan card -->
-  <div v-else-if="asPlan" class="msg msg-plan">
+  <div v-else-if="asPlan" class="msg msg-plan" :class="{ continued }">
     <span class="avatar">
       <svg
         viewBox="0 0 24 24"
@@ -205,7 +208,7 @@ const systemText = computed<string>(() => {
   </div>
 
   <!-- Tool group -->
-  <div v-else-if="asToolGroup" class="msg msg-tool-group">
+  <div v-else-if="asToolGroup" class="msg msg-tool-group" :class="{ continued }">
     <span class="avatar">
       <svg
         viewBox="0 0 24 24"
@@ -229,7 +232,7 @@ const systemText = computed<string>(() => {
   </div>
 
   <!-- Artifact -->
-  <div v-else-if="asArtifact" class="msg msg-artifact">
+  <div v-else-if="asArtifact" class="msg msg-artifact" :class="{ continued }">
     <span class="avatar">
       <svg
         viewBox="0 0 24 24"
@@ -253,7 +256,7 @@ const systemText = computed<string>(() => {
   </div>
 
   <!-- Final answer -->
-  <div v-else-if="asFinalAnswer" class="msg msg-final">
+  <div v-else-if="asFinalAnswer" class="msg msg-final" :class="{ continued }">
     <span class="avatar">
       <svg
         viewBox="0 0 24 24"
@@ -326,7 +329,18 @@ const systemText = computed<string>(() => {
 .msg {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  /* inter-message spacing is owned by the list container's `gap` (24px); no
+     margin-bottom here so it doesn't stack with the gap. */
+}
+
+/* Continuation of an agent turn → one continuous timeline under a single avatar:
+   hide the repeated avatar (keep its width so content stays aligned) and pull the
+   block up tight against the previous flow message (cancels most of the 24px gap). */
+.msg.continued {
+  margin-top: -19px;
+}
+.msg.continued .avatar {
+  visibility: hidden;
 }
 
 .msg-user {
