@@ -575,10 +575,19 @@ const systemText = computed<string>(() => {
 
 .streaming-cursor {
   display: inline-block;
-  color: var(--primary, #2563eb);
+  color: var(--primary, hsl(160, 72%, 40%));
   animation: blink-cursor 1s linear infinite;
   user-select: none;
   margin-left: 2px;
   vertical-align: middle;
+}
+
+/* The caret is a presence marker; under reduced-motion it stays solid (no blink)
+   rather than flashing — still a "the pen is in hand" signal, no motion. */
+@media (prefers-reduced-motion: reduce) {
+  .streaming-cursor {
+    animation: none;
+    opacity: 1;
+  }
 }
 </style>
