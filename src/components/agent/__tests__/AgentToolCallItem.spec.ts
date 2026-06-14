@@ -26,6 +26,21 @@ describe('AgentToolCallItem — flat timeline line', () => {
     expect(w.find('.tl-txt').text()).toBe('搜索：四川莫小派 小红书陪跑')
   })
 
+  it('strips a leading presentation emoji baked into the narration message (lucide owns the icon)', () => {
+    // older skill templates still send "📚 正在加载技能：docx-author" — the timeline
+    // renders its own lucide icon, so the message emoji must not leak (no-emoji rule).
+    const w = mount(AgentToolCallItem, {
+      props: {
+        group: grp(
+          'result',
+          [ev('use', '📚 正在加载技能：docx-author', 'load_skill')],
+          'load_skill'
+        )
+      }
+    })
+    expect(w.find('.tl-txt').text()).toBe('加载技能：docx-author')
+  })
+
   it('keeps the query visible (use message) even after the tool completes', () => {
     const w = mount(AgentToolCallItem, {
       props: {

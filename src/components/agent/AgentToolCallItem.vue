@@ -22,14 +22,19 @@ const isError = computed<boolean>(
   () => props.group.current_state === 'error' || props.group.current_state === 'rejected'
 )
 
-// Stable label: the first (use) event's message with a leading "正在" stripped, so
-// the query/activity stays visible and the text doesn't jump when it finishes.
-// Falls back to the latest message, then the tool name.
+// Stable label: the first (use) event's message, with any leading emoji and a
+// leading "正在" stripped, so the query/activity stays visible and the text
+// doesn't jump when it finishes. The leading-emoji strip matters because some
+// older narration templates still bake a presentation emoji (📚/📖/⚠) into the
+// message; the timeline now owns the icon (lucide, in .tl-ic), so the message's
+// own emoji would be a duplicate AND violate the no-emoji rule. Falls back to the
+// latest message, then the tool name.
+const EMOJI_PREFIX = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}]\s*)+/u
 const label = computed<string>(() => {
   const first = props.group.events[0]
   const latest = props.group.events[props.group.events.length - 1]
   const base = first?.message || latest?.message || props.group.tool_name
-  return base.replace(/^正在\s*/, '')
+  return base.replace(EMOJI_PREFIX, '').replace(/^正在\s*/, '')
 })
 
 const typeIcon = computed(() => toolIcon(props.group.tool_name))
