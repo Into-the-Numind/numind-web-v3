@@ -95,4 +95,24 @@ describe('AgentToolCallList', () => {
     await w.setProps({ toolGroups: [grp('a', 'result'), grp('b', 'use')] }) // b re-activates
     expect(w.find('.tool-detail').exists()).toBe(false) // stays collapsed per user intent
   })
+
+  // The post-answer polling card aggregates every tool call into one card, so a
+  // deep run can pile up dozens of rows. The expanded list caps at the last 8 and
+  // folds the rest into a "前 N 步已完成" count.
+  it('caps the expanded list at the last 8 steps and folds the older ones', () => {
+    const groups = Array.from({ length: 12 }, (_, i) => grp('g' + i, 'result'))
+    groups[11] = grp('g11', 'use') // keep one active so it stays expanded
+    const w = mount(AgentToolCallList, { props: { toolGroups: groups } })
+    expect(w.find('.tool-detail').exists()).toBe(true)
+    expect(w.find('.tool-folded').text()).toContain('前 4 步已完成') // 12 - 8
+    expect(w.findAll('.tool-detail .tool-call-item')).toHaveLength(8)
+  })
+
+  it('shows all steps and no fold line when the list is short', () => {
+    const w = mount(AgentToolCallList, {
+      props: { toolGroups: [grp('a', 'result'), grp('b', 'use')] }
+    })
+    expect(w.find('.tool-folded').exists()).toBe(false)
+    expect(w.findAll('.tool-detail .tool-call-item')).toHaveLength(2)
+  })
 })
