@@ -248,6 +248,53 @@ describe('applyStreamEvent', () => {
     expect(groups.length).toBe(2)
   })
 
+  // agent-exec-ux-followup: the streaming label must surface the concrete query
+  // (from input_preview) so a run of searches no longer reads as N identical
+  // "正在搜索网络..." — matching the backend tool-display.yaml use_template.
+  it('tool_call_start: web_search surfaces the query from input_preview', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('tool_call_start', {
+        tool_call_id: 'tc-q',
+        tool_name: 'web_search',
+        input_preview: { query: '四川莫小派 小红书陪跑', max_results: 5 }
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const ev = group?.type === 'tool_group' ? group.tool_calls[0].events[0] : null
+    expect(ev?.message).toContain('四川莫小派')
+    expect(ev?.message).not.toBe('正在搜索网络...')
+  })
+
+  it('tool_call_start: web_search without a query falls back to the generic label', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('tool_call_start', {
+        tool_call_id: 'tc-noq',
+        tool_name: 'web_search',
+        input_preview: {}
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const ev = group?.type === 'tool_group' ? group.tool_calls[0].events[0] : null
+    expect(ev?.message).toBe('正在搜索网络...')
+  })
+
+  it('tool_call_start: kb_search surfaces the query from input_preview', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('tool_call_start', {
+        tool_call_id: 'tc-kb',
+        tool_name: 'kb_search',
+        input_preview: { query: '客群画像' }
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const ev = group?.type === 'tool_group' ? group.tool_calls[0].events[0] : null
+    expect(ev?.message).toContain('客群画像')
+    expect(ev?.message).toContain('知识库')
+  })
+
   // 7. tool_call_progress — updates tool_call state + pushes event
   it('tool_call_progress: updates current_state to progress and appends event', async () => {
     const store = useAgentChatStore()
