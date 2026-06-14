@@ -3,6 +3,7 @@ import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import type { AgentMessage, AssistantMessage } from '@/types/agent'
 import { useScrollFollow } from '@/composables/useScrollFollow'
 import AgentMessageItem from './AgentMessageItem.vue'
+import AgentRunPulse from './AgentRunPulse.vue'
 import { ChevronDown } from 'lucide-vue-next'
 
 interface Props {
@@ -11,6 +12,15 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), { readOnly: false })
+
+// One continuous process timeline: consecutive agent-flow messages (thinking,
+// tool lines, plan, artifacts, final answer) render under a SINGLE avatar with
+// tight spacing, so they read as one flowing block instead of a stack of
+// separate avatared cards. A message is "continued" when both it and the message
+// before it are agent-flow types.
+const FLOW_TYPES = new Set(['assistant', 'tool_group', 'plan', 'artifact', 'final_answer'])
+const continuedAt = (i: number): boolean =>
+  i > 0 && FLOW_TYPES.has(props.messages[i].type) && FLOW_TYPES.has(props.messages[i - 1].type)
 
 // Forward QuestionPrompt's answer-submitted (with run_id) up to AgentChatView.
 defineEmits<{ 'answer-submitted': [runId: number] }>()
@@ -21,7 +31,7 @@ const scrollFollow = useScrollFollow()
 // 精准计算当前处于 streaming 状态的助理消息文本长度（合并思考过程 reasoning 与回答 markdown）
 const streamingMessageText = computed<string>(() => {
   const streamingMsg = props.messages.find(
-    (m): m is AssistantMessage => m.type === 'assistant' && !!(m as any).isStreaming
+    (m): m is AssistantMessage => m.type === 'assistant' && !!m.isStreaming
   )
   if (!streamingMsg) return ''
   return (streamingMsg.markdown || '') + (streamingMsg.reasoning || '')
@@ -66,12 +76,16 @@ onBeforeUnmount(() => {
     <div ref="scroller" class="scroller">
       <div class="messages-container">
         <AgentMessageItem
-          v-for="msg in messages"
+          v-for="(msg, i) in messages"
           :key="msg.id"
           :msg="msg"
           :read-only="readOnly"
+          :continued="continuedAt(i)"
           @answer-submitted="$emit('answer-submitted', $event)"
         />
+        <!-- Trailing inline live line — the consistent "still working" signal at
+             the bottom of the flow (replaces the pinned bottom pulse). -->
+        <AgentRunPulse v-if="!readOnly" />
       </div>
     </div>
     <!-- 当用户手动向上滚动打断跟随状态时，显示优美的“跳回底部”按钮 -->

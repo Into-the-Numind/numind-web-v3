@@ -132,6 +132,26 @@ describe('AgentMessageItem', () => {
     expect(stub.findAll('[data-state]').length).toBe(2)
   })
 
+  it('continued agent-flow message renders under one avatar (no repeated avatar)', () => {
+    const msg: AgentMessage = {
+      id: 'c',
+      type: 'tool_group',
+      tool_calls: [],
+      timestamp: ts
+    }
+    const cont = mount(AgentMessageItem, {
+      props: { msg, continued: true },
+      global: { stubs: globalStubs }
+    })
+    expect(cont.find('.msg').classes()).toContain('continued')
+
+    const fresh = mount(AgentMessageItem, {
+      props: { msg, continued: false },
+      global: { stubs: globalStubs }
+    })
+    expect(fresh.find('.msg').classes()).not.toContain('continued')
+  })
+
   it('renders artifact via AgentArtifactItem', () => {
     const msg: AgentMessage = {
       id: '5',

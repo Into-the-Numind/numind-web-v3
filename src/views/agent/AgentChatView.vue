@@ -16,7 +16,6 @@ import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
 import AgentFirstRun from '@/components/agent/AgentFirstRun.vue'
 import AgentMessageList from '@/components/agent/AgentMessageList.vue'
 import AgentInputArea from '@/components/agent/AgentInputArea.vue'
-import AgentRunPulse from '@/components/agent/AgentRunPulse.vue'
 import AgentBudgetExceededModal from '@/components/agent/AgentBudgetExceededModal.vue'
 import AgentLowBalanceModal from '@/components/agent/AgentLowBalanceModal.vue'
 import type { SupportContact } from '@/types/agent'
@@ -505,10 +504,6 @@ const handleRetrySnapshot = async (): Promise<void> => {
             @answer-submitted="handleAnswerSubmitted"
           />
         </div>
-
-        <!-- Live status line: keeps the run feeling alive through stream→tool→gap
-             →compose phases (the relay that fills the polling-path dead air). -->
-        <AgentRunPulse v-if="!readOnly && store.currentAgent" :is-streaming="isStreaming" />
 
         <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">
           <!-- Abort button — visible only while SSE stream is active -->
