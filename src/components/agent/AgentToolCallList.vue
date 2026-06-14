@@ -25,6 +25,17 @@ const doneCount = computed<number>(
 
 const totalCount = computed<number>(() => props.toolGroups.length)
 
+// Cap the expanded list. The post-answer (polling) leg aggregates EVERY tool call
+// of the resumed run into a single card, so a deep research run can pile up dozens
+// of rows into one wall. Keep the most RECENT steps (where the live action is) and
+// fold the older finished ones into a one-line count; the header already carries
+// the total. Short cards (the streaming per-step cards) stay fully shown.
+const MAX_VISIBLE = 8
+const hiddenCount = computed<number>(() => Math.max(0, props.toolGroups.length - MAX_VISIBLE))
+const visibleGroups = computed<ToolCallAggregate[]>(() =>
+  hiddenCount.value > 0 ? props.toolGroups.slice(-MAX_VISIBLE) : props.toolGroups
+)
+
 // ──────────────────────────────────────────────────────────────────
 // Wall-clock duration of this step group, computed from the FIRST and LAST
 // narration event timestamps. Both are server timestamps, so the delta is free
@@ -94,7 +105,8 @@ const toggle = (): void => {
     </button>
 
     <div v-if="open" class="tool-detail">
-      <AgentToolCallItem v-for="group in toolGroups" :key="group.tool_call_id" :group="group" />
+      <p v-if="hiddenCount > 0" class="tool-folded">··· 前 {{ hiddenCount }} 步已完成</p>
+      <AgentToolCallItem v-for="group in visibleGroups" :key="group.tool_call_id" :group="group" />
     </div>
 
     <!-- 折叠时只显示最新一条作为预览（让学员一眼看到"此刻在做什么"） -->
@@ -181,6 +193,13 @@ const toggle = (): void => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* "前 N 步已完成" fold line above the capped recent steps. */
+.tool-folded {
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: var(--text-muted, #8b90a0);
 }
 
 .tool-preview {

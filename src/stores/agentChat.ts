@@ -23,6 +23,7 @@ import type {
   AssistantMessage,
   CreateRunRequest,
   NarrationEvent,
+  NarrationState,
   EstimateResponse,
   RecentSession,
   ToolCallAggregate,
@@ -405,6 +406,32 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
+  // When the run reaches a terminal state, flip any tool_call still showing a
+  // non-terminal state to 'result'. The polling poll stops the instant the run is
+  // no longer running, so the last tool's result narration may never be fetched —
+  // leaving AgentToolCallItem's live "已用时 X" timer ticking forever (customer-
+  // reported "task done but the card keeps counting"). This guarantees nothing
+  // reads as "executing" once the run is done. Idempotent; only rewrites groups
+  // that actually had a lingering in-flight tool.
+  const IN_FLIGHT_STATES: NarrationState[] = ['queued', 'use', 'progress']
+  const finalizeToolGroups = (): void => {
+    // A normally-completed run's lingering tools really did finish → 'result'. An
+    // interrupted run (cancelled / failed / timeout / budget_exhausted) → 'error',
+    // so we never paint an interrupted tool as a green "已完成".
+    const terminalState: NarrationState =
+      currentRun.value?.status === 'completed' ? 'result' : 'error'
+    for (let i = 0; i < messages.value.length; i++) {
+      const m = messages.value[i]
+      if (m.type !== 'tool_group') continue
+      const tg = m as ToolGroupMessage
+      if (!tg.tool_calls.some((tc) => IN_FLIGHT_STATES.includes(tc.current_state))) continue
+      const tool_calls = tg.tool_calls.map((tc) =>
+        IN_FLIGHT_STATES.includes(tc.current_state) ? { ...tc, current_state: terminalState } : tc
+      )
+      messages.value[i] = { ...tg, tool_calls }
+    }
+  }
+
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
     try {
@@ -475,6 +502,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           run_id: next.id,
           timestamp: new Date().toISOString()
         })
+      }
+      // Run reached terminal (done / failed / cancelled, but not a waiting pause
+      // or a resume re-entry) → stop any lingering tool-call timers.
+      if (wasActive && isTerminal && !isWaiting && !isResuming) {
+        finalizeToolGroups()
       }
     } catch {
       // 忽略；下次重试
@@ -1148,9 +1180,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // giant duplicate card. QuerySince is strict-after, so setting the cursor
         // to this terminal ts makes the resume poll return only post-answer events
         // (and drops the now-redundant ask_user_question StateUse narration too).
-        // (The streamed and polled tool_call_ids use different id schemes — model
-        // ids vs "<runID>-<seq>" — so an id-based dedup can't work; the timestamp
-        // cursor is the reliable boundary.)
+        // The cursor — not an id-based dedup — is the right boundary here: the
+        // pre-answer steps are already shown by the streaming leg's own cards, so
+        // we want to exclude them by TIME, regardless of id scheme.
         if (e.ts) lastNarrationTs.value = e.ts
         // Surface a friendly failure message for error terminals that did NOT
         // already emit an 'error' event (e.g. max_turns / budget / aborted).

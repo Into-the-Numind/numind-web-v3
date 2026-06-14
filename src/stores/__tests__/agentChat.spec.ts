@@ -1,7 +1,7 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAgentChatStore } from '../agentChat'
-import type { NarrationEvent, AgentRun } from '@/types/agent'
+import type { NarrationEvent, AgentRun, ToolGroupMessage } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 
 // Mock the api module
@@ -236,6 +236,75 @@ describe('agentChat store', () => {
     vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([])
     await store.pollNarration()
     expect(api.fetchNarrationEvents).toHaveBeenLastCalledWith(999, '2026-05-21T10:05:00Z')
+  })
+
+  // When the run completes, the polling poll stops the instant it's no longer
+  // running, so the last tool's result narration may never arrive — leaving its
+  // live timer ticking. refreshRunStatus must flip any lingering in-flight tool to
+  // terminal so the timer stops (customer-reported "task done, card still counting").
+  it('finalizes lingering in-flight tool calls when the run completes', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi') // currentRun running
+    const ev = (state: NarrationEvent['state']): NarrationEvent => ({
+      run_id: 999,
+      tool_call_id: 'x',
+      tool_name: 'web_search',
+      state,
+      message: 'm',
+      timestamp: '2026-05-21T10:00:00Z'
+    })
+    store.messages.push({
+      id: 'tg-1',
+      type: 'tool_group',
+      timestamp: '',
+      tool_calls: [
+        { tool_call_id: 'a', tool_name: 'web_search', current_state: 'use', events: [ev('use')] },
+        {
+          tool_call_id: 'b',
+          tool_name: 'web_search',
+          current_state: 'result',
+          events: [ev('result')]
+        }
+      ]
+    } as ToolGroupMessage)
+    vi.mocked(api.getRun).mockResolvedValueOnce({ id: 999, status: 'completed' } as AgentRun)
+    await store.refreshRunStatus()
+    const tg = store.messages.find((m) => m.type === 'tool_group') as ToolGroupMessage
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'a')?.current_state).toBe('result')
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'b')?.current_state).toBe('result')
+  })
+
+  // An interrupted run (cancelled/failed/...) must NOT paint its in-flight tool as
+  // a green "已完成" — it gets 'error', not 'result'.
+  it('finalizes in-flight tools to error when the run is cancelled (not completed)', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    store.messages.push({
+      id: 'tg-1',
+      type: 'tool_group',
+      timestamp: '',
+      tool_calls: [
+        {
+          tool_call_id: 'a',
+          tool_name: 'web_search',
+          current_state: 'use',
+          events: [
+            {
+              run_id: 999,
+              tool_call_id: 'a',
+              tool_name: 'web_search',
+              state: 'use',
+              message: 'm',
+              timestamp: '2026-05-21T10:00:00Z'
+            }
+          ]
+        }
+      ]
+    } as ToolGroupMessage)
+    vi.mocked(api.getRun).mockResolvedValueOnce({ id: 999, status: 'cancelled' } as AgentRun)
+    await store.refreshRunStatus()
+    const tg = store.messages.find((m) => m.type === 'tool_group') as ToolGroupMessage
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'a')?.current_state).toBe('error')
   })
 
   it('startNewRun resets currentToolGroupId so a new turn creates a fresh group instead of appending to run-1 group', async () => {
