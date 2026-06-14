@@ -121,7 +121,21 @@ const KNOWN_TOOL_NAMES = new Set<string>([
   'create_png_chart',
   'image_gen',
   'analyze_image',
-  'annotate_image'
+  'annotate_image',
+  // Core built-in tools (2026-06-14 agent-progress-clarity). These ship in
+  // tool-display.yaml and render via the generic pipeline; they were simply
+  // never listed here, so every research run (web_search ×N) spammed a spurious
+  // "unknown tool" console.warn. Register them to silence the noise.
+  'web_search',
+  'web_fetch',
+  'kb_search',
+  'bash_exec',
+  'document_generate',
+  'get_current_date',
+  'memory_read',
+  'memory_write',
+  'load_skill',
+  'read_skill'
   // SOP-derived skill tools 走 binding 动态生成，名字以 sop_ 前缀 — 见 isKnownTool()。
 ])
 const warnedUnknown = new Set<string>()
@@ -142,9 +156,12 @@ const colorClassFor = (state: NarrationState): string => {
   return STATE_COLOR_CLASS[state]
 }
 
-// 该 tool group 是 use_skill 调用 — 加 .skill-use class 让 CSS 单独排版
+// 该 tool group 是技能加载调用 — 加 .skill-use class 让 CSS 单独排版
 // （Skill 调用是"扩展能力"语义事件，比普通 tool call 更值得视觉强调）。
-const isSkillUse = computed<boolean>(() => props.group.tool_name === 'use_skill')
+// 现网工具名是 load_skill（open-tools-skill-as-guidance 合并后）；use_skill /
+// read_skill 是历史 narration 的 tombstone 名，一并匹配以保证旧会话回放也高亮。
+const SKILL_TOOL_NAMES = new Set(['load_skill', 'use_skill', 'read_skill'])
+const isSkillUse = computed<boolean>(() => SKILL_TOOL_NAMES.has(props.group.tool_name))
 
 // 监听 tool name，发现陌生 tool 就 warn 一次（同名只 warn 一次避免刷屏）。
 watch(
@@ -164,7 +181,7 @@ watch(
 </script>
 
 <template>
-  <div :class="['tool-call-item', { 'skill-use': isSkillUse }]">
+  <div :class="['tool-call-item', { 'skill-use': isSkillUse, 'is-active': isInFlight }]">
     <!-- T13: Status badge — upper-right colored dot reflecting current_state.
          NOTE: role="status" removed (P1 fix). With 10+ concurrent tool calls
          the implicit aria-live="polite" causes screen readers to announce every
@@ -243,6 +260,10 @@ watch(
 }
 
 .tool-msg {
+  /* The message now carries the live query / URL / title, but the backend
+     truncate(40) already bounds it to ~one line, so plain word-break wrapping
+     is enough. (A -webkit-box line-clamp here would turn this inline span into a
+     block and shove the trailing "· 用时 X" detail onto its own line.) */
   word-break: break-word;
 }
 
@@ -277,6 +298,17 @@ watch(
 
 @media (prefers-reduced-motion: reduce) {
   .tool-elapsed {
+    animation: none;
+  }
+  /* Also stop the in-flight spinner ring + the queued/use/progress icon pulse.
+     A tool-call-heavy step can have several of each spinning at once — exactly
+     the high-motion density this query exists to spare vestibular users. The
+     ring keeps its colour so the "running" state stays legible while still. */
+  .status-badge--progress .status-dot {
+    animation: none;
+    border-top-color: #3b82f6;
+  }
+  .animated-dots {
     animation: none;
   }
 }
@@ -392,6 +424,16 @@ watch(
   border-left: 2px solid #6366f1;
   padding-left: 8px;
   background: rgba(99, 102, 241, 0.04);
+  border-radius: 4px;
+}
+
+/* The currently in-flight step gets a faint brand-green wash + left rail so the
+   eye lands on "what's happening right now" amid a stack of finished steps.
+   skill-use (indigo) wins when both apply — a running skill keeps its identity. */
+.tool-call-item.is-active:not(.skill-use) {
+  border-left: 2px solid var(--primary, hsl(160, 72%, 40%));
+  padding-left: 8px;
+  background: var(--accent-ultra-soft, hsl(160, 60%, 95%));
   border-radius: 4px;
 }
 
