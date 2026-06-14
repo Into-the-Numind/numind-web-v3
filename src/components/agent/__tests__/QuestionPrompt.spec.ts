@@ -227,13 +227,30 @@ describe('QuestionPrompt — multi-question navigation', () => {
 })
 
 describe('QuestionPrompt — answered & errors', () => {
-  it('answered=true is read-only: note shown, no tabs / submit', () => {
+  it('answered=true is a read-only recap: questions stay visible, no controls', () => {
     const wrapper = mountMulti({ answered: true })
-    expect(wrapper.find('.question-prompt__answered-note').exists()).toBe(true)
+    expect(wrapper.find('.question-prompt__answered').exists()).toBe(true)
     expect(wrapper.find('.question-prompt--answered').exists()).toBe(true)
+    // the questions remain visible so the user can look back at what was asked
+    expect(wrapper.text()).toContain('陪跑周期多长？')
+    expect(wrapper.text()).toContain('主要客群是谁？')
+    expect(wrapper.findAll('.question-prompt__answered-item')).toHaveLength(2)
+    // no interactive controls in the answered state
     expect(wrapper.find('.question-prompt__tabs').exists()).toBe(false)
     expect(wrapper.find('.question-prompt__submit').exists()).toBe(false)
     expect(wrapper.find('.question-prompt__next').exists()).toBe(false)
+  })
+
+  it('after answering live, the recap echoes the selected answer', async () => {
+    mockPostAgentAnswer.mockResolvedValueOnce({ run_id: 42, status: 'resumed' })
+    const wrapper = mountSingle()
+    await wrapper.find('.question-prompt__option--btn').trigger('click') // select PDF
+    await wrapper.find('.question-prompt__submit').trigger('click')
+    await flushPromises()
+    await wrapper.setProps({ answered: true })
+    expect(wrapper.find('.question-prompt__answered').exists()).toBe(true)
+    expect(wrapper.text()).toContain('你想要哪个格式？')
+    expect(wrapper.find('.question-prompt__answered-a').text()).toContain('PDF')
   })
 
   it('API error shows a notification and re-enables submit', async () => {

@@ -2,6 +2,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAgentChatStore } from '../agentChat'
 import type { NarrationEvent, AgentRun } from '@/types/agent'
+import type { AgentStreamEvent } from '@/types/agent-stream'
 
 // Mock the api module
 vi.mock('@/api/agent', () => ({
@@ -133,9 +134,16 @@ describe('agentChat store', () => {
     const store = useAgentChatStore()
     await store.startNewRun(1, 'hi')
     // Simulate the false "still processing" hint having been shown earlier.
-    store.messages.push({ id: 'stuck-1', type: 'system', system_subtype: 'stuck', timestamp: '2026-05-21T10:00:00Z' })
+    store.messages.push({
+      id: 'stuck-1',
+      type: 'system',
+      system_subtype: 'stuck',
+      timestamp: '2026-05-21T10:00:00Z'
+    })
     await store.pollNarration()
-    expect(store.messages.find((m) => m.type === 'system' && m.system_subtype === 'stuck')).toBeUndefined()
+    expect(
+      store.messages.find((m) => m.type === 'system' && m.system_subtype === 'stuck')
+    ).toBeUndefined()
   })
 
   // Hotfix narration-tool-group-message-wire: regression for the
@@ -186,6 +194,48 @@ describe('agentChat store', () => {
     expect(afterSecond[0].type === 'tool_group' && afterSecond[0].tool_calls[0].events.length).toBe(
       2
     )
+  })
+
+  // agent-exec-ux-followup: on an ask_user_question answer-resume the run
+  // continues via POLLING (no reopened stream). The streaming path never
+  // advanced lastNarrationTs, so the first resume poll used to re-fetch the
+  // WHOLE run's narration from ts='' and re-aggregate every pre-answer step into
+  // one giant duplicate card. The terminal event now seeds the narration cursor
+  // to the stream-end ts; QuerySince is strict-after, so the resume poll then
+  // returns only post-answer events. (An id-based dedup can't work — streamed
+  // tool_call_ids are model ids, polled ones are "<runID>-<seq>".)
+  it('terminal seeds lastNarrationTs to the stream-end ts', () => {
+    const store = useAgentChatStore()
+    const start: AgentStreamEvent = {
+      type: 'stream_start',
+      seq: 1,
+      ts: '2026-05-21T10:00:00Z',
+      run_id: 999,
+      step: 0,
+      data: undefined
+    }
+    store.applyStreamEvent(start)
+    const terminal: AgentStreamEvent = {
+      type: 'terminal',
+      seq: 9,
+      ts: '2026-05-21T10:05:00Z',
+      run_id: 999,
+      step: 0,
+      data: { reason: 'waiting_for_user_choice' }
+    }
+    store.applyStreamEvent(terminal)
+    expect(store.lastNarrationTs).toBe('2026-05-21T10:05:00Z')
+  })
+
+  // Closes the loop on the seed test above: the seeded cursor is actually read
+  // back as the `since` arg, so the resume poll fetches only post-cursor events.
+  it('pollNarration forwards lastNarrationTs as the since cursor', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi') // currentRun running + not waiting → poll runs
+    store.lastNarrationTs = '2026-05-21T10:05:00Z'
+    vi.mocked(api.fetchNarrationEvents).mockResolvedValueOnce([])
+    await store.pollNarration()
+    expect(api.fetchNarrationEvents).toHaveBeenLastCalledWith(999, '2026-05-21T10:05:00Z')
   })
 
   it('startNewRun resets currentToolGroupId so a new turn creates a fresh group instead of appending to run-1 group', async () => {
@@ -323,7 +373,12 @@ describe('agentChat store', () => {
           timestamp: ''
         } as never
       ],
-      run: { id: 50, status: 'running', state_reason: 'waiting_for_user_choice' } as AgentRun,
+      run: {
+        id: 50,
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        updated_at: '2026-05-21T09:00:00Z'
+      } as AgentRun,
       agent_run_ids: [50],
       last_active_at: '',
       status: 'running'
@@ -332,6 +387,9 @@ describe('agentChat store', () => {
     await store.loadSessionSnapshot(1, false)
     expect(store.currentRun?.id).toBe(50)
     expect(store.messages.some((m) => m.type === 'question_prompt')).toBe(true)
+    // The narration cursor is seeded to the run's last update (the pause point)
+    // so the post-answer resume poll skips the already-rebuilt pre-answer cards.
+    expect(store.lastNarrationTs).toBe('2026-05-21T09:00:00Z')
   })
 
   it('ensureCurrentRun hydrates currentRun from getRun when unset', async () => {

@@ -100,6 +100,46 @@ function toolResultLabel(toolName: string): string {
   return TOOL_RESULT_LABELS[toolName] ?? '已完成'
 }
 
+/** Clip a display string to n code points + ellipsis. Spreading to an array of
+ *  code points (not .slice on UTF-16 units) keeps emoji / surrogate pairs in a
+ *  search query from being cut in half. Mirrors the backend yaml truncate so the
+ *  streamed label reads identically to the polled one. */
+function clip(s: string, n: number): string {
+  const cp = [...s]
+  return cp.length > n ? cp.slice(0, n).join('') + '…' : s
+}
+
+// Streaming tool_call_start owns its own "what is it doing" label (the SSE event
+// carries input_preview, not the backend's rendered narration message — see the
+// TOOL_RESULT_LABELS note). For search/fetch tools, surface the concrete query /
+// url from input_preview so a run of searches no longer reads as N identical
+// "正在搜索网络...". Mirrors configs/tool-display.yaml use_template; falls back to
+// the generic action label when the field is absent.
+function streamingToolUseLabel(
+  toolName: string,
+  inputPreview: Record<string, unknown> | undefined,
+  fallback: string
+): string {
+  const field = (k: string): string =>
+    typeof inputPreview?.[k] === 'string' ? (inputPreview[k] as string).trim() : ''
+  switch (toolName) {
+    case 'web_search': {
+      const q = field('query')
+      return q ? `正在搜索：${clip(q, 40)}` : fallback
+    }
+    case 'kb_search': {
+      const q = field('query')
+      return q ? `正在搜索知识库：${clip(q, 30)}` : fallback
+    }
+    case 'web_fetch': {
+      const u = field('url')
+      return u ? `正在抓取：${clip(u, 50)}` : fallback
+    }
+    default:
+      return fallback
+  }
+}
+
 function statusFromTerminalReason(reason?: string): AgentRunStatus {
   switch (reason) {
     case 'completed':
@@ -554,6 +594,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // it, refreshRunStatus's null guard silently stalls the resume.
       if (snap.run && snap.run.state_reason === 'waiting_for_user_choice') {
         currentRun.value = snap.run
+        // The snapshot already rebuilt the pre-answer tool cards from
+        // agent_run.messages. Seed the narration cursor to the run's last update
+        // (the pause point) so that when the user answers, the resume poll fetches
+        // only post-answer narration instead of re-fetching every pre-answer event
+        // (which the in-memory buffer may still hold) into a duplicate giant card.
+        if (snap.run.updated_at) lastNarrationTs.value = snap.run.updated_at
       }
       if (snap.compact_summary) {
         messages.value.unshift({
@@ -953,7 +999,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
                 : ''
             message = SKILL_LABELS[skillName] ?? '正在生成文件...'
           } else {
-            message = actionLabels[payload.tool_name] ?? `正在调用工具 ${payload.tool_name}...`
+            const base = actionLabels[payload.tool_name] ?? `正在调用工具 ${payload.tool_name}...`
+            // Surface the concrete query / url for search & fetch tools.
+            message = streamingToolUseLabel(payload.tool_name, payload.input_preview, base)
           }
 
           group.tool_calls = [
@@ -1092,6 +1140,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             state_reason: payload?.reason
           }
         }
+        // Advance the narration cursor to the stream-end timestamp. The streaming
+        // path never set it (it owns its own tool cards), so on an
+        // ask_user_question answer-resume — which continues via POLLING, not a
+        // reopened stream — pollNarration would otherwise fetch the whole run's
+        // narration from ts='' and re-aggregate every pre-answer step into one
+        // giant duplicate card. QuerySince is strict-after, so setting the cursor
+        // to this terminal ts makes the resume poll return only post-answer events
+        // (and drops the now-redundant ask_user_question StateUse narration too).
+        // (The streamed and polled tool_call_ids use different id schemes — model
+        // ids vs "<runID>-<seq>" — so an id-based dedup can't work; the timestamp
+        // cursor is the reliable boundary.)
+        if (e.ts) lastNarrationTs.value = e.ts
         // Surface a friendly failure message for error terminals that did NOT
         // already emit an 'error' event (e.g. max_turns / budget / aborted).
         // user_message is empty for successful / waiting terminals.

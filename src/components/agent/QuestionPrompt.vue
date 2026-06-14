@@ -347,8 +347,23 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
       </button>
     </div>
 
-    <!-- Answered overlay -->
-    <p v-if="answered" class="question-prompt__answered-note">已回答，等待 agent 继续...</p>
+    <!-- Answered: read-only recap of the questions + the user's answers. The
+         card stays visible (was previously hidden behind a one-line note) so the
+         user can always look back at what was asked and what they replied — just
+         can't edit it. resolvedAnswer(i) reads the live `state`; on a reloaded
+         session `state` is empty (the answer rides in a separate user bubble),
+         so we show the questions with a neutral "已回答" marker. -->
+    <div v-if="answered" class="question-prompt__answered">
+      <span class="question-prompt__answered-badge">✓ 已回答</span>
+      <ul class="question-prompt__answered-list">
+        <li v-for="(q, i) in questions" :key="i" class="question-prompt__answered-item">
+          <p class="question-prompt__answered-q">{{ q.question }}</p>
+          <p class="question-prompt__answered-a" :class="{ 'is-empty': !resolvedAnswer(i) }">
+            {{ resolvedAnswer(i) || '已回答' }}
+          </p>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -362,9 +377,62 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   width: 100%;
 }
 
+/* Answered card is a readable read-only recap, not a greyed-out husk. A soft
+   tint + muted border signals "locked" without the 0.65 opacity that made the
+   recap hard to read. No pointer-events:none — the recap has no controls, and
+   the user may want to select the text. */
 .question-prompt--answered {
-  opacity: 0.65;
-  pointer-events: none;
+  background: var(--color-surface-tint, #f9fafb);
+  border-color: var(--color-border, #e5e7eb);
+}
+
+.question-prompt__answered-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary, #2563eb);
+  margin-bottom: 10px;
+}
+
+.question-prompt__answered-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.question-prompt__answered-item {
+  padding: 10px 12px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.question-prompt__answered-q {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text, #1f2937);
+  line-height: 1.4;
+}
+
+.question-prompt__answered-a {
+  margin: 0;
+  font-size: 13px;
+  /* Plain text colour, not --color-primary: this is a read-only recap value, it
+     should not compete visually with the primary-blue "✓ 已回答" badge or look
+     clickable. */
+  color: var(--color-text, #1f2937);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.question-prompt__answered-a.is-empty {
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
 }
 
 /* ── Tab bar ── */
