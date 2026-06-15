@@ -268,9 +268,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
+  // Loads the sidebar session list. adaptive-session-titles US4: show ALL of the
+  // user's history sessions (not just the most recent 5), newest first. We reuse
+  // listAllHistorySessions (no time window, capped 500, ordered is_pinned DESC,
+  // started_at DESC). The `recentSessions` name is kept to avoid a wide rename
+  // across the store + views; it now holds the full history list.
   const fetchRecentSessions = async (): Promise<void> => {
     try {
-      recentSessions.value = await api.listRecentSessions(5)
+      recentSessions.value = await api.listAllHistorySessions()
     } catch {
       recentSessions.value = []
     }

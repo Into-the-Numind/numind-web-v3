@@ -218,4 +218,112 @@ describe('fetchSessions', () => {
     expect(store.sessions).toHaveLength(1)
     expect(store.sessionsTotal).toBe(1)
   })
+
+  it('更新当前会话标题（首轮自动重命名后 refetch 同步, US1/US3）', async () => {
+    const store = useChatbotStore()
+    store.currentSession = makeSession({ id: 5, chatbot_id: 7, title: '客服助手' })
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ id: 5, chatbot_id: 7, title: '退货流程咨询' })], total: 1 }
+    } as any)
+
+    await store.fetchSessions(7)
+    expect(store.currentSession?.title).toBe('退货流程咨询')
+  })
+})
+
+// ==================== loadMoreSessions (US5) ====================
+
+describe('loadMoreSessions', () => {
+  it('追加下一页并推进 offset（不替换已加载项）', async () => {
+    const store = useChatbotStore()
+    const page1 = [makeSession({ id: 1, chatbot_id: 7 }), makeSession({ id: 2, chatbot_id: 7 })]
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: page1, total: 4 }
+    } as any)
+    await store.fetchSessions(7)
+    expect(store.sessionsOffset).toBe(2)
+
+    const page2 = [makeSession({ id: 3, chatbot_id: 7 }), makeSession({ id: 4, chatbot_id: 7 })]
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: page2, total: 4 }
+    } as any)
+    await store.loadMoreSessions(7)
+
+    expect(listChatbotSessions).toHaveBeenLastCalledWith(2, 20, 7)
+    expect(store.sessions.map((s) => s.id)).toEqual([1, 2, 3, 4])
+    expect(store.sessionsOffset).toBe(4)
+  })
+
+  it('全部加载完后再调用为 no-op', async () => {
+    const store = useChatbotStore()
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ id: 1, chatbot_id: 7 })], total: 1 }
+    } as any)
+    await store.fetchSessions(7)
+    vi.mocked(listChatbotSessions).mockClear()
+
+    await store.loadMoreSessions(7)
+    expect(listChatbotSessions).not.toHaveBeenCalled()
+  })
+
+  it('inflight 守卫：连点时第二次调用被拦截（防重复页/重复 key）', async () => {
+    const store = useChatbotStore()
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ id: 1, chatbot_id: 7 })], total: 5 }
+    } as any)
+    await store.fetchSessions(7)
+    vi.mocked(listChatbotSessions).mockClear()
+
+    let resolveFn!: (v: unknown) => void
+    vi.mocked(listChatbotSessions).mockImplementationOnce(
+      () => new Promise((r) => (resolveFn = r)) as never
+    )
+    const p1 = store.loadMoreSessions(7) // inflight
+    const p2 = store.loadMoreSessions(7) // must be guarded → no 2nd API call
+    resolveFn({ data: { list: [makeSession({ id: 2, chatbot_id: 7 })], total: 5 } })
+    await Promise.all([p1, p2])
+
+    expect(listChatbotSessions).toHaveBeenCalledTimes(1)
+    expect(store.sessions.map((s) => s.id)).toEqual([1, 2])
+    expect(store.sessionsLoadingMore).toBe(false)
+  })
+
+  it('错误时不追加、不推进 offset', async () => {
+    const store = useChatbotStore()
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ id: 1, chatbot_id: 7 })], total: 5 }
+    } as any)
+    await store.fetchSessions(7)
+    expect(store.sessionsOffset).toBe(1)
+
+    vi.mocked(listChatbotSessions).mockRejectedValueOnce(new Error('network'))
+    await store.loadMoreSessions(7)
+    expect(store.sessions.map((s) => s.id)).toEqual([1]) // unchanged
+    expect(store.sessionsOffset).toBe(1) // not advanced
+    expect(store.sessionsLoadingMore).toBe(false)
+  })
+})
+
+// ==================== fetchSessions title-sync edge cases ====================
+
+describe('fetchSessions title sync edge cases', () => {
+  it('当前会话不在返回列表时标题不变、不报错', async () => {
+    const store = useChatbotStore()
+    store.currentSession = makeSession({ id: 5, chatbot_id: 7, title: '原标题' })
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ id: 99, chatbot_id: 7, title: '别的' })], total: 1 }
+    } as any)
+    await store.fetchSessions(7)
+    expect(store.currentSession?.title).toBe('原标题')
+  })
+
+  it('currentSession 为 null 时 refetch 不报错', async () => {
+    const store = useChatbotStore()
+    store.currentSession = null
+    vi.mocked(listChatbotSessions).mockResolvedValueOnce({
+      data: { list: [makeSession({ id: 1, chatbot_id: 7 })], total: 1 }
+    } as any)
+    await expect(store.fetchSessions(7)).resolves.toBeUndefined()
+    expect(store.currentSession).toBeNull()
+  })
 })

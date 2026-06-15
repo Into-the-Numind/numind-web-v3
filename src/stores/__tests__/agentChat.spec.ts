@@ -11,6 +11,7 @@ vi.mock('@/api/agent', () => ({
     total: 1
   })),
   listRecentSessions: vi.fn(async () => []),
+  listAllHistorySessions: vi.fn(async () => []),
   estimateRun: vi.fn(async () => ({ min: 50, max: 150, is_large_task: false })),
   createRun: vi.fn(async () => ({
     run_id: 999,
@@ -61,6 +62,31 @@ describe('agentChat store', () => {
     expect(store.availableAgents.length).toBe(1)
     expect(store.agentsError).toBe(null)
     expect(store.loadingAgents).toBe(false)
+  })
+
+  it('fetchRecentSessions loads ALL history sessions, not capped at 5 (US4)', async () => {
+    const eight = Array.from({ length: 8 }, (_, i) => ({
+      session_id: `s${i}`,
+      agent_skill_id: 1,
+      session_name: `会话${i}`,
+      last_active_at: '',
+      status: 'completed' as const
+    })) as unknown as Awaited<ReturnType<typeof api.listAllHistorySessions>>
+    vi.mocked(api.listAllHistorySessions).mockResolvedValueOnce(eight)
+
+    const store = useAgentChatStore()
+    await store.fetchRecentSessions()
+
+    expect(api.listAllHistorySessions).toHaveBeenCalled()
+    expect(api.listRecentSessions).not.toHaveBeenCalled()
+    expect(store.recentSessions.length).toBe(8)
+  })
+
+  it('fetchRecentSessions resets to empty list on error', async () => {
+    vi.mocked(api.listAllHistorySessions).mockRejectedValueOnce(new Error('boom'))
+    const store = useAgentChatStore()
+    await store.fetchRecentSessions()
+    expect(store.recentSessions).toEqual([])
   })
 
   it('fetchAvailableAgents records error on failure', async () => {
