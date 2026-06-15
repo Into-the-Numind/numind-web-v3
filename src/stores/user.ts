@@ -15,6 +15,8 @@ export interface UserInfo {
   role?: string
   /** 父账户 id；null/undefined 表示当前用户本身就是父账户（见 isParentUser）。 */
   parent_user_id?: number | string | null
+  /** 机构品牌名（org-branding）：后端已解析的有效值（父用自己/子继承父），可能为空串。 */
+  company_name?: string
   [key: string]: any
 }
 
@@ -36,6 +38,8 @@ export const useUserStore = defineStore('user', () => {
   const isParentUser = computed(() => userInfo.value?.parent_user_id == null)
   const username = computed(() => userInfo.value?.username || '')
   const nickname = computed(() => userInfo.value?.nickname || userInfo.value?.username || '')
+  /** 机构品牌名展示值（org-branding）：有效公司名 trim 后非空则用之，否则兜底"有数AI"。 */
+  const displayBrandName = computed(() => (userInfo.value?.company_name || '').trim() || '有数AI')
 
   // Actions
   const setToken = (newToken: string) => {
@@ -208,6 +212,7 @@ export const useUserStore = defineStore('user', () => {
     isParentUser,
     username,
     nickname,
+    displayBrandName,
     login,
     logout,
     fetchUserInfo,
