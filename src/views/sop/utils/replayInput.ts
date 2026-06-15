@@ -26,7 +26,8 @@ const UPLOAD_NOTE_MARKER = '\n\n用户已上传以下文件：'
  * @returns 用户文本（已 trim）。无文件时原样返回；文件块出现在最前（用户文本为空）时返回 ''。
  */
 export function stripMergedFileBlocks(input: string, hasFiles: boolean): string {
-  if (!hasFiles || !input) return input
+  if (!hasFiles) return input // 无文件：绝不剥离（避免误伤含 === 的用户文本）
+  if (!input) return ''
 
   // 取两个 \n\n-前缀分隔符的最早出现位置
   let cut = -1

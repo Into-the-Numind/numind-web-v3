@@ -63,6 +63,11 @@ describe('formatFileSize', () => {
     expect(formatFileSize(NaN)).toBe('')
     expect(formatFileSize(Infinity)).toBe('')
   })
+  it('KB 上界边界：1MB-1 byte 四舍五入到 1024 KB（锁定当前行为）', () => {
+    // Math.round((1024*1024-1)/1024) === 1024 → 显示 "1024 KB" 而非 "1.0 MB"，
+    // 仅落在 [1048064, 1048575] 字节窄区间，对 UI 无实质影响。改阈值时此用例保护。
+    expect(formatFileSize(1024 * 1024 - 1)).toBe('1024 KB')
+  })
 })
 
 describe('isImageFile', () => {
