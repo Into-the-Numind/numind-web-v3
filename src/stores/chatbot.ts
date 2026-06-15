@@ -358,6 +358,10 @@ export const useChatbotStore = defineStore('chatbot', () => {
     streamThinkingContent.value = ''
     streamStatus.value = ''
     streamError.value = ''
+    // Release staged image blob URLs + reset the in-flight counter so a route
+    // switch with un-sent images doesn't leak blobs or wedge isUploadingImages.
+    clearImageAttachments()
+    uploadingImages.value = 0
   }
 
   return {

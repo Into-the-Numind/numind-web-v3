@@ -111,6 +111,26 @@ describe('removeImage', () => {
 
     store.removeImage(5)
     expect(store.imageAttachments).toHaveLength(0)
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('cleanup', () => {
+  it('释放 staged 图片 blob + 清空（避免切路由泄漏）', async () => {
+    vi.mocked(uploadAttachment).mockResolvedValueOnce({
+      id: 8,
+      filename: 'd.png',
+      mime_type: 'image/png',
+      url: '',
+      size: 1
+    } as any)
+    const store = useChatbotStore()
+    await store.uploadImage(pngFile('d.png'))
+    expect(store.imageAttachments).toHaveLength(1)
+
+    store.cleanup()
+    expect(store.imageAttachments).toHaveLength(0)
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled()
   })
 })
 

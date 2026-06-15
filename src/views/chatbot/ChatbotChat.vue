@@ -283,11 +283,24 @@ const uploadWarning = ref('')
 // routeFiles splits a selection: images go to the backend vision pipeline
 // (store.uploadImage → /v1/agent-attachments → attachment_ids), everything else
 // stays on the existing doc text-extraction path (docUpload).
+const MAX_IMAGES = 5
+
 async function routeFiles(files: FileList | File[]) {
   const arr = Array.from(files)
   const images = arr.filter((f) => f.type.startsWith('image/'))
   const docs = arr.filter((f) => !f.type.startsWith('image/'))
-  for (const img of images) {
+
+  // Cap staged images at MAX_IMAGES (spec §4.1).
+  const room = Math.max(0, MAX_IMAGES - store.imageAttachments.length)
+  const acceptedImages = images.slice(0, room)
+  if (images.length > acceptedImages.length) {
+    uploadWarning.value = `最多上传 ${MAX_IMAGES} 张图片，已忽略 ${images.length - acceptedImages.length} 张`
+    setTimeout(() => {
+      uploadWarning.value = ''
+    }, 3000)
+  }
+  // Serial upload preserves selection order in the preview strip.
+  for (const img of acceptedImages) {
     await store.uploadImage(img)
   }
   if (docs.length > 0) {
@@ -775,7 +788,7 @@ function handleDocClick(e: MouseEvent) {
             <input
               ref="fileInputRef"
               type="file"
-              accept=".txt,.md,.pdf,.doc,.docx,.png,.jpg,.jpeg"
+              accept=".txt,.md,.pdf,.doc,.docx,image/*"
               multiple
               style="display: none"
               @change="handleFileInputChange"
