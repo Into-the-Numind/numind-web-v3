@@ -13,7 +13,7 @@
   详见 spec §4。Props 仅 input + files，无对外 emit（图片放大为内部状态）。
 -->
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   PenLine,
   Paperclip,
@@ -35,8 +35,8 @@ const props = defineProps<{
 const files = computed(() => props.files ?? [])
 const hasFiles = computed(() => files.value.length > 0)
 
-/** 剥离合并进 input 的文件块，只留用户文本 */
-const cleanInput = computed(() => stripMergedFileBlocks(props.input ?? '', hasFiles.value).trim())
+/** 剥离合并进 input 的文件块，只留用户文本（stripMergedFileBlocks 各返回路径已 trim） */
+const cleanInput = computed(() => stripMergedFileBlocks(props.input ?? '', hasFiles.value))
 const hasText = computed(() => cleanInput.value.length > 0)
 
 const imageFiles = computed(() => files.value.filter((f) => isImageFile(f)))
@@ -70,10 +70,21 @@ function toggleDoc(id: number): void {
   expandedDocs.value = next
 }
 
+/** 取标准化扩展名（优先 file_ext，否则从 file_name 末段推断），用于选文件图标 */
+function fileExtOf(f: SopReplayFile): string {
+  let ext = (f.file_ext ?? '').toLowerCase().trim()
+  if (!ext && f.file_name) {
+    const dot = f.file_name.lastIndexOf('.')
+    if (dot >= 0) ext = f.file_name.slice(dot).toLowerCase()
+  }
+  if (ext && !ext.startsWith('.')) ext = `.${ext}`
+  return ext
+}
+
 function docIcon(f: SopReplayFile) {
-  const hint = `${f.file_ext ?? ''} ${f.file_name ?? ''}`.toLowerCase()
-  if (/\.(xlsx?|csv)\b/.test(hint) || /\b(xlsx?|csv)\b/.test(hint)) return FileSpreadsheet
-  if (/\.(txt|md|pdf|docx?|rtf)\b/.test(hint)) return FileText
+  const ext = fileExtOf(f)
+  if (/^\.(xlsx?|csv)$/.test(ext)) return FileSpreadsheet
+  if (/^\.(txt|md|pdf|docx?|rtf)$/.test(ext)) return FileText
   return FileIcon
 }
 
@@ -87,6 +98,18 @@ function fileMeta(f: SopReplayFile): string {
 function openFile(f: SopReplayFile): void {
   if (f.file_url) window.open(f.file_url, '_blank', 'noopener,noreferrer')
 }
+
+// SopStepView 实例在历史回看翻步时复用（无 :key），步骤切换 = props 变化时重置所有本地视图状态，
+// 避免上一步的图片放大覆层 / 展开状态残留到下一步。
+watch(
+  () => [props.input, props.files],
+  () => {
+    previewUrl.value = null
+    textExpanded.value = false
+    expandedDocs.value = new Set()
+    failedImages.value = new Set()
+  }
+)
 </script>
 
 <template>
@@ -107,6 +130,8 @@ function openFile(f: SopReplayFile): void {
         v-if="isLongText"
         type="button"
         class="replay-input__toggle"
+        :aria-expanded="textExpanded"
+        :aria-label="textExpanded ? '收起输入文本' : '展开完整输入文本'"
         @click="textExpanded = !textExpanded"
       >
         {{ textExpanded ? '收起' : '展开全部' }}
@@ -411,8 +436,9 @@ function openFile(f: SopReplayFile): void {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  background: var(--accent-ultra-soft);
-  color: var(--accent);
+  /* 中性色调：与整卡「安静、退后」基调一致，不与 AI 输出的 accent 圆标撞色 */
+  background: var(--surface-tint);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
