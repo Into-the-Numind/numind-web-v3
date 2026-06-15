@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { splitIntoSegments } from '@/utils/agentArtifacts'
+import { splitIntoSegments, groupAdjacentImages } from '@/utils/agentArtifacts'
 import { useImagePreview } from '@/composables/useImagePreview'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
@@ -19,7 +19,9 @@ const props = withDefaults(defineProps<Props>(), {
 // (images, downloadable docs) render as cards exactly where they were written,
 // with the surrounding prose flowing above and below. Derived from the persisted
 // markdown so the cards survive reload (agent-output-polish #1/#4).
-const segments = computed(() => splitIntoSegments(props.markdown))
+// Consecutive images are coalesced into an image-group so multiple images lay out
+// as a responsive grid (#3 M1); a lone image stays a single S2 card.
+const renderSegments = computed(() => groupAdjacentImages(splitIntoSegments(props.markdown)))
 
 const { previewImageUrl, handleImageClick, closePreview } = useImagePreview()
 
@@ -57,7 +59,7 @@ const copyText = async (): Promise<void> => {
   <div class="final-answer">
     <!-- Ordered segments: prose renders as markdown in place; each COS artifact
          renders as a card sitting exactly where its link was written (#1/#4). -->
-    <template v-for="(s, i) in segments" :key="i">
+    <template v-for="(s, i) in renderSegments" :key="i">
       <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
       <div
         v-if="s.type === 'prose'"
@@ -65,6 +67,13 @@ const copyText = async (): Promise<void> => {
         v-html="s.html"
         @click="handleImageClick"
       ></div>
+      <!-- 多张图 → 自适应网格 (M1)，点任意张放大（复用 useImagePreview 的事件代理）。 -->
+      <div v-else-if="s.type === 'image-group'" class="image-grid" @click="handleImageClick">
+        <figure v-for="(ref, j) in s.refs" :key="j" class="image-grid__cell">
+          <img :src="ref.url" :alt="ref.filename" class="image-grid__img" />
+          <figcaption class="image-grid__cap">{{ ref.filename }}</figcaption>
+        </figure>
+      </div>
       <AgentArtifactItem
         v-else
         class="final-answer__artifact"
@@ -107,6 +116,40 @@ const copyText = async (): Promise<void> => {
   margin: 12px 0;
 }
 
+/* 多图自适应网格 (#3 M1)：整齐、密度高，张数多也不乱；点任意张放大。 */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  max-width: 560px;
+  margin: 12px 0;
+}
+
+.image-grid__cell {
+  margin: 0;
+}
+
+.image-grid__img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  cursor: pointer;
+  display: block;
+  background: var(--color-surface-tint, #f9fafb);
+}
+
+.image-grid__cap {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted, #8b90a0);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Markdown 分隔线 (#3, P1-B)：以前是 display:none 完全隐藏，现在用作章节之间的
    精致分隔（替代被禁用的 emoji 装饰带来的结构感）。 */
 .markdown-body :deep(hr) {
@@ -115,29 +158,43 @@ const copyText = async (): Promise<void> => {
   margin: 20px 0;
 }
 
-/* 标题分级 (#3)：h1 > h2 > h3 字号/字重/上下间距递减，建立清晰层次。第一个块
-   元素不带顶部外边距，避免回答开头多一道空白。 */
+/* 标题分级 (#4)：用「格式」区分而非夸张字号——h1/h2 走品牌衬线，与正文 sans
+   形成清晰层次；h3/h4 sans 加粗。字阶微妙（21/17.5/15/13.5），上间距随级别递减，
+   段间距也分级。第一个块元素不带顶部外边距，避免回答开头多一道空白。 */
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
-.markdown-body :deep(h3) {
+.markdown-body :deep(h3),
+.markdown-body :deep(h4) {
   color: var(--color-text, #1f2937);
   font-weight: 600;
   line-height: 1.35;
 }
 
+.markdown-body :deep(h1),
+.markdown-body :deep(h2) {
+  font-family: var(--font-heading, Georgia, 'Songti SC', serif);
+}
+
 .markdown-body :deep(h1) {
-  font-size: 20px;
-  margin: 22px 0 10px;
+  font-size: 21px;
+  margin: 24px 0 10px;
 }
 
 .markdown-body :deep(h2) {
-  font-size: 17px;
+  font-size: 17.5px;
   margin: 20px 0 8px;
 }
 
 .markdown-body :deep(h3) {
   font-size: 15px;
   margin: 16px 0 6px;
+}
+
+.markdown-body :deep(h4) {
+  font-size: 13.5px;
+  margin: 14px 0 4px;
+  color: var(--color-text-secondary, #5f6577);
+  letter-spacing: 0.01em;
 }
 
 .markdown-body :deep(:first-child) {
@@ -172,13 +229,13 @@ const copyText = async (): Promise<void> => {
   margin: 4px 0;
 }
 
-/* 引用块：左侧色条 + 柔和底色 + 略淡的正文色，与普通段落区分。 */
+/* 引用块 (#5)：柔和翠绿左条 + 极淡翠绿底，绿色系但不刺眼。 */
 .markdown-body :deep(blockquote) {
   margin: 12px 0;
   padding: 6px 14px;
-  border-left: 3px solid var(--color-border, #d1d5db);
-  background: var(--color-surface-tint, #f9fafb);
-  color: var(--color-text-muted, #4b5563);
+  border-left: 3px solid var(--color-accent-light, hsl(160, 70%, 68%));
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--color-text-secondary, #4b5563);
   border-radius: 0 6px 6px 0;
 }
 
@@ -186,12 +243,20 @@ const copyText = async (): Promise<void> => {
   margin: 4px 0;
 }
 
+/* 内联代码 (#5)：原本刺眼的红改成柔和翠绿（深翠字 + 极淡翠绿底），与品牌一致。 */
 .markdown-body :deep(code) {
-  background: #f3f4f6;
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 12px;
-  color: #b91c1c;
+  color: var(--color-primary-hover, hsl(160, 72%, 34%));
+}
+
+/* 链接 (#5)：翠绿 + 下划线，区别于正文又不抢戏。 */
+.markdown-body :deep(a) {
+  color: var(--color-accent-link, hsl(160, 75%, 38%));
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .markdown-body :deep(pre) {
@@ -217,13 +282,17 @@ const copyText = async (): Promise<void> => {
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border, #e5e7eb);
   padding: 6px 12px;
   text-align: left;
 }
 
+/* 表头 (#5)：极淡翠绿底 + 深翠字 + 翠绿淡分隔线，绿色系但克制不刺眼。 */
 .markdown-body :deep(th) {
-  background: #f9fafb;
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--color-primary-hover, hsl(160, 72%, 34%));
+  font-weight: 600;
+  border-bottom: 1px solid hsl(160, 40%, 86%);
 }
 
 .answer-actions {
@@ -250,15 +319,16 @@ const copyText = async (): Promise<void> => {
   transition: all 0.2s ease;
 }
 
+/* hover/copied (#5)：fallback 从 stale 蓝 #2563eb 改为品牌翠绿，保持色系统一。 */
 .ai-action-btn:hover {
-  color: var(--primary, #2563eb);
-  border-color: var(--primary, #2563eb);
+  color: var(--primary, hsl(160, 72%, 40%));
+  border-color: var(--primary, hsl(160, 72%, 40%));
   background: rgba(37, 167, 105, 0.04);
 }
 
 .ai-action-btn.copied {
-  color: var(--primary, #2563eb);
-  border-color: var(--primary, #2563eb);
+  color: var(--primary, hsl(160, 72%, 40%));
+  border-color: var(--primary, hsl(160, 72%, 40%));
   background: rgba(37, 167, 105, 0.08);
 }
 
