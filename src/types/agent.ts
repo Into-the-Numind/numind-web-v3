@@ -347,9 +347,11 @@ export interface RecentSession {
 // ─────────────────────────────────────────
 
 export interface UploadResponse {
-  /** COS public URL — also the canonical identity for the uploaded file
-   *  (the upload endpoint does NOT return a separate numeric id).
-   *  file_read tool ownership check parses {userID} out of the path. */
+  /** agent_attachment row id — required by capability routing (chatbot uses
+   *  attachment_ids; agent's file_read path uses url). Returned by
+   *  POST /v1/agent-attachments. */
+  id: number
+  /** COS URL — file_read tool ownership check parses {userID} out of the path. */
   url: string
   filename: string
   /** size in bytes (server returns key "size") */
