@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="login-container">
       <div class="login-header">
-        <div class="login-logo"></div>
+        <div class="login-logo">有数AI</div>
         <h1 class="login-title">欢迎回来</h1>
         <p class="login-subtitle">请登录您的账号以继续</p>
       </div>
@@ -178,13 +178,15 @@ const handleLogin = async () => {
   margin-bottom: 40px;
 }
 
+/* org-branding：登录页 logo 换成"有数AI"文字（不随机构变，登录前无机构上下文） */
 .login-logo {
-  width: 270px;
-  height: 108px;
-  background-image: url('https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/%E8%8E%AB%E5%B0%8F%E6%B4%BElogo%20%E9%BB%91%E8%89%B2.png');
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
+  font-family: var(--font-sans);
+  font-size: 42px;
+  font-weight: 800;
+  color: hsl(160, 60%, 38%);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-align: center;
   margin: 0 auto 20px;
 }
 
@@ -329,8 +331,7 @@ const handleLogin = async () => {
   }
 
   .login-logo {
-    width: 200px;
-    height: 80px;
+    font-size: 34px;
   }
 }
 </style>

@@ -31,6 +31,17 @@ export const getUserInfo = (): Promise<ApiResponse<any>> => {
   return request.get('/v1/users/me')
 }
 
+// 更新当前用户个人信息（org-branding：company_name 仅父账户可写，子账户后端忽略）
+export interface UpdateProfileParams {
+  nickname?: string
+  avatar_url?: string
+  company_name?: string
+}
+
+export const updateProfile = (data: UpdateProfileParams): Promise<ApiResponse<null>> => {
+  return request.put('/v1/users/me', data)
+}
+
 // 退出登录
 export const logout = (): Promise<ApiResponse<null>> => {
   return request.post('/v1/web/logout')

@@ -68,7 +68,26 @@
             <div class="row-label">用户 ID</div>
             <div class="row-value row-value-mono">{{ displayId }}</div>
           </div>
+          <!-- org-branding：公司名称编辑，仅父账户可见可改；子账户继承父账户名称，无此项 -->
+          <div v-if="userStore.isParentUser" class="settings-row">
+            <div class="row-label">公司名称</div>
+            <div class="row-value">
+              <input
+                v-model="companyNameInput"
+                class="company-input"
+                type="text"
+                maxlength="100"
+                placeholder="未设置时显示 有数AI"
+                :disabled="savingCompany"
+                @blur="saveCompanyName"
+                @keyup.enter="blurActiveInput"
+              />
+            </div>
+          </div>
         </div>
+        <p v-if="userStore.isParentUser" class="settings-hint">
+          公司名称将显示在左上角，机构下所有成员可见；留空则显示"有数AI"。
+        </p>
       </div>
 
       <!-- Section: 会员信息 -->
@@ -160,7 +179,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
 import { useNotificationsStore } from '@/stores/notifications'
-import { getUserInfo } from '@/api/auth'
+import { getUserInfo, updateProfile } from '@/api/auth'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
 import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
@@ -175,6 +194,11 @@ const notifications = useNotificationsStore()
 // Raw data from API
 const userData = ref<Record<string, any>>({})
 const loading = ref(true)
+
+// org-branding：公司名称编辑态（仅父账户）
+const companyNameInput = ref('')
+const originalCompany = ref('')
+const savingCompany = ref(false)
 
 // Confirm dialog
 const confirmVisible = ref(false)
@@ -225,11 +249,51 @@ const fetchData = async () => {
     const res = await getUserInfo()
     if (res.code === 200 || res.code === 0) {
       userData.value = res.data || {}
+      // org-branding：初始化公司名输入框（父账户用自己的值）
+      const cn = (userData.value.company_name || '').trim()
+      companyNameInput.value = cn
+      originalCompany.value = cn
     }
   } catch (error) {
     console.error('获取用户信息失败:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// org-branding：保存公司名称（blur 触发，符合 ui-ux 校验在 blur 的硬规则）
+const blurActiveInput = (e: Event) => {
+  ;(e.target as HTMLInputElement)?.blur()
+}
+
+const saveCompanyName = async () => {
+  const next = companyNameInput.value.trim()
+  companyNameInput.value = next
+  // 无变化则不提交
+  if (next === originalCompany.value) return
+  if (next.length > 100) {
+    notifications.error('公司名称不能超过 100 个字符')
+    companyNameInput.value = originalCompany.value
+    return
+  }
+  savingCompany.value = true
+  try {
+    const res = await updateProfile({ company_name: next })
+    if (res.code === 200 || res.code === 0) {
+      originalCompany.value = next
+      // 刷新用户信息 → 左上角侧边栏品牌名同步更新
+      await userStore.fetchUserInfo()
+      notifications.success(next ? '公司名称已更新' : '已清空公司名称，将显示"有数AI"')
+    } else {
+      notifications.error(res.message || res.msg || '保存失败')
+      companyNameInput.value = originalCompany.value
+    }
+  } catch (err: any) {
+    console.error('保存公司名称失败:', err)
+    notifications.error(err?.message || '网络错误，请稍后重试')
+    companyNameInput.value = originalCompany.value
+  } finally {
+    savingCompany.value = false
   }
 }
 
@@ -388,6 +452,40 @@ onMounted(() => {
   font-family: var(--font-mono, monospace);
   font-size: 13px;
   color: #6b7085;
+}
+
+/* org-branding：公司名称内联编辑输入框 */
+.company-input {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: #1a1d26;
+  text-align: right;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 4px 10px;
+  background: #f5f6f8;
+  outline: none;
+  min-width: 200px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.company-input:focus {
+  border-color: #10b981;
+  background: #ffffff;
+}
+
+.company-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: #8b90a0;
+  margin: 8px 4px 0;
+  line-height: 1.5;
 }
 
 .row-chevron {
