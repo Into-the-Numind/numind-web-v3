@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import type { ChatbotSession, ChatbotMessage, ChatbotConfig, ChatbotEvent } from '@/types/config'
 import {
   listVisibleChatbots,
@@ -11,8 +11,17 @@ import {
   renameChatbotSession,
   pinChatbotSession
 } from '@/api/chatbot'
+import { uploadAttachment } from '@/api/agent'
 import { useLLMModelStore } from '@/stores/llmModel'
 import { useNotificationsStore } from '@/stores/notifications'
+
+/** A staged image attachment awaiting send (chatbot-image-recognition). */
+interface StagedImage {
+  id: number
+  filename: string
+  mimeType: string
+  previewUrl: string
+}
 
 let nextLocalId = -1
 
@@ -31,6 +40,13 @@ export const useChatbotStore = defineStore('chatbot', () => {
   const messages = ref<ChatbotMessage[]>([])
   const messagesLoading = ref(false)
   const streaming = ref(false)
+
+  // Image attachments staged for the next message (chatbot-image-recognition).
+  // Uploaded eagerly to /v1/agent-attachments; only their ids ride along the
+  // chat request. previewUrl is a local blob for the input-strip thumbnail.
+  const imageAttachments = ref<StagedImage[]>([])
+  const uploadingImages = ref(0)
+  const isUploadingImages = computed(() => uploadingImages.value > 0)
 
   // Stream state
   const streamContent = ref('')
@@ -147,6 +163,43 @@ export const useChatbotStore = defineStore('chatbot', () => {
     }
   }
 
+  // ==================== Image attachments ====================
+
+  /** Upload one image to /v1/agent-attachments and stage its id + thumbnail. */
+  async function uploadImage(file: File) {
+    const previewUrl = URL.createObjectURL(file)
+    uploadingImages.value++
+    try {
+      const res = await uploadAttachment(file)
+      imageAttachments.value.push({
+        id: res.id,
+        filename: res.filename,
+        mimeType: res.mime_type,
+        previewUrl
+      })
+    } catch (e) {
+      URL.revokeObjectURL(previewUrl)
+      console.error('[chatbot] uploadImage failed:', e)
+      useNotificationsStore().warning('图片上传失败，请重试')
+    } finally {
+      uploadingImages.value--
+    }
+  }
+
+  function removeImage(id: number) {
+    const idx = imageAttachments.value.findIndex((i) => i.id === id)
+    if (idx >= 0) {
+      URL.revokeObjectURL(imageAttachments.value[idx].previewUrl)
+      imageAttachments.value.splice(idx, 1)
+    }
+  }
+
+  /** Revoke blob URLs and clear the staging area (ids already captured by caller). */
+  function clearImageAttachments() {
+    imageAttachments.value.forEach((i) => URL.revokeObjectURL(i.previewUrl))
+    imageAttachments.value = []
+  }
+
   // ==================== Chat Streaming ====================
 
   async function sendMessage(text: string) {
@@ -155,7 +208,12 @@ export const useChatbotStore = defineStore('chatbot', () => {
 
     const sessionId = currentSession.value.id
 
-    // Append optimistic user message
+    // Capture staged image attachments before clearing.
+    const stagedImages = imageAttachments.value
+    const attachmentIds = stagedImages.map((i) => i.id)
+
+    // Append optimistic user message (attachments shown as filename chips,
+    // matching reload display).
     const userMsg: ChatbotMessage = {
       id: nextLocalId--,
       session_id: sessionId,
@@ -165,9 +223,13 @@ export const useChatbotStore = defineStore('chatbot', () => {
       seq: 0,
       prompt_tokens: 0,
       completion_tokens: 0,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      attachments: stagedImages.length
+        ? stagedImages.map((i) => ({ id: i.id, filename: i.filename, mime_type: i.mimeType }))
+        : undefined
     }
     messages.value.push(userMsg)
+    clearImageAttachments()
 
     // Prepare streaming state
     streaming.value = true
@@ -218,7 +280,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
         },
         controller.signal,
         selectedModelKey || undefined,
-        thinkingEnabled
+        thinkingEnabled,
+        attachmentIds.length ? attachmentIds : undefined
       )
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== 'AbortError') {
@@ -327,6 +390,10 @@ export const useChatbotStore = defineStore('chatbot', () => {
     streamThinkingContent.value = ''
     streamStatus.value = ''
     streamError.value = ''
+    // Release staged image blob URLs + reset the in-flight counter so a route
+    // switch with un-sent images doesn't leak blobs or wedge isUploadingImages.
+    clearImageAttachments()
+    uploadingImages.value = 0
   }
 
   return {
@@ -345,6 +412,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
     streamThinkingContent,
     streamStatus,
     streamError,
+    imageAttachments,
+    isUploadingImages,
 
     // Actions
     fetchVisibleChatbots,
@@ -355,6 +424,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
     switchSession,
     fetchMessages,
     sendMessage,
+    uploadImage,
+    removeImage,
     renameSession,
     togglePin,
     cancelStream,

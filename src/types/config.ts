@@ -100,6 +100,12 @@ export interface ChatbotSession {
   updated_at: string
 }
 
+export interface ChatbotMessageAttachment {
+  id: number
+  filename: string
+  mime_type: string
+}
+
 export interface ChatbotMessage {
   id: number
   session_id: number
@@ -110,6 +116,8 @@ export interface ChatbotMessage {
   prompt_tokens: number
   completion_tokens: number
   created_at: string
+  /** 用户消息携带的图片附件引用（chatbot-image-recognition）；仅展示文件名 chip。 */
+  attachments?: ChatbotMessageAttachment[]
 }
 
 // ==================== SSE Event ====================

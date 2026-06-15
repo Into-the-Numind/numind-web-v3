@@ -11,6 +11,7 @@ import {
   Paperclip,
   X,
   FileText,
+  ImageIcon,
   Loader2,
   Copy,
   Check,
@@ -72,8 +73,14 @@ const loadMoreSessions = (): Promise<void> => store.loadMoreSessions(chatbotId.v
 const canSend = computed(() => {
   const hasText = draftText.value.trim().length > 0
   const hasSuccessfulUploads = docUpload.items.value.some((i) => i.status === 'success')
-  // P0: 阻止在任何文件仍在解析中时发送——避免竞态导致上传中的文件被静默丢弃
-  return (hasText || hasSuccessfulUploads) && !store.streaming && !docUpload.isUploading.value
+  const hasImages = store.imageAttachments.length > 0
+  // P0: 阻止在任何文件（文档或图片）仍在上传中时发送——避免竞态导致附件被静默丢弃
+  return (
+    (hasText || hasSuccessfulUploads || hasImages) &&
+    !store.streaming &&
+    !docUpload.isUploading.value &&
+    !store.isUploadingImages
+  )
 })
 
 const inputBudget = computed(() => getInputBudgetState(draftText.value))
@@ -279,11 +286,39 @@ function triggerFileInput() {
 
 const uploadWarning = ref('')
 
+// routeFiles splits a selection: images go to the backend vision pipeline
+// (store.uploadImage → /v1/agent-attachments → attachment_ids), everything else
+// stays on the existing doc text-extraction path (docUpload).
+const MAX_IMAGES = 5
+
+async function routeFiles(files: FileList | File[]) {
+  const arr = Array.from(files)
+  const images = arr.filter((f) => f.type.startsWith('image/'))
+  const docs = arr.filter((f) => !f.type.startsWith('image/'))
+
+  // Cap staged images at MAX_IMAGES (spec §4.1).
+  const room = Math.max(0, MAX_IMAGES - store.imageAttachments.length)
+  const acceptedImages = images.slice(0, room)
+  if (images.length > acceptedImages.length) {
+    uploadWarning.value = `最多上传 ${MAX_IMAGES} 张图片，已忽略 ${images.length - acceptedImages.length} 张`
+    setTimeout(() => {
+      uploadWarning.value = ''
+    }, 3000)
+  }
+  // Serial upload preserves selection order in the preview strip.
+  for (const img of acceptedImages) {
+    await store.uploadImage(img)
+  }
+  if (docs.length > 0) {
+    const result = await docUpload.handleFiles(docs)
+    showUploadWarning(result)
+  }
+}
+
 async function handleFileInputChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (input.files && input.files.length > 0) {
-    const result = await docUpload.handleFiles(input.files)
-    showUploadWarning(result)
+    await routeFiles(input.files)
   }
   // Reset so same file can be re-selected
   input.value = ''
@@ -302,8 +337,7 @@ async function handleDrop(e: DragEvent) {
   isDragging.value = false
   const droppedFiles = e.dataTransfer?.files
   if (droppedFiles && droppedFiles.length > 0) {
-    const result = await docUpload.handleFiles(droppedFiles)
-    showUploadWarning(result)
+    await routeFiles(droppedFiles)
   }
 }
 
@@ -317,7 +351,12 @@ function handleSend() {
 }
 
 function performSend() {
-  const text = docUpload.compose(draftText.value.trim())
+  let text = docUpload.compose(draftText.value.trim())
+  // Image-only send (no text, no docs): provide a default prompt so the backend
+  // message (required) is non-empty and the vision model has something to answer.
+  if (!text && store.imageAttachments.length > 0) {
+    text = '请帮我看看这张图片'
+  }
   draftText.value = ''
   docUpload.clearItems()
   nextTick(autoResize)
@@ -340,8 +379,7 @@ async function handlePaste(e: ClipboardEvent) {
   const clipboardFiles = e.clipboardData?.files
   if (clipboardFiles && clipboardFiles.length > 0) {
     e.preventDefault()
-    const result = await docUpload.handleFiles(clipboardFiles)
-    showUploadWarning(result)
+    await routeFiles(clipboardFiles)
   }
 }
 
@@ -623,6 +661,26 @@ function handleDocClick(e: MouseEvent) {
                           </span>
                         </span>
                       </div>
+                      <!-- Image attachments (chatbot-image-recognition) -->
+                      <div
+                        v-if="msg.attachments && msg.attachments.length > 0"
+                        class="msg-attachments"
+                        :class="{ 'no-text': !getDisplayText(msg.content) }"
+                      >
+                        <span
+                          v-for="att in msg.attachments"
+                          :key="att.id"
+                          class="msg-attachment-card"
+                        >
+                          <ImageIcon :size="16" class="msg-attachment-icon" />
+                          <span class="msg-attachment-meta">
+                            <span class="msg-attachment-name" :title="att.filename">{{
+                              att.filename
+                            }}</span>
+                            <span class="msg-attachment-kind">图片</span>
+                          </span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <!-- Assistant: bubble + actions row -->
@@ -744,7 +802,7 @@ function handleDocClick(e: MouseEvent) {
             <input
               ref="fileInputRef"
               type="file"
-              accept=".txt,.md,.pdf,.doc,.docx"
+              accept=".txt,.md,.pdf,.doc,.docx,image/*"
               multiple
               style="display: none"
               @change="handleFileInputChange"
@@ -782,6 +840,26 @@ function handleDocClick(e: MouseEvent) {
                 >
                   <X :size="12" />
                 </button>
+              </div>
+            </div>
+
+            <!-- Image attachment thumbnails (chatbot-image-recognition) -->
+            <div
+              v-if="store.imageAttachments.length > 0 || store.isUploadingImages"
+              class="image-strip"
+            >
+              <div v-for="img in store.imageAttachments" :key="img.id" class="image-thumb">
+                <img :src="img.previewUrl" :alt="img.filename" class="image-thumb-img" />
+                <button
+                  class="image-thumb-remove"
+                  :title="`移除 ${img.filename}`"
+                  @click="store.removeImage(img.id)"
+                >
+                  <X :size="11" />
+                </button>
+              </div>
+              <div v-if="store.isUploadingImages" class="image-thumb image-thumb-loading">
+                <Loader2 :size="18" class="u-spin" />
               </div>
             </div>
 
@@ -2020,6 +2098,59 @@ body.chatbot-chat-route #app {
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 0;
+}
+
+/* ===== Image attachment thumbnails (chatbot-image-recognition) ===== */
+.image-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.image-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  background: hsla(160, 30%, 96%, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-thumb-loading {
+  color: var(--text-secondary);
+}
+
+.image-thumb-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.image-thumb-remove:hover {
+  background: rgba(0, 0, 0, 0.75);
 }
 
 .attachment-item {
