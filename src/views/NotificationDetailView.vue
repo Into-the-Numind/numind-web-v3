@@ -110,7 +110,8 @@ async function reload() {
   if (!id || isNaN(id)) return
   await store.loadDetail(id)
   // 加载成功（拿到详情且 id 一致）后标记已读 —— 更新铃铛红点。
-  if (store.current && store.current.id === id) {
+  // 已读项重新打开时跳过 POST /read（服务端幂等，这里省一次无谓请求）。
+  if (store.current && store.current.id === id && !store.current.is_read) {
     store.markRead(id)
   }
 }

@@ -41,7 +41,8 @@ import { useRoute } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
 import { useAnnouncementsStore } from '@/stores/announcements'
 
-const props = withDefaults(defineProps<{ collapsed?: boolean }>(), {
+// collapsed 仅在模板里通过 :data-tooltip 使用（编译期自动解析），脚本无需引用，故不捕获返回值。
+withDefaults(defineProps<{ collapsed?: boolean }>(), {
   collapsed: false
 })
 
@@ -72,9 +73,6 @@ onUnmounted(() => {
     timer = null
   }
 })
-
-// props.collapsed 在模板里通过 data-tooltip 使用；显式引用避免 lint 未使用告警。
-void props
 </script>
 
 <style scoped>

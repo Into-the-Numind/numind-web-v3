@@ -56,6 +56,14 @@ describe('SurveyFillForm', () => {
     expect(wrapper.find('[data-testid="survey-error-4"]').exists()).toBe(true)
   })
 
+  it('required 星级题未评分时提交被拦截，不 emit submit 且显示评分错误', async () => {
+    const wrapper = mount(SurveyFillForm, { props: { questions: [ratingStarQ] } })
+    await wrapper.find('[data-testid="survey-form"]').trigger('submit')
+
+    expect(wrapper.emitted('submit')).toBeFalsy()
+    expect(wrapper.find('[data-testid="survey-error-3"]').exists()).toBe(true)
+  })
+
   it('各题型完整作答后 emit 形状正确的 answers', async () => {
     const wrapper = mount(SurveyFillForm, {
       props: { questions: [singleQ, multiQ, ratingStarQ, textQ] }
