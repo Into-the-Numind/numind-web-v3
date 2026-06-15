@@ -5,7 +5,12 @@
  * the prose untouched.
  */
 import { describe, it, expect } from 'vitest'
-import { extractArtifacts, splitIntoSegments } from '../agentArtifacts'
+import {
+  extractArtifacts,
+  splitIntoSegments,
+  groupAdjacentImages,
+  type Segment
+} from '../agentArtifacts'
 
 // A presigned COS image URL (signature query suffix must be ignored).
 const COS_IMG =
@@ -20,13 +25,15 @@ describe('extractArtifacts — COS images & downloads', () => {
     const { prose, artifacts } = extractArtifacts(md)
 
     expect(artifacts).toHaveLength(2)
+    // #2: the display name is the markdown alt / link text the LLM wrote ("图表",
+    // "下载报告"), not the COS object-key tail (chart.png / report.docx).
     expect(artifacts[0]).toEqual({
-      filename: 'chart.png',
+      filename: '图表',
       url: COS_IMG,
       mime: 'image/png'
     })
     expect(artifacts[1]).toEqual({
-      filename: 'report.docx',
+      filename: '下载报告',
       url: COS_DOCX,
       mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     })
@@ -91,7 +98,7 @@ describe('extractArtifacts — mixed content', () => {
     const { prose, artifacts } = extractArtifacts(md)
 
     expect(artifacts).toHaveLength(2)
-    expect(artifacts.map((a) => a.filename)).toEqual(['chart.png', 'report.docx'])
+    expect(artifacts.map((a) => a.filename)).toEqual(['趋势图', '下载报告'])
 
     // COS nodes gone from prose
     expect(prose).not.toContain(COS_IMG)
@@ -134,9 +141,10 @@ describe('extractArtifacts — mime inference per extension', () => {
     ['a.csv', false, 'text/csv', 'csv']
   ]
 
+  // Empty alt/link-text → filename falls back to the URL filename (#2 fallback path).
   it.each(cases)('⑤ %s infers the right mime', (name, isImageNode, expectedMime) => {
     const url = cos(name)
-    const md = isImageNode ? `![x](${url})` : `[x](${url})`
+    const md = isImageNode ? `![](${url})` : `[](${url})`
     const { artifacts } = extractArtifacts(md)
     expect(artifacts).toHaveLength(1)
     expect(artifacts[0].mime).toBe(expectedMime)
@@ -182,7 +190,7 @@ describe('splitIntoSegments — in-place artifact cards (#1/#4)', () => {
     const card = segs[1]
     expect(card.type).toBe('artifact')
     if (card.type === 'artifact') {
-      expect(card.ref.filename).toBe('report.docx')
+      expect(card.ref.filename).toBe('报告') // #2: link text, not report.docx
       expect(card.ref.url).toBe(COS_DOCX)
       expect(card.ref.mime).toBe(
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -203,7 +211,7 @@ describe('splitIntoSegments — in-place artifact cards (#1/#4)', () => {
     expect(segs.map((s) => s.type)).toEqual(['prose', 'artifact'])
     const card = segs[1]
     if (card.type === 'artifact') {
-      expect(card.ref.filename).toBe('chart.png')
+      expect(card.ref.filename).toBe('趋势图') // #2: alt text, not chart.png
       expect(card.ref.mime).toBe('image/png')
     }
   })
@@ -250,7 +258,7 @@ describe('splitIntoSegments — in-place artifact cards (#1/#4)', () => {
     const filenames = segs
       .filter((s): s is { type: 'artifact'; ref: { filename: string } } => s.type === 'artifact')
       .map((s) => s.ref.filename)
-    expect(filenames).toEqual(['chart.png', 'report.docx'])
+    expect(filenames).toEqual(['趋势图', '下载报告'])
   })
 
   it('④ a standalone third-party link line is NOT split — it stays prose', () => {
@@ -278,5 +286,91 @@ describe('splitIntoSegments — in-place artifact cards (#1/#4)', () => {
     const segs = splitIntoSegments('# 标题\n\n一段正文。')
     expect(segs).toHaveLength(1)
     expect(segs[0].type).toBe('prose')
+  })
+})
+
+describe('display name from markdown text/alt (#2)', () => {
+  const cos = (name: string) =>
+    `https://b.cos.ap-shanghai.myqcloud.com/agent-outputs/run9/${name}?q-sign-time=1`
+
+  it('image alt is preferred over the URL filename (both extract + split paths)', () => {
+    const url = cos('image-20260616-183647.png')
+    const md = `![销售漏斗图](${url})`
+    // extractArtifacts path
+    expect(extractArtifacts(md).artifacts[0].filename).toBe('销售漏斗图')
+    // splitIntoSegments / standaloneArtifactOf path
+    const seg = splitIntoSegments(md)[0]
+    expect(seg.type).toBe('artifact')
+    if (seg.type === 'artifact') expect(seg.ref.filename).toBe('销售漏斗图')
+  })
+
+  it('link text is preferred over the URL filename for a doc', () => {
+    const url = cos('20260615-py-______.docx')
+    const md = `[行业定位分析报告](${url})`
+    expect(extractArtifacts(md).artifacts[0].filename).toBe('行业定位分析报告')
+  })
+
+  it('empty alt falls back to the URL filename', () => {
+    const url = cos('image-20260616-183647.png')
+    expect(extractArtifacts(`![](${url})`).artifacts[0].filename).toBe('image-20260616-183647.png')
+  })
+
+  it('whitespace-only alt falls back to the URL filename', () => {
+    const url = cos('report.pdf')
+    expect(extractArtifacts(`[   ](${url})`).artifacts[0].filename).toBe('report.pdf')
+  })
+})
+
+describe('groupAdjacentImages — coalesce consecutive images into a grid (#3 M1)', () => {
+  const imgRef = (n: number) => ({
+    filename: `图${n}`,
+    url: `https://b.cos.ap-shanghai.myqcloud.com/agent-outputs/r/${n}.png`,
+    mime: 'image/png'
+  })
+  const docRef = {
+    filename: '报告',
+    url: 'https://b.cos.ap-shanghai.myqcloud.com/agent-outputs/r/a.docx',
+    mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  }
+  const prose = (html: string): Segment => ({ type: 'prose', html })
+  const art = (ref: ReturnType<typeof imgRef> | typeof docRef): Segment => ({
+    type: 'artifact',
+    ref
+  })
+
+  it('3 consecutive images → one image-group with all 3 refs', () => {
+    const out = groupAdjacentImages([art(imgRef(1)), art(imgRef(2)), art(imgRef(3))])
+    expect(out).toHaveLength(1)
+    expect(out[0].type).toBe('image-group')
+    if (out[0].type === 'image-group') expect(out[0].refs).toHaveLength(3)
+  })
+
+  it('a single image stays an artifact (rendered as an S2 card, not a grid)', () => {
+    const out = groupAdjacentImages([art(imgRef(1))])
+    expect(out).toHaveLength(1)
+    expect(out[0].type).toBe('artifact')
+  })
+
+  it('image, prose, image → two separate artifacts (real prose breaks the run)', () => {
+    const out = groupAdjacentImages([art(imgRef(1)), prose('<p>x</p>'), art(imgRef(2))])
+    expect(out.map((s) => s.type)).toEqual(['artifact', 'prose', 'artifact'])
+  })
+
+  it('two images then a doc → image-group(2) + the doc as its own artifact', () => {
+    const out = groupAdjacentImages([art(imgRef(1)), art(imgRef(2)), art(docRef)])
+    expect(out.map((s) => s.type)).toEqual(['image-group', 'artifact'])
+    if (out[0].type === 'image-group') expect(out[0].refs).toHaveLength(2)
+  })
+
+  it('a doc never joins an image-group', () => {
+    const out = groupAdjacentImages([art(docRef), art(imgRef(1)), art(imgRef(2))])
+    // doc first (alone) → artifact; then the two images group
+    expect(out.map((s) => s.type)).toEqual(['artifact', 'image-group'])
+  })
+
+  it('prose passes through unchanged; empty input → empty array', () => {
+    expect(groupAdjacentImages([])).toEqual([])
+    const p = prose('<p>hi</p>')
+    expect(groupAdjacentImages([p])).toEqual([p])
   })
 })
