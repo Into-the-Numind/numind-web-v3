@@ -73,17 +73,25 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
     }
   }
 
-  /** 标记已读 —— 用响应的未读计数更新红点，并乐观更新列表项 is_read */
+  /** 标记已读 —— 乐观更新列表项 / 当前详情的 is_read，成功后用响应的未读计数更新红点；失败则回滚 */
   async function markRead(id: number) {
+    // 先捕获改动前的状态，便于失败时精确回滚
+    const item = list.value.find((a) => a.id === id)
+    const prevItemRead = item?.is_read
+    const syncCurrent = current.value != null && current.value.id === id
+    const prevCurrentRead = syncCurrent ? current.value!.is_read : undefined
+
+    // 乐观更新
+    if (item) item.is_read = true
+    if (syncCurrent) current.value!.is_read = true
+
     try {
       const resp = await markAnnouncementRead(id)
       unreadCount.value = resp.unread_count
-      // 乐观更新列表中对应项的已读态
-      const item = list.value.find((a) => a.id === id)
-      if (item) item.is_read = true
-      // 同步当前详情（若正打开同一条）
-      if (current.value && current.value.id === id) current.value.is_read = true
     } catch (e) {
+      // 回滚乐观更新，保持铃铛红点与列表/详情一致（unreadCount 未被触碰，无需回滚）
+      if (item && prevItemRead !== undefined) item.is_read = prevItemRead
+      if (syncCurrent && prevCurrentRead !== undefined) current.value!.is_read = prevCurrentRead
       console.error('[announcements] markRead failed:', e)
     }
   }

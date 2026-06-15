@@ -93,6 +93,37 @@ describe('announcements store', () => {
     expect(store.unreadCount).toBe(0) // 来自响应
   })
 
+  it('markRead 失败回滚乐观更新', async () => {
+    const list: api.AnnouncementBrief[] = [
+      {
+        id: 7,
+        type: 'plain',
+        title: '公告 B',
+        content: '内容',
+        is_important: false,
+        published_at: '2026-06-16T00:00:00Z',
+        expires_at: null,
+        is_read: false,
+        is_survey_submitted: false
+      }
+    ]
+    mockedApi.fetchAnnouncements.mockResolvedValue({ list, total: 1, unread_count: 1 })
+    mockedApi.markAnnouncementRead.mockRejectedValue(new Error('network down'))
+
+    const store = useAnnouncementsStore()
+    await store.loadAnnouncements({ page: 1, page_size: 20 })
+    expect(store.list[0].is_read).toBe(false)
+    expect(store.unreadCount).toBe(1)
+
+    await store.markRead(7)
+
+    expect(mockedApi.markAnnouncementRead).toHaveBeenCalledWith(7)
+    // 乐观更新已回滚：列表项 is_read 仍为 false
+    expect(store.list[0].is_read).toBe(false)
+    // unreadCount 未受失败影响，保持原值
+    expect(store.unreadCount).toBe(1)
+  })
+
   it('submitSurvey 成功后将 current.is_survey_submitted 置 true', async () => {
     const detail: api.AnnouncementDetail = {
       id: 9,

@@ -59,8 +59,9 @@ export interface SubmitResp {
 }
 
 // ==================== API Functions ====================
-// request 响应拦截器在 code 0/200 时直接返回整个 {code,message,data} 包体，
-// 内层业务数据在 `.data` 字段下，故各 wrapper 取 (res as any).data。
+// request 响应拦截器在 code 0/200 时直接返回 envelope 对象本身（{code,message,data}），
+// 不是 AxiosResponse；业务载荷在该 envelope 的 `.data` 字段下。
+// 故各 wrapper 取 (res as any)?.data —— 用可选链兜底拦截器 HTML-fallback 路径返回 undefined 的情况（对齐 sales.ts）。
 
 /** GET /v1/announcements?page&page_size — 公告列表（含未读计数） */
 export const fetchAnnouncements = async (params: {
@@ -68,29 +69,29 @@ export const fetchAnnouncements = async (params: {
   page_size: number
 }): Promise<AnnouncementListResp> => {
   const res = await request.get('/v1/announcements', { params })
-  return (res as any).data as AnnouncementListResp
+  return (res as any)?.data as AnnouncementListResp
 }
 
 /** GET /v1/announcements/unread-count — 轻量未读计数（铃铛轮询用） */
 export const fetchUnreadCount = async (): Promise<UnreadCountResp> => {
   const res = await request.get('/v1/announcements/unread-count')
-  return (res as any).data as UnreadCountResp
+  return (res as any)?.data as UnreadCountResp
 }
 
 /** GET /v1/announcements/:id — 公告详情（不改已读状态） */
 export const fetchAnnouncementDetail = async (id: number): Promise<AnnouncementDetail> => {
   const res = await request.get(`/v1/announcements/${id}`)
-  return (res as any).data as AnnouncementDetail
+  return (res as any)?.data as AnnouncementDetail
 }
 
 /** POST /v1/announcements/:id/read — 标记已读（幂等），返回最新未读计数 */
 export const markAnnouncementRead = async (id: number): Promise<UnreadCountResp> => {
   const res = await request.post(`/v1/announcements/${id}/read`)
-  return (res as any).data as UnreadCountResp
+  return (res as any)?.data as UnreadCountResp
 }
 
 /** POST /v1/announcements/:id/survey/submit — 提交问卷答卷 */
 export const submitSurvey = async (id: number, answers: SubmitAnswer[]): Promise<SubmitResp> => {
   const res = await request.post(`/v1/announcements/${id}/survey/submit`, { answers })
-  return (res as any).data as SubmitResp
+  return (res as any)?.data as SubmitResp
 }
