@@ -419,7 +419,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 .question-prompt__answered-badge {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 .question-prompt__answered-peek {
   font-size: 12px;
@@ -501,11 +501,11 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 }
 
 .question-prompt__tab:hover:not(:disabled) {
-  border-color: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__tab.is-answered {
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__tab.is-current {

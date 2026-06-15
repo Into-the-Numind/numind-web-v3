@@ -4,7 +4,7 @@
  * 职责：
  * - currentAgent / currentRun / messages 的中心化
  * - narration 事件累积 + stuck 检测
- * - run lifecycle actions（create / poll / cancel / extend / feedback）
+ * - run lifecycle actions（create / poll / cancel / extend）
  * - 历史会话恢复（loadSessionSnapshot）
  * - 流式事件处理（applyStreamEvent / applyError）— T10
  * - reset() 完整清理 16 个 ref 字段
