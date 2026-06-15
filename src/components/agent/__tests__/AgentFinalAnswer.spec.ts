@@ -137,4 +137,38 @@ describe('AgentFinalAnswer', () => {
     // no inline COS <img> in the markdown body — it became a card instead
     expect(body.find('img').exists()).toBe(false)
   })
+
+  it('renders rich markdown structure (headings/list/blockquote/hr) without breaking (#3)', () => {
+    const markdown = [
+      '# 一级标题',
+      '## 二级标题',
+      '正文 **加粗** 段落。',
+      '',
+      '- 列表项一',
+      '- 列表项二',
+      '',
+      '> 引用块内容',
+      '',
+      '---',
+      '',
+      '结尾段落。'
+    ].join('\n')
+
+    const wrapper = mount(AgentFinalAnswer, {
+      props: { markdown },
+      global: { stubs: { AgentFeedbackBar: true, AgentImagePreview: true } }
+    })
+
+    const body = wrapper.find('.markdown-body')
+    expect(body.exists()).toBe(true)
+    // structure survives the render pipeline (the polish is CSS-only, so the DOM
+    // shape must be intact for the styling to land)
+    expect(body.find('h1').exists()).toBe(true)
+    expect(body.find('h2').exists()).toBe(true)
+    expect(body.find('strong').exists()).toBe(true)
+    expect(body.findAll('li')).toHaveLength(2)
+    expect(body.find('blockquote').exists()).toBe(true)
+    // hr renders (previously display:none — P1-B made it a real divider)
+    expect(body.find('hr').exists()).toBe(true)
+  })
 })
