@@ -126,7 +126,7 @@ const resolvedAnswer = (i: number): string => {
 // displayAnswer feeds the answered (read-only) recap. On a RELOADED session the
 // live `state` is empty, but the backend reconstructs the card with each
 // question's actual answer (issue1: questions[i].answer); prefer it. In-session
-// (just answered, no reload) props.answer is absent so the live state applies.
+// (just answered, no reload) questions[i].answer is absent so the live state applies.
 // Returns '' when neither is available (a legacy pre-issue1 reloaded card) so the
 // template can fall back to a neutral "已回答" marker.
 const displayAnswer = (i: number): string => props.questions[i]?.answer?.trim() || resolvedAnswer(i)
