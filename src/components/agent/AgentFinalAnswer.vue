@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
+import { extractArtifacts } from '@/utils/agentArtifacts'
 import { useImagePreview } from '@/composables/useImagePreview'
 import AgentFeedbackBar from './AgentFeedbackBar.vue'
+import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
 import { Copy, Check } from 'lucide-vue-next'
 
@@ -19,7 +21,12 @@ const props = withDefaults(defineProps<Props>(), {
   initialNote: ''
 })
 
-const html = computed<string>(() => renderMarkdown(props.markdown))
+// Lift COS-generated artifacts (images, downloadable docs) out of the markdown
+// into prominent cards; the remaining prose renders as markdown. Derived from the
+// persisted markdown so the cards survive reload (agent-output-polish #2a).
+const extracted = computed(() => extractArtifacts(props.markdown))
+const html = computed<string>(() => renderMarkdown(extracted.value.prose))
+const artifacts = computed(() => extracted.value.artifacts)
 
 const { previewImageUrl, handleImageClick, closePreview } = useImagePreview()
 
@@ -57,6 +64,17 @@ const copyText = async (): Promise<void> => {
   <div class="final-answer">
     <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
     <div class="markdown-body" v-html="html" @click="handleImageClick"></div>
+
+    <!-- COS-generated artifacts (images / downloadable docs) lifted out of the
+         prose and rendered as prominent cards (#2a). -->
+    <div v-if="artifacts.length" class="final-answer__artifacts">
+      <AgentArtifactItem
+        v-for="(a, i) in artifacts"
+        :key="i"
+        :artifact="{ id: i, filename: a.filename, url: a.url, mime: a.mime }"
+      />
+    </div>
+
     <div class="feedback-section">
       <div class="feedback-left">
         <AgentFeedbackBar
@@ -97,6 +115,14 @@ const copyText = async (): Promise<void> => {
   font-size: 14px;
   line-height: 1.7;
   color: var(--color-text, #1f2937);
+}
+
+/* Artifact cards lifted out of the prose (#2a) */
+.final-answer__artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* Markdown 分割线：AI/用户输出的横向分割线在前端完全隐藏 */

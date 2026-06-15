@@ -94,4 +94,47 @@ describe('AgentFinalAnswer', () => {
     // 放大预览里有一个独立的下载按钮
     expect(wrapper.find('.download-btn').exists()).toBe(true)
   })
+
+  it('renders COS-generated image + docx as artifact cards, dropping them from the prose (#2a)', () => {
+    const cosImg =
+      'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/run1/chart.png?q-sign-time=1'
+    const cosDocx =
+      'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/run1/report.docx?q-sign-time=1'
+    const markdown = `# 分析结论\n\n核心见下图。\n\n![趋势图](${cosImg})\n\n[下载报告](${cosDocx})`
+
+    const wrapper = mount(AgentFinalAnswer, {
+      props: { markdown },
+      global: {
+        stubs: {
+          AgentFeedbackBar: true,
+          AgentImagePreview: true,
+          // stub the artifact card so we can inspect its props directly
+          AgentArtifactItem: {
+            props: ['artifact'],
+            template:
+              '<div class="stub-artifact" :data-mime="artifact.mime">{{ artifact.filename }}</div>'
+          }
+        }
+      }
+    })
+
+    // two artifact cards, in document order
+    const cards = wrapper.findAll('.stub-artifact')
+    expect(cards).toHaveLength(2)
+    expect(cards[0].text()).toBe('chart.png')
+    expect(cards[0].attributes('data-mime')).toBe('image/png')
+    expect(cards[1].text()).toBe('report.docx')
+    expect(cards[1].attributes('data-mime')).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+
+    // prose keeps the heading/body but the original COS nodes are gone
+    const body = wrapper.find('.markdown-body')
+    expect(body.html()).toContain('分析结论')
+    expect(body.html()).toContain('核心见下图')
+    expect(body.html()).not.toContain('agent-outputs/run1/chart.png')
+    expect(body.html()).not.toContain('agent-outputs/run1/report.docx')
+    // no inline COS <img> in the markdown body — it became a card instead
+    expect(body.find('img').exists()).toBe(false)
+  })
 })
