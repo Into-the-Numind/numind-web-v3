@@ -25,5 +25,8 @@ defineProps<Props>()
 .tool-timeline {
   display: flex;
   flex-direction: column;
+  /* small gap so each tool line's tinted background reads as a separate
+     rectangle (issue2 visual separation) without breaking the flat timeline. */
+  gap: 3px;
 }
 </style>
