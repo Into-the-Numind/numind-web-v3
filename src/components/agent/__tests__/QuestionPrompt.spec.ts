@@ -261,6 +261,46 @@ describe('QuestionPrompt — answered & errors', () => {
     expect(wrapper.find('.question-prompt__answered-a').text()).toContain('PDF')
   })
 
+  it('answered reload: recap shows each question backend-reconstructed answer (issue1)', async () => {
+    // A reloaded answered card: live `state` is empty, but the backend embeds the
+    // user's actual answer per question (questions[i].answer). The recap must show
+    // it, not a bare "已回答" placeholder.
+    const wrapper = mount(QuestionPrompt, {
+      props: {
+        runId: 42,
+        answered: true,
+        questions: [
+          {
+            question: '目标受众是谁？',
+            options: [{ label: '年轻女性' }],
+            multi_select: false,
+            answer: '年轻女性'
+          }
+        ]
+      }
+    })
+    await wrapper.find('.question-prompt__answered-toggle').trigger('click') // expand
+    expect(wrapper.text()).toContain('目标受众是谁？')
+    const recap = wrapper.find('.question-prompt__answered-a')
+    expect(recap.text()).toContain('年轻女性')
+    expect(recap.text()).not.toContain('已回答')
+    expect(recap.classes()).not.toContain('is-empty')
+  })
+
+  it('answered reload (legacy, no answer field): falls back to 已回答 marker', async () => {
+    const wrapper = mount(QuestionPrompt, {
+      props: {
+        runId: 42,
+        answered: true,
+        questions: [{ question: 'Q1', options: [], multi_select: false }]
+      }
+    })
+    await wrapper.find('.question-prompt__answered-toggle').trigger('click')
+    const recap = wrapper.find('.question-prompt__answered-a')
+    expect(recap.text()).toContain('已回答')
+    expect(recap.classes()).toContain('is-empty')
+  })
+
   it('API error shows a notification and re-enables submit', async () => {
     mockPostAgentAnswer.mockRejectedValueOnce(new Error('network error'))
     const wrapper = mountSingle()
