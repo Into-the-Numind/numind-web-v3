@@ -28,6 +28,7 @@ import { computed, ref, watch } from 'vue'
 import type { SopNodePublic, ViewingStepStatus } from '@/views/sop/types'
 import InputCard from './InputCard.vue'
 import OutputCard from './OutputCard.vue'
+import ReplayInputCard from './ReplayInputCard.vue'
 import ActionRow from './ActionRow.vue'
 import HistoryViewStrip from './HistoryViewStrip.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
@@ -269,18 +270,23 @@ defineExpose({
         @toggle-bookmark="handleToggleBookmark"
       />
 
-      <!-- Read-only OutputCard（done-current / done-history） -->
-      <OutputCard
-        v-else-if="isDoneCurrent || isDoneHistory"
-        key="readonly"
-        :node-run="currentNodeRun"
-        state="read-only"
-        :has-output="hasOutput"
-        :has-bookmark="hasBookmark"
-        @toggle-bookmark="handleToggleBookmark"
-        @copy="handleCopy"
-        @regenerate="handleRegenerate"
-      />
+      <!-- Read-only（done-current / done-history）：回看输入卡 + AI 输出，作为一个过渡单元 -->
+      <div v-else-if="isDoneCurrent || isDoneHistory" key="readonly" class="readonly-stack">
+        <ReplayInputCard
+          v-if="currentNodeRun"
+          :input="currentNodeRun.input"
+          :files="currentNodeRun.files"
+        />
+        <OutputCard
+          :node-run="currentNodeRun"
+          state="read-only"
+          :has-output="hasOutput"
+          :has-bookmark="hasBookmark"
+          @toggle-bookmark="handleToggleBookmark"
+          @copy="handleCopy"
+          @regenerate="handleRegenerate"
+        />
+      </div>
     </Transition>
 
     <!-- Action row：done-current 态才渲染
@@ -371,6 +377,13 @@ defineExpose({
 }
 .sop-fade-leave-to {
   opacity: 0;
+}
+
+/* 只读态：回看输入卡 + AI 输出卡纵向堆叠（done-current / done-history） */
+.readonly-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
 /* ==================== 移动端：≤768px ==================== */

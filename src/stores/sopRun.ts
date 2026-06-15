@@ -317,6 +317,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
           model_name: cn.model_name ?? '',
           total_tokens: cn.total_tokens ?? 0,
           is_accessible: cn.is_accessible,
+          files: cn.files ?? [],
           started_at: null,
           finished_at: null
         }
@@ -540,7 +541,8 @@ export const useSopRunStore = defineStore('sopRun', () => {
           ...prev,
           model_name: info.model_name ?? '',
           latency_ms: info.latency_ms ?? 0,
-          total_tokens: info.total_tokens ?? 0
+          total_tokens: info.total_tokens ?? 0,
+          files: info.files ?? prev.files ?? []
         }
       }
     } catch (err) {
@@ -582,6 +584,7 @@ export const useSopRunStore = defineStore('sopRun', () => {
           model_name: info.model_name ?? '',
           latency_ms: info.latency_ms ?? 0,
           total_tokens: info.total_tokens ?? 0,
+          files: info.files ?? [],
           started_at: null,
           finished_at: null
         }
