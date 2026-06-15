@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ChevronDown } from 'lucide-vue-next'
+import { ChevronRight } from 'lucide-vue-next'
 import { useMarkdown } from '@/composables/useMarkdown'
 
 const props = withDefaults(
@@ -45,7 +45,7 @@ watch(
       @click="collapsed = !collapsed"
       @keydown.enter.prevent="collapsed = !collapsed"
     >
-      <ChevronDown :size="14" class="thinking-icon" aria-hidden="true" />
+      <ChevronRight :size="14" class="thinking-icon" aria-hidden="true" />
       <span>{{ finished ? '思考过程' : '思考中...' }}</span>
     </div>
     <div class="thinking-content" v-html="render(content)"></div>
@@ -72,6 +72,8 @@ watch(
   color: var(--text-secondary, var(--text));
 }
 
+/* Disclosure chevron:折叠时指右 ▶（base rotate 0），展开时指下 ▼（rotate 90deg）。
+   标准 disclosure 约定，sales/chatbot/agent 共用。 */
 .thinking-icon {
   width: 14px;
   height: 14px;
@@ -80,7 +82,7 @@ watch(
 }
 
 .thinking-container:not(.collapsed) .thinking-icon {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 .thinking-content {
