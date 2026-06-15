@@ -1,9 +1,9 @@
 <template>
   <aside class="sidebar" :class="{ collapsed, animating }" @transitionend="onTransitionEnd">
-    <!-- Logo -->
+    <!-- Logo（org-branding：动态机构品牌名，无名称兜底"有数AI"） -->
     <div class="sidebar-logo" @click="collapsed && toggle()">
-      <div class="logo-mark">靓</div>
-      <span class="logo-text">靓靓·海外IP研究所</span>
+      <div class="logo-mark">{{ brandInitial }}</div>
+      <span class="logo-text">{{ userStore.displayBrandName }}</span>
     </div>
 
     <!-- Navigation -->
@@ -170,6 +170,9 @@ const route = useRoute()
 const userStore = useUserStore()
 const { collapsed, toggle: toggleCollapsed } = useSidebarState()
 const animating = ref(false)
+
+// org-branding：折叠态 logo-mark 取品牌名首字（Array.from 兼容代理对/emoji）
+const brandInitial = computed(() => Array.from(userStore.displayBrandName)[0] || '有')
 
 const toggle = () => {
   animating.value = true
