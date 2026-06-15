@@ -152,4 +152,22 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     await store.refreshRunStatus()
     expect(store.messages.filter((m) => m.type === 'question_prompt')).toHaveLength(1)
   })
+
+  // issue3 (stuck spinner after task done): once a run is terminal, NO live
+  // indicator may keep spinning — isRunning false AND isWaitingForUser false,
+  // even if the run carries a stale 'waiting_for_user_choice' state_reason (which
+  // the poll-based resume path could leave behind when it never refreshed cleanly
+  // to the final terminal). The streaming-resume terminal event (T5) drives the
+  // clean clear at runtime; this guards the invariant defensively. EXPECTED TO
+  // FAIL before the isWaitingForUser terminal-status guard.
+  it('issue3: a terminal run is never waiting/running even with a stale waiting state_reason', () => {
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      status: 'terminated',
+      state_reason: 'waiting_for_user_choice'
+    } as unknown as AgentRun
+    expect(store.isRunning).toBe(false)
+    expect(store.isWaitingForUser).toBe(false)
+  })
 })
