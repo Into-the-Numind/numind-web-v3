@@ -21,6 +21,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
   const visibleChatbots = ref<ChatbotConfig[]>([])
   const sessions = ref<ChatbotSession[]>([])
   const sessionsTotal = ref(0)
+  // Offset of the next page to load (adaptive-session-titles US5: "加载更多" pagination).
+  const sessionsOffset = ref(0)
   const currentSession = ref<ChatbotSession | null>(null)
   const currentChatbotId = ref<number | null>(null)
   const messages = ref<ChatbotMessage[]>([])
@@ -54,8 +56,32 @@ export const useChatbotStore = defineStore('chatbot', () => {
       const data = (res as any)?.data as { list: ChatbotSession[]; total: number } | undefined
       sessions.value = data?.list ?? []
       sessionsTotal.value = data?.total ?? 0
+      sessionsOffset.value = sessions.value.length
+      // adaptive-session-titles: after the first turn the backend renames the session,
+      // and the post-stream refetch reloads it here — keep the active session's title in
+      // sync so the chat header reflects the new auto-generated title, not just the list.
+      if (currentSession.value) {
+        const fresh = sessions.value.find((s) => s.id === currentSession.value!.id)
+        if (fresh) currentSession.value.title = fresh.title
+      }
     } catch (e) {
       console.error('[chatbot] fetchSessions failed:', e)
+    }
+  }
+
+  // loadMoreSessions appends the next page to the sidebar list (US5: view all history,
+  // not just the first 20). Stops when all sessions for the chatbot are loaded.
+  async function loadMoreSessions(chatbotId: number, limit = 20) {
+    if (sessions.value.length >= sessionsTotal.value) return
+    try {
+      const res = await listChatbotSessions(sessionsOffset.value, limit, chatbotId)
+      const data = (res as any)?.data as { list: ChatbotSession[]; total: number } | undefined
+      const more = data?.list ?? []
+      sessions.value = [...sessions.value, ...more]
+      sessionsTotal.value = data?.total ?? sessionsTotal.value
+      sessionsOffset.value = sessions.value.length
+    } catch (e) {
+      console.error('[chatbot] loadMoreSessions failed:', e)
     }
   }
 
@@ -302,6 +328,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
     visibleChatbots,
     sessions,
     sessionsTotal,
+    sessionsOffset,
     currentSession,
     currentChatbotId,
     messages,
@@ -315,6 +342,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
     // Actions
     fetchVisibleChatbots,
     fetchSessions,
+    loadMoreSessions,
     createSession,
     deleteSession,
     switchSession,
