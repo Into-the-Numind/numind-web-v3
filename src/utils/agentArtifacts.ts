@@ -27,6 +27,7 @@
  * as an ordinary markdown node. Presigned query suffixes (`?q-sign-algorithm=…`)
  * are ignored by parsing host+path only.
  */
+import { renderMarkdown } from './markdown'
 
 export interface ArtifactRef {
   filename: string
@@ -38,6 +39,14 @@ export interface ExtractedArtifacts {
   prose: string
   artifacts: ArtifactRef[]
 }
+
+/**
+ * One ordered piece of a final answer: either a run of prose (already rendered
+ * to safe HTML) or a single COS artifact pulled out to render as a card in place.
+ * The segments preserve document order so the answer reads top-to-bottom exactly
+ * as written, with cards sitting where the link used to be.
+ */
+export type Segment = { type: 'prose'; html: string } | { type: 'artifact'; ref: ArtifactRef }
 
 // Extension → MIME. Office formats use their canonical OOXML/binary types so the
 // artifact card can label/download them correctly.
@@ -164,4 +173,103 @@ export function extractArtifacts(markdown: string | null | undefined): Extracted
   })
 
   return { prose, artifacts }
+}
+
+/**
+ * Build an ArtifactRef for a single COS node, or null if the node is not an
+ * extractable COS artifact (wrong host/path, wrong node-kind/extension pairing,
+ * or an unknown extension). Mirrors the per-node decision inside extractArtifacts
+ * so both code paths agree on what counts as an artifact.
+ */
+function artifactRefOf(isImageNode: boolean, url: string): ArtifactRef | null {
+  if (!isCosArtifactUrl(url)) return null
+  const ext = extOf(url)
+  if (isImageNode) {
+    if (!IMAGE_EXTS.has(ext)) return null
+  } else {
+    if (!DOC_EXTS.has(ext)) return null
+  }
+  const mime = MIME_BY_EXT[ext]
+  if (!mime) return null
+  return { filename: filenameOf(url) || `artifact.${ext}`, url, mime }
+}
+
+// A markdown line is "structural" (a list item, blockquote, or table row) when it
+// starts with a list/quote marker or contains a table pipe. Splitting an artifact
+// out of such a line would break the markdown block, so those COS nodes stay inline
+// in the prose (P1-A: only whole-line/paragraph COS nodes become cards).
+const LIST_OR_QUOTE_RE = /^\s*(?:[-*+]\s|\d+[.)]\s|>\s?)/
+
+/**
+ * Decide whether a single line is "an artifact node standing alone on its line".
+ *
+ * The line qualifies only when the COS artifact node is the LAST meaningful thing
+ * on the line — i.e. the line is `[optional label]` + `<COS node>` + (trailing
+ * whitespace only). This matches the "文件下载：[报告](…)" shape while leaving a COS
+ * link that is followed by more prose ("…从 [这里](…) 下载，记得保存。") inline, and
+ * leaving structural lines (list / blockquote / table) untouched — splitting any of
+ * those would break the markdown block (P1-A).
+ *
+ * @returns the extracted ArtifactRef when the line qualifies, else null.
+ */
+function standaloneArtifactOf(line: string): ArtifactRef | null {
+  // Structural line → never split (would break the list/table/quote block).
+  if (LIST_OR_QUOTE_RE.test(line)) return null
+  if (line.includes('|')) return null
+
+  // Exactly one markdown node on the line; a second node means it is mixed prose.
+  const matches = [...line.matchAll(NODE_RE)]
+  if (matches.length !== 1) return null
+
+  const m = matches[0]
+  const [match, bang, , url] = m
+  const ref = artifactRefOf(bang === '!', url)
+  if (!ref) return null
+
+  // The node must be the last meaningful content: only whitespace may follow it.
+  // Anything else (", 下载，记得保存。") means it is embedded inline → stays prose.
+  const after = line.slice((m.index ?? 0) + match.length)
+  if (after.trim().length > 0) return null
+  return ref
+}
+
+/**
+ * Split a final-answer markdown string into ordered prose / artifact segments.
+ *
+ * The answer renders top-to-bottom in document order: each run of prose lines is
+ * rendered to safe HTML via renderMarkdown, and each standalone COS-artifact line
+ * becomes its own artifact segment (rendered as a card by the caller) sitting
+ * exactly where the link was written. COS links embedded in a list item, table,
+ * blockquote, or surrounded by other prose on the same line are NOT split — they
+ * stay in the prose so the markdown block structure is preserved (P1-A).
+ *
+ * @param markdown raw final-answer markdown (may be empty/nullish)
+ * @returns ordered Segment[]; empty array for empty input.
+ */
+export function splitIntoSegments(markdown: string | null | undefined): Segment[] {
+  if (!markdown) return []
+
+  const segments: Segment[] = []
+  let proseBuffer: string[] = []
+
+  const flushProse = (): void => {
+    if (proseBuffer.length === 0) return
+    const html = renderMarkdown(proseBuffer.join('\n'))
+    proseBuffer = []
+    // renderMarkdown of pure-whitespace prose is empty — don't emit a blank card-less gap.
+    if (html) segments.push({ type: 'prose', html })
+  }
+
+  for (const line of markdown.split('\n')) {
+    const ref = standaloneArtifactOf(line)
+    if (ref) {
+      flushProse()
+      segments.push({ type: 'artifact', ref })
+    } else {
+      proseBuffer.push(line)
+    }
+  }
+  flushProse()
+
+  return segments
 }

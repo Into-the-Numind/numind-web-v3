@@ -14,6 +14,29 @@ interface Props {
 const props = defineProps<Props>()
 
 const isImage = computed<boolean>(() => props.artifact.mime.startsWith('image/'))
+
+// Short uppercase type label for the file card meta (DOCX / PDF / XLSX …). The
+// ArtifactRef carries no byte size, so the meta shows the format, not "KB".
+// Prefer the filename extension; fall back to a coarse mime-derived label.
+const MIME_TYPE_LABEL: Record<string, string> = {
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+  'application/msword': 'DOC',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+  'application/vnd.ms-excel': 'XLS',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PPTX',
+  'application/vnd.ms-powerpoint': 'PPT',
+  'application/pdf': 'PDF',
+  'text/csv': 'CSV'
+}
+
+const fileTypeLabel = computed<string>(() => {
+  const name = props.artifact.filename
+  const dot = name.lastIndexOf('.')
+  if (dot >= 0 && dot < name.length - 1) {
+    return name.slice(dot + 1).toUpperCase()
+  }
+  return MIME_TYPE_LABEL[props.artifact.mime] ?? '文件'
+})
 // HTML artifacts are agent-authored and published RAW (un-escaped) by the backend
 // create_html tool, so we never open them directly — they render inside a fully
 // sandboxed iframe (see the HTML preview modal). startsWith() covers both
@@ -80,33 +103,42 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="artifact-item">
-    <div v-if="isImage" class="image-wrap">
-      <img :src="artifact.url" :alt="artifact.filename" class="thumb" @click="openPreview" />
+  <div class="artifact-item" :class="{ 'artifact-item--image': isImage }">
+    <!-- B1 image thumbnail card: rounded preview + caption, click → full modal. -->
+    <div v-if="isImage" class="image-wrap" @click="openPreview">
+      <img :src="artifact.url" :alt="artifact.filename" class="thumb" />
       <p class="filename">{{ artifact.filename }}</p>
     </div>
 
+    <!-- A1 file card (HTML): emerald doc badge + name + type meta, preview + download. -->
     <div v-else-if="isHtml" class="file-row">
-      <FileText :size="20" class="file-icon" />
-      <span class="filename">{{ artifact.filename }}</span>
+      <span class="doc-badge"><FileText :size="20" /></span>
+      <span class="file-meta">
+        <span class="filename">{{ artifact.filename }}</span>
+        <span class="file-type">{{ fileTypeLabel }}</span>
+      </span>
       <button
-        class="preview-btn"
+        class="icon-btn preview-btn"
         data-testid="html-preview-btn"
         @click="openHtmlPreview"
         aria-label="预览页面"
       >
-        <Eye :size="16" />
+        <Eye :size="17" />
       </button>
-      <button class="download-btn" @click="handleDownload" aria-label="下载文件">
-        <Download :size="16" />
+      <button class="icon-btn download-btn" @click="handleDownload" aria-label="下载文件">
+        <Download :size="17" />
       </button>
     </div>
 
+    <!-- A1 file card (downloadable doc): emerald doc badge + name + type meta + download. -->
     <div v-else class="file-row">
-      <FileText :size="20" class="file-icon" />
-      <span class="filename">{{ artifact.filename }}</span>
-      <button class="download-btn" @click="handleDownload" aria-label="下载文件">
-        <Download :size="16" />
+      <span class="doc-badge"><FileText :size="20" /></span>
+      <span class="file-meta">
+        <span class="filename">{{ artifact.filename }}</span>
+        <span class="file-type">{{ fileTypeLabel }}</span>
+      </span>
+      <button class="icon-btn download-btn" @click="handleDownload" aria-label="下载文件">
+        <Download :size="17" />
       </button>
     </div>
 
@@ -178,12 +210,27 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
+/* A1 file card — minimal inline card: emerald doc badge + name/type + icon action. */
 .artifact-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
   background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin: 4px 0;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
+  padding: 10px 12px;
+}
+
+/* B1 image card — thumbnail + caption, a tighter padded frame, not the file row. */
+.artifact-item--image {
+  display: inline-block;
+  width: auto;
+  max-width: none;
+  padding: 8px;
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
 }
 
 .image-wrap {
@@ -191,51 +238,85 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 }
 
 .thumb {
-  max-width: 240px;
-  max-height: 160px;
-  border-radius: 6px;
-  object-fit: cover;
+  width: 240px;
+  height: 150px;
+  border-radius: 8px;
+  /* contain — AI-generated images are any aspect ratio; cover would crop the subject. */
+  object-fit: contain;
+  background: var(--color-surface-tint, #f9fafb);
   display: block;
 }
 
-.filename {
-  margin: 4px 0 0;
+.image-wrap .filename {
+  margin: 7px 2px 1px;
   font-size: 12px;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, #8b90a0);
 }
 
 .file-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  width: 100%;
 }
 
-.file-icon {
-  color: var(--color-primary, #2563eb);
+/* Emerald document badge (playground A1 .doc-badge): soft emerald tint, rounded. */
+.doc-badge {
   flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--color-primary, hsl(160, 72%, 40%));
+  border: 1px solid var(--color-accent-soft, hsl(160, 60%, 93%));
+}
+
+.file-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .file-row .filename {
-  flex: 1;
   margin: 0;
-  font-size: 13px;
-  color: var(--color-text, #1f2937);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.preview-btn,
-.download-btn {
-  background: none;
+.file-type {
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--color-text-muted, #8b90a0);
+  letter-spacing: 0.02em;
+}
+
+/* Emerald icon action button (playground A1 .dl): soft tint square, deepens on hover. */
+.icon-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   border: none;
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--color-primary, hsl(160, 72%, 40%));
+  display: grid;
+  place-items: center;
   cursor: pointer;
-  color: var(--color-text-muted, #6b7280);
-  padding: 4px;
-  border-radius: 4px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
-.preview-btn:hover,
-.download-btn:hover {
-  background: #f3f4f6;
-  color: var(--color-primary, #2563eb);
+.icon-btn:hover {
+  background: var(--color-accent-soft, hsl(160, 60%, 93%));
+  color: var(--color-primary-hover, hsl(160, 72%, 34%));
 }
 
 .preview-overlay {

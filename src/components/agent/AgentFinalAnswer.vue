@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { renderMarkdown } from '@/utils/markdown'
-import { extractArtifacts } from '@/utils/agentArtifacts'
+import { splitIntoSegments } from '@/utils/agentArtifacts'
 import { useImagePreview } from '@/composables/useImagePreview'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
@@ -16,12 +15,11 @@ const props = withDefaults(defineProps<Props>(), {
   runId: undefined
 })
 
-// Lift COS-generated artifacts (images, downloadable docs) out of the markdown
-// into prominent cards; the remaining prose renders as markdown. Derived from the
-// persisted markdown so the cards survive reload (agent-output-polish #2a).
-const extracted = computed(() => extractArtifacts(props.markdown))
-const html = computed<string>(() => renderMarkdown(extracted.value.prose))
-const artifacts = computed(() => extracted.value.artifacts)
+// Split the answer into ordered prose / artifact segments so COS-generated files
+// (images, downloadable docs) render as cards exactly where they were written,
+// with the surrounding prose flowing above and below. Derived from the persisted
+// markdown so the cards survive reload (agent-output-polish #1/#4).
+const segments = computed(() => splitIntoSegments(props.markdown))
 
 const { previewImageUrl, handleImageClick, closePreview } = useImagePreview()
 
@@ -57,18 +55,22 @@ const copyText = async (): Promise<void> => {
 
 <template>
   <div class="final-answer">
-    <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
-    <div class="markdown-body" v-html="html" @click="handleImageClick"></div>
-
-    <!-- COS-generated artifacts (images / downloadable docs) lifted out of the
-         prose and rendered as prominent cards (#2a). -->
-    <div v-if="artifacts.length" class="final-answer__artifacts">
+    <!-- Ordered segments: prose renders as markdown in place; each COS artifact
+         renders as a card sitting exactly where its link was written (#1/#4). -->
+    <template v-for="(s, i) in segments" :key="i">
+      <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
+      <div
+        v-if="s.type === 'prose'"
+        class="markdown-body"
+        v-html="s.html"
+        @click="handleImageClick"
+      ></div>
       <AgentArtifactItem
-        v-for="(a, i) in artifacts"
-        :key="i"
-        :artifact="{ id: i, filename: a.filename, url: a.url, mime: a.mime }"
+        v-else
+        class="final-answer__artifact"
+        :artifact="{ id: i, filename: s.ref.filename, url: s.ref.url, mime: s.ref.mime }"
       />
-    </div>
+    </template>
 
     <div class="answer-actions">
       <button class="ai-action-btn" :class="{ copied: copied }" @click="copyText" title="复制回答">
@@ -98,12 +100,11 @@ const copyText = async (): Promise<void> => {
   color: var(--color-text, #1f2937);
 }
 
-/* Artifact cards lifted out of the prose (#2a) */
-.final-answer__artifacts {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
+/* Artifact card rendered in place between prose segments (#1/#4). Vertical
+   margins give it breathing room from the prose above/below without a wrapper. */
+.final-answer__artifact {
+  display: block;
+  margin: 12px 0;
 }
 
 /* Markdown 分隔线 (#3, P1-B)：以前是 display:none 完全隐藏，现在用作章节之间的
