@@ -219,9 +219,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     () => currentRun.value?.status === 'running' || currentRun.value?.status === 'pending'
   )
 
-  /** True when agent is paused waiting for user to answer an ask_user_question */
+  /** True when agent is paused waiting for user to answer an ask_user_question.
+   * Gated on a non-terminal status: a genuinely-waiting run is mapped to
+   * status='running' by the backend, so a TERMINAL run carrying a stale
+   * 'waiting_for_user_choice' state_reason (which a poll-based resume could leave
+   * behind if it never refreshed cleanly to the final terminal) must NOT read as
+   * waiting — otherwise the input stays disabled and live indicators keep
+   * spinning after the task is done (issue3). */
   const isWaitingForUser = computed(
-    () => currentRun.value?.state_reason === 'waiting_for_user_choice'
+    () =>
+      currentRun.value?.state_reason === 'waiting_for_user_choice' &&
+      (currentRun.value?.status === 'running' || currentRun.value?.status === 'pending')
   )
 
   const toolGroups = computed<ToolCallAggregate[]>(() => {
@@ -1171,6 +1179,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             status: statusFromTerminalReason(payload?.reason),
             state_reason: payload?.reason
           }
+        }
+        // issue3: once the run truly ENDS (not a question pause), clear every
+        // "still working" signal — the stuck-silence marker + any in-flight tool
+        // timer — so nothing keeps spinning after the task is done. A
+        // 'waiting_for_user_choice' terminal is a PAUSE, not an end (skip it:
+        // finalizeToolGroups would wrongly paint paused tools as errored).
+        if (payload?.reason !== 'waiting_for_user_choice') {
+          stuckSince.value = null
+          finalizeToolGroups()
         }
         // Advance the narration cursor to the stream-end timestamp. The streaming
         // path never set it (it owns its own tool cards), so on an
