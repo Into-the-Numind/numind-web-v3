@@ -12,16 +12,16 @@
  * leaving it blank; at least one must be answered to submit.
  *
  * Props:
- *   runId     — agent_run.id to POST the answer to
+ *   runId     — agent_run.id this answer belongs to (carried up on submit)
  *   questions — QuestionPromptItem[] (1-4): { question, options, header?, multi_select? }
  *   answered  — if true, render in read-only answered state
  *
  * Emits:
- *   answer-submitted — after a successful POST
+ *   answer-submitted — emits the answers up for the parent to resume the run
+ *                      (the parent owns persistence + resume; issue4)
  */
 import { ref, reactive, computed } from 'vue'
-import { postAgentAnswer, type AnswerItemPayload } from '@/api/agent'
-import { useNotificationsStore } from '@/stores/notifications'
+import type { AnswerItemPayload } from '@/api/agent'
 import type { QuestionPromptItem } from '@/types/agent'
 import { ChevronDown, ChevronUp } from 'lucide-vue-next'
 
@@ -40,10 +40,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'answer-submitted': []
+  'answer-submitted': [answers: Record<string, AnswerItemPayload>]
 }>()
-
-const notifications = useNotificationsStore()
 
 interface PerQuestion {
   selected: string[]
@@ -147,18 +145,13 @@ const buildAnswers = (): Record<string, AnswerItemPayload> => {
   return out
 }
 
-const submitAnswers = async (): Promise<void> => {
+const submitAnswers = (): void => {
   if (submitting.value || !canSubmit.value) return
+  // Stays true: the parent persists + resumes, then markQuestionAnswered flips
+  // this card to its read-only answered state (re-rendering the footer away). No
+  // local POST anymore — the parent owns it (issue4: streamed resume).
   submitting.value = true
-  try {
-    await postAgentAnswer(props.runId, { answers: buildAnswers() })
-    emit('answer-submitted')
-  } catch (err) {
-    const msg = (err as Error)?.message ?? '提交失败，请重试'
-    notifications.error(`提交回答失败：${msg}`)
-  } finally {
-    submitting.value = false
-  }
+  emit('answer-submitted', buildAnswers())
 }
 
 const handleKeydown = (event: KeyboardEvent, label: string): void => {

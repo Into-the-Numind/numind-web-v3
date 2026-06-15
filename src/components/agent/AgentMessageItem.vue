@@ -12,6 +12,7 @@ import type {
   SystemMessage,
   QuestionPromptMessage
 } from '@/types/agent'
+import type { AnswerItemPayload } from '@/api/agent'
 import AgentPlanCard from './AgentPlanCard.vue'
 import AgentToolCallList from './AgentToolCallList.vue'
 import AgentArtifactItem from './AgentArtifactItem.vue'
@@ -34,8 +35,8 @@ const props = withDefaults(defineProps<Props>(), { readOnly: false, continued: f
 
 // Bubble QuestionPrompt's answer-submitted up to AgentChatView (via
 // AgentMessageList) so it can resume the run. Carries the answered question's
-// run_id so the view knows which run to poll.
-defineEmits<{ 'answer-submitted': [runId: number] }>()
+// run_id + the answers map so the view can stream the resumed leg (issue4).
+defineEmits<{ 'answer-submitted': [runId: number, answers: Record<string, AnswerItemPayload>] }>()
 
 const copied = ref(false)
 
@@ -319,7 +320,9 @@ const systemText = computed<string>(() => {
         :run-id="asQuestionPrompt.run_id"
         :questions="asQuestionPrompt.questions"
         :answered="asQuestionPrompt.answer_status === 'answered'"
-        @answer-submitted="$emit('answer-submitted', asQuestionPrompt.run_id)"
+        @answer-submitted="
+          (answers) => $emit('answer-submitted', asQuestionPrompt!.run_id, answers)
+        "
       />
     </div>
   </div>

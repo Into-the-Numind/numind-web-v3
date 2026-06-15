@@ -12,15 +12,26 @@
  */
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import { streamAgentRun } from '@/api/agent-stream'
+import { streamAgentRun, answerAndResumeStream } from '@/api/agent-stream'
 import { AgentStreamConflict } from '@/types/agent-stream'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useAgentRun } from '@/composables/useAgentRun'
 import type { CreateRunRequest } from '@/types/agent'
+import type { AnswerItemPayload } from '@/api/agent'
 
 export interface UseAgentStreamApi {
   /** Start streaming for the given run request. Resolves when stream ends. */
   start: (req: CreateRunRequest) => Promise<void>
+  /**
+   * Resume a paused run by submitting ask_user_question answers over the SSE
+   * answer-stream (issue4: the resumed leg streams its prose narration back
+   * through the same applyStreamEvent pipeline). Rethrows non-abort errors so
+   * the caller can fall back to the poll-based resume.
+   */
+  startResume: (opts: {
+    runId: number
+    answers: Record<string, AnswerItemPayload>
+  }) => Promise<void>
   /** Abort the in-flight stream (safe to call when not streaming). */
   stop: () => void
   /** True while SSE stream is open. */
@@ -67,9 +78,41 @@ export function useAgentStream(): UseAgentStreamApi {
     }
   }
 
+  const startResume = async (opts: {
+    runId: number
+    answers: Record<string, AnswerItemPayload>
+  }): Promise<void> => {
+    // Guard: prevent concurrent streams
+    if (isStreaming.value) return
+
+    isStreaming.value = true
+    fallbackPolling.value = false
+    abort.value = new AbortController()
+
+    // No appendUserMessage: the answers are not a user chat bubble — the
+    // question_prompt card flips to "answered" in place (markQuestionAnswered).
+    try {
+      await answerAndResumeStream(
+        opts.runId,
+        opts.answers,
+        (e) => store.applyStreamEvent(e),
+        abort.value.signal
+      )
+    } catch (err) {
+      // User-initiated stop via stop() — not an error, and the run is still
+      // resuming server-side; no fallback (re-opening would 409).
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      // AgentStreamConflict / network — rethrow so the caller can fall back to
+      // the poll-based resume.
+      throw err
+    } finally {
+      isStreaming.value = false
+    }
+  }
+
   const stop = (): void => {
     abort.value?.abort()
   }
 
-  return { start, stop, isStreaming, fallbackPolling }
+  return { start, startResume, stop, isStreaming, fallbackPolling }
 }
