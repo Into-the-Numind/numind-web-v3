@@ -183,7 +183,7 @@ const handleLogin = async () => {
   font-family: var(--font-sans);
   font-size: 42px;
   font-weight: 800;
-  color: hsl(160, 60%, 38%);
+  color: var(--color-primary);
   letter-spacing: 0.04em;
   line-height: 1.1;
   text-align: center;

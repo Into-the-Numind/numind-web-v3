@@ -72,6 +72,7 @@
           <div v-if="userStore.isParentUser" class="settings-row">
             <div class="row-label">公司名称</div>
             <div class="row-value">
+              <!-- 用原生 input：AppInput 不支持 keyup.enter→blur 的内联保存模式，此处轻量自定义 -->
               <input
                 v-model="companyNameInput"
                 class="company-input"
@@ -280,17 +281,20 @@ const saveCompanyName = async () => {
   try {
     const res = await updateProfile({ company_name: next })
     if (res.code === 200 || res.code === 0) {
-      originalCompany.value = next
       // 刷新用户信息 → 左上角侧边栏品牌名同步更新
       await userStore.fetchUserInfo()
-      notifications.success(next ? '公司名称已更新' : '已清空公司名称，将显示"有数AI"')
+      // 以服务端回写的有效值为准同步本地态（避免后端规范化导致 original 漂移）
+      const fresh = (userStore.userInfo?.company_name || '').trim()
+      originalCompany.value = fresh
+      companyNameInput.value = fresh
+      notifications.success(fresh ? '公司名称已更新' : '已清空公司名称，将显示"有数AI"')
     } else {
       notifications.error(res.message || res.msg || '保存失败')
       companyNameInput.value = originalCompany.value
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('保存公司名称失败:', err)
-    notifications.error(err?.message || '网络错误，请稍后重试')
+    notifications.error(err instanceof Error ? err.message : '网络错误，请稍后重试')
     companyNameInput.value = originalCompany.value
   } finally {
     savingCompany.value = false
@@ -472,7 +476,7 @@ onMounted(() => {
 }
 
 .company-input:focus {
-  border-color: #10b981;
+  border-color: var(--color-primary);
   background: #ffffff;
 }
 
@@ -645,6 +649,13 @@ onMounted(() => {
 
   .settings-row {
     padding: 12px 14px;
+  }
+
+  /* org-branding：窄屏让公司名输入框收缩占满剩余宽度，避免与 label 溢出 */
+  .company-input {
+    min-width: 0;
+    flex: 1;
+    width: 100%;
   }
 
   .credit-grid {
