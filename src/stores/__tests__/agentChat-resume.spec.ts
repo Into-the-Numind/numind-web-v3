@@ -152,4 +152,72 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     await store.refreshRunStatus()
     expect(store.messages.filter((m) => m.type === 'question_prompt')).toHaveLength(1)
   })
+
+  // issue3 (stuck spinner after task done): once a run is terminal, NO live
+  // indicator may keep spinning — isRunning false AND isWaitingForUser false,
+  // even if the run carries a stale 'waiting_for_user_choice' state_reason (which
+  // the poll-based resume path could leave behind when it never refreshed cleanly
+  // to the final terminal). The streaming-resume terminal event (T5) drives the
+  // clean clear at runtime; this guards the invariant defensively. EXPECTED TO
+  // FAIL before the isWaitingForUser terminal-status guard.
+  it('issue3: a terminal run is never waiting/running even with a stale waiting state_reason', () => {
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      status: 'terminated',
+      state_reason: 'waiting_for_user_choice'
+    } as unknown as AgentRun
+    expect(store.isRunning).toBe(false)
+    expect(store.isWaitingForUser).toBe(false)
+  })
+
+  // issue3: a real (non-pause) terminal event clears the stuck-silence marker so
+  // the run-pulse word/timer doesn't keep "working" after the task is done.
+  it('issue3: a completed terminal event clears the stuck-silence marker', () => {
+    const store = useAgentChatStore()
+    vi.mocked(api.getRun).mockResolvedValue({
+      id: 148,
+      status: 'completed',
+      state_reason: 'completed'
+    } as unknown as AgentRun)
+    store.currentRun = {
+      id: 148,
+      status: 'running',
+      state_reason: 'running'
+    } as unknown as AgentRun
+    store.stuckSince = 12345
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: { reason: 'completed', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+    expect(store.stuckSince).toBeNull()
+  })
+
+  // ...but a waiting-pause terminal must NOT clear it (the run is paused, not
+  // done — pollNarration owns stuckSince during the wait).
+  it('issue3: a waiting-pause terminal does NOT clear the stuck marker', () => {
+    const store = useAgentChatStore()
+    vi.mocked(api.getRun).mockResolvedValue({
+      id: 148,
+      status: 'running',
+      state_reason: 'waiting_for_user_choice'
+    } as unknown as AgentRun)
+    store.currentRun = {
+      id: 148,
+      status: 'running',
+      state_reason: 'running'
+    } as unknown as AgentRun
+    store.stuckSince = 12345
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: { reason: 'waiting_for_user_choice', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+    expect(store.stuckSince).toBe(12345)
+  })
 })

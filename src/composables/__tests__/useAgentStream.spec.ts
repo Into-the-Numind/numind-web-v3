@@ -24,9 +24,15 @@ const mockStreamAgentRun = vi.fn<
   [Record<string, unknown>, (e: AgentStreamEvent) => void, AbortSignal | undefined],
   Promise<void>
 >()
+const mockAnswerAndResumeStream = vi.fn<
+  [number, Record<string, unknown>, (e: AgentStreamEvent) => void, AbortSignal | undefined],
+  Promise<void>
+>()
 vi.mock('@/api/agent-stream', () => ({
   streamAgentRun: (...args: unknown[]) =>
-    mockStreamAgentRun(...(args as Parameters<typeof mockStreamAgentRun>))
+    mockStreamAgentRun(...(args as Parameters<typeof mockStreamAgentRun>)),
+  answerAndResumeStream: (...args: unknown[]) =>
+    mockAnswerAndResumeStream(...(args as Parameters<typeof mockAnswerAndResumeStream>))
 }))
 
 // Mock the store
@@ -252,5 +258,59 @@ describe('useAgentStream', () => {
     mockStreamAgentRun.mockResolvedValueOnce(undefined)
     await start(baseReq)
     expect(fallbackPolling.value).toBe(false)
+  })
+})
+
+// ─── issue4 (dev): no narration prose after answering (poll-only resume) ──────
+//
+// Repro: when the user answers an ask_user_question, the resumed leg must STREAM
+// its prose narration back through the same applyStreamEvent pipeline as the
+// first leg. The old poll-only path (narration.start + startStatusPolling) only
+// pulled tool narration + the trailing final_answer — the assistant's running
+// prose never arrived, leaving the card with "只剩工具记录、无正文".
+//
+// Contract under test: useAgentStream exposes startResume({ runId, answers })
+// which opens the SSE answer-stream (answerAndResumeStream) and forwards every
+// event to store.applyStreamEvent. EXPECTED TO FAIL before T5 (startResume is
+// undefined / answerAndResumeStream is never called).
+describe('useAgentStream — startResume (issue4: stream answer-resume)', () => {
+  const answers = { '你想要哪个格式？': { selected: ['PDF'] } }
+
+  it('startResume opens the SSE answer-stream and forwards events to the store', async () => {
+    mockAnswerAndResumeStream.mockImplementationOnce(async (_runId, _answers, onEvent) => {
+      onEvent(makeEvent('token_delta'))
+      onEvent(makeEvent('terminal'))
+    })
+
+    const stream = useAgentStream()
+    // The poll-only resume (the bug) never touches the streaming API.
+    expect(typeof stream.startResume).toBe('function')
+
+    await stream.startResume({ runId: 42, answers })
+
+    // The streaming answer-resume endpoint MUST be invoked with runId + answers.
+    expect(mockAnswerAndResumeStream).toHaveBeenCalledOnce()
+    expect(mockAnswerAndResumeStream.mock.calls[0][0]).toBe(42)
+    expect(mockAnswerAndResumeStream.mock.calls[0][1]).toEqual(answers)
+
+    // Resumed-leg events flow through the same applyStreamEvent pipeline → prose
+    // narration returns.
+    expect(mockApplyStreamEvent).toHaveBeenCalledTimes(2)
+    expect(mockApplyStreamEvent.mock.calls[0][0].type).toBe('token_delta')
+    expect(mockApplyStreamEvent.mock.calls[1][0].type).toBe('terminal')
+  })
+
+  it('startResume rethrows non-abort errors so the caller can fall back to poll', async () => {
+    mockAnswerAndResumeStream.mockRejectedValueOnce(new AgentStreamConflict(42))
+    const stream = useAgentStream()
+    await expect(stream.startResume({ runId: 42, answers })).rejects.toBeInstanceOf(
+      AgentStreamConflict
+    )
+  })
+
+  it('startResume swallows an AbortError (user cancel → no fallback)', async () => {
+    mockAnswerAndResumeStream.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
+    const stream = useAgentStream()
+    await expect(stream.startResume({ runId: 42, answers })).resolves.toBeUndefined()
   })
 })

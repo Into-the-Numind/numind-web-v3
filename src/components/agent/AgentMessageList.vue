@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import type { AgentMessage, AssistantMessage } from '@/types/agent'
+import type { AnswerItemPayload } from '@/api/agent'
 import { useScrollFollow } from '@/composables/useScrollFollow'
 import AgentMessageItem from './AgentMessageItem.vue'
 import AgentRunPulse from './AgentRunPulse.vue'
@@ -22,8 +23,8 @@ const FLOW_TYPES = new Set(['assistant', 'tool_group', 'plan', 'artifact', 'fina
 const continuedAt = (i: number): boolean =>
   i > 0 && FLOW_TYPES.has(props.messages[i].type) && FLOW_TYPES.has(props.messages[i - 1].type)
 
-// Forward QuestionPrompt's answer-submitted (with run_id) up to AgentChatView.
-defineEmits<{ 'answer-submitted': [runId: number] }>()
+// Forward QuestionPrompt's answer-submitted (run_id + answers) up to AgentChatView.
+defineEmits<{ 'answer-submitted': [runId: number, answers: Record<string, AnswerItemPayload>] }>()
 
 const scroller = ref<HTMLDivElement | null>(null)
 const scrollFollow = useScrollFollow()
@@ -81,7 +82,7 @@ onBeforeUnmount(() => {
           :msg="msg"
           :read-only="readOnly"
           :continued="continuedAt(i)"
-          @answer-submitted="$emit('answer-submitted', $event)"
+          @answer-submitted="(runId, answers) => $emit('answer-submitted', runId, answers)"
         />
         <!-- Trailing inline live line — the consistent "still working" signal at
              the bottom of the flow (replaces the pinned bottom pulse). -->

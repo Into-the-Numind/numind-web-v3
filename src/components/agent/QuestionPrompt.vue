@@ -12,16 +12,16 @@
  * leaving it blank; at least one must be answered to submit.
  *
  * Props:
- *   runId     — agent_run.id to POST the answer to
+ *   runId     — agent_run.id this answer belongs to (carried up on submit)
  *   questions — QuestionPromptItem[] (1-4): { question, options, header?, multi_select? }
  *   answered  — if true, render in read-only answered state
  *
  * Emits:
- *   answer-submitted — after a successful POST
+ *   answer-submitted — emits the answers up for the parent to resume the run
+ *                      (the parent owns persistence + resume; issue4)
  */
 import { ref, reactive, computed } from 'vue'
-import { postAgentAnswer, type AnswerItemPayload } from '@/api/agent'
-import { useNotificationsStore } from '@/stores/notifications'
+import type { AnswerItemPayload } from '@/api/agent'
 import type { QuestionPromptItem } from '@/types/agent'
 import { ChevronDown, ChevronUp } from 'lucide-vue-next'
 
@@ -40,10 +40,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'answer-submitted': []
+  'answer-submitted': [answers: Record<string, AnswerItemPayload>]
 }>()
-
-const notifications = useNotificationsStore()
 
 interface PerQuestion {
   selected: string[]
@@ -123,6 +121,14 @@ const resolvedAnswer = (i: number): string => {
   return parts.join('；')
 }
 
+// displayAnswer feeds the answered (read-only) recap. On a RELOADED session the
+// live `state` is empty, but the backend reconstructs the card with each
+// question's actual answer (issue1: questions[i].answer); prefer it. In-session
+// (just answered, no reload) questions[i].answer is absent so the live state applies.
+// Returns '' when neither is available (a legacy pre-issue1 reloaded card) so the
+// template can fall back to a neutral "已回答" marker.
+const displayAnswer = (i: number): string => props.questions[i]?.answer?.trim() || resolvedAnswer(i)
+
 const buildAnswers = (): Record<string, AnswerItemPayload> => {
   // Keyed by question text (Claude Code's model). The backend guarantees unique
   // question texts (ask_user_question Execute rejects duplicates), so keys never
@@ -139,18 +145,13 @@ const buildAnswers = (): Record<string, AnswerItemPayload> => {
   return out
 }
 
-const submitAnswers = async (): Promise<void> => {
+const submitAnswers = (): void => {
   if (submitting.value || !canSubmit.value) return
+  // Stays true: the parent persists + resumes, then markQuestionAnswered flips
+  // this card to its read-only answered state (re-rendering the footer away). No
+  // local POST anymore — the parent owns it (issue4: streamed resume).
   submitting.value = true
-  try {
-    await postAgentAnswer(props.runId, { answers: buildAnswers() })
-    emit('answer-submitted')
-  } catch (err) {
-    const msg = (err as Error)?.message ?? '提交失败，请重试'
-    notifications.error(`提交回答失败：${msg}`)
-  } finally {
-    submitting.value = false
-  }
+  emit('answer-submitted', buildAnswers())
 }
 
 const handleKeydown = (event: KeyboardEvent, label: string): void => {
@@ -355,9 +356,10 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
     <!-- Answered: read-only recap of the questions + the user's answers. The
          card stays visible (was previously hidden behind a one-line note) so the
          user can always look back at what was asked and what they replied — just
-         can't edit it. resolvedAnswer(i) reads the live `state`; on a reloaded
-         session `state` is empty (the answer rides in a separate user bubble),
-         so we show the questions with a neutral "已回答" marker. -->
+         can't edit it. displayAnswer(i) prefers the backend-reconstructed
+         answer (issue1: a reloaded session rebuilds the card with each
+         question's actual answer) and falls back to the live `state` in-session,
+         or a neutral "已回答" marker for a legacy pre-issue1 reloaded card. -->
     <div v-if="answered" class="question-prompt__answered">
       <button
         type="button"
@@ -378,8 +380,8 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
       <ul v-show="answeredExpanded" class="question-prompt__answered-list">
         <li v-for="(q, i) in questions" :key="i" class="question-prompt__answered-item">
           <p class="question-prompt__answered-q">{{ q.question }}</p>
-          <p class="question-prompt__answered-a" :class="{ 'is-empty': !resolvedAnswer(i) }">
-            {{ resolvedAnswer(i) || '已回答' }}
+          <p class="question-prompt__answered-a" :class="{ 'is-empty': !displayAnswer(i) }">
+            {{ displayAnswer(i) || '已回答' }}
           </p>
         </li>
       </ul>

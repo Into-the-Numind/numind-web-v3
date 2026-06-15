@@ -56,9 +56,24 @@ const typeIcon = computed(() => toolIcon(props.group.tool_name))
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  padding: 2px 0;
+  /* issue2: a light emerald rectangle behind each tool call so adjacent actions
+     read as distinct steps. Kept deliberately faint (same --primary hue as the
+     alive signals) + a single-line padding so it stays a flat timeline, not the
+     heavy card chrome the agent-process-timeline redesign removed. */
+  padding: 5px 8px;
+  background: var(--tool-line-bg, hsla(160, 72%, 40%, 0.06));
+  border-radius: 6px;
   font-size: 13.5px;
   line-height: 1.55;
+}
+/* the running line is a touch more saturated so the eye lands on it. */
+.tl-line.active {
+  background: var(--tool-line-bg-active, hsla(160, 72%, 40%, 0.1));
+}
+/* an errored line drops the emerald tint for a faint red so the background never
+   contradicts the red icon/text. */
+.tl-line.error {
+  background: var(--tool-line-bg-error, hsla(0, 84%, 60%, 0.06));
 }
 .tl-ic {
   flex-shrink: 0;

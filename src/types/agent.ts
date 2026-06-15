@@ -227,6 +227,13 @@ export interface QuestionPromptItem {
   header?: string
   /** backend always serializes this on question items (no omitempty) */
   multi_select: boolean
+  /**
+   * The user's resolved answer, present only on a reconstructed ANSWERED card
+   * after a reload (issue1: the backend embeds it via question_answer). Absent
+   * on a pending/streamed card, so the answered recap can show what was actually
+   * chosen instead of a bare "已回答".
+   */
+  answer?: string
 }
 
 export interface QuestionPromptMessage extends BaseMessage {

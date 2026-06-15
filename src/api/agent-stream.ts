@@ -12,14 +12,16 @@
 import type { AgentStreamEvent } from '@/types/agent-stream'
 import { AgentStreamConflict } from '@/types/agent-stream'
 import type { CreateRunRequest } from '@/types/agent'
+import type { AnswerItemPayload } from '@/api/agent'
 import { getToken, clearAuth } from './request'
 import { buildApiUrl } from './sales'
 
 // ---------------------------------------------------------------------------
-// Path constant
+// Path constants
 // ---------------------------------------------------------------------------
 
 export const STREAM_AGENT_RUN_PATH = '/v1/agent-runs/stream'
+export const ANSWER_STREAM_PATH = (runId: number): string => `/v1/agent-runs/${runId}/answer-stream`
 
 // ---------------------------------------------------------------------------
 // Generic SSE frame parser (not coupled to SalesChatEvent)
@@ -141,6 +143,83 @@ export async function streamAgentRun(
     // Friendly, user-facing messages instead of a bare "HTTP <N>". The raw
     // status is logged for debugging.
     console.error('[agent-stream] non-2xx response', response.status)
+    if (response.status === 402) {
+      throw new Error('积分不足，请充值后再试。')
+    }
+    if (response.status === 401) {
+      // Match the no-token path (and axios interceptor): clear auth + redirect.
+      clearAuth()
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      throw new Error('登录已过期，请重新登录。')
+    }
+    throw new Error('服务暂时不可用，请稍后再试。')
+  }
+
+  await readAgentSSEStream(response, (chunk) => {
+    const event = parseAgentSseChunk<AgentStreamEvent>(chunk)
+    if (event) onEvent(event)
+  })
+}
+
+/**
+ * answerAndResumeStream — POST the ask_user_question answers to
+ * /v1/agent-runs/:id/answer-stream and stream the resumed leg back through
+ * onEvent, frame-for-frame identical to streamAgentRun (issue4: the resumed
+ * leg's assistant prose returns via the same applyStreamEvent pipeline, not just
+ * tool narration + a trailing final_answer that poll-only gave us).
+ *
+ * The backend persists the answer server-side AND streams the resume in one shot;
+ * the event protocol is identical to /v1/agent-runs/stream.
+ *
+ * Throws:
+ *   - AgentStreamConflict  when backend returns 409 (another client is streaming)
+ *   - Error(friendly msg)  on any other non-2xx response (402/401/其它)
+ *   - DOMException (AbortError) when signal is aborted before the stream ends
+ */
+export async function answerAndResumeStream(
+  runId: number,
+  answers: Record<string, AnswerItemPayload>,
+  onEvent: (e: AgentStreamEvent) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const token = getToken()
+  if (!token) {
+    clearAuth()
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      window.location.href = '/login'
+    }
+    throw new Error('未登录，请重新登录')
+  }
+
+  const response = await fetch(buildApiUrl(ANSWER_STREAM_PATH(runId)), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ answers }),
+    signal
+  })
+
+  if (response.status === 409) {
+    let conflictRunId = 0
+    let snapshot: unknown = undefined
+    try {
+      const body = (await response.json()) as { data?: { run_id?: number }; [k: string]: unknown }
+      conflictRunId = body?.data?.run_id ?? 0
+      snapshot = body
+    } catch {
+      // ignore parse error — runId stays 0
+    }
+    throw new AgentStreamConflict(conflictRunId, snapshot)
+  }
+
+  if (!response.ok) {
+    // Friendly, user-facing messages instead of a bare "HTTP <N>". The raw
+    // status is logged for debugging.
+    console.error('[agent-stream] answer-stream non-2xx response', response.status)
     if (response.status === 402) {
       throw new Error('积分不足，请充值后再试。')
     }

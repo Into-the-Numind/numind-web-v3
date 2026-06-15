@@ -15,16 +15,12 @@
  */
 
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import QuestionPrompt from '../QuestionPrompt.vue'
 import type { QuestionPromptItem } from '@/types/agent'
 
-vi.mock('@/api/agent', () => ({
-  postAgentAnswer: vi.fn()
-}))
-vi.mock('@/stores/notifications', () => ({
-  useNotificationsStore: () => ({ error: vi.fn() })
-}))
+// issue4: QuestionPrompt no longer POSTs or notifies (it emits answers up), so
+// no @/api/agent or @/stores/notifications mock is needed here.
 
 // Wire-realistic payload: `options` key absent, exactly as the backend
 // delivered it for dev run 147's first question.

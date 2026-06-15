@@ -10,6 +10,7 @@ import { useAgentRun } from '@/composables/useAgentRun'
 import { useAgentStream } from '@/composables/useAgentStream'
 import { useAgentCost } from '@/composables/useAgentCost'
 import * as api from '@/api/agent'
+import type { AnswerItemPayload } from '@/api/agent'
 import { handleSessionIdTransition } from './session-watchers'
 import AppButton from '@/components/common/AppButton.vue'
 import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
@@ -34,7 +35,7 @@ const creditsStore = useCreditsStore()
 const notifications = useNotificationsStore()
 const narration = useAgentNarration()
 const runCtrl = useAgentRun()
-const { start: startStream, stop: stopStream, isStreaming } = useAgentStream()
+const { start: startStream, stop: stopStream, isStreaming, startResume } = useAgentStream()
 const cost = useAgentCost()
 
 const supportContact = ref<SupportContact>({})
@@ -92,18 +93,31 @@ const handleCancel = async (): Promise<void> => {
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
 }
 
-const handleAnswerSubmitted = async (runId: number): Promise<void> => {
-  // The run paused for ask_user_question and the SSE stream already ended at the
-  // waiting terminal. The backend re-runs the agent (non-stream) on /answer,
-  // writing narration + final to the DB — so resume by polling rather than
-  // reopening the stream. Optimistically flip the card to "已回答" for instant
-  // feedback (the polling run_resumed handler sets the same flag idempotently).
+const handleAnswerSubmitted = async (
+  runId: number,
+  answers: Record<string, AnswerItemPayload>
+): Promise<void> => {
   // ensureCurrentRun guards the reloaded-waiting-session path where currentRun
-  // may be unset, so polling actually advances (yield-session-reload).
+  // may be unset (yield-session-reload). Optimistically flip the card to "已回答"
+  // for instant feedback (the run_resumed handler sets the same flag idempotently).
   await store.ensureCurrentRun(runId)
-  store.markQuestionAnswered(runId)
-  narration.start()
-  runCtrl.startStatusPolling()
+  store.markQuestionAnswered(runId) // optimistic flip to answered
+  try {
+    // SSE answer-stream persists the answer server-side AND streams the resumed
+    // leg (issue4: prose narration returns, same pipeline as the first leg).
+    await startResume({ runId, answers })
+  } catch {
+    // stream couldn't open (409 conflict / network) — fall back to the poll
+    // endpoint which persists + resumes detached, then poll for narration.
+    try {
+      await api.postAgentAnswer(runId, { answers })
+    } catch (e) {
+      notifications.error(`提交回答失败：${(e as Error)?.message ?? '请重试'}`)
+      return
+    }
+    narration.start()
+    runCtrl.startStatusPolling()
+  }
 }
 
 const handleEstimateRequest = async (text: string): Promise<void> => {

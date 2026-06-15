@@ -73,6 +73,7 @@ vi.mock('@/api/agent', () => ({
 
 // ─── useAgentStream mock ───────────────────────────────────────────────────
 const mockStreamStart = vi.fn(async () => {})
+const mockStreamStartResume = vi.fn(async () => {})
 const mockStreamStop = vi.fn()
 const mockIsStreaming = ref(false)
 const mockFallbackPolling = ref(false)
@@ -80,6 +81,7 @@ const mockFallbackPolling = ref(false)
 vi.mock('@/composables/useAgentStream', () => ({
   useAgentStream: () => ({
     start: mockStreamStart,
+    startResume: mockStreamStartResume,
     stop: mockStreamStop,
     isStreaming: mockIsStreaming,
     fallbackPolling: mockFallbackPolling
