@@ -282,12 +282,7 @@ const systemText = computed<string>(() => {
         :finished="true"
         auto-collapse
       />
-      <AgentFinalAnswer
-        :markdown="asFinalAnswer.markdown"
-        :run-id="asFinalAnswer.run_id"
-        :initial-feedback="asFinalAnswer.feedback"
-        :initial-note="asFinalAnswer.feedback_note"
-      />
+      <AgentFinalAnswer :markdown="asFinalAnswer.markdown" :run-id="asFinalAnswer.run_id" />
     </div>
   </div>
 

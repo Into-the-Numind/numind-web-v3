@@ -5,7 +5,7 @@
  * the prose untouched.
  */
 import { describe, it, expect } from 'vitest'
-import { extractArtifacts } from '../agentArtifacts'
+import { extractArtifacts, splitIntoSegments } from '../agentArtifacts'
 
 // A presigned COS image URL (signature query suffix must be ignored).
 const COS_IMG =
@@ -169,5 +169,114 @@ describe('extractArtifacts — edge cases', () => {
   it('plain prose with no links is returned unchanged', () => {
     const md = '# 标题\n\n这是一段没有任何链接的正文。'
     expect(extractArtifacts(md)).toEqual({ prose: md, artifacts: [] })
+  })
+})
+
+describe('splitIntoSegments — in-place artifact cards (#1/#4)', () => {
+  it('① a download link standing alone on its own line (with a label) becomes an artifact segment', () => {
+    const md = `分析完成。\n\n文件下载：[报告](${COS_DOCX})\n\n请查收。`
+    const segs = splitIntoSegments(md)
+
+    // prose(intro) → artifact(card) → prose(outro), in document order
+    expect(segs.map((s) => s.type)).toEqual(['prose', 'artifact', 'prose'])
+    const card = segs[1]
+    expect(card.type).toBe('artifact')
+    if (card.type === 'artifact') {
+      expect(card.ref.filename).toBe('report.docx')
+      expect(card.ref.url).toBe(COS_DOCX)
+      expect(card.ref.mime).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      )
+    }
+    // the COS url never leaks into a prose segment
+    expect(
+      segs
+        .filter((s) => s.type === 'prose')
+        .map((s) => (s as { html: string }).html)
+        .join('')
+    ).not.toContain('report.docx')
+  })
+
+  it('a bare COS image standing alone on its own line becomes an artifact segment', () => {
+    const md = `核心见下图：\n\n![趋势图](${COS_IMG})`
+    const segs = splitIntoSegments(md)
+    expect(segs.map((s) => s.type)).toEqual(['prose', 'artifact'])
+    const card = segs[1]
+    if (card.type === 'artifact') {
+      expect(card.ref.filename).toBe('chart.png')
+      expect(card.ref.mime).toBe('image/png')
+    }
+  })
+
+  it('② a COS link embedded inside a list item is NOT split — it stays in the prose', () => {
+    const md = `要点：\n\n- 第一条，详见 [报告](${COS_DOCX}) 的数据\n- 第二条`
+    const segs = splitIntoSegments(md)
+
+    // no artifact card — the list block stays intact in a single prose segment
+    expect(segs.every((s) => s.type === 'prose')).toBe(true)
+    const html = (segs[0] as { html: string }).html
+    // the list survived as a list, and the COS link is still inside it (marked
+    // HTML-escapes `&` in the query string to `&amp;`, so assert on the path).
+    expect(html).toContain('<li>')
+    expect(html).toContain('agent-outputs/run42/report.docx')
+  })
+
+  it('a COS link surrounded by prose on the same line is NOT split (stays inline)', () => {
+    const md = `完整版可以从 [这里](${COS_DOCX}) 下载，记得保存。`
+    const segs = splitIntoSegments(md)
+    expect(segs).toHaveLength(1)
+    expect(segs[0].type).toBe('prose')
+    // link kept inline (marked escapes `&`→`&amp;`, so assert on the path).
+    expect((segs[0] as { html: string }).html).toContain('agent-outputs/run42/report.docx')
+  })
+
+  it('③ multiple standalone-line COS artifacts interleave with prose, in document order', () => {
+    const md = [
+      '# 报告',
+      '',
+      '正文一。',
+      '',
+      `![趋势图](${COS_IMG})`,
+      '',
+      '正文二。',
+      '',
+      `[下载报告](${COS_DOCX})`,
+      '',
+      '正文三。'
+    ].join('\n')
+    const segs = splitIntoSegments(md)
+
+    expect(segs.map((s) => s.type)).toEqual(['prose', 'artifact', 'prose', 'artifact', 'prose'])
+    const filenames = segs
+      .filter((s): s is { type: 'artifact'; ref: { filename: string } } => s.type === 'artifact')
+      .map((s) => s.ref.filename)
+    expect(filenames).toEqual(['chart.png', 'report.docx'])
+  })
+
+  it('④ a standalone third-party link line is NOT split — it stays prose', () => {
+    const md = `参考资料：\n\n[行业报告](https://example.com/2026.pdf)`
+    const segs = splitIntoSegments(md)
+    expect(segs.every((s) => s.type === 'prose')).toBe(true)
+    expect(segs.map((s) => (s as { html: string }).html).join('')).toContain(
+      'https://example.com/2026.pdf'
+    )
+  })
+
+  it('a third-party image standing alone is NOT split', () => {
+    const md = `配图：\n\n![随机图](https://picsum.photos/200)`
+    const segs = splitIntoSegments(md)
+    expect(segs.every((s) => s.type === 'prose')).toBe(true)
+  })
+
+  it('empty / nullish input → empty segment array', () => {
+    expect(splitIntoSegments('')).toEqual([])
+    expect(splitIntoSegments(null)).toEqual([])
+    expect(splitIntoSegments(undefined)).toEqual([])
+  })
+
+  it('plain prose with no COS nodes → a single prose segment', () => {
+    const segs = splitIntoSegments('# 标题\n\n一段正文。')
+    expect(segs).toHaveLength(1)
+    expect(segs[0].type).toBe('prose')
   })
 })

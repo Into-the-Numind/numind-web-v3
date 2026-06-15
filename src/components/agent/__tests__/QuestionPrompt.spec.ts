@@ -318,3 +318,33 @@ describe('QuestionPrompt — a11y', () => {
     expect(wrapper.findAll('.question-prompt__tab')[0].attributes('aria-current')).toBe('true')
   })
 })
+
+describe('QuestionPrompt — C3 conversational structure', () => {
+  it('shows the conversational header + avatar lead-in (hidden once answered)', () => {
+    const wrapper = mountSingle()
+    expect(wrapper.find('.question-prompt__who').exists()).toBe(true)
+    expect(wrapper.find('.question-prompt__avatar').exists()).toBe(true)
+    expect(wrapper.find('.question-prompt__who-text').text()).toContain('确认')
+
+    const answered = mountSingle({ answered: true })
+    expect(answered.find('.question-prompt__who').exists()).toBe(false)
+  })
+
+  it('options render as chips and the selected chip carries the is-selected class', async () => {
+    const wrapper = mountSingle()
+    const chips = wrapper.findAll('.question-prompt__chip')
+    expect(chips).toHaveLength(2)
+    // each chip is also an option button (functional class preserved)
+    expect(chips[0].classes()).toContain('question-prompt__option--btn')
+    await chips[0].trigger('click')
+    expect(chips[0].classes()).toContain('is-selected')
+  })
+
+  it('multi-select options also render as chips', async () => {
+    const wrapper = mountMulti()
+    await wrapper.find('.question-prompt__next').trigger('click') // → Q2 (multi-select)
+    const chips = wrapper.findAll('.question-prompt__chip')
+    expect(chips.length).toBeGreaterThan(0)
+    expect(chips[0].classes()).toContain('question-prompt__option--checkbox')
+  })
+})

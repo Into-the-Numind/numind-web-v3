@@ -193,9 +193,7 @@ export interface FinalAnswerMessage extends BaseMessage {
   type: 'final_answer'
   markdown: string
   reasoning?: string
-  feedback?: 'positive' | 'negative' | null
-  feedback_note?: string
-  /** associated run for submitting feedback */
+  /** associated run id (carried through for the copy/resume context) */
   run_id?: number
 }
 
@@ -342,15 +340,6 @@ export interface RecentSession {
   preview_text?: string
   is_pinned?: boolean
   session_name?: string
-}
-
-// ─────────────────────────────────────────
-// FeedbackRequest
-// ─────────────────────────────────────────
-
-export interface FeedbackRequest {
-  feedback: 'positive' | 'negative'
-  note?: string
 }
 
 // ─────────────────────────────────────────

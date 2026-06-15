@@ -164,3 +164,55 @@ describe('AgentArtifactItem — HTML sandbox preview', () => {
     wrapper.unmount()
   })
 })
+
+describe('AgentArtifactItem — A1 file card structure', () => {
+  it('docx renders the A1 file card: emerald doc badge + filename + uppercase type label', () => {
+    const doc = {
+      id: 1,
+      filename: '莫小派_获客调研.docx',
+      url: 'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/x.docx?sign=abc',
+      mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    }
+    const wrapper = mount(AgentArtifactItem, { props: { artifact: doc } })
+    expect(wrapper.find('.file-row').exists()).toBe(true)
+    expect(wrapper.find('.doc-badge').exists()).toBe(true)
+    expect(wrapper.find('.filename').text()).toBe('莫小派_获客调研.docx')
+    // type label = uppercase extension (DOCX), not a KB size (ArtifactRef has no size)
+    expect(wrapper.find('.file-type').text()).toBe('DOCX')
+    expect(wrapper.text()).not.toContain('KB')
+    wrapper.unmount()
+  })
+
+  it('falls back to a mime-derived type label when the filename has no extension', () => {
+    const pdf = {
+      id: 2,
+      filename: 'report',
+      url: 'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/report?sign=abc',
+      mime: 'application/pdf'
+    }
+    const wrapper = mount(AgentArtifactItem, { props: { artifact: pdf } })
+    expect(wrapper.find('.file-type').text()).toBe('PDF')
+    wrapper.unmount()
+  })
+})
+
+describe('AgentArtifactItem — B1 image card structure', () => {
+  it('an image renders the B1 thumbnail card: rounded thumb + caption, click opens the modal', async () => {
+    const img = {
+      id: 3,
+      filename: 'chart.png',
+      url: 'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/chart.png?sign=abc',
+      mime: 'image/png'
+    }
+    const wrapper = mount(AgentArtifactItem, { props: { artifact: img }, attachTo: document.body })
+    expect(wrapper.find('.artifact-item--image').exists()).toBe(true)
+    const thumb = wrapper.find('.thumb')
+    expect(thumb.exists()).toBe(true)
+    expect(thumb.attributes('src')).toBe(img.url)
+    expect(wrapper.find('.filename').text()).toBe('chart.png')
+    // clicking the thumbnail opens the full-image preview modal
+    await wrapper.find('.image-wrap').trigger('click')
+    expect(document.querySelector('.preview-img')).not.toBeNull()
+    wrapper.unmount()
+  })
+})

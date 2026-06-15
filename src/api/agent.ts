@@ -13,7 +13,6 @@ import type {
   RecentSession,
   SupportContact,
   ExtendBudgetRequest,
-  FeedbackRequest,
   UploadResponse
 } from '@/types/agent'
 
@@ -117,20 +116,14 @@ export const extendBudget = async (runId: number, req: ExtendBudgetRequest): Pro
   return data
 }
 
-// 11. 提交反馈
-export const submitFeedback = async (runId: number, req: FeedbackRequest): Promise<void> => {
-  if (useMock()) return mock.submitFeedback(runId, req)
-  await request.post(`/v1/agent-runs/${runId}/feedback`, req)
-}
-
-// 12. 父账户客服联系方式
+// 11. 父账户客服联系方式
 export const getSupportContact = async (): Promise<SupportContact> => {
   if (useMock()) return mock.getSupportContact()
   const { data } = await request.get<SupportContact>('/v1/tenant-settings/support-contact')
   return data
 }
 
-// 13. 文件上传
+// 12. 文件上传
 export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
   if (useMock()) return mock.uploadAttachment(file)
   const form = new FormData()
@@ -141,7 +134,7 @@ export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
   return data
 }
 
-// 14. 提交 ask_user_question 答案（T6）
+// 13. 提交 ask_user_question 答案（T6）
 export const postAgentAnswer = async (
   runId: number,
   payload: AnswerPayload
@@ -151,19 +144,19 @@ export const postAgentAnswer = async (
   return res.data as AnswerResponse
 }
 
-// 15. 置顶会话
+// 14. 置顶会话
 export const pinSession = async (sessionId: string, isPinned: boolean): Promise<void> => {
   await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/pin`, {
     is_pinned: isPinned
   })
 }
 
-// 16. 重命名会话
+// 15. 重命名会话
 export const renameSession = async (sessionId: string, name: string): Promise<void> => {
   await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/rename`, { name })
 }
 
-// 17. 删除会话
+// 16. 删除会话
 export const deleteSession = async (sessionId: string): Promise<void> => {
   await request.post(`/v1/agent-sessions/${encodeURIComponent(sessionId)}/delete`)
 }

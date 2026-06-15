@@ -12,7 +12,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -32,7 +31,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -59,7 +57,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -84,7 +81,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -95,18 +91,18 @@ describe('AgentFinalAnswer', () => {
     expect(wrapper.find('.download-btn').exists()).toBe(true)
   })
 
-  it('renders COS-generated image + docx as artifact cards, dropping them from the prose (#2a)', () => {
+  it('renders COS image + docx as in-place artifact cards between the prose segments (#1/#4)', () => {
     const cosImg =
       'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/run1/chart.png?q-sign-time=1'
     const cosDocx =
       'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/run1/report.docx?q-sign-time=1'
-    const markdown = `# 分析结论\n\n核心见下图。\n\n![趋势图](${cosImg})\n\n[下载报告](${cosDocx})`
+    // intro prose → COS image → middle prose → COS docx → outro prose
+    const markdown = `# 分析结论\n\n核心见下图。\n\n![趋势图](${cosImg})\n\n中间说明。\n\n[下载报告](${cosDocx})\n\n结尾。`
 
     const wrapper = mount(AgentFinalAnswer, {
       props: { markdown },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           AgentImagePreview: true,
           // stub the artifact card so we can inspect its props directly
           AgentArtifactItem: {
@@ -128,14 +124,29 @@ describe('AgentFinalAnswer', () => {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     )
 
-    // prose keeps the heading/body but the original COS nodes are gone
-    const body = wrapper.find('.markdown-body')
-    expect(body.html()).toContain('分析结论')
-    expect(body.html()).toContain('核心见下图')
-    expect(body.html()).not.toContain('agent-outputs/run1/chart.png')
-    expect(body.html()).not.toContain('agent-outputs/run1/report.docx')
-    // no inline COS <img> in the markdown body — it became a card instead
-    expect(body.find('img').exists()).toBe(false)
+    // The segments render in place: prose → card → prose → card → prose. Walk the
+    // rendered children of .final-answer and assert the cards sit BETWEEN the
+    // prose blocks (not all bunched at the end).
+    const fa = wrapper.find('.final-answer').element
+    const segmentEls = Array.from(fa.children).filter(
+      (el) => el.classList.contains('markdown-body') || el.classList.contains('stub-artifact')
+    )
+    const kinds = segmentEls.map((el) =>
+      el.classList.contains('stub-artifact') ? 'artifact' : 'prose'
+    )
+    expect(kinds).toEqual(['prose', 'artifact', 'prose', 'artifact', 'prose'])
+
+    // No prose segment leaks a raw COS url, and no inline COS <img> survives.
+    const proseHtml = wrapper
+      .findAll('.markdown-body')
+      .map((b) => b.html())
+      .join('')
+    expect(proseHtml).toContain('分析结论')
+    expect(proseHtml).toContain('核心见下图')
+    expect(proseHtml).toContain('中间说明')
+    expect(proseHtml).not.toContain('agent-outputs/run1/chart.png')
+    expect(proseHtml).not.toContain('agent-outputs/run1/report.docx')
+    expect(wrapper.find('.markdown-body img').exists()).toBe(false)
   })
 
   it('renders rich markdown structure (headings/list/blockquote/hr) without breaking (#3)', () => {
@@ -156,7 +167,7 @@ describe('AgentFinalAnswer', () => {
 
     const wrapper = mount(AgentFinalAnswer, {
       props: { markdown },
-      global: { stubs: { AgentFeedbackBar: true, AgentImagePreview: true } }
+      global: { stubs: { AgentImagePreview: true } }
     })
 
     const body = wrapper.find('.markdown-body')

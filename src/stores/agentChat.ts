@@ -4,7 +4,7 @@
  * 职责：
  * - currentAgent / currentRun / messages 的中心化
  * - narration 事件累积 + stuck 检测
- * - run lifecycle actions（create / poll / cancel / extend / feedback）
+ * - run lifecycle actions（create / poll / cancel / extend）
  * - 历史会话恢复（loadSessionSnapshot）
  * - 流式事件处理（applyStreamEvent / applyError）— T10
  * - reset() 完整清理 16 个 ref 字段
@@ -541,14 +541,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const extendCurrentBudget = async (extra: number): Promise<void> => {
     if (!currentRun.value) return
     currentRun.value = await api.extendBudget(currentRun.value.id, { extra_credits: extra })
-  }
-
-  const submitFeedback = async (
-    runId: number,
-    fb: 'positive' | 'negative',
-    note?: string
-  ): Promise<void> => {
-    await api.submitFeedback(runId, { feedback: fb, note })
   }
 
   const uploadAttachment = async (file: File): Promise<void> => {
@@ -1326,7 +1318,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     refreshRunStatus,
     cancelCurrent,
     extendCurrentBudget,
-    submitFeedback,
     uploadAttachment,
     removeAttachment,
     loadSessionSnapshot,

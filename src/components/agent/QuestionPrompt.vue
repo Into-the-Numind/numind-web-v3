@@ -24,7 +24,7 @@
 import { ref, reactive, computed } from 'vue'
 import type { AnswerItemPayload } from '@/api/agent'
 import type { QuestionPromptItem } from '@/types/agent'
-import { ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Sparkles } from 'lucide-vue-next'
 
 // Answered card is collapsed by default — click to expand and review the
 // questions + answers (keeps the transcript clean while staying revisitable).
@@ -168,6 +168,16 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
     role="group"
     :aria-label="isMulti ? `${total} 个问题` : questions[0]?.question"
   >
+    <!-- C3 conversational header: a friendly "the assistant is asking" lead-in so
+         the card reads like a colleague checking in, not a form. Hidden in the
+         read-only answered recap. -->
+    <div v-if="!answered" class="question-prompt__who">
+      <span class="question-prompt__avatar" aria-hidden="true">
+        <Sparkles :size="15" />
+      </span>
+      <span class="question-prompt__who-text">助手想跟你确认一下</span>
+    </div>
+
     <!-- Question navigator (multi-question only): one chip per question showing
          answered (☑) / pending (☐) status; click to revisit. A stepper, not an
          ARIA tab widget, so role=group + aria-current rather than tablist/tab. -->
@@ -216,7 +226,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
           v-for="opt in currentOptions"
           :key="opt.label"
           type="button"
-          class="question-prompt__option question-prompt__option--checkbox"
+          class="question-prompt__option question-prompt__option--checkbox question-prompt__chip"
           :class="{ 'is-selected': isSelected(opt.label), 'is-disabled': submitting }"
           :disabled="submitting"
           :aria-pressed="isSelected(opt.label)"
@@ -239,7 +249,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
           v-for="opt in currentOptions"
           :key="opt.label"
           type="button"
-          class="question-prompt__option question-prompt__option--btn"
+          class="question-prompt__option question-prompt__option--btn question-prompt__chip"
           :class="{ 'is-selected': isSelected(opt.label), 'is-disabled': submitting }"
           :disabled="submitting"
           :aria-pressed="isSelected(opt.label)"
@@ -349,22 +359,49 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 </template>
 
 <style scoped>
+/* C3 conversational soft card: a gentle emerald wash fading to white + a soft
+   emerald border so the prompt reads as a warm "checking in", not a cold form. */
 .question-prompt {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  padding: 16px;
+  background: linear-gradient(
+    180deg,
+    var(--color-accent-ultra-soft, hsl(160, 60%, 95%)),
+    var(--color-surface, #fff) 42%
+  );
+  border: 1px solid var(--color-accent-soft, hsl(160, 60%, 93%));
+  border-radius: var(--radius-lg, 16px);
+  padding: 18px;
   max-width: 480px;
   width: 100%;
 }
 
-/* Answered card is a readable read-only recap, not a greyed-out husk. A soft
-   tint + muted border signals "locked" without the 0.65 opacity that made the
-   recap hard to read. No pointer-events:none — the recap has no controls, and
-   the user may want to select the text. */
+/* Answered card is a readable read-only recap, not a greyed-out husk. Drop the
+   emerald wash for a neutral tint + muted border to signal "locked" without the
+   0.65 opacity that made the recap hard to read. No pointer-events:none — the
+   recap has no controls, and the user may want to select the text. */
 .question-prompt--answered {
   background: var(--color-surface-tint, #f9fafb);
   border-color: var(--color-border, #e5e7eb);
+}
+
+/* C3 header: avatar + "the assistant is asking" lead-in. */
+.question-prompt__who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-text-secondary, #5f6577);
+  font-size: 13px;
+}
+
+.question-prompt__avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-primary, hsl(160, 72%, 40%));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
 .question-prompt__answered-toggle {
@@ -382,7 +419,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 .question-prompt__answered-badge {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 .question-prompt__answered-peek {
   font-size: 12px;
@@ -464,17 +501,17 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 }
 
 .question-prompt__tab:hover:not(:disabled) {
-  border-color: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__tab.is-answered {
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__tab.is-current {
-  background: var(--color-primary-ultra-soft, #eff6ff);
-  border-color: var(--color-primary, #2563eb);
-  color: var(--color-primary, #2563eb);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  border-color: var(--color-primary, hsl(160, 72%, 40%));
+  color: var(--color-primary, hsl(160, 72%, 40%));
   font-weight: 600;
 }
 
@@ -503,78 +540,79 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   margin-bottom: 8px;
 }
 
+/* Serif question — gives the prompt a calm, considered "a person is asking" tone
+   (matches the brand's serif headings). */
 .question-prompt__question {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text, #1f2937);
+  font-family: var(--font-heading, Georgia, 'Songti SC', serif);
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--color-text, #1a1d26);
   margin: 0 0 14px;
   line-height: 1.5;
 }
 
-/* ── Options ── */
+/* ── Options as chips (C3) ── chips wrap horizontally; selected = emerald solid. */
 .question-prompt__options {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
+/* Chip look shared by single-select and multi-select option buttons. */
+.question-prompt__chip {
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e4ea);
+  transition:
+    background 0.13s,
+    border-color 0.13s,
+    color 0.13s;
+}
+
+.question-prompt__chip:hover:not(:disabled):not(.is-disabled):not(.is-selected) {
+  border-color: var(--color-accent-light, hsl(160, 70%, 68%));
+}
+
+/* Selected chip → emerald solid, white text (playground .c3 .chip.sel). */
+.question-prompt__chip.is-selected {
+  background: var(--color-primary, hsl(160, 72%, 40%));
+  border-color: var(--color-primary, hsl(160, 72%, 40%));
+}
+
+.question-prompt__chip.is-selected .question-prompt__option-label,
+.question-prompt__chip.is-selected .question-prompt__option-desc,
+.question-prompt__chip.is-selected .question-prompt__checkbox-visual {
+  color: #fff;
+}
+
+/* Single-select chip: label (+ optional sub-line description) in a pill. Visual
+   bg/border/radius come from .question-prompt__chip; this only sets the layout. */
 .question-prompt__option--btn {
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  padding: 10px 14px;
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  gap: 1px;
+  padding: 8px 15px;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition:
-    background 0.12s,
-    border-color 0.12s;
-  width: 100%;
 }
 
-.question-prompt__option--btn:hover:not(:disabled) {
-  background: var(--color-surface-hover, #f9fafb);
-  border-color: var(--color-primary, #2563eb);
-}
-
-.question-prompt__option--btn.is-selected {
-  background: var(--color-primary-ultra-soft, #eff6ff);
-  border-color: var(--color-primary, #2563eb);
-}
-
-.question-prompt__option--btn:disabled {
+.question-prompt__option--btn:disabled,
+.question-prompt__option--btn.is-disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
+/* Multi-select chip: a ☑/☐ glyph + label in a pill. */
 .question-prompt__option--checkbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  width: 100%;
-  transition:
-    background 0.12s,
-    border-color 0.12s;
-}
-
-.question-prompt__option--checkbox:hover:not(:disabled):not(.is-disabled) {
-  background: var(--color-surface-hover, #f9fafb);
-}
-
-.question-prompt__option--checkbox.is-selected {
-  background: var(--color-primary-ultra-soft, #eff6ff);
-  border-color: var(--color-primary, #2563eb);
 }
 
 .question-prompt__option--checkbox:disabled,
@@ -584,16 +622,15 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 }
 
 .question-prompt__checkbox-visual {
-  margin-top: 1px;
   flex-shrink: 0;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__option-label {
-  font-size: 14px;
-  color: var(--color-text, #1f2937);
+  font-size: 13.5px;
+  color: var(--color-text, #1a1d26);
   font-weight: 500;
   line-height: 1.4;
 }
@@ -611,12 +648,12 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
 .question-prompt__textarea {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border, #e2e4ea);
+  border-radius: var(--radius-md, 12px);
   font-family: inherit;
-  font-size: 14px;
-  color: var(--color-text, #1f2937);
+  font-size: 13.5px;
+  color: var(--color-text, #1a1d26);
   background: var(--color-surface, #fff);
   resize: vertical;
   box-sizing: border-box;
@@ -625,7 +662,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
 .question-prompt__textarea:focus {
   outline: none;
-  border-color: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__textarea:disabled {
@@ -654,49 +691,49 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: var(--radius-pill, 999px);
   cursor: pointer;
   transition: background 0.12s;
 }
 
 .question-prompt__prev {
   background: transparent;
-  color: var(--color-text-muted, #6b7280);
-  border: 1px solid var(--color-border, #e5e7eb);
+  color: var(--color-text-muted, #8b90a0);
+  border: 1px solid var(--color-border, #e2e4ea);
 }
 
 .question-prompt__prev:hover:not(:disabled) {
-  background: var(--color-surface-hover, #f9fafb);
+  background: var(--color-surface-hover, #f3f4f8);
 }
 
 .question-prompt__next {
   background: var(--color-surface, #fff);
-  color: var(--color-primary, #2563eb);
-  border: 1px solid var(--color-primary, #2563eb);
+  color: var(--color-primary, hsl(160, 72%, 40%));
+  border: 1px solid var(--color-primary, hsl(160, 72%, 40%));
 }
 
 .question-prompt__next:hover:not(:disabled) {
-  background: var(--color-primary-ultra-soft, #eff6ff);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
 }
 
 .question-prompt__submit {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 20px;
-  background: var(--color-primary, #2563eb);
+  padding: 8px 22px;
+  background: var(--color-primary, hsl(160, 72%, 40%));
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-pill, 999px);
   font-family: inherit;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.12s;
 }
 
 .question-prompt__submit:hover:not(:disabled) {
-  background: var(--color-primary-hover, #1d4ed8);
+  background: var(--color-primary-hover, hsl(160, 72%, 34%));
 }
 
 .question-prompt__prev:disabled,
