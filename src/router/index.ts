@@ -300,6 +300,25 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/marketplace/MarketplaceDetail.vue'),
     meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
   },
+  // 通知中心 (notification-center)
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: () => import('@/views/NotificationsView.vue'),
+    meta: {
+      title: '通知中心',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/notifications/:id',
+    name: 'notification-detail',
+    component: () => import('@/views/NotificationDetailView.vue'),
+    meta: {
+      title: '通知详情',
+      requiresAuth: true
+    }
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',
