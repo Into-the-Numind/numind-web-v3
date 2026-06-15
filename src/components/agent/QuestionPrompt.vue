@@ -4,7 +4,8 @@
  *
  * agent-multi-question: a single yield may pose 1-4 independent questions
  * (Claude Code's AskUserQuestion model). The card shows one question at a time
- * with a tab bar to flip between / revise them, and a Review step before submit.
+ * with a tab bar to flip between / revise them; the last question submits
+ * directly (no separate review/confirmation step — agent-output-polish #1).
  * A single question collapses to a simple form (no tabs, direct submit).
  *
  * Each question carries its own options + an always-present free-text box (the
@@ -54,7 +55,6 @@ interface PerQuestion {
 const state = reactive<PerQuestion[]>(props.questions.map(() => ({ selected: [], freeText: '' })))
 
 const currentIndex = ref(0)
-const reviewing = ref(false)
 const submitting = ref(false)
 
 const total = computed(() => props.questions.length)
@@ -93,21 +93,20 @@ const toggleOption = (label: string): void => {
 
 const goTo = (i: number): void => {
   if (i >= 0 && i < total.value) {
-    reviewing.value = false
     currentIndex.value = i
   }
 }
+// On the last question goNext submits directly (no review step — #1); otherwise
+// it advances to the next question.
 const goNext = (): void => {
   if (isLast.value) {
-    reviewing.value = true
+    submitAnswers()
   } else {
     currentIndex.value++
   }
 }
 const goPrev = (): void => {
-  if (reviewing.value) {
-    reviewing.value = false
-  } else if (!isFirst.value) {
+  if (!isFirst.value) {
     currentIndex.value--
   }
 }
@@ -184,12 +183,12 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         type="button"
         class="question-prompt__tab"
         :class="{
-          'is-current': !reviewing && i === currentIndex,
+          'is-current': i === currentIndex,
           'is-answered': isQuestionAnswered(i)
         }"
         :data-index="i"
         :disabled="submitting"
-        :aria-current="!reviewing && i === currentIndex ? 'true' : undefined"
+        :aria-current="i === currentIndex ? 'true' : undefined"
         :aria-label="`第 ${i + 1} 题${isQuestionAnswered(i) ? '（已答）' : '（待答）'}`"
         @click="goTo(i)"
       >
@@ -201,34 +200,8 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
       <span class="question-prompt__progress">{{ answeredCount }}/{{ total }}</span>
     </div>
 
-    <!-- Review panel (multi-question, last step): all Q&A with edit links -->
-    <div v-if="reviewing && !answered" class="question-prompt__review">
-      <p class="question-prompt__review-title">确认你的回答</p>
-      <ul class="question-prompt__review-list">
-        <li
-          v-for="(q, i) in questions"
-          :key="i"
-          class="question-prompt__review-item"
-          :class="{ 'is-empty': !isQuestionAnswered(i) }"
-        >
-          <div class="question-prompt__review-q">{{ q.question }}</div>
-          <div class="question-prompt__review-a">
-            {{ isQuestionAnswered(i) ? resolvedAnswer(i) : '（未回答）' }}
-          </div>
-          <button
-            type="button"
-            class="question-prompt__edit"
-            :disabled="submitting"
-            @click="goTo(i)"
-          >
-            修改
-          </button>
-        </li>
-      </ul>
-    </div>
-
-    <!-- Current question view (current is guaranteed defined by the v-else-if) -->
-    <template v-else-if="!answered && current">
+    <!-- Current question view -->
+    <template v-if="!answered && current">
       <div v-if="current.header" class="question-prompt__header">{{ current.header }}</div>
       <p class="question-prompt__question">{{ current.question }}</p>
 
@@ -301,44 +274,30 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
     <p v-else-if="!answered" class="question-prompt__answered-note">暂无需要回答的问题。</p>
 
     <!-- Footer nav / submit -->
-    <div v-if="!answered && (current || reviewing)" class="question-prompt__nav">
+    <div v-if="!answered && current" class="question-prompt__nav">
       <button
-        v-if="isMulti && (!isFirst || reviewing)"
+        v-if="isMulti && !isFirst"
         type="button"
         class="question-prompt__prev"
         :disabled="submitting"
         @click="goPrev"
       >
-        ← {{ reviewing ? '返回修改' : '上一题' }}
+        ← 上一题
       </button>
       <span class="question-prompt__nav-spacer" />
 
-      <!-- Review-step submit -->
+      <!-- Multi-question, not the last: advance to the next question -->
       <button
-        v-if="reviewing"
-        type="button"
-        class="question-prompt__submit"
-        :disabled="!canSubmit || submitting"
-        :aria-busy="submitting"
-        aria-label="提交回答"
-        @click="submitAnswers"
-      >
-        <span v-if="submitting" class="question-prompt__spinner" aria-hidden="true">⏳</span>
-        <span>{{ submitting ? '提交中...' : '提交' }}</span>
-      </button>
-
-      <!-- Multi-question: advance to next question / review -->
-      <button
-        v-else-if="isMulti"
+        v-if="isMulti && !isLast"
         type="button"
         class="question-prompt__next"
         :disabled="submitting"
         @click="goNext"
       >
-        {{ isLast ? '检查并提交' : '下一题' }} →
+        下一题 →
       </button>
 
-      <!-- Single question: submit directly -->
+      <!-- Last question (multi) or single question: submit directly (#1) -->
       <button
         v-else
         type="button"
@@ -674,70 +633,6 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   cursor: not-allowed;
 }
 
-/* ── Review panel ── */
-.question-prompt__review-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text, #1f2937);
-  margin: 0 0 12px;
-}
-
-.question-prompt__review-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.question-prompt__review-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-}
-
-.question-prompt__review-item.is-empty {
-  opacity: 0.7;
-}
-
-.question-prompt__review-q {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text, #1f2937);
-}
-
-.question-prompt__review-a {
-  grid-column: 1;
-  font-size: 13px;
-  color: var(--color-primary, #2563eb);
-}
-
-.question-prompt__review-item.is-empty .question-prompt__review-a {
-  color: var(--color-text-muted, #6b7280);
-}
-
-.question-prompt__edit {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  align-self: center;
-  padding: 4px 10px;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--color-primary, #2563eb);
-  background: transparent;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.question-prompt__edit:hover:not(:disabled) {
-  border-color: var(--color-primary, #2563eb);
-}
-
 /* ── Footer nav ── */
 .question-prompt__nav {
   display: flex;
@@ -806,8 +701,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
 .question-prompt__prev:disabled,
 .question-prompt__next:disabled,
-.question-prompt__submit:disabled,
-.question-prompt__edit:disabled {
+.question-prompt__submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
