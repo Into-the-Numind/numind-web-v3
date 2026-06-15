@@ -64,8 +64,9 @@ const chatbotSessions = computed(() =>
 )
 
 // adaptive-session-titles US5: "加载更多" pagination so users can browse ALL history,
-// not just the first page of 20 sessions.
-const hasMoreSessions = computed(() => store.sessions.length < store.sessionsTotal)
+// not just the first page of 20 sessions. Compare the rendered (chatbot-filtered)
+// count against the backend total for this chatbot.
+const hasMoreSessions = computed(() => chatbotSessions.value.length < store.sessionsTotal)
 const loadMoreSessions = (): Promise<void> => store.loadMoreSessions(chatbotId.value)
 
 const canSend = computed(() => {
@@ -532,8 +533,13 @@ function handleDocClick(e: MouseEvent) {
               </div>
             </div>
           </div>
-          <button v-if="hasMoreSessions" class="sessions-load-more" @click="loadMoreSessions">
-            加载更多
+          <button
+            v-if="hasMoreSessions"
+            class="sessions-load-more"
+            :disabled="store.sessionsLoadingMore"
+            @click="loadMoreSessions"
+          >
+            {{ store.sessionsLoadingMore ? '加载中…' : '加载更多' }}
           </button>
           <div v-if="chatbotSessions.length === 0" class="sessions-empty">暂无对话</div>
         </div>
@@ -1055,9 +1061,14 @@ body.chatbot-chat-route #app {
   transition: background 0.15s ease;
 }
 
-.sessions-load-more:hover {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+.sessions-load-more:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
   color: var(--text);
+}
+
+.sessions-load-more:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .session-item {

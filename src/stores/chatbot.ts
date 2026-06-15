@@ -23,6 +23,9 @@ export const useChatbotStore = defineStore('chatbot', () => {
   const sessionsTotal = ref(0)
   // Offset of the next page to load (adaptive-session-titles US5: "加载更多" pagination).
   const sessionsOffset = ref(0)
+  // Inflight guard so rapid double-clicks on "加载更多" can't issue two requests at
+  // the same offset (which would append a duplicate page → duplicate v-for keys).
+  const sessionsLoadingMore = ref(false)
   const currentSession = ref<ChatbotSession | null>(null)
   const currentChatbotId = ref<number | null>(null)
   const messages = ref<ChatbotMessage[]>([])
@@ -72,7 +75,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
   // loadMoreSessions appends the next page to the sidebar list (US5: view all history,
   // not just the first 20). Stops when all sessions for the chatbot are loaded.
   async function loadMoreSessions(chatbotId: number, limit = 20) {
-    if (sessions.value.length >= sessionsTotal.value) return
+    if (sessionsLoadingMore.value || sessions.value.length >= sessionsTotal.value) return
+    sessionsLoadingMore.value = true
     try {
       const res = await listChatbotSessions(sessionsOffset.value, limit, chatbotId)
       const data = (res as any)?.data as { list: ChatbotSession[]; total: number } | undefined
@@ -82,6 +86,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
       sessionsOffset.value = sessions.value.length
     } catch (e) {
       console.error('[chatbot] loadMoreSessions failed:', e)
+    } finally {
+      sessionsLoadingMore.value = false
     }
   }
 
@@ -329,6 +335,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
     sessions,
     sessionsTotal,
     sessionsOffset,
+    sessionsLoadingMore,
     currentSession,
     currentChatbotId,
     messages,
