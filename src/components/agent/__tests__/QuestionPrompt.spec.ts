@@ -232,6 +232,15 @@ describe('QuestionPrompt — answered & errors', () => {
     expect(wrapper.findAll('.question-prompt__answered-item')).toHaveLength(2)
   })
 
+  // #7: the answered recap carries the same emerald avatar identity as the asking
+  // C3 card (with a check), so the two states read as one unified design.
+  it('answered state shows the emerald avatar identity (C3 unified)', () => {
+    const wrapper = mountMulti({ answered: true })
+    const avatar = wrapper.find('.question-prompt__answered .question-prompt__avatar')
+    expect(avatar.exists()).toBe(true)
+    expect(wrapper.find('.question-prompt__answered-badge').text()).toContain('已回答')
+  })
+
   it('after answering live, the expanded recap echoes the selected answer', async () => {
     const wrapper = mountSingle()
     await wrapper.find('.question-prompt__option--btn').trigger('click') // select PDF

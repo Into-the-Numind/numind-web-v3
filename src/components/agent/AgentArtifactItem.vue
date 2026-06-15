@@ -223,32 +223,38 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   padding: 10px 12px;
 }
 
-/* B1 image card — thumbnail + caption, a tighter padded frame, not the file row. */
+/* S2 single image (#3) — no outer frame: drop the card border/padding/background
+   entirely. The image itself carries the rounded corners + a light shadow so it
+   reads as a polished standalone visual, not a thumbnail boxed in a card. */
 .artifact-item--image {
   display: inline-block;
   width: auto;
   max-width: none;
-  padding: 8px;
-  border-radius: var(--radius-md, 12px);
-  box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .image-wrap {
   cursor: pointer;
 }
 
+/* The image carries the whole S2 treatment: rounded + soft shadow, click to enlarge.
+   max-width/max-height with auto sizing keeps any aspect ratio undistorted and
+   un-cropped (no object-fit needed without a fixed box). */
 .thumb {
-  width: 240px;
-  height: 150px;
-  border-radius: 8px;
-  /* contain — AI-generated images are any aspect ratio; cover would crop the subject. */
-  object-fit: contain;
-  background: var(--color-surface-tint, #f9fafb);
   display: block;
+  max-width: 360px;
+  max-height: 320px;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.06));
 }
 
 .image-wrap .filename {
-  margin: 7px 2px 1px;
+  margin: 8px 2px 1px;
   font-size: 12px;
   color: var(--color-text-muted, #8b90a0);
 }

@@ -6,18 +6,28 @@
  * continuous, open, readable process timeline — the same on the streaming and the
  * polling (answer-resume) paths. Replaces the old collapsed giant card.
  */
+import { computed } from 'vue'
 import type { ToolCallAggregate } from '@/types/agent'
 import AgentToolCallItem from './AgentToolCallItem.vue'
 
 interface Props {
   toolGroups: ToolCallAggregate[]
 }
-defineProps<Props>()
+const props = defineProps<Props>()
+
+// #6: ask_user_question is a yield tool — it emits a StateUse but the run then
+// pauses and never produces a result, so its timeline line would spin forever
+// ("等你回答一个问题"还在转圈). It is already represented by the QuestionPrompt card,
+// so drop it from the tool timeline entirely (covers streaming / polling / reload —
+// this is the single render entry point).
+const visibleGroups = computed(() =>
+  props.toolGroups.filter((g) => g.tool_name !== 'ask_user_question')
+)
 </script>
 
 <template>
-  <div class="tool-timeline" v-if="toolGroups.length > 0">
-    <AgentToolCallItem v-for="group in toolGroups" :key="group.tool_call_id" :group="group" />
+  <div class="tool-timeline" v-if="visibleGroups.length > 0">
+    <AgentToolCallItem v-for="group in visibleGroups" :key="group.tool_call_id" :group="group" />
   </div>
 </template>
 

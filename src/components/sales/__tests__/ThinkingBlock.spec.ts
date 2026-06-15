@@ -32,4 +32,14 @@ describe('ThinkingBlock', () => {
     await w.find('.thinking-header').trigger('click')
     expect(w.find('.thinking-container').classes()).not.toContain('collapsed')
   })
+
+  // #1: disclosure chevron base icon is ChevronRight (points right when collapsed;
+  // CSS rotates it 90deg → down when expanded). Locks the icon so a future swap back
+  // to ChevronDown (down-when-collapsed) is caught.
+  it('uses a right-pointing chevron as the disclosure icon', () => {
+    const w = mount(ThinkingBlock, { props: { content: 'x', finished: true } })
+    const icon = w.find('.thinking-icon')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('lucide-chevron-right')
+  })
 })

@@ -117,9 +117,10 @@ describe('AgentFinalAnswer', () => {
     // two artifact cards, in document order
     const cards = wrapper.findAll('.stub-artifact')
     expect(cards).toHaveLength(2)
-    expect(cards[0].text()).toBe('chart.png')
+    // #2: display name is the markdown alt / link text, not the COS object-key tail.
+    expect(cards[0].text()).toBe('趋势图')
     expect(cards[0].attributes('data-mime')).toBe('image/png')
-    expect(cards[1].text()).toBe('report.docx')
+    expect(cards[1].text()).toBe('下载报告')
     expect(cards[1].attributes('data-mime')).toBe(
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     )
@@ -181,5 +182,42 @@ describe('AgentFinalAnswer', () => {
     expect(body.find('blockquote').exists()).toBe(true)
     // hr renders (previously display:none — P1-B made it a real divider)
     expect(body.find('hr').exists()).toBe(true)
+  })
+
+  it('multiple consecutive COS images render as one responsive grid, not separate cards (#3 M1)', () => {
+    const cos = (n: string) =>
+      `https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/run1/${n}.png?q-sign-time=1`
+    // three images back-to-back (blank lines only between them)
+    const markdown = `配图如下：\n\n![图一](${cos('a')})\n\n![图二](${cos('b')})\n\n![图三](${cos('c')})`
+
+    const wrapper = mount(AgentFinalAnswer, {
+      props: { markdown },
+      global: { stubs: { AgentImagePreview: true } }
+    })
+
+    // one grid container holding all three images; no separate artifact cards
+    const grid = wrapper.find('.image-grid')
+    expect(grid.exists()).toBe(true)
+    expect(grid.findAll('.image-grid__img')).toHaveLength(3)
+    expect(grid.findAll('figure.image-grid__cell')).toHaveLength(3)
+  })
+
+  it('a single COS image stays a single S2 artifact card, not a grid (#3)', () => {
+    const cosImg =
+      'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/run1/only.png?q-sign-time=1'
+    const markdown = `仅一张图：\n\n![唯一图](${cosImg})`
+
+    const wrapper = mount(AgentFinalAnswer, {
+      props: { markdown },
+      global: {
+        stubs: {
+          AgentImagePreview: true,
+          AgentArtifactItem: { props: ['artifact'], template: '<div class="stub-artifact" />' }
+        }
+      }
+    })
+
+    expect(wrapper.find('.image-grid').exists()).toBe(false)
+    expect(wrapper.findAll('.stub-artifact')).toHaveLength(1)
   })
 })

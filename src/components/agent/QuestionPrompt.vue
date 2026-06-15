@@ -24,7 +24,7 @@
 import { ref, reactive, computed } from 'vue'
 import type { AnswerItemPayload } from '@/api/agent'
 import type { QuestionPromptItem } from '@/types/agent'
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Sparkles, Check } from 'lucide-vue-next'
 
 // Answered card is collapsed by default — click to expand and review the
 // questions + answers (keeps the transcript clean while staying revisitable).
@@ -336,7 +336,13 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         :aria-expanded="answeredExpanded"
         @click="answeredExpanded = !answeredExpanded"
       >
-        <span class="question-prompt__answered-badge">✓ 已回答</span>
+        <!-- Same emerald avatar identity as the asking card (C3) — same 26px circle
+             + size-15 icon, just a check instead of sparkles — so the two states
+             read as one family (#7). -->
+        <span class="question-prompt__avatar" aria-hidden="true">
+          <Check :size="15" />
+        </span>
+        <span class="question-prompt__answered-badge">已回答</span>
         <span class="question-prompt__answered-peek">{{
           answeredExpanded ? '收起' : '查看问题与回答'
         }}</span>
@@ -374,13 +380,13 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   width: 100%;
 }
 
-/* Answered card is a readable read-only recap, not a greyed-out husk. Drop the
-   emerald wash for a neutral tint + muted border to signal "locked" without the
-   0.65 opacity that made the recap hard to read. No pointer-events:none — the
-   recap has no controls, and the user may want to select the text. */
+/* Answered card stays in the C3 emerald family (#7) — a calm, flat emerald tint
+   (not the asking card's gradient wash) signals "done / locked" while reading as
+   clearly the same component. No pointer-events:none — the recap has no controls,
+   and the user may want to select the text. */
 .question-prompt--answered {
-  background: var(--color-surface-tint, #f9fafb);
-  border-color: var(--color-border, #e5e7eb);
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  border-color: var(--color-accent-soft, hsl(160, 60%, 93%));
 }
 
 /* C3 header: avatar + "the assistant is asking" lead-in. */
@@ -422,11 +428,11 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   color: var(--color-primary, hsl(160, 72%, 40%));
 }
 .question-prompt__answered-peek {
+  margin-left: auto;
   font-size: 12px;
   color: var(--color-text-muted, #6b7280);
 }
 .question-prompt__answered-chev {
-  margin-left: auto;
   color: var(--color-text-muted, #6b7280);
 }
 
@@ -446,12 +452,15 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   border-radius: 8px;
 }
 
+/* Recap question uses the brand serif — same calm "a person asked" tone as the
+   asking card's serif question, so answered + asking read as one design (#7). */
 .question-prompt__answered-q {
   margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 500;
+  font-family: var(--font-heading, Georgia, 'Songti SC', serif);
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--color-text, #1f2937);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .question-prompt__answered-a {

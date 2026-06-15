@@ -48,6 +48,14 @@ export interface ExtractedArtifacts {
  */
 export type Segment = { type: 'prose'; html: string } | { type: 'artifact'; ref: ArtifactRef }
 
+/**
+ * A render-ready segment: like Segment, but consecutive image artifacts are
+ * coalesced into one `image-group` so the answer can lay multiple images out as a
+ * responsive grid (#3 M1) while a lone image stays an `artifact` (rendered as a
+ * single S2 card). Produced by {@link groupAdjacentImages}; consumed by the view.
+ */
+export type RenderSegment = Segment | { type: 'image-group'; refs: ArtifactRef[] }
+
 // Extension → MIME. Office formats use their canonical OOXML/binary types so the
 // artifact card can label/download them correctly.
 const MIME_BY_EXT: Record<string, string> = {
@@ -102,6 +110,20 @@ function extOf(url: string): string {
   return last.slice(dot + 1).toLowerCase()
 }
 
+/**
+ * Display name for an artifact (#2): prefer the markdown node's link text / image
+ * alt — that is the human-readable name the LLM actually wrote (`![销售漏斗图](url)`,
+ * `[报告.docx](url)`). It beats the COS object-key tail, where Chinese is sanitized
+ * to underscores (`..py-______.docx`) and images carry a machine name. Falls back to
+ * the URL filename, then a generic `artifact.<ext>`, when the node has no text/alt.
+ */
+function displayName(text: string, url: string, ext: string): string {
+  // NODE_RE group 2 is always a string ('' when the node has no text/alt), never
+  // null — the `?? ''` is a cheap belt-and-suspenders guard, not a real nullable path.
+  const label = (text ?? '').trim()
+  return label || filenameOf(url) || `artifact.${ext}`
+}
+
 /** Filename = last path segment (query stripped), URL-decoded. */
 function filenameOf(url: string): string {
   const path = urlPath(url)
@@ -146,7 +168,7 @@ export function extractArtifacts(markdown: string | null | undefined): Extracted
 
   const artifacts: ArtifactRef[] = []
 
-  const prose = markdown.replace(NODE_RE, (match, bang: string, _text: string, url: string) => {
+  const prose = markdown.replace(NODE_RE, (match, bang: string, text: string, url: string) => {
     if (!isCosArtifactUrl(url)) return match // third-party node → leave as-is
 
     const ext = extOf(url)
@@ -165,7 +187,7 @@ export function extractArtifacts(markdown: string | null | undefined): Extracted
     if (!mime) return match
 
     artifacts.push({
-      filename: filenameOf(url) || `artifact.${ext}`,
+      filename: displayName(text, url, ext),
       url,
       mime
     })
@@ -181,7 +203,7 @@ export function extractArtifacts(markdown: string | null | undefined): Extracted
  * or an unknown extension). Mirrors the per-node decision inside extractArtifacts
  * so both code paths agree on what counts as an artifact.
  */
-function artifactRefOf(isImageNode: boolean, url: string): ArtifactRef | null {
+function artifactRefOf(isImageNode: boolean, text: string, url: string): ArtifactRef | null {
   if (!isCosArtifactUrl(url)) return null
   const ext = extOf(url)
   if (isImageNode) {
@@ -191,7 +213,7 @@ function artifactRefOf(isImageNode: boolean, url: string): ArtifactRef | null {
   }
   const mime = MIME_BY_EXT[ext]
   if (!mime) return null
-  return { filename: filenameOf(url) || `artifact.${ext}`, url, mime }
+  return { filename: displayName(text, url, ext), url, mime }
 }
 
 // A markdown line is "structural" (a list item, blockquote, or table row) when it
@@ -222,8 +244,8 @@ function standaloneArtifactOf(line: string): ArtifactRef | null {
   if (matches.length !== 1) return null
 
   const m = matches[0]
-  const [match, bang, , url] = m
-  const ref = artifactRefOf(bang === '!', url)
+  const [match, bang, text, url] = m
+  const ref = artifactRefOf(bang === '!', text, url)
   if (!ref) return null
 
   // The node must be the last meaningful content: only whitespace may follow it.
@@ -272,4 +294,42 @@ export function splitIntoSegments(markdown: string | null | undefined): Segment[
   flushProse()
 
   return segments
+}
+
+const isImageRef = (ref: ArtifactRef): boolean => ref.mime.startsWith('image/')
+
+/**
+ * Coalesce runs of consecutive image artifacts into `image-group` segments so the
+ * view can lay them out as a responsive grid (#3 M1), while a lone image stays a
+ * plain `artifact` (rendered as a single S2 card). Document order is preserved;
+ * prose and non-image (document) artifacts are passed through untouched. Two images
+ * separated only by blank lines stay adjacent (splitIntoSegments drops empty prose),
+ * so they group; two images separated by real prose are in different groups.
+ *
+ * @param segments output of {@link splitIntoSegments}
+ * @returns ordered RenderSegment[] ready to render
+ */
+export function groupAdjacentImages(segments: Segment[]): RenderSegment[] {
+  const out: RenderSegment[] = []
+  let run: ArtifactRef[] = []
+
+  const flushRun = (): void => {
+    if (run.length === 0) return
+    // A single image renders as one S2 card; 2+ become a grid.
+    if (run.length === 1) out.push({ type: 'artifact', ref: run[0] })
+    else out.push({ type: 'image-group', refs: run })
+    run = []
+  }
+
+  for (const seg of segments) {
+    if (seg.type === 'artifact' && isImageRef(seg.ref)) {
+      run.push(seg.ref)
+    } else {
+      flushRun()
+      out.push(seg)
+    }
+  }
+  flushRun()
+
+  return out
 }
