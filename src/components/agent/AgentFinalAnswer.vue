@@ -3,7 +3,6 @@ import { computed, ref } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { extractArtifacts } from '@/utils/agentArtifacts'
 import { useImagePreview } from '@/composables/useImagePreview'
-import AgentFeedbackBar from './AgentFeedbackBar.vue'
 import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
 import { Copy, Check } from 'lucide-vue-next'
@@ -11,14 +10,10 @@ import { Copy, Check } from 'lucide-vue-next'
 interface Props {
   markdown: string
   runId?: number
-  initialFeedback?: 'positive' | 'negative' | null
-  initialNote?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  runId: undefined,
-  initialFeedback: null,
-  initialNote: ''
+  runId: undefined
 })
 
 // Lift COS-generated artifacts (images, downloadable docs) out of the markdown
@@ -75,26 +70,12 @@ const copyText = async (): Promise<void> => {
       />
     </div>
 
-    <div class="feedback-section">
-      <div class="feedback-left">
-        <AgentFeedbackBar
-          :run-id="runId"
-          :initial-feedback="initialFeedback"
-          :initial-note="initialNote"
-        />
-      </div>
-      <div class="feedback-right">
-        <button
-          class="ai-action-btn"
-          :class="{ copied: copied }"
-          @click="copyText"
-          title="复制回答"
-        >
-          <Check v-if="copied" :size="14" />
-          <Copy v-else :size="14" />
-          <span>{{ copied ? '已复制' : '复制' }}</span>
-        </button>
-      </div>
+    <div class="answer-actions">
+      <button class="ai-action-btn" :class="{ copied: copied }" @click="copyText" title="复制回答">
+        <Check v-if="copied" :size="14" />
+        <Copy v-else :size="14" />
+        <span>{{ copied ? '已复制' : '复制' }}</span>
+      </button>
     </div>
 
     <!-- 全屏图片大图预览 + 下载（共享组件） -->
@@ -244,23 +225,13 @@ const copyText = async (): Promise<void> => {
   background: #f9fafb;
 }
 
-.feedback-section {
+.answer-actions {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid #f3f4f6;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.feedback-left {
-  display: flex;
-  align-items: center;
-}
-
-.feedback-right {
-  display: flex;
-  align-items: center;
+  justify-content: flex-end;
 }
 
 .ai-action-btn {

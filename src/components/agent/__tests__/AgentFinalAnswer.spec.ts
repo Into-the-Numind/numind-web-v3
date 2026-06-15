@@ -12,7 +12,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -32,7 +31,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -59,7 +57,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -84,7 +81,6 @@ describe('AgentFinalAnswer', () => {
       },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           Teleport: true
         }
       }
@@ -106,7 +102,6 @@ describe('AgentFinalAnswer', () => {
       props: { markdown },
       global: {
         stubs: {
-          AgentFeedbackBar: true,
           AgentImagePreview: true,
           // stub the artifact card so we can inspect its props directly
           AgentArtifactItem: {
@@ -156,7 +151,7 @@ describe('AgentFinalAnswer', () => {
 
     const wrapper = mount(AgentFinalAnswer, {
       props: { markdown },
-      global: { stubs: { AgentFeedbackBar: true, AgentImagePreview: true } }
+      global: { stubs: { AgentImagePreview: true } }
     })
 
     const body = wrapper.find('.markdown-body')

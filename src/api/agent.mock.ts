@@ -13,7 +13,6 @@ import type {
   RecentSession,
   SupportContact,
   ExtendBudgetRequest,
-  FeedbackRequest,
   UploadResponse,
   AgentRunStatus
 } from '@/types/agent'
@@ -435,13 +434,6 @@ export const extendBudget = async (runId: number, req: ExtendBudgetRequest): Pro
     state.threshold_state = 'under_60'
   }
   return getRun(runId)
-}
-
-export const submitFeedback = async (
-  runId: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  req: FeedbackRequest // eslint-disable-line @typescript-eslint/no-unused-vars
-): Promise<void> => {
-  await delay(150)
 }
 
 export const getSupportContact = async (): Promise<SupportContact> => {

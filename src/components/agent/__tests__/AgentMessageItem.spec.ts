@@ -23,7 +23,7 @@ const globalStubs = {
     template: '<div class="artifact-stub"><a :href="artifact.url">{{ artifact.filename }}</a></div>'
   },
   AgentFinalAnswer: {
-    props: ['markdown', 'runId', 'initialFeedback', 'initialNote'],
+    props: ['markdown', 'runId'],
     template: '<div class="final-stub">{{ markdown }}</div>'
   },
   AgentImagePreview: {

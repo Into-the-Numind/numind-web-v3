@@ -30,7 +30,6 @@ vi.mock('@/api/agent', () => ({
   fetchNarrationEvents: vi.fn(async () => []),
   cancelRun: vi.fn(),
   extendBudget: vi.fn(),
-  submitFeedback: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 'sess-resume',

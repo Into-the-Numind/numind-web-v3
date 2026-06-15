@@ -543,14 +543,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     currentRun.value = await api.extendBudget(currentRun.value.id, { extra_credits: extra })
   }
 
-  const submitFeedback = async (
-    runId: number,
-    fb: 'positive' | 'negative',
-    note?: string
-  ): Promise<void> => {
-    await api.submitFeedback(runId, { feedback: fb, note })
-  }
-
   const uploadAttachment = async (file: File): Promise<void> => {
     const res = await api.uploadAttachment(file)
     attachments.value.push(res)
@@ -1326,7 +1318,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     refreshRunStatus,
     cancelCurrent,
     extendCurrentBudget,
-    submitFeedback,
     uploadAttachment,
     removeAttachment,
     loadSessionSnapshot,

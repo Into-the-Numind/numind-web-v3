@@ -15,7 +15,6 @@ vi.mock('@/api/agent', () => ({
   getRun: vi.fn(),
   cancelRun: vi.fn(),
   extendBudget: vi.fn(),
-  submitFeedback: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn()
 }))
