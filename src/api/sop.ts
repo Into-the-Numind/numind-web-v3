@@ -1,4 +1,11 @@
 import request from './request'
+import type { SopReplayFile } from '@/views/sop/types'
+
+/**
+ * 回看态上传文件类型。单一真相在 @/views/sop/types 的 SopReplayFile，此处 re-export
+ * 以便 api 消费方就近引用，避免两处声明 drift。
+ */
+export type StatusNodeFileInfo = SopReplayFile
 
 export interface SopRunRecord {
   runId: string
@@ -415,6 +422,11 @@ export interface StatusCompletedNodeInfo {
    * 后端 SopNodeRun.TotalTokens 带 json:"-"，必须经 controller DTO mapping 透出。
    */
   total_tokens?: number
+  /**
+   * 该步上传的文件（回看可见，对应后端 CompletedNodeInfo.Files）。
+   * 无上传时后端省略该字段（omitempty）。
+   */
+  files?: StatusNodeFileInfo[]
 }
 
 export interface StatusNextNodeInfo {

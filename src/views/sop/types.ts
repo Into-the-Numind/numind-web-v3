@@ -137,6 +137,24 @@ export interface SopRun {
  * 注意 input/output/thinking 在后端是 Go string（序列化为 "" 而非 null），
  * 但前端代码仍应防御性写 `thinking || ''` 处理可能的不一致。
  */
+/**
+ * 回看态单个上传文件（对应后端 v1.CompletedNodeFileInfo）。
+ *
+ * file_url 为后端读取时实时签名的 URL（私有桶裸链不可直接访问）：
+ * 图片为 inline GET 签名（可 <img> 渲染），非图片为 attachment 下载签名。
+ * 此类型为 SOP 回看输入/上传可见性的单一真相，api 层 re-export 为 StatusNodeFileInfo。
+ */
+export interface SopReplayFile {
+  id: number
+  file_name: string
+  file_url: string
+  file_type: string
+  file_size: number
+  file_ext?: string
+  /** 上传时提取的文本（OCR/解析，可空、已截断）；前端默认折叠展示 */
+  content?: string
+}
+
 export interface SopNodeRun {
   id: number
   run_id: number
@@ -165,6 +183,11 @@ export interface SopNodeRun {
    * GetRunDetail API 不会返回此字段，所以标为 optional。
    */
   is_accessible?: boolean
+  /**
+   * 该步上传的文件（回看可见）。来自 /runs/:id/status 的 completed_nodes[].files。
+   * 老数据 / 无上传的步骤为 undefined 或空数组。
+   */
+  files?: SopReplayFile[]
   started_at: string | null
   finished_at: string | null
 }
