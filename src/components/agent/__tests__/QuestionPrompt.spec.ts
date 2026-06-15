@@ -3,8 +3,9 @@
  * QuestionPrompt.vue navigator (agent-multi-question).
  *
  * Covers: single-question form, multi-question tab navigation + per-question
- * state isolation, single/multi select, free text, the Review step, the
- * answer-submitted emit payload shape, skip-a-question, answered state, a11y.
+ * state isolation, single/multi select, free text, last-question-submits-directly
+ * (no review step — agent-output-polish #1), the answer-submitted emit payload
+ * shape, skip-a-question, answered state, a11y.
  *
  * issue4: the card no longer POSTs the answer itself — it emits the answers map
  * up for the parent (AgentChatView) to persist + stream-resume. These tests
@@ -149,24 +150,24 @@ describe('QuestionPrompt — multi-question navigation', () => {
     expect(wrapper.find('.question-prompt__progress').text()).toBe('1/2')
   })
 
-  it('Review step shows every Q&A and emits the full answers map', async () => {
+  it('the last question submits directly (no review step) and emits the full answers map', async () => {
     const wrapper = mountMulti()
     // Q1: select 90天
     await wrapper.find('.question-prompt__option--btn').trigger('click')
-    // next → Q2 (multi-select): pick both + free text
+    // next → Q2 (multi-select, the last question): pick both + free text
     await wrapper.find('.question-prompt__next').trigger('click')
     const checks = wrapper.findAll('.question-prompt__option--checkbox')
     await checks[0].trigger('click')
     await checks[1].trigger('click')
     await wrapper.find('.question-prompt__textarea').setValue('一二线城市')
-    // 检查并提交 → review
-    await wrapper.find('.question-prompt__next').trigger('click')
-    expect(wrapper.find('.question-prompt__review').exists()).toBe(true)
-    expect(wrapper.find('.question-prompt__review').text()).toContain('陪跑周期多长？')
-    expect(wrapper.find('.question-prompt__review').text()).toContain('宝妈、职场人')
-    // submit
+    // On the last question there is no "下一题" / "检查并提交" button — only 提交.
+    expect(wrapper.find('.question-prompt__next').exists()).toBe(false)
+    // and no review panel ever renders (#1: review step removed)
+    expect(wrapper.find('.question-prompt__review').exists()).toBe(false)
+    // submit directly from the last question
     await wrapper.find('.question-prompt__submit').trigger('click')
 
+    expect(wrapper.emitted('answer-submitted')).toHaveLength(1)
     const ans = lastEmittedAnswers(wrapper)
     expect(ans['陪跑周期多长？'].selected).toEqual(['90天'])
     expect(ans['主要客群是谁？'].selected).toEqual(['宝妈', '职场人'])
@@ -175,25 +176,24 @@ describe('QuestionPrompt — multi-question navigation', () => {
 
   it('a skipped question is omitted from the answers map', async () => {
     const wrapper = mountMulti()
-    // answer Q1 only, skip Q2
+    // answer Q1 only, skip Q2 (the last question), then submit directly
     await wrapper.find('.question-prompt__option--btn').trigger('click')
-    await wrapper.find('.question-prompt__next').trigger('click') // → Q2
-    await wrapper.find('.question-prompt__next').trigger('click') // → review
-    await wrapper.find('.question-prompt__submit').trigger('click')
+    await wrapper.find('.question-prompt__next').trigger('click') // → Q2 (last)
+    await wrapper.find('.question-prompt__submit').trigger('click') // submit directly
 
     const ans = lastEmittedAnswers(wrapper)
     expect(Object.keys(ans)).toEqual(['陪跑周期多长？'])
     expect(ans['主要客群是谁？']).toBeUndefined()
   })
 
-  it('editing from the review jumps back to the question', async () => {
+  it('can flip back to revise an earlier question via the tab bar before submitting', async () => {
     const wrapper = mountMulti()
-    await wrapper.find('.question-prompt__option--btn').trigger('click')
-    await wrapper.find('.question-prompt__next').trigger('click') // Q2
-    await wrapper.find('.question-prompt__next').trigger('click') // review
-    await wrapper.findAll('.question-prompt__edit')[0].trigger('click')
-    expect(wrapper.find('.question-prompt__review').exists()).toBe(false)
+    await wrapper.find('.question-prompt__option--btn').trigger('click') // Q1: 90天
+    await wrapper.find('.question-prompt__next').trigger('click') // → Q2 (last)
+    // jump back to Q1 via its tab to revise — its selection persists, editable
+    await wrapper.findAll('.question-prompt__tab')[0].trigger('click')
     expect(wrapper.find('.question-prompt__question').text()).toBe('陪跑周期多长？')
+    expect(wrapper.find('.question-prompt__option--btn.is-selected').text()).toContain('90天')
   })
 
   it('multi-select: clicking a selected option removes only it', async () => {

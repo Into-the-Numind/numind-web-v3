@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
+import { extractArtifacts } from '@/utils/agentArtifacts'
 import { useImagePreview } from '@/composables/useImagePreview'
 import AgentFeedbackBar from './AgentFeedbackBar.vue'
+import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
 import { Copy, Check } from 'lucide-vue-next'
 
@@ -19,7 +21,12 @@ const props = withDefaults(defineProps<Props>(), {
   initialNote: ''
 })
 
-const html = computed<string>(() => renderMarkdown(props.markdown))
+// Lift COS-generated artifacts (images, downloadable docs) out of the markdown
+// into prominent cards; the remaining prose renders as markdown. Derived from the
+// persisted markdown so the cards survive reload (agent-output-polish #2a).
+const extracted = computed(() => extractArtifacts(props.markdown))
+const html = computed<string>(() => renderMarkdown(extracted.value.prose))
+const artifacts = computed(() => extracted.value.artifacts)
 
 const { previewImageUrl, handleImageClick, closePreview } = useImagePreview()
 
@@ -57,6 +64,17 @@ const copyText = async (): Promise<void> => {
   <div class="final-answer">
     <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
     <div class="markdown-body" v-html="html" @click="handleImageClick"></div>
+
+    <!-- COS-generated artifacts (images / downloadable docs) lifted out of the
+         prose and rendered as prominent cards (#2a). -->
+    <div v-if="artifacts.length" class="final-answer__artifacts">
+      <AgentArtifactItem
+        v-for="(a, i) in artifacts"
+        :key="i"
+        :artifact="{ id: i, filename: a.filename, url: a.url, mime: a.mime }"
+      />
+    </div>
+
     <div class="feedback-section">
       <div class="feedback-left">
         <AgentFeedbackBar
@@ -99,20 +117,91 @@ const copyText = async (): Promise<void> => {
   color: var(--color-text, #1f2937);
 }
 
-/* Markdown 分割线：AI/用户输出的横向分割线在前端完全隐藏 */
-.markdown-body :deep(hr) {
-  display: none !important;
+/* Artifact cards lifted out of the prose (#2a) */
+.final-answer__artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
 }
 
+/* Markdown 分隔线 (#3, P1-B)：以前是 display:none 完全隐藏，现在用作章节之间的
+   精致分隔（替代被禁用的 emoji 装饰带来的结构感）。 */
+.markdown-body :deep(hr) {
+  border: 0;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  margin: 20px 0;
+}
+
+/* 标题分级 (#3)：h1 > h2 > h3 字号/字重/上下间距递减，建立清晰层次。第一个块
+   元素不带顶部外边距，避免回答开头多一道空白。 */
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3) {
-  margin: 16px 0 8px;
   color: var(--color-text, #1f2937);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.markdown-body :deep(h1) {
+  font-size: 20px;
+  margin: 22px 0 10px;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 17px;
+  margin: 20px 0 8px;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 15px;
+  margin: 16px 0 6px;
+}
+
+.markdown-body :deep(:first-child) {
+  margin-top: 0;
 }
 
 .markdown-body :deep(p) {
   margin: 8px 0;
+  line-height: 1.75;
+}
+
+/* 加粗：颜色加重 + 600 字重，让强调点更跳出正文。 */
+.markdown-body :deep(strong) {
+  font-weight: 600;
+  color: var(--color-text, #111827);
+}
+
+/* 列表：缩进 + 项间距，避免列表项挤成一团。 */
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.markdown-body :deep(li) {
+  margin: 4px 0;
+  line-height: 1.7;
+}
+
+.markdown-body :deep(li > ul),
+.markdown-body :deep(li > ol) {
+  margin: 4px 0;
+}
+
+/* 引用块：左侧色条 + 柔和底色 + 略淡的正文色，与普通段落区分。 */
+.markdown-body :deep(blockquote) {
+  margin: 12px 0;
+  padding: 6px 14px;
+  border-left: 3px solid var(--color-border, #d1d5db);
+  background: var(--color-surface-tint, #f9fafb);
+  color: var(--color-text-muted, #4b5563);
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown-body :deep(blockquote p) {
+  margin: 4px 0;
 }
 
 .markdown-body :deep(code) {
