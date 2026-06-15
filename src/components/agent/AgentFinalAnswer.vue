@@ -25,6 +25,14 @@ const renderSegments = computed(() => groupAdjacentImages(splitIntoSegments(prop
 
 const { previewImageUrl, handleImageClick, closePreview } = useImagePreview()
 
+// COS presigned URLs expire (~24h). When a grid thumbnail fails to load, dim it
+// and mark it so a broken-image glyph doesn't sit opaque in the grid; the title
+// (filename) lets the user tell which image expired.
+const onImageError = (e: Event): void => {
+  const img = e.target as HTMLImageElement
+  img.style.opacity = '0.25'
+}
+
 const copied = ref(false)
 
 const copyText = async (): Promise<void> => {
@@ -69,8 +77,14 @@ const copyText = async (): Promise<void> => {
       ></div>
       <!-- 多张图 → 自适应网格 (M1)，点任意张放大（复用 useImagePreview 的事件代理）。 -->
       <div v-else-if="s.type === 'image-group'" class="image-grid" @click="handleImageClick">
-        <figure v-for="(ref, j) in s.refs" :key="j" class="image-grid__cell">
-          <img :src="ref.url" :alt="ref.filename" class="image-grid__img" />
+        <figure v-for="ref in s.refs" :key="ref.url" class="image-grid__cell">
+          <img
+            :src="ref.url"
+            :alt="ref.filename"
+            :title="ref.filename"
+            class="image-grid__img"
+            @error="onImageError"
+          />
           <figcaption class="image-grid__cap">{{ ref.filename }}</figcaption>
         </figure>
       </div>

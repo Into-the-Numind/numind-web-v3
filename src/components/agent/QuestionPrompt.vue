@@ -336,9 +336,10 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         :aria-expanded="answeredExpanded"
         @click="answeredExpanded = !answeredExpanded"
       >
-        <!-- Same emerald avatar identity as the asking card (C3), with a check to
-             signal "answered" — keeps the two states visually one family (#7). -->
-        <span class="question-prompt__avatar question-prompt__avatar--done" aria-hidden="true">
+        <!-- Same emerald avatar identity as the asking card (C3) — same 26px circle
+             + size-15 icon, just a check instead of sparkles — so the two states
+             read as one family (#7). -->
+        <span class="question-prompt__avatar" aria-hidden="true">
           <Check :size="15" />
         </span>
         <span class="question-prompt__answered-badge">已回答</span>
@@ -407,12 +408,6 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-}
-
-/* Answered-state avatar: same emerald circle, carries the ✓ check (#7). */
-.question-prompt__avatar--done {
-  width: 24px;
-  height: 24px;
 }
 
 .question-prompt__answered-toggle {

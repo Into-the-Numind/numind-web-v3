@@ -196,8 +196,8 @@ describe('AgentArtifactItem — A1 file card structure', () => {
   })
 })
 
-describe('AgentArtifactItem — B1 image card structure', () => {
-  it('an image renders the B1 thumbnail card: rounded thumb + caption, click opens the modal', async () => {
+describe('AgentArtifactItem — S2 image card structure (#3)', () => {
+  it('an image renders the bare S2 thumb + caption, click opens the modal', async () => {
     const img = {
       id: 3,
       filename: 'chart.png',
@@ -210,6 +210,9 @@ describe('AgentArtifactItem — B1 image card structure', () => {
     expect(thumb.exists()).toBe(true)
     expect(thumb.attributes('src')).toBe(img.url)
     expect(wrapper.find('.filename').text()).toBe('chart.png')
+    // S2 = bare image, NOT the framed file-card path: no doc-badge / file-row chrome.
+    expect(wrapper.find('.doc-badge').exists()).toBe(false)
+    expect(wrapper.find('.file-row').exists()).toBe(false)
     // clicking the thumbnail opens the full-image preview modal
     await wrapper.find('.image-wrap').trigger('click')
     expect(document.querySelector('.preview-img')).not.toBeNull()

@@ -118,6 +118,8 @@ function extOf(url: string): string {
  * the URL filename, then a generic `artifact.<ext>`, when the node has no text/alt.
  */
 function displayName(text: string, url: string, ext: string): string {
+  // NODE_RE group 2 is always a string ('' when the node has no text/alt), never
+  // null — the `?? ''` is a cheap belt-and-suspenders guard, not a real nullable path.
   const label = (text ?? '').trim()
   return label || filenameOf(url) || `artifact.${ext}`
 }
