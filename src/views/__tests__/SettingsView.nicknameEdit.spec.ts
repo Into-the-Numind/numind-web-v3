@@ -91,6 +91,22 @@ describe('SettingsView 昵称弹窗编辑', () => {
     expect(wrapper.find('.nickname-edit-input').exists()).toBe(false)
   })
 
+  it('未设昵称时展示回退到用户名', async () => {
+    // getUserInfo 与 store 都无昵称 → displayName 回退到 userStore.nickname(=username)
+    ;(getUserInfo as any).mockResolvedValue({
+      code: 0,
+      data: { id: 9, nickname: '', username: 'xiaoming', parent_user_id: 5, company_name: '' }
+    })
+    const userStore = useUserStore()
+    userStore.userInfo = { id: 9, username: 'xiaoming', parent_user_id: 5 } as any
+    const wrapper = mountSettings()
+    await flush()
+    expect(wrapper.find('.nickname-display-value').text()).toBe('xiaoming')
+    // 打开弹窗预填为空（无已存昵称）
+    await wrapper.find('.nickname-edit-btn').trigger('click')
+    expect((wrapper.find('.nickname-edit-input').element as HTMLInputElement).value).toBe('')
+  })
+
   it('点修改打开弹窗，取消关闭且不调接口', async () => {
     const wrapper = mountSettings()
     await flush()
@@ -152,14 +168,21 @@ describe('SettingsView 昵称弹窗编辑', () => {
     const input = wrapper.find('.nickname-edit-input')
     await input.setValue('小红')
 
-    // 1) 输入法组合中的回车（isComposing=true）→ 不应提交
-    await input.trigger('keydown.enter', { isComposing: true })
-    await flush()
+    // 1a) compositionstart 置 nicknameImeComposing=true → 即便 keydown 不带 isComposing
+    //     也不提交（独立验证 ref 守卫分支，不只是 event.isComposing）
+    await input.trigger('compositionstart')
+    await input.trigger('keydown.enter')
     await flush()
     expect(updateProfile as any).not.toHaveBeenCalled()
     expect(wrapper.find('.nickname-edit-input').exists()).toBe(true) // 弹窗仍开着
 
-    // 2) 普通回车（非组合）→ 确认提交
+    // 1b) 事件自带 isComposing=true 也不提交
+    await input.trigger('keydown.enter', { isComposing: true })
+    await flush()
+    expect(updateProfile as any).not.toHaveBeenCalled()
+
+    // 2) compositionend 复位 + 普通回车（非组合）→ 确认提交
+    await input.trigger('compositionend')
     await input.trigger('keydown.enter')
     await flush()
     await flush()
