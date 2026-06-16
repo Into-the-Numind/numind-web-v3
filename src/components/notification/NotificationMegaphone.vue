@@ -203,7 +203,8 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border: 1px solid var(--color-border-light);
+  /* 绿边与工作区卡片（HomeView .feature-card）保持一致 */
+  border: 1px solid hsl(158, 50%, 78%);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-secondary);

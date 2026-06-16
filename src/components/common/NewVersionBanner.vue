@@ -43,8 +43,9 @@ const dismissed = ref(false)
   gap: 12px;
   padding: 10px 12px 10px 16px;
   background: var(--surface);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: var(--radius-full, 9999px);
+  /* 绿边 + 圆角与工作区卡片（HomeView .feature-card）保持一致 */
+  border: 1px solid hsl(158, 50%, 78%);
+  border-radius: 20px;
   box-shadow: var(--shadow-md);
   font-size: 14px;
   color: var(--text, #1f2330);
