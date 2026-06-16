@@ -24,7 +24,7 @@
       data-testid="megaphone-btn"
       @click="toggle"
     >
-      <Megaphone :size="20" :stroke-width="1.7" />
+      <Bell :size="20" :stroke-width="1.7" />
       <span
         v-if="store.unreadCount > 0"
         class="mp-badge"
@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
-import { Megaphone, BellOff } from 'lucide-vue-next'
+import { Bell, BellOff } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 import NotificationModal from '@/components/notification/NotificationModal.vue'
 import { useAnnouncementsStore } from '@/stores/announcements'
