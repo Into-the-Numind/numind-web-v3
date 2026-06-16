@@ -6,17 +6,17 @@ interface Props {
   agentName: string
 }
 defineProps<Props>()
-defineEmits<{ 'trial-chat': []; skip: [] }>()
+defineEmits<{ 'configure-skills': []; skip: [] }>()
 </script>
 
 <template>
   <ConfirmModal
     :model-value="visible"
     title="✅ 助手已发布！"
-    :message="`「${agentName}」已经可以让学员使用了。要先体验一下，看看效果吗？`"
-    confirm-text="试聊一下"
-    cancel-text="暂时跳过"
-    @confirm="$emit('trial-chat')"
+    :message="`「${agentName}」已经可以让学员使用了。要现在为它装载技能吗？`"
+    confirm-text="去装载技能"
+    cancel-text="稍后"
+    @confirm="$emit('configure-skills')"
     @cancel="$emit('skip')"
   />
 </template>
