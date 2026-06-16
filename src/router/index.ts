@@ -313,6 +313,43 @@ const routes: RouteRecordRaw[] = [
   }
 ]
 
+// 会议副驾 (meeting-copilot) — feature flag 守卫:
+// 仅当 VITE_ENABLE_MEETING_COPILOT === 'true' 时注册路由 (prod 默认不设 → 路由不存在,
+// 直接命中 404 catch-all)。导航入口同样受该 flag 控制 (AppSidebar)。
+// 路由插在 404 catch-all 之前。
+if (import.meta.env.VITE_ENABLE_MEETING_COPILOT === 'true') {
+  const meetingRoutes: RouteRecordRaw[] = [
+    {
+      path: '/meeting',
+      name: 'meeting-setup',
+      component: () => import('@/views/meeting/MeetingSetupView.vue'),
+      meta: { title: '会议副驾', requiresAuth: true }
+    },
+    {
+      path: '/meeting/live/:id',
+      name: 'meeting-live',
+      component: () => import('@/views/meeting/MeetingLiveView.vue'),
+      props: true,
+      meta: { title: '进行中会议', requiresAuth: true }
+    },
+    {
+      path: '/meeting/summary/:id',
+      name: 'meeting-summary',
+      component: () => import('@/views/meeting/MeetingSummaryView.vue'),
+      props: true,
+      meta: { title: '会议纪要', requiresAuth: true }
+    },
+    {
+      path: '/meeting/history',
+      name: 'meeting-history',
+      component: () => import('@/views/meeting/MeetingHistoryView.vue'),
+      meta: { title: '历史会议', requiresAuth: true }
+    }
+  ]
+  // 插在 404 catch-all 之前, 确保 /meeting* 不被 catch-all 吞掉。
+  routes.splice(routes.length - 1, 0, ...meetingRoutes)
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
