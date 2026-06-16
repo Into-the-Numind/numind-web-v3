@@ -372,7 +372,13 @@ watch(
         params: { sessionId: newSessionId },
         query: { agent_id: props.agentId }
       })
-      void store.fetchRecentSessions()
+      // instant-title-ux: skip the full-list refresh while this session's title is
+      // still generating — fetchRecentSessions would replace the array and could
+      // momentarily clobber the just-set optimistic title. The optimistic entry
+      // already carries the (soon-to-arrive) title; pending clears when /title returns.
+      if (!store.titlePendingIds.has(newSessionId)) {
+        void store.fetchRecentSessions()
+      }
     }
   }
 )
