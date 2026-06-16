@@ -7,12 +7,7 @@
     </div>
 
     <template v-else>
-      <!-- 顶部栏：右上角通知喇叭（notif-dropdown） -->
-      <div class="home-topbar">
-        <NotificationMegaphone />
-      </div>
-
-      <!-- Hero 区域 -->
+      <!-- Hero 区域：打招呼标题在左，通知铃铛在同一行右上角（notif-dropdown） -->
       <div class="hero-section">
         <div class="hero-content">
           <h1 class="hero-title">
@@ -21,6 +16,7 @@
             <span class="hero-title-sub">开始今天的工作吧</span>
           </h1>
         </div>
+        <NotificationMegaphone />
       </div>
 
       <!-- 空工作台：两个 section 都没有内容时，给一个友好的引导而不是双 empty label -->
@@ -700,14 +696,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ===== 顶部栏（右上角通知喇叭） ===== */
-.home-topbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: var(--space-2);
-}
-
 /* ===== Hero Section ===== */
 .hero-section {
   display: flex;
@@ -1084,7 +1072,9 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .hero-section {
-    flex-direction: column;
+    /* 保持横向：标题在左、铃铛在右上同行（移动端也不单独占行） */
+    flex-direction: row;
+    align-items: flex-start;
     margin-bottom: 24px;
     padding: 12px 0 0;
   }
