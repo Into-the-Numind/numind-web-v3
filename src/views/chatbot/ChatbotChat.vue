@@ -245,12 +245,13 @@ function goHome() {
   router.push('/')
 }
 
-async function createNewSession() {
-  const session = await store.createSession(chatbotId.value)
-  if (session) {
-    sidebarOpen.value = false
-    nextTick(() => textareaRef.value?.focus())
-  }
+// instant-title-ux: "新对话" enters draft mode — show an empty conversation page,
+// but do NOT create a session or add a sidebar item until the user sends the first
+// message (createSessionForSend in the store, on send).
+function createNewSession() {
+  store.startDraft(chatbotId.value)
+  sidebarOpen.value = false
+  nextTick(() => textareaRef.value?.focus())
 }
 
 async function switchToSession(session: (typeof store.sessions)[0]) {
@@ -267,10 +268,11 @@ async function switchToSession(session: (typeof store.sessions)[0]) {
 async function doDelete(id: number) {
   deleteConfirmId.value = null
   await store.deleteSession(id)
-  // If no sessions left for this chatbot, auto-create one
+  // instant-title-ux: if no sessions remain, enter draft (empty page) rather than
+  // eagerly creating an empty session that would re-populate the sidebar.
   const remaining = store.sessions.filter((s) => s.chatbot_id === chatbotId.value)
   if (remaining.length === 0) {
-    await store.createSession(chatbotId.value)
+    store.startDraft(chatbotId.value)
   } else if (!store.currentSession) {
     await store.switchSession(remaining[0])
   }
@@ -465,8 +467,9 @@ onMounted(async () => {
   const sessions = store.sessions.filter((s) => s.chatbot_id === chatbotId.value)
 
   if (sessions.length === 0) {
-    // Auto-create first session
-    await store.createSession(chatbotId.value)
+    // instant-title-ux: no sessions yet → start a draft (empty page); the session is
+    // created on first send, not eagerly on entry.
+    store.startDraft(chatbotId.value)
   } else {
     // Select most recent session
     const sorted = [...sessions].sort(
@@ -540,7 +543,13 @@ function handleDocClick(e: MouseEvent) {
             }"
             @click="switchToSession(session)"
           >
-            <span class="session-title">{{ session.title || '新对话' }}</span>
+            <span
+              v-if="store.titlePendingIds.has(session.id)"
+              class="session-title session-title--pending"
+              aria-label="标题生成中"
+              >生成中…</span
+            >
+            <span v-else class="session-title">{{ session.title || '新对话' }}</span>
             <div class="session-menu-container">
               <button
                 class="session-menu-btn"
@@ -1191,6 +1200,22 @@ body.chatbot-chat-route #app {
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+}
+
+/* instant-title-ux: subtle pulse while the title is being generated at send time. */
+.session-title--pending {
+  color: var(--text-light);
+  animation: session-title-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes session-title-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .session-menu-container {

@@ -9,7 +9,8 @@ import {
   listChatbotMessages,
   sendChatbotMessageStream,
   renameChatbotSession,
-  pinChatbotSession
+  pinChatbotSession,
+  generateChatbotSessionTitle
 } from '@/api/chatbot'
 import { uploadAttachment } from '@/api/agent'
 import { useLLMModelStore } from '@/stores/llmModel'
@@ -40,6 +41,13 @@ export const useChatbotStore = defineStore('chatbot', () => {
   const messages = ref<ChatbotMessage[]>([])
   const messagesLoading = ref(false)
   const streaming = ref(false)
+  // instant-title-ux: draft mode — "新对话" clicked but no message sent yet, so the
+  // session is NOT created and NOT shown in the sidebar until the first send.
+  const isDraft = ref(false)
+  // instant-title-ux: ids of sessions whose title is being generated at send time —
+  // the sidebar renders a pulsing placeholder for these. A separate Set (not a field
+  // on the session object) so it survives the full-list fetchSessions refresh (C-1).
+  const titlePendingIds = ref<Set<number>>(new Set())
 
   // Image attachments staged for the next message (chatbot-image-recognition).
   // Uploaded eagerly to /v1/agent-attachments; only their ids ride along the
@@ -124,6 +132,65 @@ export const useChatbotStore = defineStore('chatbot', () => {
     }
   }
 
+  // startDraft enters draft mode (instant-title-ux): show an empty conversation
+  // page WITHOUT creating a session or adding a sidebar item. The real session is
+  // created lazily on the first send (createSessionForSend).
+  function startDraft(chatbotId: number) {
+    currentChatbotId.value = chatbotId
+    currentSession.value = null
+    messages.value = []
+    isDraft.value = true
+  }
+
+  // createSessionForSend lazily creates the session on the first message of a draft,
+  // optimistically inserts it at the top of the sidebar with a pulsing title
+  // placeholder, and kicks off instant title generation from the prompt (parallel —
+  // does not block the chat stream). Returns false if creation failed.
+  async function createSessionForSend(chatbotId: number, prompt: string): Promise<boolean> {
+    try {
+      const res = await createChatbotSession(chatbotId)
+      const session = (res as any)?.data as ChatbotSession | undefined
+      if (!session) return false
+      isDraft.value = false
+      currentSession.value = session
+      messages.value = []
+      // Optimistic insert at the top (newest first); de-dup by id for safety.
+      sessions.value = [session, ...sessions.value.filter((s) => s.id !== session.id)]
+      sessionsTotal.value += 1
+      const pending = new Set(titlePendingIds.value)
+      pending.add(session.id)
+      titlePendingIds.value = pending
+      // Fire-and-forget: generate the title from the prompt and live-update the item.
+      void generateTitleForSession(session.id, prompt)
+      return true
+    } catch (e) {
+      console.error('[chatbot] createSessionForSend failed:', e)
+      return false
+    }
+  }
+
+  // generateTitleForSession calls the send-time /title endpoint and updates the
+  // session's title in place when it returns. Best-effort: on failure the title
+  // stays default and the post-response fallback (backend) still covers it. Always
+  // clears the pending flag so the pulse stops.
+  async function generateTitleForSession(sessionId: number, prompt: string) {
+    try {
+      const res = await generateChatbotSessionTitle(sessionId, prompt)
+      const title = (res as any)?.data?.title as string | undefined
+      if (title) {
+        const s = sessions.value.find((x) => x.id === sessionId)
+        if (s) s.title = title
+        if (currentSession.value?.id === sessionId) currentSession.value.title = title
+      }
+    } catch (e) {
+      console.error('[chatbot] generateTitleForSession failed:', e)
+    } finally {
+      const pending = new Set(titlePendingIds.value)
+      pending.delete(sessionId)
+      titlePendingIds.value = pending
+    }
+  }
+
   async function deleteSession(id: number) {
     try {
       await deleteChatbotSession(id)
@@ -142,6 +209,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
   }
 
   async function switchSession(session: ChatbotSession) {
+    isDraft.value = false
     currentSession.value = session
     messagesLoading.value = true
     try {
@@ -204,7 +272,15 @@ export const useChatbotStore = defineStore('chatbot', () => {
 
   async function sendMessage(text: string) {
     if (streaming.value) return
-    if (!currentSession.value) return
+    // instant-title-ux: in draft mode (or with no session yet) lazily create the
+    // session on first send — this is where the sidebar item first appears (with a
+    // pulsing title placeholder) and instant title generation kicks off.
+    if (!currentSession.value) {
+      const chatbotId = currentChatbotId.value
+      if (!chatbotId) return
+      const ok = await createSessionForSend(chatbotId, text)
+      if (!ok || !currentSession.value) return
+    }
 
     const sessionId = currentSession.value.id
 
@@ -382,6 +458,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
     sessions.value = []
     messages.value = []
     visibleChatbots.value = []
+    isDraft.value = false
+    titlePendingIds.value = new Set()
     // 重置 currentChatbotId 避免跨 chatbot 切换时短暂泄漏上一个 ID
     // (T6 reviewer P1: deleteSession/sendMessage fallback 时拿到旧 ID 的风险)
     currentChatbotId.value = null
@@ -414,12 +492,15 @@ export const useChatbotStore = defineStore('chatbot', () => {
     streamError,
     imageAttachments,
     isUploadingImages,
+    isDraft,
+    titlePendingIds,
 
     // Actions
     fetchVisibleChatbots,
     fetchSessions,
     loadMoreSessions,
     createSession,
+    startDraft,
     deleteSession,
     switchSession,
     fetchMessages,
