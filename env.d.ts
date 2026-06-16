@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_NOTIFICATIONS?: string
   /** 文档系统 feature flag — 'true' 时显示"打开编辑"入口（document-system）。prod 默认不设。 */
   readonly VITE_ENABLE_DOCUMENT_SYSTEM?: string
+  /** 会议副驾 feature flag — 'true' 时显示入口与路由（meeting-copilot）。prod 默认 false/不设。 */
+  readonly VITE_ENABLE_MEETING_COPILOT?: string
 }
 
 interface ImportMeta {

@@ -91,6 +91,21 @@
           <circle cx="12" cy="12" r="3" />
         </svg>
         <svg
+          v-else-if="item.icon === 'meeting'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="9" y="2" width="6" height="11" rx="3" />
+          <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
+          <path d="M12 18v3" />
+          <path d="M8 21h8" />
+        </svg>
+        <svg
           v-else-if="item.icon === 'config'"
           class="nav-icon-svg"
           viewBox="0 0 24 24"
@@ -217,6 +232,12 @@ const menuItems = computed(() => {
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
   // 竞品监控暂时隐藏（开发中，未对用户开放）
   // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
+
+  // 会议副驾 (meeting-copilot) — 受 VITE_ENABLE_MEETING_COPILOT flag 控制
+  // (prod 默认不设 → 入口隐藏; 路由也未注册, 直达即 404)。
+  if (import.meta.env.VITE_ENABLE_MEETING_COPILOT === 'true') {
+    items.push({ path: '/meeting', title: '会议副驾', icon: 'meeting' })
+  }
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
