@@ -173,7 +173,8 @@ function toggleQ7(code: Q7MaterialType, checked: boolean): void {
         :class="{ 'questionnaire-form__input--error': errors['description'] }"
         :value="description"
         :disabled="readonly"
-        placeholder="10-100 字，描述助手的核心功能"
+        maxlength="20"
+        placeholder="10-20 字，描述助手的核心功能"
         @input="description = ($event.target as HTMLInputElement).value"
       />
       <p v-if="errors['description']" class="questionnaire-form__error">

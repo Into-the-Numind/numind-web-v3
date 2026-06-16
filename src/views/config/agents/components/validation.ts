@@ -17,8 +17,8 @@ export function validateQ1(name: string): ValidationResult {
 
 export function validateQ3(description: string): ValidationResult {
   if (!description) return "请输入描述";
-  if (description.length < 10 || description.length > 100)
-    return "描述应为 10-100 字";
+  if (description.length < 10 || description.length > 20)
+    return "描述应为 10-20 字";
   return "";
 }
 
