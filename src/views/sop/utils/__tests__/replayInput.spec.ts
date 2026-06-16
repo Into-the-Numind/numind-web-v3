@@ -56,6 +56,13 @@ describe('stripMergedFileBlocks', () => {
     )
   })
 
+  it('(g) 文件内容恰好是用户文字的子串 → 只删拼接块，不误删句中同名子串（锚定移除）', () => {
+    const c = 'abc'
+    // 用户文字里也含 "abc"，但拼接块 "\n\nabc" 才该被删
+    const input = `请分析abc这份文件\n\n${c}`
+    expect(stripMergedFileBlocks(input, [file(c)])).toBe('请分析abc这份文件')
+  })
+
   it('空 input + 有文件 → 返回空串', () => {
     expect(stripMergedFileBlocks('', [file('x')])).toBe('')
   })

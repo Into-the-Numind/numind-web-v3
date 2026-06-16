@@ -37,15 +37,18 @@ export function stripMergedFileBlocks(
   if (!input) return ''
 
   let result = input.replace(/\r\n/g, '\n') // 统一换行，便于与 content 精确比对
+  // 先去掉老后端格式的 `=== 文件名 ===` 标记行
   for (const f of files) {
-    if (f.file_name) {
-      // 老后端格式的标记行
-      result = result.split(`=== ${f.file_name} ===`).join('')
-    }
+    if (f.file_name) result = result.split(`=== ${f.file_name} ===`).join('')
+  }
+  // 按文件内容移除，但**锚定**在拼接位置，避免误删用户文本中恰好同名的子串：
+  //   - 拼接块 = `\n\n<内容>`（compose/合并都用双换行分隔）→ 整块移除
+  //   - file-only（用户没输入文字）→ 剩余整体即文件内容 → 清空
+  for (const f of files) {
     const content = (f.content ?? '').replace(/\r\n/g, '\n').trim()
-    if (content) {
-      result = result.split(content).join('') // 移除所有出现的文件提取内容
-    }
+    if (!content) continue
+    result = result.split('\n\n' + content).join('')
+    if (result.trim() === content) result = ''
   }
   result = result.replace(UPLOAD_NOTE_RE, '') // 老的无内容提示段
   return result.replace(/\n{3,}/g, '\n\n').trim() // 收敛多余空行
