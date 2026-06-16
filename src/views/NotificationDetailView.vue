@@ -12,72 +12,74 @@
   4 态：loading / error(retry) / not-found(空) / success。
 -->
 <template>
-  <div class="detail-view" data-testid="notification-detail">
-    <button class="back-btn" type="button" data-testid="detail-back" @click="goBack">
-      <ArrowLeft :size="16" :stroke-width="1.8" />
-      <span>返回</span>
-    </button>
+  <MainLayout>
+    <div class="detail-view" data-testid="notification-detail">
+      <button class="back-btn" type="button" data-testid="detail-back" @click="goBack">
+        <ArrowLeft :size="16" :stroke-width="1.8" />
+        <span>返回</span>
+      </button>
 
-    <!-- loading -->
-    <div v-if="store.currentLoading" class="sk-detail" data-testid="detail-loading">
-      <div class="sk-line sk-title"></div>
-      <div class="sk-line sk-meta"></div>
-      <div class="sk-line sk-para"></div>
-      <div class="sk-line sk-para"></div>
-    </div>
+      <!-- loading -->
+      <div v-if="store.currentLoading" class="sk-detail" data-testid="detail-loading">
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-meta"></div>
+        <div class="sk-line sk-para"></div>
+        <div class="sk-line sk-para"></div>
+      </div>
 
-    <!-- error + retry -->
-    <div v-else-if="store.error" class="state-block" data-testid="detail-error">
-      <p class="state-text">{{ store.error }}</p>
-      <AppButton variant="secondary" size="sm" data-testid="detail-retry" @click="reload">
-        重试
-      </AppButton>
-    </div>
+      <!-- error + retry -->
+      <div v-else-if="store.error" class="state-block" data-testid="detail-error">
+        <p class="state-text">{{ store.error }}</p>
+        <AppButton variant="secondary" size="sm" data-testid="detail-retry" @click="reload">
+          重试
+        </AppButton>
+      </div>
 
-    <!-- not found / empty -->
-    <div v-else-if="!detail" class="state-block" data-testid="detail-empty">
-      <p class="state-text">通知不存在或已下架</p>
-    </div>
+      <!-- not found / empty -->
+      <div v-else-if="!detail" class="state-block" data-testid="detail-empty">
+        <p class="state-text">通知不存在或已下架</p>
+      </div>
 
-    <!-- success -->
-    <article v-else class="detail-content">
-      <header class="detail-header">
-        <h1 class="detail-title">{{ detail.title }}</h1>
-        <div class="detail-meta">
-          <span v-if="detail.type === 'survey'" class="survey-tag" data-testid="detail-survey-tag"
-            >问卷</span
-          >
-          <span class="detail-time">{{ formatTime(detail.published_at) }}</span>
-        </div>
-      </header>
+      <!-- success -->
+      <article v-else class="detail-content">
+        <header class="detail-header">
+          <h1 class="detail-title">{{ detail.title }}</h1>
+          <div class="detail-meta">
+            <span v-if="detail.type === 'survey'" class="survey-tag" data-testid="detail-survey-tag"
+              >问卷</span
+            >
+            <span class="detail-time">{{ formatTime(detail.published_at) }}</span>
+          </div>
+        </header>
 
-      <!-- Markdown 正文 -->
-      <!-- eslint-disable-next-line vue/no-v-html -- 已经过 useMarkdown() 内 DOMPurify 消毒 -->
-      <div class="markdown-body" data-testid="detail-body" v-html="renderedContent"></div>
+        <!-- Markdown 正文 -->
+        <!-- eslint-disable-next-line vue/no-v-html -- 已经过 useMarkdown() 内 DOMPurify 消毒 -->
+        <div class="markdown-body" data-testid="detail-body" v-html="renderedContent"></div>
 
-      <!-- 问卷区 -->
-      <section
-        v-if="detail.type === 'survey'"
-        class="survey-section"
-        data-testid="detail-survey-section"
-      >
-        <div
-          v-if="detail.is_survey_submitted"
-          class="survey-submitted"
-          data-testid="survey-submitted"
+        <!-- 问卷区 -->
+        <section
+          v-if="detail.type === 'survey'"
+          class="survey-section"
+          data-testid="detail-survey-section"
         >
-          <CheckCircle2 :size="22" :stroke-width="1.8" class="submitted-icon" />
-          <span>已提交，感谢参与</span>
-        </div>
-        <SurveyFillForm
-          v-else
-          :questions="detail.questions"
-          :submitting="store.submitting"
-          @submit="handleSubmit"
-        />
-      </section>
-    </article>
-  </div>
+          <div
+            v-if="detail.is_survey_submitted"
+            class="survey-submitted"
+            data-testid="survey-submitted"
+          >
+            <CheckCircle2 :size="22" :stroke-width="1.8" class="submitted-icon" />
+            <span>已提交，感谢参与</span>
+          </div>
+          <SurveyFillForm
+            v-else
+            :questions="detail.questions"
+            :submitting="store.submitting"
+            @submit="handleSubmit"
+          />
+        </section>
+      </article>
+    </div>
+  </MainLayout>
 </template>
 
 <script setup lang="ts">
@@ -86,6 +88,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, CheckCircle2 } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 import SurveyFillForm from '@/components/notification/SurveyFillForm.vue'
+import MainLayout from '@/components/layout/MainLayout.vue'
 import { useAnnouncementsStore } from '@/stores/announcements'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useMarkdown } from '@/composables/useMarkdown'
