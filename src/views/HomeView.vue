@@ -7,6 +7,11 @@
     </div>
 
     <template v-else>
+      <!-- 顶部栏：右上角通知喇叭（notif-dropdown） -->
+      <div class="home-topbar">
+        <NotificationMegaphone />
+      </div>
+
       <!-- Hero 区域 -->
       <div class="hero-section">
         <div class="hero-content">
@@ -395,6 +400,7 @@ import request from '@/api/request'
 import { checkSalesPermission } from '@/api/sales'
 import { listVisibleChatbots, checkChatbotPermission } from '@/api/chatbot'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import NotificationMegaphone from '@/components/notification/NotificationMegaphone.vue'
 import { useUserStore } from '@/stores/user'
 import { useAgentChatStore } from '@/stores/agentChat'
 import type { ChatbotConfig } from '@/types/config'
@@ -506,7 +512,10 @@ const agentCards = computed<AgentCard[]>(() => {
 // 工作台完全空 (两个 section 都 0 条) -> 渲染 empty state 而不是孤立的 section 标签.
 // loading 阶段由 pageLoading 提前 short-circuit, 这里只看派生数据.
 const isWorkspaceEmpty = computed(
-  () => sopWorkflows.value.length === 0 && agentCards.value.length === 0 && agentChatStore.availableAgents.length === 0
+  () =>
+    sopWorkflows.value.length === 0 &&
+    agentCards.value.length === 0 &&
+    agentChatStore.availableAgents.length === 0
 )
 
 const getTemplateId = (template: SopTemplate): number | null => {
@@ -691,6 +700,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ===== 顶部栏（右上角通知喇叭） ===== */
+.home-topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
 /* ===== Hero Section ===== */
 .hero-section {
   display: flex;

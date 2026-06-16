@@ -52,6 +52,56 @@ describe('announcements store', () => {
     expect(store.loading).toBe(false)
   })
 
+  it('loadMore append 下一页 + 去重 + hasMore + 无更多时 no-op', async () => {
+    const brief = (id: number): api.AnnouncementBrief => ({
+      id,
+      type: 'plain',
+      title: `公告 ${id}`,
+      content: '内容',
+      is_important: false,
+      published_at: '2026-06-16T00:00:00Z',
+      expires_at: null,
+      is_read: false,
+      is_survey_submitted: false
+    })
+
+    const store = useAnnouncementsStore()
+    // 第 1 页：1 条，总数 3 → hasMore
+    mockedApi.fetchAnnouncements.mockResolvedValueOnce({
+      list: [brief(1)],
+      total: 3,
+      unread_count: 3
+    })
+    await store.loadAnnouncements()
+    expect(store.list.map((a) => a.id)).toEqual([1])
+    expect(store.hasMore).toBe(true)
+
+    // 第 2 页：含一条重复(1) + 新(2) → 去重 append
+    mockedApi.fetchAnnouncements.mockResolvedValueOnce({
+      list: [brief(1), brief(2)],
+      total: 3,
+      unread_count: 3
+    })
+    await store.loadMore()
+    expect(store.list.map((a) => a.id)).toEqual([1, 2])
+    expect(store.page).toBe(2)
+
+    // 第 3 页：新(3) → 凑齐 3 条 → hasMore false
+    mockedApi.fetchAnnouncements.mockResolvedValueOnce({
+      list: [brief(3)],
+      total: 3,
+      unread_count: 3
+    })
+    await store.loadMore()
+    expect(store.list.map((a) => a.id)).toEqual([1, 2, 3])
+    expect(store.hasMore).toBe(false)
+
+    // 无更多 → loadMore no-op（不再调接口）
+    const callsBefore = mockedApi.fetchAnnouncements.mock.calls.length
+    await store.loadMore()
+    expect(mockedApi.fetchAnnouncements.mock.calls.length).toBe(callsBefore)
+  })
+
   it('refreshUnread 走轻量 fetchUnreadCount（不调列表接口）并更新 unreadCount', async () => {
     mockedApi.fetchUnreadCount.mockResolvedValue({ unread_count: 5 })
 

@@ -300,25 +300,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/marketplace/MarketplaceDetail.vue'),
     meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
   },
-  // 通知中心 (notification-center)
-  {
-    path: '/notifications',
-    name: 'notifications',
-    component: () => import('@/views/NotificationsView.vue'),
-    meta: {
-      title: '通知中心',
-      requiresAuth: true
-    }
-  },
-  {
-    path: '/notifications/:id',
-    name: 'notification-detail',
-    component: () => import('@/views/NotificationDetailView.vue'),
-    meta: {
-      title: '通知详情',
-      requiresAuth: true
-    }
-  },
+  // 通知中心入口已改为工作区右上角喇叭下拉 + 弹窗（notif-dropdown），不再有独立路由页。
   // 404 页面
   {
     path: '/:pathMatch(.*)*',
