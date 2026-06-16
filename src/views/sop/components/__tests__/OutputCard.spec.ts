@@ -1,22 +1,39 @@
 /**
- * OutputCard 组件单元测试（F6 + review fix）
+ * OutputCard 组件单元测试（F6 + 页脚行改造 sop-step-footer-polish）
  *
  * 覆盖：
- *   1. streaming 渲染：LIVE 标签 + 停止按钮，无 MetaFooter，output--streaming class
- *   2. read-only 渲染：⭐ + 复制按钮 + MetaFooter（wrap 在 .output__foot）
- *   3. read-only + hasOutput=false → ⭐ 按钮隐藏
- *   4. ⭐ 点击 → emit 'toggle-bookmark'
- *   5. 复制点击 → emit 'copy'
- *   6. 停止点击 → emit 'stop'
- *   7. hasBookmark=true → 显示"已收藏"态 class is-active
- *   8. nodeRun=null + read-only → 不渲染 MetaFooter（fallback 空态）
- *   9. streaming 时不显示 tiny buttons
- *  10. regenerate emit 接口存在（由外层 ActionRow/F11 触发）
+ *   - read-only：复制 + 保存生成记录按钮（左）+ 耗时/模型/tokens meta（右）在同一行 .output__footer
+ *   - 模型展示 display_name（非 model_key）；列表缺失时回退 key
+ *   - hasOutput=false / nodeRun=null / model_name='' 的渲染门槛
+ *   - ⭐ 收藏态 + emit 接口
+ *
+ * 注：OutputCard 用 useLLMModelStore 把 model_key 映射成 display_name，故测试需活动 Pinia；
+ * 预置 loadedByFeature.sop=true 让 onMounted 的 fetchModels 早返回（不发真实 HTTP）。
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import OutputCard from '../OutputCard.vue'
+import { useLLMModelStore } from '@/stores/llmModel'
 import type { SopNodeRun } from '@/views/sop/types'
+import type { LLMModel } from '@/api/llm'
+
+function model(key: string, name: string): LLMModel {
+  return {
+    model_key: key,
+    display_name: name,
+    supports_thinking: false,
+    thinking_only: false,
+    icon: '',
+    sort_order: 0
+  }
+}
+
+function seedModels(models: LLMModel[]) {
+  const store = useLLMModelStore()
+  store.modelsByFeature = { sop: models }
+  store.loadedByFeature = { sop: true } // fetchModels 早返回，不触发 HTTP
+}
 
 function makeNodeRun(overrides: Partial<SopNodeRun> = {}): SopNodeRun {
   return {
@@ -36,91 +53,89 @@ function makeNodeRun(overrides: Partial<SopNodeRun> = {}): SopNodeRun {
   }
 }
 
+beforeEach(() => {
+  setActivePinia(createPinia())
+  seedModels([model('glm-4-7', 'GLM 4.7')])
+})
+
 describe('OutputCard', () => {
-  describe('streaming state', () => {
-    // TODO(backlog): OutputCard streaming DOM structure mismatch — pre-existing on develop
-    it.skip('renders LIVE label + stop button, no footer, adds --streaming class', () => {
+  describe('read-only footer row', () => {
+    it('renders copy/save actions (left) + 耗时/模型/tokens meta (right) on one .output__footer row', () => {
       const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: null,
-          state: 'streaming',
-          streamingContent: '正在生成中…',
-          streamingThinking: ''
-        }
+        props: { nodeRun: makeNodeRun(), state: 'read-only', hasOutput: true, hasBookmark: false }
       })
-      expect(wrapper.find('.output').classes()).toContain('output--streaming')
-      expect(wrapper.find('.output__live-dot').exists()).toBe(true)
-      expect(wrapper.find('.output__live-label').exists()).toBe(true)
-      expect(wrapper.text()).toContain('live')
-
-      // 停止按钮可见
-      expect(wrapper.find('[data-testid="output-stop"]').exists()).toBe(true)
-
-      // tiny buttons 不可见
-      expect(wrapper.find('[data-testid="bookmark-toggle"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(false)
-
-      // 无 MetaFooter
+      expect(wrapper.find('.output__footer').exists()).toBe(true)
+      // 左侧动作
+      expect(wrapper.find('.output__footer-actions [data-testid="output-copy"]').exists()).toBe(
+        true
+      )
+      expect(wrapper.find('.output__footer-actions [data-testid="bookmark-toggle"]').exists()).toBe(
+        true
+      )
+      // 右侧 meta 三项
+      const meta = wrapper.find('.output__footer-meta')
+      expect(meta.exists()).toBe(true)
+      expect(meta.findAll('.output__meta-item').length).toBe(3)
+      expect(meta.text()).toContain('耗时 7.4s')
+      expect(meta.text()).toContain('586 tokens')
+      // 旧 MetaFooter 已不在 OutputCard 内
       expect(wrapper.find('.meta-footer').exists()).toBe(false)
+      expect(wrapper.find('.output__foot').exists()).toBe(false)
     })
 
-    // TODO(backlog): [data-testid="output-stop"] not found — pre-existing on develop
-    it.skip('emits stop on stop button click', async () => {
+    it('shows model display_name, not the raw model_key', () => {
       const wrapper = mount(OutputCard, {
         props: {
-          nodeRun: null,
-          state: 'streaming',
-          streamingContent: 'partial'
-        }
-      })
-      await wrapper.find('[data-testid="output-stop"]').trigger('click')
-      expect(wrapper.emitted('stop')).toBeTruthy()
-      expect(wrapper.emitted('stop')?.length).toBe(1)
-    })
-  })
-
-  describe('read-only state', () => {
-    it('renders ⭐ + copy buttons and MetaFooter (wrapped in .output__foot) when hasOutput=true', () => {
-      const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: makeNodeRun(),
+          nodeRun: makeNodeRun({ model_name: 'glm-4-7' }),
           state: 'read-only',
-          hasOutput: true,
-          hasBookmark: false
+          hasOutput: true
         }
       })
-      expect(wrapper.find('[data-testid="bookmark-toggle"]').exists()).toBe(true)
-      expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(true)
-      // MetaFooter wrap 在 .output__foot 内（F6 review fix E2）
-      expect(wrapper.find('.output__foot').exists()).toBe(true)
-      expect(wrapper.find('.output__foot .meta-footer').exists()).toBe(true)
-      // 无 LIVE
-      expect(wrapper.find('.output__live-dot').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="output-stop"]').exists()).toBe(false)
+      const meta = wrapper.find('.output__footer-meta')
+      expect(meta.text()).toContain('GLM 4.7')
+      expect(meta.text()).not.toContain('glm-4-7')
     })
 
-    // TODO(backlog): [data-testid="output-copy"] not found when hasOutput=false — pre-existing on develop
-    it.skip('hides ⭐ button when hasOutput=false', () => {
+    it('falls back to the raw key when the model is not in the list', () => {
       const wrapper = mount(OutputCard, {
         props: {
-          nodeRun: makeNodeRun(),
+          nodeRun: makeNodeRun({ model_name: 'deprecated-model-x' }),
           state: 'read-only',
-          hasOutput: false
+          hasOutput: true
         }
       })
-      expect(wrapper.find('[data-testid="bookmark-toggle"]').exists()).toBe(false)
-      // 复制按钮依然存在
+      expect(wrapper.find('.output__footer-meta').text()).toContain('deprecated-model-x')
+    })
+
+    it('omits the tokens item when total_tokens is 0', () => {
+      const wrapper = mount(OutputCard, {
+        props: { nodeRun: makeNodeRun({ total_tokens: 0 }), state: 'read-only', hasOutput: true }
+      })
+      const meta = wrapper.find('.output__footer-meta')
+      expect(meta.findAll('.output__meta-item').length).toBe(2)
+      expect(meta.text()).not.toContain('tokens')
+    })
+
+    it('hides the meta group when nodeRun lacks model_name (R7 fallback)', () => {
+      const wrapper = mount(OutputCard, {
+        props: { nodeRun: makeNodeRun({ model_name: '' }), state: 'read-only', hasOutput: true }
+      })
+      expect(wrapper.find('.output__footer-meta').exists()).toBe(false)
+      // 但复制/保存仍在
       expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(true)
+    })
+
+    it('renders no footer at all when nodeRun is null and hasOutput=false', () => {
+      const wrapper = mount(OutputCard, {
+        props: { nodeRun: null, state: 'read-only', hasOutput: false }
+      })
+      expect(wrapper.find('.output__footer').exists()).toBe(false)
+      expect(wrapper.find('.meta-footer').exists()).toBe(false)
     })
 
     it('applies is-active class when hasBookmark=true', () => {
       const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: makeNodeRun(),
-          state: 'read-only',
-          hasOutput: true,
-          hasBookmark: true
-        }
+        props: { nodeRun: makeNodeRun(), state: 'read-only', hasOutput: true, hasBookmark: true }
       })
       const star = wrapper.find('[data-testid="bookmark-toggle"]')
       expect(star.classes()).toContain('is-active')
@@ -129,77 +144,29 @@ describe('OutputCard', () => {
 
     it('emits toggle-bookmark on ⭐ click', async () => {
       const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: makeNodeRun(),
-          state: 'read-only',
-          hasOutput: true
-        }
+        props: { nodeRun: makeNodeRun(), state: 'read-only', hasOutput: true }
       })
       await wrapper.find('[data-testid="bookmark-toggle"]').trigger('click')
       expect(wrapper.emitted('toggle-bookmark')).toBeTruthy()
       expect(wrapper.emitted('toggle-bookmark')?.length).toBe(1)
     })
 
-    // TODO(backlog): [data-testid="output-copy"] not found when hasOutput=false — pre-existing on develop
-    it.skip('emits copy on copy click', async () => {
+    it('emits copy on copy click', async () => {
       const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: makeNodeRun(),
-          state: 'read-only',
-          hasOutput: false
-        }
+        props: { nodeRun: makeNodeRun(), state: 'read-only', hasOutput: true }
       })
       await wrapper.find('[data-testid="output-copy"]').trigger('click')
       expect(wrapper.emitted('copy')).toBeTruthy()
       expect(wrapper.emitted('copy')?.length).toBe(1)
     })
-
-    it('does not render MetaFooter when nodeRun is null (fallback)', () => {
-      const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: null,
-          state: 'read-only',
-          hasOutput: false
-        }
-      })
-      expect(wrapper.find('.output__foot').exists()).toBe(false)
-      expect(wrapper.find('.meta-footer').exists()).toBe(false)
-    })
-
-    it('hides MetaFooter if nodeRun lacks model_name (R7 fallback)', () => {
-      const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: makeNodeRun({ model_name: '' }),
-          state: 'read-only',
-          hasOutput: true
-        }
-      })
-      // OutputCard 渲染 MetaFooter 组件节点，但 MetaFooter 内部 v-if 会隐藏整行
-      expect(wrapper.find('.meta-footer').exists()).toBe(false)
-    })
   })
 
   describe('regenerate emit interface (spec §5.2)', () => {
-    /*
-     * F6 review fix E1：OutputCard 必须声明 regenerate emit。
-     * 本组件内部没有触发按钮（按钮位于外层 ActionRow/F7，由 F11 主容器接线），
-     * 但 emits 契约必须存在以便 TS 类型检查和父组件监听。
-     *
-     * 测试策略：通过 wrapper.vm.$emit 直接触发，验证 emit 接口被 Vue 注册。
-     * 这也保证默认状态下（无外部触发）不会有意外的 regenerate emit 发出。
-     */
     it('declares regenerate emit and does not fire it by default', () => {
       const wrapper = mount(OutputCard, {
-        props: {
-          nodeRun: makeNodeRun(),
-          state: 'read-only',
-          hasOutput: true
-        }
+        props: { nodeRun: makeNodeRun(), state: 'read-only', hasOutput: true }
       })
-      // 默认没有任何 regenerate emit
       expect(wrapper.emitted('regenerate')).toBeUndefined()
-
-      // 接口存在：外部可以 emit（由 F11 主容器通过 ActionRow 的 regenerate 事件接线）
       wrapper.vm.$emit('regenerate')
       expect(wrapper.emitted('regenerate')).toBeTruthy()
       expect(wrapper.emitted('regenerate')?.length).toBe(1)

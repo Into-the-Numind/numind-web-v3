@@ -1,22 +1,23 @@
 <!--
-  ReplayInputCard — 历史回看：单步「你的输入」+「上传的素材」只读展示卡
+  ReplayInputCard — 历史回看：单步「用户输入」+「上传文件」只读展示卡
 
   回看历史 SOP 运行时（SopStepView 的 done-history / done-current 只读态），在 AI 输出
   （OutputCard）之上呈现当时这一步的输入上下文，方便用户回溯：
-    - 你的输入：用户当时写的文字（已剥离合并进来的文件提取文本，见 utils/replayInput）
-    - 上传的素材：图片缩略图（点击页面内放大，复用 AgentImagePreview）+ 文档卡片（只读展示，
+    - 用户输入：用户当时写的文字（已剥离合并进来的文件提取文本，见 utils/replayInput）；
+      长文「展开/收起」按钮位于标题行右侧
+    - 上传文件：图片缩略图（点击页面内放大，复用 AgentImagePreview）+ 文档卡片（只读展示，
       不跳转打开原文件——历史 COS 对象可能已回收会报错）。每个文档可展开「查看提取文本」
       （读入库时抽取的文本，内嵌预览，不依赖 COS）
 
-  设计：安静、退后的中性色调（它是上下文，不是主角），与 OutputCard 的 accent 主角形成层次。
-  纯只读 —— 无输入框、无上传/执行按钮。视觉 token 全部取 .sop-run-view-v2 scope。
+  设计：用户输入 / 上传文件 / AI 输出三区域统一为「中性圆 + Lucide 图标 + 大写小标题」，
+  区域间留白；安静退后的中性色调（它是上下文，不是主角）。token 取 .sop-run-view-v2 scope。
 
   详见 spec §4。Props 仅 input + files，无对外 emit（图片放大为内部状态）。
 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
-  PenLine,
+  User,
   Paperclip,
   FileText,
   FileSpreadsheet,
@@ -112,35 +113,41 @@ watch(
 <template>
   <section v-if="shouldRender" class="replay-input" data-testid="replay-input-card">
     <div class="replay-input__head">
-      <span class="replay-input__head-icon" aria-hidden="true">
-        <PenLine :size="13" />
+      <span class="replay-input__head-label">
+        <span class="replay-input__head-icon" aria-hidden="true">
+          <User :size="13" />
+        </span>
+        <span>用户输入</span>
       </span>
-      <span>你的输入</span>
-    </div>
-
-    <!-- 用户文本 -->
-    <div v-if="hasText" class="replay-input__text-wrap">
-      <div class="replay-input__text" :class="{ 'is-clamped': isLongText && !textExpanded }">
-        {{ cleanInput }}
-      </div>
       <button
-        v-if="isLongText"
+        v-if="hasText && isLongText"
         type="button"
         class="replay-input__toggle"
         :aria-expanded="textExpanded"
         :aria-label="textExpanded ? '收起输入文本' : '展开完整输入文本'"
         @click="textExpanded = !textExpanded"
       >
-        {{ textExpanded ? '收起' : '展开全部' }}
+        {{ textExpanded ? '收起' : '展开' }}
       </button>
+    </div>
+
+    <!-- 用户文本 -->
+    <div
+      v-if="hasText"
+      class="replay-input__text"
+      :class="{ 'is-clamped': isLongText && !textExpanded }"
+    >
+      {{ cleanInput }}
     </div>
     <p v-else-if="hasFiles" class="replay-input__hint">（本步仅上传了文件，无文本输入）</p>
 
-    <!-- 上传的素材 -->
+    <!-- 上传文件 -->
     <div v-if="hasFiles" class="replay-input__uploads">
-      <div class="replay-input__uploads-label">
-        <Paperclip :size="13" aria-hidden="true" />
-        <span>上传的素材 · {{ files.length }}</span>
+      <div class="replay-input__head-label replay-input__uploads-label">
+        <span class="replay-input__head-icon" aria-hidden="true">
+          <Paperclip :size="13" />
+        </span>
+        <span>上传文件</span>
       </div>
 
       <!-- 图片缩略图网格 -->
@@ -214,6 +221,8 @@ watch(
   font-family: var(--font-sans);
   color: var(--text);
   animation: replayFadeIn 0.4s ease;
+  /* 与下方 AI 输出区再拉开一点（叠加 SopStepView .readonly-stack 的 gap），三区域层次更清晰 */
+  margin-bottom: var(--space-sm);
 }
 
 @keyframes replayFadeIn {
@@ -227,12 +236,20 @@ watch(
   }
 }
 
-/* ---------- head（中性，区别于 OutputCard 的 accent AI 图标）---------- */
+/* ---------- 区域标题（用户输入 / 上传文件，与 OutputCard 的 AI 输出统一：中性圆 + 大写小标题）---------- */
 .replay-input__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 12px 0;
+}
+
+/* 标题文字组（图标圆 + 文案），三区域共用 —— 与 OutputCard .output__head-left 同款排版 */
+.replay-input__head-label {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 12px 0;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -253,10 +270,6 @@ watch(
 }
 
 /* ---------- 用户文本 ---------- */
-.replay-input__text-wrap {
-  position: relative;
-}
-
 .replay-input__text {
   background: var(--surface-tint);
   border: 1px solid var(--border-light);
@@ -287,8 +300,9 @@ watch(
   pointer-events: none;
 }
 
+/* 展开/收起：位于「用户输入」标题行右侧（flex space-between 推到右边） */
 .replay-input__toggle {
-  margin-top: var(--space-xs);
+  flex-shrink: 0;
   padding: 0;
   background: none;
   border: none;
@@ -309,18 +323,15 @@ watch(
   font-style: italic;
 }
 
-/* ---------- 上传素材 ---------- */
+/* ---------- 上传文件 ---------- */
+/* 与「用户输入」区拉开间距，让三个区域层次更清晰 */
 .replay-input__uploads {
-  margin-top: var(--space-lg);
+  margin-top: var(--space-xl);
 }
 
+/* 复用 .replay-input__head-label 的排版，仅补一点下间距 */
 .replay-input__uploads-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
   margin-bottom: var(--space-sm);
-  font-size: 13px;
-  color: var(--text-secondary);
 }
 
 /* 图片网格 */
