@@ -124,4 +124,36 @@ describe('SettingsView 公司名称弹窗编辑', () => {
     expect(updateProfile as any).not.toHaveBeenCalled()
     expect(wrapper.find('.company-edit-input').exists()).toBe(false)
   })
+
+  // Bug 复现（用户报告）：中文输入法组合期间的回车用于选词/确认候选，
+  // 不应被当作"确定"提交。正常（非组合）回车才确认。
+  it('IME 组合中回车不提交；普通回车才确认', async () => {
+    ;(updateProfile as any).mockResolvedValue({ code: 0 })
+    const wrapper = mountSettings()
+    await flush()
+    await wrapper.find('.row-edit-btn').trigger('click')
+    const input = wrapper.find('.company-edit-input')
+    await input.setValue('新机构')
+
+    // 1) 输入法组合中的回车（isComposing=true）→ 不应提交
+    await input.trigger('keydown.enter', { isComposing: true })
+    await flush()
+    await flush()
+    expect(updateProfile as any).not.toHaveBeenCalled()
+    expect(wrapper.find('.company-edit-input').exists()).toBe(true) // 弹窗仍开着
+
+    // 2) 普通回车（非组合）→ 确认提交
+    await input.trigger('keydown.enter')
+    await flush()
+    await flush()
+    expect(updateProfile as any).toHaveBeenCalledWith({ company_name: '新机构' })
+  })
+
+  it('字符计数显示上限为 10', async () => {
+    const wrapper = mountSettings()
+    await flush()
+    await wrapper.find('.row-edit-btn').trigger('click')
+    // 用结尾匹配区分 /10 与 /100（"x/100" 也包含子串 "/10"）
+    expect(wrapper.find('.company-edit-counter').text()).toMatch(/\/10$/)
+  })
 })
