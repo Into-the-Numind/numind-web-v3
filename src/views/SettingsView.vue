@@ -60,6 +60,10 @@
               </div>
             </div>
           </div>
+          <div class="settings-row">
+            <div class="row-label">用户 ID</div>
+            <div class="row-value row-value-mono">{{ displayId }}</div>
+          </div>
           <!-- nickname-edit：昵称展示 + 「修改」按钮触发弹窗编辑；所有账户可用 -->
           <div class="settings-row">
             <div class="row-label">昵称</div>
@@ -69,10 +73,6 @@
                 修改
               </button>
             </div>
-          </div>
-          <div class="settings-row">
-            <div class="row-label">用户 ID</div>
-            <div class="row-value row-value-mono">{{ displayId }}</div>
           </div>
           <!-- org-branding：公司名称仅展示 + 「修改」按钮触发弹窗编辑；仅父账户可见，子账户继承父名无此项 -->
           <div v-if="userStore.isParentUser" class="settings-row">
