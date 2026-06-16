@@ -181,6 +181,61 @@ describe('documents store', () => {
     vi.useRealTimers()
   })
 
+  it('飞行期间切换文档：A 的保存完成不污染 B（身份守卫回归）', async () => {
+    // 切换时 open() 会调 flushOnUnload()（keepalive fetch）——stub 掉避免 jsdom 报错。
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true }))
+    )
+    const docA: DocumentDTO = { ...dto, id: 5, content_md: 'A-orig' }
+    const docB: DocumentDTO = { ...dto, id: 8, content_md: 'B-orig' }
+    ;(openDocument as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ code: 0, message: 'ok', data: docA })
+      .mockResolvedValueOnce({ code: 0, message: 'ok', data: docB })
+
+    let resolveSaveA!: (v: unknown) => void
+    ;(saveDocument as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveSaveA = res as (v: unknown) => void
+        })
+    )
+
+    const s = useDocumentsStore()
+    await s.open({ source_url: 'a', filename: 'A.md', mime: 'text/markdown' })
+
+    // 编辑 A 并启动 flush（不 await：saveDocument 故意挂起，flush 停在 inflight）
+    s.scheduleSave('A-edited')
+    const flushP = s.flush()
+    await Promise.resolve() // 让 flush 跑到 await saveDocument（inflight=true）
+    expect(saveDocument).toHaveBeenCalledWith(5, { content_md: 'A-edited' })
+
+    // 切换到 B（open 内部 flush 因 inflight 守卫 no-op；flushOnUnload keepalive 兜底 A）
+    await s.open({ source_url: 'b', filename: 'B.md', mime: 'text/markdown' })
+    expect(s.current?.id).toBe(8)
+
+    // A 的慢保存现在完成 → 身份守卫必须阻止把 'A-edited' 写进 B
+    resolveSaveA({ code: 0, message: 'ok', data: { id: 5, updated_at: '' } })
+    await flushP
+
+    expect(s.current?.id).toBe(8)
+    expect(s.current?.content_md).toBe('B-orig') // 未被 A 污染
+    vi.unstubAllGlobals()
+  })
+
+  it('open 用请求文件名（去扩展名）设 pendingTitle', async () => {
+    ;(openDocument as ReturnType<typeof vi.fn>).mockResolvedValue({
+      code: 0,
+      message: 'ok',
+      data: dto
+    })
+    const s = useDocumentsStore()
+    const p = s.open({ source_url: 'u', filename: '本周工作小结.docx', mime: '' })
+    // pendingTitle 在 open 解析期间即可用于面板标题（去扩展名）
+    await p
+    expect(s.pendingTitle).toBe('本周工作小结')
+  })
+
   it('reset 清空状态', async () => {
     ;(openDocument as ReturnType<typeof vi.fn>).mockResolvedValue({
       code: 0,

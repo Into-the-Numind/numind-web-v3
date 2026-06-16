@@ -374,3 +374,48 @@ describe('groupAdjacentImages — coalesce consecutive images into a grid (#3 M1
     expect(groupAdjacentImages([p])).toEqual([p])
   })
 })
+
+// document-editor-ux #命名：COS 下载 URL 的 response-content-disposition 携带 AI 起的真实
+// 文件名（如「本周工作小结.docx」），它优先于 LLM 写的通用链接文字（「点击下载 Word 文档」）和
+// 被 ASCII 化的 object-key 尾巴。验证双层编码（query 级 + RFC5987 filename*）正确解出中文名。
+describe('extractArtifacts — 文件名取自 response-content-disposition（命名修复）', () => {
+  const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  // 构造一个带 disposition 的预签名 COS 下载 URL。
+  function cosUrlWithName(realName: string, withStar = true): string {
+    const star = withStar ? `; filename*=UTF-8''${encodeURIComponent(realName)}` : ''
+    const cd = `attachment; filename="fallback.docx"${star}`
+    // object-key 尾巴故意是 ASCII 化的乱名，证明显示名不取自它
+    return (
+      'https://numind-1234.cos.ap-guangzhou.myqcloud.com/agent-outputs/run42/' +
+      '1700000000-______.docx?q-sign-algorithm=sha1&q-signature=def' +
+      `&response-content-disposition=${encodeURIComponent(cd)}`
+    )
+  }
+
+  it('filename* (RFC5987 中文) 优先于链接文字', () => {
+    const url = cosUrlWithName('本周工作小结.docx')
+    const md = `这是你的周报：\n\n[点击下载 Word 文档](${url})`
+    const { artifacts } = extractArtifacts(md)
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0].filename).toBe('本周工作小结.docx')
+    expect(artifacts[0].mime).toBe(DOCX_MIME)
+  })
+
+  it('仅 plain filename（无 filename*）时回退到 plain 值', () => {
+    const url = cosUrlWithName('季度复盘.docx', false)
+    const md = `[下载](${url})`
+    const { artifacts } = extractArtifacts(md)
+    expect(artifacts).toHaveLength(1)
+    // 无 filename* → 取 disposition 的 plain filename="fallback.docx"
+    expect(artifacts[0].filename).toBe('fallback.docx')
+  })
+
+  it('无 disposition（如图片普通签名 URL）→ 回退链接文字（行为不变）', () => {
+    const url =
+      'https://numind-1234.cos.ap-guangzhou.myqcloud.com/agent-outputs/run42/chart.png?q-signature=abc'
+    const md = `![销售漏斗图](${url})`
+    const { artifacts } = extractArtifacts(md)
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0].filename).toBe('销售漏斗图')
+  })
+})

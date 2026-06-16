@@ -118,10 +118,41 @@ function extOf(url: string): string {
  * the URL filename, then a generic `artifact.<ext>`, when the node has no text/alt.
  */
 function displayName(text: string, url: string, ext: string): string {
+  // 优先 COS 下载 URL 的 response-content-disposition 里的真实文件名——那是 AI 给文档起的
+  // 内容相关名（如「本周工作小结.docx」）。它胜过 LLM 写的链接文字（常是「点击下载 Word 文档」
+  // 这种通用文案）和被 ASCII 化的 object-key 尾巴（..py-______.docx）。图片用普通签名 URL 无
+  // disposition → 回退到 alt 文本，行为不变。
+  const fromDispo = filenameFromDisposition(url)
+  if (fromDispo) return fromDispo
   // NODE_RE group 2 is always a string ('' when the node has no text/alt), never
   // null — the `?? ''` is a cheap belt-and-suspenders guard, not a real nullable path.
   const label = (text ?? '').trim()
   return label || filenameOf(url) || `artifact.${ext}`
+}
+
+/**
+ * 从 COS 预签名下载 URL 的 `response-content-disposition` 参数提取真实文件名。
+ * 形如 `...?response-content-disposition=attachment%3B+filename%2A%3DUTF-8%27%27%25E6...docx`。
+ * 双层编码：先解参数级编码，再解 RFC5987 的 filename* 值。无 disposition（如图片）返回 ''。
+ */
+function filenameFromDisposition(url: string): string {
+  try {
+    const m = url.match(/[?&]response-content-disposition=([^&]+)/i)
+    if (!m) return ''
+    const cd = decodeURIComponent(m[1].replace(/\+/g, '%20'))
+    const star = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i)
+    if (star && star[1]) {
+      try {
+        return decodeURIComponent(star[1].trim())
+      } catch {
+        return star[1].trim()
+      }
+    }
+    const plain = cd.match(/filename="?([^";]+)"?/i)
+    return plain && plain[1] ? plain[1].trim() : ''
+  } catch {
+    return ''
+  }
 }
 
 /** Filename = last path segment (query stripped), URL-decoded. */

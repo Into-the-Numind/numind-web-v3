@@ -16,27 +16,47 @@ export const useDocumentsStore = defineStore('documents', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const saveState = ref<SaveState>('idle')
+  // pendingTitle：open 解析完成前先用请求文件名（去扩展名）做面板标题，避免加载期标题空白。
+  const pendingTitle = ref<string>('')
 
   // 自动保存内部状态（非响应式）
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   let pendingContent: string | null = null
   let inflight = false
+  let lastReq: OpenDocReq | null = null
+  // openSeq：快速连点不同卡片时，多个 open() 并发；只让最后一次的结果落地，
+  // 防止先发后到的旧请求覆盖出错误的文档（last-write-wins 竞态）。
+  let openSeq = 0
 
   // open 打开/懒建档一个 agent 产物。
   async function open(req: OpenDocReq): Promise<DocumentDTO> {
+    // 切换文档前先落库上一篇未存编辑（flush + keepalive 兜底），避免点开另一篇时丢失。
+    // 首次打开时 current 为 null，两者均自动 no-op。
+    await flush()
+    flushOnUnload()
+    const seq = ++openSeq
+    lastReq = req
+    pendingTitle.value = req.filename.replace(/\.[^./\\]+$/, '').trim() || '文档'
     loading.value = true
     error.value = null
     saveState.value = 'idle'
     pendingContent = null
     try {
       const resp = await openDocument(req)
-      current.value = resp.data
+      // 被更晚的 open 取代 → 丢弃本次结果，不写 current（否则会闪回旧文档）。
+      if (seq === openSeq) {
+        current.value = resp.data
+      }
       return resp.data
     } catch (e) {
-      error.value = (e as Error)?.message || '打开文档失败'
+      if (seq === openSeq) {
+        error.value = (e as Error)?.message || '打开文档失败'
+      }
       throw e
     } finally {
-      loading.value = false
+      if (seq === openSeq) {
+        loading.value = false
+      }
     }
   }
 
@@ -69,17 +89,22 @@ export const useDocumentsStore = defineStore('documents', () => {
     inflight = true
     try {
       await saveDocument(id, { content_md: body })
-      if (current.value) {
+      // 身份守卫：飞行期间可能已切换到别的文档（current 变了）。仅当仍是同一篇才回写
+      // content_md / 清 pending / 标 saved，否则会把 A 的正文写进 B、错标 B 已保存。
+      if (current.value?.id === id) {
         current.value.content_md = body
-      }
-      // 仅当飞行期间无更新的编辑到达时才清空 + 标记 saved；否则保留新编辑（防丢失更新）。
-      if (pendingContent === body) {
-        pendingContent = null
-        saveState.value = 'saved'
+        // 仅当飞行期间无更新的编辑到达时才清空 + 标记 saved；否则保留新编辑（防丢失更新）。
+        if (pendingContent === body) {
+          pendingContent = null
+          saveState.value = 'saved'
+        }
       }
     } catch (e) {
-      saveState.value = 'error'
-      error.value = (e as Error)?.message || '保存失败'
+      // 同身份守卫：A 的保存失败不应把已切换到的 B 错误地标成 error 态。
+      if (current.value?.id === id) {
+        saveState.value = 'error'
+        error.value = (e as Error)?.message || '保存失败'
+      }
     } finally {
       inflight = false
       // 飞行期间到达了更新的编辑（pendingContent 仍非空且非错误态）→ 立即再排一次保存，
@@ -138,6 +163,18 @@ export const useDocumentsStore = defineStore('documents', () => {
     URL.revokeObjectURL(url)
   }
 
+  // retry 错误态重试：重新打开上次请求的文档。
+  async function retry(): Promise<void> {
+    if (!lastReq) {
+      return
+    }
+    try {
+      await open(lastReq)
+    } catch {
+      // 错误已由 open 记录到 error.value
+    }
+  }
+
   // reset 清空当前文档（关闭编辑器时调用）。
   function reset(): void {
     if (saveTimer) {
@@ -148,8 +185,10 @@ export const useDocumentsStore = defineStore('documents', () => {
     loading.value = false
     error.value = null
     saveState.value = 'idle'
+    pendingTitle.value = ''
     pendingContent = null
     inflight = false
+    lastReq = null
   }
 
   return {
@@ -157,7 +196,9 @@ export const useDocumentsStore = defineStore('documents', () => {
     loading,
     error,
     saveState,
+    pendingTitle,
     open,
+    retry,
     scheduleSave,
     flush,
     flushOnUnload,

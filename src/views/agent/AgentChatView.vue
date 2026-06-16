@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, watch, ref } from 'vue'
+import { onMounted, onUnmounted, computed, watch, ref, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, MoreVertical, Pin, PinOff, Edit3, Trash2, Square } from 'lucide-vue-next'
 import { useAgentChatStore } from '@/stores/agentChat'
@@ -19,7 +19,14 @@ import AgentMessageList from '@/components/agent/AgentMessageList.vue'
 import AgentInputArea from '@/components/agent/AgentInputArea.vue'
 import AgentBudgetExceededModal from '@/components/agent/AgentBudgetExceededModal.vue'
 import AgentLowBalanceModal from '@/components/agent/AgentLowBalanceModal.vue'
+import { useDocumentsStore } from '@/stores/documents'
 import type { SupportContact } from '@/types/agent'
+
+// document-system：右侧文档编辑器面板（第三栏），懒加载以隔离 Milkdown 重依赖；
+// 仅当 documentsStore 有打开/加载/错误态时渲染（feature flag 关时卡片不可点→永不触发）。
+const DocumentEditorPanel = defineAsyncComponent(
+  () => import('@/components/document/DocumentEditorPanel.vue')
+)
 
 interface Props {
   sessionId: string
@@ -37,6 +44,12 @@ const narration = useAgentNarration()
 const runCtrl = useAgentRun()
 const { start: startStream, stop: stopStream, isStreaming, startResume } = useAgentStream()
 const cost = useAgentCost()
+const documentsStore = useDocumentsStore()
+
+// 第三栏文档面板的显隐：有当前文档 / 加载中 / 打开出错任一即展开。
+const docPanelOpen = computed(
+  () => !!documentsStore.current || documentsStore.loading || !!documentsStore.error
+)
 
 const supportContact = ref<SupportContact>({})
 const showLowBalance = ref(false)
@@ -353,6 +366,9 @@ watch(
         store.inputText = ''
         store.estimate = null
         store.isReadOnly = false
+        // 切换会话时关闭文档面板（当前文档属于旧会话的 run）；先 keepalive 落库再清空。
+        documentsStore.flushOnUnload()
+        documentsStore.reset()
         sessionStorage.removeItem('agentChat:currentRunId')
         sessionStorage.removeItem('agentChat:currentSessionId')
       },
@@ -398,6 +414,9 @@ onUnmounted(() => {
   stopStream()
   runCtrl.stopStatusPolling()
   store.reset()
+  // 关页前落库未存的文档编辑（keepalive）再清空面板状态。
+  documentsStore.flushOnUnload()
+  documentsStore.reset()
   window.removeEventListener('click', closeAllMenus)
 })
 
@@ -559,6 +578,9 @@ const handleRetrySnapshot = async (): Promise<void> => {
           />
         </div>
       </main>
+
+      <!-- 第三栏：文档编辑器面板（点开 agent 文本类产物时展开） -->
+      <DocumentEditorPanel v-if="docPanelOpen" class="doc-col" />
     </div>
 
     <!-- Budget exceeded modal -->
@@ -922,6 +944,16 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  min-width: 0;
+}
+
+/* ===== 第三栏：文档编辑器 ===== */
+.doc-col {
+  flex-shrink: 0;
+  width: 44%;
+  min-width: 380px;
+  max-width: 760px;
+  height: 100%;
 }
 
 .chat-wrapper {
@@ -944,6 +976,16 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
 
   .sidebar.mobile-open {
     transform: translateX(0);
+  }
+
+  /* 窄屏：文档面板改为全屏覆盖（无并排空间） */
+  .doc-col {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    z-index: 20;
   }
 }
 
