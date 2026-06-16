@@ -172,11 +172,13 @@
             v-model="companyEditInput"
             class="company-edit-input"
             type="text"
-            maxlength="100"
+            maxlength="10"
             :disabled="savingCompany"
-            @keyup.enter="confirmCompanyEdit"
+            @compositionstart="imeComposing = true"
+            @compositionend="imeComposing = false"
+            @keydown.enter="onEnterKey"
           />
-          <div class="company-edit-counter">{{ companyEditInput.length }}/100</div>
+          <div class="company-edit-counter">{{ companyEditInput.length }}/10</div>
           <div class="confirm-actions">
             <button class="confirm-btn-cancel" :disabled="savingCompany" @click="closeCompanyEdit">
               取消
@@ -219,6 +221,8 @@ const companyEditVisible = ref(false) // 编辑弹窗开关
 const companyEditInput = ref('') // 弹窗内输入缓冲
 const companyEditFieldRef = ref<HTMLInputElement | null>(null)
 const savingCompany = ref(false)
+const imeComposing = ref(false) // 中文输入法组合中（用于回车守卫）
+const COMPANY_NAME_MAX = 10 // 公司名字符上限
 
 // Confirm dialog
 const confirmVisible = ref(false)
@@ -292,6 +296,13 @@ const closeCompanyEdit = () => {
   companyEditVisible.value = false
 }
 
+// 回车确认：中文输入法组合期间的回车用于选词/确认候选，不能当作"确定"提交。
+// 用 keydown（keyup 时机晚于组合结束，守不住）+ isComposing / keyCode 229 多重守卫。
+const onEnterKey = (e: KeyboardEvent) => {
+  if (imeComposing.value || e.isComposing || e.keyCode === 229) return
+  void confirmCompanyEdit()
+}
+
 // 确认保存：trim + 校验 + 调接口 + 刷新侧边栏 + toast
 const confirmCompanyEdit = async () => {
   if (savingCompany.value) return
@@ -301,8 +312,8 @@ const confirmCompanyEdit = async () => {
     companyEditVisible.value = false
     return
   }
-  if (next.length > 100) {
-    notifications.error('公司名称不能超过 100 个字符')
+  if (next.length > COMPANY_NAME_MAX) {
+    notifications.error(`公司名称不能超过 ${COMPANY_NAME_MAX} 个字符`)
     return
   }
   savingCompany.value = true
