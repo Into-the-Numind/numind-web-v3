@@ -929,7 +929,7 @@ function handleDocClick(e: MouseEvent) {
 
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
-      <div v-if="deleteConfirmId !== null" class="modal-overlay" @click.self="cancelDelete">
+      <div v-if="deleteConfirmId !== null" class="modal-overlay open" @click.self="cancelDelete">
         <div class="modal-dialog">
           <div class="modal-title">删除对话</div>
           <div class="modal-desc">确定删除这个对话吗？删除后无法恢复。</div>
