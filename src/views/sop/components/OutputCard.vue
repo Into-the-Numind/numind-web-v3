@@ -137,12 +137,29 @@ onMounted(() => {
   llmModelStore.fetchModels('sop')
 })
 
-/** 把存储的 model_key 映射为 display_name；列表未含（老模型）或未加载时回退原值 */
+/**
+ * 归一化 model key 以便容错匹配：注册表用 thinking 变体（如 deepseek-v3.2-thinking），
+ * 而执行时存的 model_name 可能是基础名（deepseek-v3.2 / deepseek-v3.2-think）或带日期后缀的
+ * provider id（gpt-5.4-2026-03-05 / xxx-251201）。剥掉 thinking 后缀与日期尾段后再比。
+ */
+function normalizeModelKey(k: string): string {
+  return k
+    .toLowerCase()
+    .replace(/-think(ing)?$/, '')
+    .replace(/-\d{4}-\d{2}-\d{2}$/, '')
+    .replace(/-\d{6,8}$/, '')
+}
+
+/** 把存储的 model_key 映射为 display_name；先精确、后归一化容错；都不中则回退原值 */
 const modelDisplayName = computed(() => {
   const key = props.nodeRun?.model_name ?? ''
   if (!key) return ''
-  const m = llmModelStore.getModels('sop').find((x) => x.model_key === key)
-  return m?.display_name || key
+  const models = llmModelStore.getModels('sop')
+  const exact = models.find((x) => x.model_key === key)
+  if (exact) return exact.display_name
+  const norm = normalizeModelKey(key)
+  const fuzzy = models.find((x) => normalizeModelKey(x.model_key) === norm)
+  return fuzzy?.display_name || key
 })
 
 const latencySeconds = computed(() => ((props.nodeRun?.latency_ms ?? 0) / 1000).toFixed(1))
