@@ -173,13 +173,10 @@
             class="company-edit-input"
             type="text"
             maxlength="100"
-            placeholder="未设置时显示 有数AI"
             :disabled="savingCompany"
             @keyup.enter="confirmCompanyEdit"
           />
-          <p class="confirm-message company-edit-hint">
-            显示在左上角，机构下所有成员可见；留空则显示"有数AI"。
-          </p>
+          <div class="company-edit-counter">{{ companyEditInput.length }}/100</div>
           <div class="confirm-actions">
             <button class="confirm-btn-cancel" :disabled="savingCompany" @click="closeCompanyEdit">
               取消
@@ -551,9 +548,13 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.company-edit-hint {
-  font-size: 13px;
-  margin-bottom: 20px;
+/* org-branding：弹窗内字符数计数（右对齐淡灰，提示 100 字上限）*/
+.company-edit-counter {
+  font-size: 12px;
+  color: #9ca0ad;
+  text-align: right;
+  margin: 6px 2px 20px;
+  font-variant-numeric: tabular-nums;
 }
 
 .row-chevron {
