@@ -75,6 +75,19 @@ describe('AgentChatHeader', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
+  it('renders the run status badge (incl. 已结束 for a read-only record)', () => {
+    const live = mount(AgentChatHeader, {
+      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
+    })
+    expect(live.find('.status-badge').exists()).toBe(true)
+    expect(live.find('.status-badge').text()).toContain('进行中')
+
+    const done = mount(AgentChatHeader, {
+      props: { agent: mkAgent(), run: mkRun('completed'), balance: 1000, readOnly: true }
+    })
+    expect(done.find('.status-badge').text()).toContain('已结束')
+  })
+
   // "已用 X 积分" credits_used 显示已按产品决定移除（不需要在 header 暴露会话花费），
   // 对应组件代码也无相关渲染。原 it('shows credits_used') 测试随之删除。
 })
