@@ -26,7 +26,7 @@
   <div class="history-view-strip" data-testid="history-view-strip">
     <div class="history-view-strip__info">
       <Eye :size="14" aria-hidden="true" />
-      <span>正在查看历史步骤 · 输入不可修改</span>
+      <span>正在查看历史步骤</span>
     </div>
   </div>
 </template>

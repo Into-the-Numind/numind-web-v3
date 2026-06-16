@@ -2,15 +2,15 @@
   OutputCard — AI 输出卡外壳（F6）
 
   3 态：
-    - streaming: head 显示 LIVE 标签 + 停止按钮，body 流式 markdown，无 footer
-    - read-only: head 显示 ⭐ + 复制按钮，body markdown，foot MetaFooter
+    - streaming: head 显示 AI 标识，body 流式 markdown，无 footer
+    - read-only: head + body markdown + 页脚行（左 复制/保存生成记录，右 耗时/模型/tokens）
     - empty-skip: 外层不渲染（由父组件决定不挂载）
 
   封装 StepOutput（F6 改造后 StepOutput 只负责 markdown + thinking 内部逻辑，
   外层 card chrome 由本组件提供）。
 
   视觉契约对齐：
-    - 01-active-and-history.html `.output` / `.output__head` / `.output__body` / `.output__foot`
+    - 01-active-and-history.html `.output` / `.output__head` / `.output__body` / `.output__footer`
     - 02-additional-states.html `.output--streaming` + `.live-dot` / `.live-label`
 
   ## Props（spec §5.2）
@@ -31,11 +31,7 @@
     <div class="output__head">
       <div class="output__head-left">
         <span class="output__ai-icon" aria-hidden="true">
-          <img
-            src="https://numind-dev-1334169463.cos.ap-chengdu.myqcloud.com/sop/logo/iconify-arcticons_ai.png"
-            alt="AI"
-            class="output__ai-icon-img"
-          />
+          <Sparkles :size="13" />
         </span>
         <span>AI 输出</span>
       </div>
@@ -50,42 +46,50 @@
       />
     </div>
 
-    <!-- 正文结束后才出现的动作条：复制在前，收藏在后 -->
-    <div v-if="!isStreaming && hasOutput" class="output__actions">
-      <button type="button" class="tiny-btn" data-testid="output-copy" @click="handleCopy">
-        <Copy :size="12" aria-hidden="true" />
-        <span>复制</span>
-      </button>
-      <button
-        type="button"
-        class="tiny-btn tiny-btn--star"
-        :class="{ 'is-active': hasBookmark }"
-        :title="hasBookmark ? '已保存 · 点击移除' : '保存生成记录'"
-        data-testid="bookmark-toggle"
-        @click="handleToggleBookmark"
-      >
-        <Star v-if="!hasBookmark" :size="13" aria-hidden="true" />
-        <Star v-else :size="13" fill="currentColor" aria-hidden="true" />
-        <span>{{ hasBookmark ? '已保存' : '保存生成记录' }}</span>
-      </button>
-    </div>
+    <!-- 正文结束后的页脚行：左=复制·保存生成记录，右=耗时·模型·tokens（同一行、同款样式） -->
+    <div v-if="!isStreaming && (hasOutput || hasMeta)" class="output__footer">
+      <div v-if="hasOutput" class="output__footer-actions">
+        <button type="button" class="tiny-btn" data-testid="output-copy" @click="handleCopy">
+          <Copy :size="12" aria-hidden="true" />
+          <span>复制</span>
+        </button>
+        <button
+          type="button"
+          class="tiny-btn tiny-btn--star"
+          :class="{ 'is-active': hasBookmark }"
+          :title="hasBookmark ? '已保存 · 点击移除' : '保存生成记录'"
+          data-testid="bookmark-toggle"
+          @click="handleToggleBookmark"
+        >
+          <Star v-if="!hasBookmark" :size="13" aria-hidden="true" />
+          <Star v-else :size="13" fill="currentColor" aria-hidden="true" />
+          <span>{{ hasBookmark ? '已保存' : '保存生成记录' }}</span>
+        </button>
+      </div>
 
-    <div v-if="!isStreaming && nodeRun" class="output__foot">
-      <MetaFooter
-        :latency-ms="nodeRun.latency_ms"
-        :model-name="nodeRun.model_name"
-        :total-tokens="nodeRun.total_tokens"
-        :completed-at="formattedCompletedAt"
-      />
+      <div v-if="hasMeta" class="output__footer-meta" data-testid="output-meta">
+        <span class="output__meta-item">
+          <Clock :size="12" aria-hidden="true" />
+          <span>耗时 {{ latencySeconds }}s</span>
+        </span>
+        <span class="output__meta-item">
+          <Cpu :size="12" aria-hidden="true" />
+          <span>{{ modelDisplayName }}</span>
+        </span>
+        <span v-if="hasTokens" class="output__meta-item">
+          <Coins :size="12" aria-hidden="true" />
+          <span>{{ nodeRun?.total_tokens }} tokens</span>
+        </span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Star, Copy } from 'lucide-vue-next'
+import { computed, onMounted } from 'vue'
+import { Star, Copy, Sparkles, Clock, Cpu, Coins } from 'lucide-vue-next'
 import StepOutput from './StepOutput.vue'
-import MetaFooter from './MetaFooter.vue'
+import { useLLMModelStore } from '@/stores/llmModel'
 import type { SopNodeRun } from '@/views/sop/types'
 
 interface Props {
@@ -126,24 +130,27 @@ const displayThinking = computed(() => {
   return props.nodeRun?.thinking ?? ''
 })
 
-/**
- * 从 nodeRun.finished_at ISO 字符串提取 HH:MM:SS 部分。
- * 解析失败时回退为空字符串（MetaFooter 会跳过该段）。
- */
-const formattedCompletedAt = computed(() => {
-  const raw = props.nodeRun?.finished_at
-  if (!raw) return ''
-  try {
-    const d = new Date(raw)
-    if (Number.isNaN(d.getTime())) return ''
-    const hh = String(d.getHours()).padStart(2, '0')
-    const mm = String(d.getMinutes()).padStart(2, '0')
-    const ss = String(d.getSeconds()).padStart(2, '0')
-    return `${hh}:${mm}:${ss}`
-  } catch {
-    return ''
-  }
+// ===== 页脚 meta（耗时 / 模型 / tokens）=====
+const llmModelStore = useLLMModelStore()
+// 解析模型展示名所需的 SOP 模型列表（幂等，已加载则直接返回）
+onMounted(() => {
+  llmModelStore.fetchModels('sop')
 })
+
+/** 把存储的 model_key 映射为 display_name；列表未含（老模型）或未加载时回退原值 */
+const modelDisplayName = computed(() => {
+  const key = props.nodeRun?.model_name ?? ''
+  if (!key) return ''
+  const m = llmModelStore.getModels('sop').find((x) => x.model_key === key)
+  return m?.display_name || key
+})
+
+const latencySeconds = computed(() => ((props.nodeRun?.latency_ms ?? 0) / 1000).toFixed(1))
+const hasTokens = computed(() => (props.nodeRun?.total_tokens ?? 0) > 0)
+/** 与原 MetaFooter 同一渲染门槛：有耗时且有模型名才显示 meta */
+const hasMeta = computed(
+  () => (props.nodeRun?.latency_ms ?? 0) > 0 && modelDisplayName.value !== ''
+)
 
 function handleCopy() {
   emit('copy')
@@ -198,37 +205,51 @@ function handleToggleBookmark() {
   text-transform: uppercase;
 }
 
+/* 中性圆 —— 与 ReplayInputCard 的「用户输入 / 上传文件」头图标统一（同款容器+Lucide 图标） */
 .output__ai-icon {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background-color: var(--accent-soft);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  overflow: hidden;
 }
 
-.output__ai-icon-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: hue-rotate(-82deg) saturate(1.2);
-}
-
-.output__head-right {
-  display: inline-flex;
+/* 正文下方页脚行：左=复制/保存生成记录，右=耗时/模型/tokens。同一行两端对齐 */
+.output__footer {
+  display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
 }
 
-/* 正文下方动作条：复制 · 收藏（按此顺序）。仅在 !isStreaming && hasOutput 时渲染 */
-.output__actions {
+.output__footer-actions {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) 0;
+}
+
+.output__footer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto; /* 右对齐：仅有 meta（无 actions）时也靠右 */
+}
+
+/* meta 三项与按钮同款字号/颜色（13px / --text-secondary / sans），区别于旧 mono 小灰字 */
+.output__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  white-space: nowrap;
 }
 
 /* ---------- tiny buttons (read-only head) ---------- */
@@ -268,21 +289,5 @@ function handleToggleBookmark() {
 
 .output__body {
   padding: var(--space-lg) 0;
-}
-
-/* ---------- foot ---------- */
-
-/* MetaFooter 靠 tiny mono 字体自然区分 body，无需分隔线 */
-.output__foot {
-  padding-top: var(--space-md);
-}
-
-/* 在 OutputCard 上下文里覆盖 MetaFooter 默认的 border-top 和 padding
- * （ChatBubble 上下文保留默认行为，因此仅在本 scope 覆盖）*/
-.output__foot :deep(.meta-footer) {
-  border-top: none;
-  padding-left: 0;
-  padding-right: 0;
-  background: transparent;
 }
 </style>
