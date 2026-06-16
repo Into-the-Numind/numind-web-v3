@@ -553,6 +553,7 @@ onMounted(() => {
 
 .company-edit-hint {
   font-size: 13px;
+  margin-bottom: 20px;
 }
 
 .row-chevron {

@@ -104,6 +104,8 @@ describe('SettingsView 公司名称弹窗编辑', () => {
     const input = wrapper.find('.company-edit-input')
     await input.setValue('新机构')
     await wrapper.find('.confirm-btn-save').trigger('click')
+    // confirm 路径有两段 await（updateProfile → fetchUserInfo），多 flush 几次确保链全部 drain
+    await flush()
     await flush()
     expect(updateProfile as any).toHaveBeenCalledWith({ company_name: '新机构' })
     const userStore = useUserStore()
