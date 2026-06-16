@@ -21,12 +21,15 @@ const UPLOAD_NOTE_MARKER = '\n\n用户已上传以下文件：'
 /**
  * 从合并后的节点 input 中剥离上传文件块，只返回用户输入的文本。
  *
- * @param input    sop_node_run.input（可能含合并进来的文件块）
- * @param hasFiles  该步是否确有上传文件（来自 files 数组长度）
- * @returns 用户文本（已 trim）。无文件时原样返回；文件块出现在最前（用户文本为空）时返回 ''。
+ * @param input  sop_node_run.input（可能含合并进来的文件块）
+ * @param files  该步上传的文件（含 file_name / content，用于按内容精确剥离）
+ * @returns 用户文本（已 trim）。无文件时原样返回；剥离后为空时返回 ''。
  */
-export function stripMergedFileBlocks(input: string, hasFiles: boolean): string {
-  if (!hasFiles) return input // 无文件：绝不剥离（避免误伤含 === 的用户文本）
+export function stripMergedFileBlocks(
+  input: string,
+  files: ReadonlyArray<Pick<SopReplayFile, 'file_name' | 'content'>> = []
+): string {
+  if (files.length === 0) return input // 无文件：绝不剥离（避免误伤含 === 的用户文本）
   if (!input) return ''
 
   // 取两个 \n\n-前缀分隔符的最早出现位置

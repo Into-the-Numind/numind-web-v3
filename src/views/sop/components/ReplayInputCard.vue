@@ -37,8 +37,8 @@ const props = defineProps<{
 const files = computed(() => props.files ?? [])
 const hasFiles = computed(() => files.value.length > 0)
 
-/** 剥离合并进 input 的文件块，只留用户文本（stripMergedFileBlocks 各返回路径已 trim） */
-const cleanInput = computed(() => stripMergedFileBlocks(props.input ?? '', hasFiles.value))
+/** 剥离合并进 input 的文件块（按文件内容精确移除），只留用户真正输入的文本 */
+const cleanInput = computed(() => stripMergedFileBlocks(props.input ?? '', files.value))
 const hasText = computed(() => cleanInput.value.length > 0)
 
 const imageFiles = computed(() => files.value.filter((f) => isImageFile(f)))
