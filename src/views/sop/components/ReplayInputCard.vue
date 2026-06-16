@@ -128,7 +128,10 @@ function fileMeta(f: SopReplayFile): string {
     <div
       v-if="hasText"
       class="replay-input__text"
-      :class="{ 'is-clamped': isLongText && !textExpanded }"
+      :class="{
+        'is-clamped': isLongText && !textExpanded,
+        'is-scroll': isLongText && textExpanded
+      }"
     >
       {{ cleanInput }}
     </div>
@@ -291,6 +294,12 @@ function fileMeta(f: SopReplayFile): string {
   height: 3.2em;
   background: linear-gradient(to bottom, transparent, var(--surface-tint));
   pointer-events: none;
+}
+
+/* 展开态：合理高度 + 框内滚动（对齐文档「查看提取文本」的体验，避免超长文档无限撑高） */
+.replay-input__text.is-scroll {
+  max-height: 24em;
+  overflow-y: auto;
 }
 
 /* 展开/收起：位于「用户输入」标题行右侧（flex space-between 推到右边） */

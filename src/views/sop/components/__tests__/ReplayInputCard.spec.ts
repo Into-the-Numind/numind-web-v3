@@ -70,4 +70,17 @@ describe('ReplayInputCard 上传素材交互（回看）', () => {
     expect(w.find('.image-preview-overlay').exists()).toBe(true)
     expect(openSpy).not.toHaveBeenCalled()
   })
+
+  // 客户反馈：长文档「展开」后无限长。展开态应是「合理高度 + 框内滚动」（像文档「查看提取文本」），
+  // 由 .is-scroll 类承载（max-height + overflow-y:auto）。收起=.is-clamped，展开=.is-scroll。
+  it('长文本「展开」后文本块带 is-scroll 类（合理高度+滚动），收起时带 is-clamped', async () => {
+    const longInput = '甲'.repeat(500) // > TEXT_COLLAPSE_THRESHOLD(360) → isLongText
+    const w = mount(ReplayInputCard, { props: { input: longInput, files: [] }, global: { stubs } })
+    const text = () => w.find('.replay-input__text')
+    expect(text().classes()).toContain('is-clamped')
+    expect(text().classes()).not.toContain('is-scroll')
+    await w.find('.replay-input__toggle').trigger('click')
+    expect(text().classes()).toContain('is-scroll')
+    expect(text().classes()).not.toContain('is-clamped')
+  })
 })
