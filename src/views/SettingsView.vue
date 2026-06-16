@@ -68,27 +68,17 @@
             <div class="row-label">用户 ID</div>
             <div class="row-value row-value-mono">{{ displayId }}</div>
           </div>
-          <!-- org-branding：公司名称编辑，仅父账户可见可改；子账户继承父账户名称，无此项 -->
+          <!-- org-branding：公司名称仅展示 + 「修改」按钮触发弹窗编辑；仅父账户可见，子账户继承父名无此项 -->
           <div v-if="userStore.isParentUser" class="settings-row">
             <div class="row-label">公司名称</div>
-            <div class="row-value">
-              <!-- 用原生 input：AppInput 不支持 keyup.enter→blur 的内联保存模式，此处轻量自定义 -->
-              <input
-                v-model="companyNameInput"
-                class="company-input"
-                type="text"
-                maxlength="100"
-                placeholder="未设置时显示 有数AI"
-                :disabled="savingCompany"
-                @blur="saveCompanyName"
-                @keyup.enter="blurActiveInput"
-              />
+            <div class="row-value company-display-cell">
+              <span class="company-display-value" :class="{ 'is-empty': !companyName }">
+                {{ companyName || '有数AI' }}
+              </span>
+              <button type="button" class="row-edit-btn" @click="openCompanyEdit">修改</button>
             </div>
           </div>
         </div>
-        <p v-if="userStore.isParentUser" class="settings-hint">
-          公司名称将显示在左上角，机构下所有成员可见；留空则显示"有数AI"。
-        </p>
       </div>
 
       <!-- Section: 会员信息 -->
@@ -171,11 +161,41 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- org-branding：公司名称编辑弹窗（点「修改」触发，确认/取消） -->
+    <Teleport to="body">
+      <div v-if="companyEditVisible" class="confirm-overlay" @click.self="closeCompanyEdit">
+        <div class="confirm-dialog">
+          <div class="confirm-title">修改公司名称</div>
+          <input
+            ref="companyEditFieldRef"
+            v-model="companyEditInput"
+            class="company-edit-input"
+            type="text"
+            maxlength="100"
+            placeholder="未设置时显示 有数AI"
+            :disabled="savingCompany"
+            @keyup.enter="confirmCompanyEdit"
+          />
+          <p class="confirm-message company-edit-hint">
+            显示在左上角，机构下所有成员可见；留空则显示"有数AI"。
+          </p>
+          <div class="confirm-actions">
+            <button class="confirm-btn-cancel" :disabled="savingCompany" @click="closeCompanyEdit">
+              取消
+            </button>
+            <button class="confirm-btn-save" :disabled="savingCompany" @click="confirmCompanyEdit">
+              {{ savingCompany ? '保存中…' : '确认' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </MainLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCreditsStore } from '@/stores/credits'
@@ -196,9 +216,11 @@ const notifications = useNotificationsStore()
 const userData = ref<Record<string, any>>({})
 const loading = ref(true)
 
-// org-branding：公司名称编辑态（仅父账户）
-const companyNameInput = ref('')
-const originalCompany = ref('')
+// org-branding：公司名称展示态 + 弹窗编辑态（仅父账户）
+const companyName = ref('') // 当前已保存的公司名（空=未设置）
+const companyEditVisible = ref(false) // 编辑弹窗开关
+const companyEditInput = ref('') // 弹窗内输入缓冲
+const companyEditFieldRef = ref<HTMLInputElement | null>(null)
 const savingCompany = ref(false)
 
 // Confirm dialog
@@ -250,10 +272,8 @@ const fetchData = async () => {
     const res = await getUserInfo()
     if (res.code === 200 || res.code === 0) {
       userData.value = res.data || {}
-      // org-branding：初始化公司名输入框（父账户用自己的值）
-      const cn = (userData.value.company_name || '').trim()
-      companyNameInput.value = cn
-      originalCompany.value = cn
+      // org-branding：初始化展示用公司名（父账户用自己的值）
+      companyName.value = (userData.value.company_name || '').trim()
     }
   } catch (error) {
     console.error('获取用户信息失败:', error)
@@ -262,19 +282,30 @@ const fetchData = async () => {
   }
 }
 
-// org-branding：保存公司名称（blur 触发，符合 ui-ux 校验在 blur 的硬规则）
-const blurActiveInput = (e: Event) => {
-  ;(e.target as HTMLInputElement)?.blur()
+// org-branding：打开编辑弹窗（用当前值预填，自动聚焦输入框）
+const openCompanyEdit = () => {
+  companyEditInput.value = companyName.value
+  companyEditVisible.value = true
+  void nextTick(() => companyEditFieldRef.value?.focus())
 }
 
-const saveCompanyName = async () => {
-  const next = companyNameInput.value.trim()
-  companyNameInput.value = next
-  // 无变化则不提交
-  if (next === originalCompany.value) return
+// 关闭弹窗（保存中禁止关闭，避免半途态）
+const closeCompanyEdit = () => {
+  if (savingCompany.value) return
+  companyEditVisible.value = false
+}
+
+// 确认保存：trim + 校验 + 调接口 + 刷新侧边栏 + toast
+const confirmCompanyEdit = async () => {
+  if (savingCompany.value) return
+  const next = companyEditInput.value.trim()
+  // 无变化直接关闭，不发请求
+  if (next === companyName.value) {
+    companyEditVisible.value = false
+    return
+  }
   if (next.length > 100) {
     notifications.error('公司名称不能超过 100 个字符')
-    companyNameInput.value = originalCompany.value
     return
   }
   savingCompany.value = true
@@ -283,19 +314,17 @@ const saveCompanyName = async () => {
     if (res.code === 200 || res.code === 0) {
       // 刷新用户信息 → 左上角侧边栏品牌名同步更新
       await userStore.fetchUserInfo()
-      // 以服务端回写的有效值为准同步本地态（避免后端规范化导致 original 漂移）
+      // 以服务端回写的有效值为准（避免后端规范化导致漂移）
       const fresh = (userStore.userInfo?.company_name || '').trim()
-      originalCompany.value = fresh
-      companyNameInput.value = fresh
+      companyName.value = fresh
+      companyEditVisible.value = false
       notifications.success(fresh ? '公司名称已更新' : '已清空公司名称，将显示"有数AI"')
     } else {
       notifications.error(res.message || res.msg || '保存失败')
-      companyNameInput.value = originalCompany.value
     }
   } catch (err) {
     console.error('保存公司名称失败:', err)
     notifications.error(err instanceof Error ? err.message : '网络错误，请稍后重试')
-    companyNameInput.value = originalCompany.value
   } finally {
     savingCompany.value = false
   }
@@ -458,38 +487,72 @@ onMounted(() => {
   color: #6b7085;
 }
 
-/* org-branding：公司名称内联编辑输入框 */
-.company-input {
-  font-family: var(--font-sans);
+/* org-branding：公司名称展示 + 「修改」按钮（只展示，不直接点击编辑）*/
+.company-display-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.company-display-value {
   font-size: 14px;
+  font-weight: 500;
   color: #1a1d26;
-  text-align: right;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 4px 10px;
-  background: #f5f6f8;
-  outline: none;
-  min-width: 200px;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
 }
 
-.company-input:focus {
-  border-color: var(--color-primary);
+/* 未设置时显示兜底"有数AI"，用更淡的灰提示这是默认值而非用户所设 */
+.company-display-value.is-empty {
+  color: #9ca0ad;
+}
+
+.row-edit-btn {
+  appearance: none;
+  border: 1px solid #e2e4ea;
   background: #ffffff;
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
-.company-input:disabled {
+.row-edit-btn:hover {
+  background: #f3faf7;
+  border-color: var(--color-primary);
+}
+
+/* 编辑弹窗内的输入框（沿用 confirm-dialog 风格）*/
+.company-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: #1a1d26;
+  border: 1px solid #e2e4ea;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+  outline: none;
+  margin: 4px 0;
+  transition: border-color 0.15s;
+}
+
+.company-edit-input:focus {
+  border-color: var(--color-primary);
+}
+
+.company-edit-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.settings-hint {
-  font-size: 12px;
-  color: #8b90a0;
-  margin: 8px 4px 0;
-  line-height: 1.5;
+.company-edit-hint {
+  font-size: 13px;
 }
 
 .row-chevron {
@@ -584,13 +647,30 @@ onMounted(() => {
 }
 
 .confirm-btn-cancel,
-.confirm-btn-ok {
+.confirm-btn-ok,
+.confirm-btn-save {
   padding: 8px 20px;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+}
+
+/* org-branding：保存按钮（非销毁性操作，用品牌绿，区别于退出登录的红色 ok）*/
+.confirm-btn-save {
+  background: var(--color-primary);
+  border: none;
+  color: #fff;
+}
+
+.confirm-btn-save:hover {
+  filter: brightness(0.94);
+}
+
+.confirm-btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .confirm-btn-cancel {
@@ -649,13 +729,6 @@ onMounted(() => {
 
   .settings-row {
     padding: 12px 14px;
-  }
-
-  /* org-branding：窄屏让公司名输入框收缩占满剩余宽度，避免与 label 溢出 */
-  .company-input {
-    min-width: 0;
-    flex: 1;
-    width: 100%;
   }
 
   .credit-grid {
