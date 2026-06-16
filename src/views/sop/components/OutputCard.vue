@@ -143,11 +143,12 @@ onMounted(() => {
  * provider id（gpt-5.4-2026-03-05 / xxx-251201）。剥掉 thinking 后缀与日期尾段后再比。
  */
 function normalizeModelKey(k: string): string {
+  // 先剥日期尾段，再剥 thinking 后缀，使「thinking + 日期」并存（如 x-thinking-251201）也能归一
   return k
     .toLowerCase()
-    .replace(/-think(ing)?$/, '')
     .replace(/-\d{4}-\d{2}-\d{2}$/, '')
     .replace(/-\d{6,8}$/, '')
+    .replace(/-think(ing)?$/, '')
 }
 
 /** 把存储的 model_key 映射为 display_name；先精确、后归一化容错；都不中则回退原值 */

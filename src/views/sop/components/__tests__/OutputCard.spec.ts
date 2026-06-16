@@ -193,8 +193,9 @@ describe('OutputCard', () => {
       expect(metaText('deepseek-v4-pro')).toContain('DeepSeek V4 Pro')
     })
     it('stored base key vs registry -thinking 变体 → display_name', () => {
-      expect(metaText('deepseek-v3.2')).toContain('DeepSeek V3.2')
-      expect(metaText('deepseek-v3.2')).not.toContain('deepseek-v3.2')
+      const text = metaText('deepseek-v3.2')
+      expect(text).toContain('DeepSeek V3.2')
+      expect(text).not.toContain('deepseek-v3.2') // 不再显示原始 key
     })
     it('stored -think 简写 → display_name', () => {
       expect(metaText('deepseek-v3.2-think')).toContain('DeepSeek V3.2')
