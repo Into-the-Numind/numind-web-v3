@@ -21,23 +21,33 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
   const total = ref(0)
   const unreadCount = ref(0)
   const loading = ref(false)
+  const loadingMore = ref(false)
+  const page = ref(1)
   const error = ref('')
 
   const current = ref<AnnouncementDetail | null>(null)
   const currentLoading = ref(false)
   const submitting = ref(false)
 
+  const PAGE_SIZE = 10
+
   // ==================== Getters ====================
   const hasUnread = computed(() => unreadCount.value > 0)
+  /** 还有下一页可加载（下拉滚动 append 用） */
+  const hasMore = computed(() => list.value.length < total.value)
 
   // ==================== Actions ====================
 
-  /** 加载公告列表（含未读计数 + 总数） */
-  async function loadAnnouncements(params: { page: number; page_size: number }) {
+  /** 加载公告列表第 1 页（替换式，重置分页）。下拉每次打开调用。 */
+  async function loadAnnouncements(params?: { page?: number; page_size?: number }) {
     loading.value = true
     error.value = ''
+    page.value = 1
     try {
-      const resp = await fetchAnnouncements(params)
+      const resp = await fetchAnnouncements({
+        page: params?.page ?? 1,
+        page_size: params?.page_size ?? PAGE_SIZE
+      })
       list.value = resp.list
       total.value = resp.total
       unreadCount.value = resp.unread_count
@@ -46,6 +56,27 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
       console.error('[announcements] loadAnnouncements failed:', e)
     } finally {
       loading.value = false
+    }
+  }
+
+  /** 加载下一页并 append 到 list（下拉滚动到底触发）。无更多 / 正在加载时 no-op。 */
+  async function loadMore() {
+    if (loading.value || loadingMore.value || !hasMore.value) return
+    loadingMore.value = true
+    try {
+      const next = page.value + 1
+      const resp = await fetchAnnouncements({ page: next, page_size: PAGE_SIZE })
+      // 去重 append（防止并发/重复触发把同一页塞两遍）
+      const existing = new Set(list.value.map((a) => a.id))
+      list.value = [...list.value, ...resp.list.filter((a) => !existing.has(a.id))]
+      total.value = resp.total
+      unreadCount.value = resp.unread_count
+      page.value = next
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载更多失败'
+      console.error('[announcements] loadMore failed:', e)
+    } finally {
+      loadingMore.value = false
     }
   }
 
@@ -123,6 +154,8 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
     total,
     unreadCount,
     loading,
+    loadingMore,
+    page,
     error,
     current,
     currentLoading,
@@ -130,9 +163,11 @@ export const useAnnouncementsStore = defineStore('announcements', () => {
 
     // Getters
     hasUnread,
+    hasMore,
 
     // Actions
     loadAnnouncements,
+    loadMore,
     refreshUnread,
     loadDetail,
     markRead,

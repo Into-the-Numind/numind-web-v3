@@ -148,9 +148,6 @@
         </svg>
         <span class="nav-label">{{ item.title }}</span>
       </RouterLink>
-
-      <!-- 通知中心入口（notification-center）。组件内部按 feature flag 自决显隐。 -->
-      <NotificationBell :collapsed="collapsed" />
     </nav>
 
     <!-- Toggle -->
@@ -183,7 +180,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useSidebarState } from '@/composables/useSidebarState'
-import NotificationBell from './NotificationBell.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
