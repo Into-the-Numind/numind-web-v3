@@ -95,10 +95,6 @@ function fileMeta(f: SopReplayFile): string {
   return [ext, size].filter(Boolean).join(' · ')
 }
 
-function openFile(f: SopReplayFile): void {
-  if (f.file_url) window.open(f.file_url, '_blank', 'noopener,noreferrer')
-}
-
 // SopStepView 实例在历史回看翻步时复用（无 :key），步骤切换 = props 变化时重置所有本地视图状态，
 // 避免上一步的图片放大覆层 / 展开状态残留到下一步。
 watch(
@@ -175,12 +171,9 @@ watch(
       <ul v-if="docFiles.length" class="replay-input__docs">
         <li v-for="f in docFiles" :key="f.id" class="replay-input__doc">
           <div class="replay-input__doc-row">
-            <button
-              type="button"
-              class="replay-input__doc-main"
-              :title="`打开 ${f.file_name}`"
-              @click="openFile(f)"
-            >
+            <!-- 只读展示：不跳转打开原文件（历史 COS 对象可能已回收→报错页）。
+                 预览改由右侧「查看提取文本」内嵌展开承担（读入库抽取文本，不依赖 COS）。 -->
+            <div class="replay-input__doc-main" :title="f.file_name">
               <span class="replay-input__doc-icon" aria-hidden="true">
                 <component :is="docIcon(f)" :size="16" />
               </span>
@@ -188,7 +181,7 @@ watch(
                 <span class="replay-input__doc-name">{{ f.file_name }}</span>
                 <span v-if="fileMeta(f)" class="replay-input__doc-meta">{{ fileMeta(f) }}</span>
               </span>
-            </button>
+            </div>
             <button
               v-if="f.content"
               type="button"
@@ -418,17 +411,8 @@ watch(
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: none;
-  border: none;
-  font-family: inherit;
-  text-align: left;
   color: var(--text);
-  cursor: pointer;
-  transition: background var(--transition-fast, 0.15s ease);
-}
-
-.replay-input__doc-main:hover {
-  background: var(--surface-hover);
+  /* 只读展示，不可点击打开（无 cursor:pointer / hover 背景） */
 }
 
 .replay-input__doc-icon {
