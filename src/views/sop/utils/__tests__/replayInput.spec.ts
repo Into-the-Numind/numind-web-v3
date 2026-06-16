@@ -2,44 +2,69 @@ import { describe, it, expect } from 'vitest'
 import { stripMergedFileBlocks, formatFileSize, isImageFile } from '../replayInput'
 
 describe('stripMergedFileBlocks', () => {
-  it('(a) hasFiles=false → 原样返回，即便含 === 也不剥离', () => {
+  const file = (content: string, file_name = 'doc.txt') => ({ content, file_name })
+
+  // Rule 11 复现（客户报告）：首次运行新 SOP，只上传文件不输入文字时，「用户输入」文本块却显示
+  // 了上传文件的全部提取内容（与上传卡重复）。根因=前端 compose() 把文件内容直接拼进 input、无
+  // `=== 文件名 ===` 标记，旧的分隔符剥离匹配不到→原样返回文件内容。修复=按文件 content 精确移除。
+  it('(repro) file-only 新格式：input=文件内容(无标记) → 剥成空', () => {
+    const c = '这是上传文档的提取内容ABC\n\n第二段内容DEF'
+    expect(stripMergedFileBlocks(c, [file(c)])).toBe('')
+  })
+
+  it('(repro2) 用户文本 + 新 compose 格式(无标记，文本\\n\\n内容) → 只留用户文本', () => {
+    const c = '文件被抽取的正文内容XYZ'
+    expect(stripMergedFileBlocks(`帮我看看这个\n\n${c}`, [file(c)])).toBe('帮我看看这个')
+  })
+
+  it('(a) 无文件(files=[]) → 原样返回，即便含 === 也不剥离', () => {
     const input = '请把这段 === 重点 === 标出来'
-    expect(stripMergedFileBlocks(input, false)).toBe(input)
+    expect(stripMergedFileBlocks(input, [])).toBe(input)
   })
 
-  it('(b) 用户文本 + 单个文件块 → 只留用户文本', () => {
-    const input = '请总结这份文件\n\n=== report.pdf ===\n第一章 ... 第二章 ...'
-    expect(stripMergedFileBlocks(input, true)).toBe('请总结这份文件')
+  it('(b) 老后端格式：用户文本 + === 文件名 === + 内容 → 只留用户文本', () => {
+    const c = '第一章 ... 第二章 ...'
+    const input = `请总结这份文件\n\n=== report.pdf ===\n${c}`
+    expect(stripMergedFileBlocks(input, [file(c, 'report.pdf')])).toBe('请总结这份文件')
   })
 
-  it('(c) 用户文本 + 多个文件块 → 在第一个块处截断', () => {
-    const input = '对比这两份资料\n\n=== a.txt ===\naaa\n\n=== b.txt ===\nbbb'
-    expect(stripMergedFileBlocks(input, true)).toBe('对比这两份资料')
+  it('(c) 多个文件内容 → 全部移除，只留用户文本', () => {
+    const a = 'aaa内容'
+    const b = 'bbb内容'
+    const input = `对比这两份资料\n\n${a}\n\n${b}`
+    expect(stripMergedFileBlocks(input, [file(a, 'a.txt'), file(b, 'b.txt')])).toBe(
+      '对比这两份资料'
+    )
   })
 
-  it('(d) 用户文本为空、input 以文件块开头 → 返回空串', () => {
-    const input = '=== shot.png ===\nOCR 识别出的文字'
-    expect(stripMergedFileBlocks(input, true)).toBe('')
+  it('(d) CRLF 归一化：input 用 \\r\\n、content 用 \\n 仍能精确移除', () => {
+    const c = '第一行\n第二行\n第三行'
+    const input = `用户问题\r\n\r\n第一行\r\n第二行\r\n第三行`
+    expect(stripMergedFileBlocks(input, [file(c)])).toBe('用户问题')
   })
 
-  it('(e) 无提取内容的「用户已上传以下文件：」提示段 → 只留用户文本', () => {
+  it('(e) 老的「用户已上传以下文件：」无内容提示段 → 剥掉提示段', () => {
     const input =
-      '看看这些图\n\n用户已上传以下文件：a.png、b.png\n\n注意：这些文件无法自动提取文本内容，请根据文件名和上下文进行处理。'
-    expect(stripMergedFileBlocks(input, true)).toBe('看看这些图')
+      '看看这些图\n\n用户已上传以下文件：a.png、b.png\n\n注意：这些文件无法自动提取文本内容。'
+    expect(stripMergedFileBlocks(input, [file('', 'a.png')])).toBe('看看这些图')
   })
 
-  it('(f) 用户文本为空、以「用户已上传以下文件：」开头 → 返回空串', () => {
-    const input = '用户已上传以下文件：a.png\n\n注意：...'
-    expect(stripMergedFileBlocks(input, true)).toBe('')
+  it('(f) 文件 content 不在 input 中(防御) → 保守保留用户文本', () => {
+    const input = '只有这一句话，文件内容没拼进来'
+    expect(stripMergedFileBlocks(input, [file('完全不同的内容')])).toBe(
+      '只有这一句话，文件内容没拼进来'
+    )
   })
 
-  it('(g) hasFiles=true 但无可识别块 → trim 后全显（防御）', () => {
-    const input = '  只有这一句话，没有任何文件块标记  '
-    expect(stripMergedFileBlocks(input, true)).toBe('只有这一句话，没有任何文件块标记')
+  it('(g) 文件内容恰好是用户文字的子串 → 只删拼接块，不误删句中同名子串（锚定移除）', () => {
+    const c = 'abc'
+    // 用户文字里也含 "abc"，但拼接块 "\n\nabc" 才该被删
+    const input = `请分析abc这份文件\n\n${c}`
+    expect(stripMergedFileBlocks(input, [file(c)])).toBe('请分析abc这份文件')
   })
 
-  it('空 input → 原样返回', () => {
-    expect(stripMergedFileBlocks('', true)).toBe('')
+  it('空 input + 有文件 → 返回空串', () => {
+    expect(stripMergedFileBlocks('', [file('x')])).toBe('')
   })
 })
 
