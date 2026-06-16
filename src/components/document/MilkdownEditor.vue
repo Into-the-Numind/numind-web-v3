@@ -56,5 +56,17 @@ onBeforeUnmount(() => {
 .milkdown-editor {
   height: 100%;
   overflow-y: auto;
+  /* 容器自身铺白：内容短时 Crepe 编辑面积不满高，原本露出灰底（用户反馈"下半截灰色"）。 */
+  background: #fff;
+}
+/* Crepe 编辑器根（.milkdown）默认只占内容高度，下方留白会显容器/主题灰底。
+   min-height:100% 让其撑满可视区并随内容增长，配合白底消除灰块；外层负责滚动。 */
+.milkdown-editor :deep(.milkdown) {
+  min-height: 100%;
+  background: #fff;
+}
+.milkdown-editor :deep(.milkdown .ProseMirror) {
+  min-height: 100%;
+  box-sizing: border-box;
 }
 </style>

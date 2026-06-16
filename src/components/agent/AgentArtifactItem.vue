@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { Download, Eye, FileText, Pencil, X } from 'lucide-vue-next'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { Download, Eye, FileText, X } from 'lucide-vue-next'
 
 import { isEditable, isDocumentSystemEnabled } from '@/utils/editableArtifact'
+import { useDocumentsStore } from '@/stores/documents'
 
-// document-system：编辑器模态懒加载（含 Milkdown ProseMirror 重依赖），不进 agent 主 bundle。
-const DocumentEditorModal = defineAsyncComponent(
-  () => import('@/components/document/DocumentEditorModal.vue')
-)
+// document-system：编辑器是页面级右侧面板（AgentChatView 第三栏，由 documentsStore.current 驱动），
+// 不再是本卡片内的弹窗。卡片只负责"点击 → 触发打开"。
+const documentsStore = useDocumentsStore()
 
 interface Props {
   artifact: {
@@ -55,10 +55,13 @@ const isHtml = computed<boolean>(() => props.artifact.mime.startsWith('text/html
 const canEdit = computed<boolean>(
   () => isDocumentSystemEnabled() && isEditable(props.artifact.mime, props.artifact.filename)
 )
-const showEditor = ref(false)
-
+// 点击卡片 → 在页面右侧编辑器面板打开（store.current 驱动 AgentChatView 第三栏）。
 const openEditor = (): void => {
-  showEditor.value = true
+  void documentsStore.open({
+    source_url: props.artifact.url,
+    filename: props.artifact.filename,
+    mime: props.artifact.mime
+  })
 }
 
 const showPreview = ref(false)
@@ -128,8 +131,14 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
       <p class="filename">{{ artifact.filename }}</p>
     </div>
 
-    <!-- A1 file card (HTML): emerald doc badge + name + type meta, preview + download. -->
-    <div v-else-if="isHtml" class="file-row">
+    <!-- A1 file card (HTML): 可编辑则整卡点击打开编辑器；预览/下载按钮 stop 冒泡。 -->
+    <div
+      v-else-if="isHtml"
+      class="file-row"
+      :class="{ 'file-row--clickable': canEdit }"
+      :data-testid="canEdit ? 'doc-open-card' : undefined"
+      @click="canEdit && openEditor()"
+    >
       <span class="doc-badge"><FileText :size="20" /></span>
       <span class="file-meta">
         <span class="filename">{{ artifact.filename }}</span>
@@ -138,42 +147,30 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
       <button
         class="icon-btn preview-btn"
         data-testid="html-preview-btn"
-        @click="openHtmlPreview"
+        @click.stop="openHtmlPreview"
         aria-label="预览页面"
       >
         <Eye :size="17" />
       </button>
-      <button
-        v-if="canEdit"
-        class="icon-btn edit-btn"
-        data-testid="doc-edit-btn"
-        @click="openEditor"
-        aria-label="打开编辑"
-      >
-        <Pencil :size="17" />
-      </button>
-      <button class="icon-btn download-btn" @click="handleDownload" aria-label="下载文件">
+      <button class="icon-btn download-btn" @click.stop="handleDownload" aria-label="下载文件">
         <Download :size="17" />
       </button>
     </div>
 
-    <!-- A1 file card (downloadable doc): emerald doc badge + name + type meta + download. -->
-    <div v-else class="file-row">
+    <!-- A1 file card (downloadable doc): 可编辑则整卡点击打开编辑器；下载按钮 stop 冒泡。 -->
+    <div
+      v-else
+      class="file-row"
+      :class="{ 'file-row--clickable': canEdit }"
+      :data-testid="canEdit ? 'doc-open-card' : undefined"
+      @click="canEdit && openEditor()"
+    >
       <span class="doc-badge"><FileText :size="20" /></span>
       <span class="file-meta">
         <span class="filename">{{ artifact.filename }}</span>
         <span class="file-type">{{ fileTypeLabel }}</span>
       </span>
-      <button
-        v-if="canEdit"
-        class="icon-btn edit-btn"
-        data-testid="doc-edit-btn"
-        @click="openEditor"
-        aria-label="打开编辑"
-      >
-        <Pencil :size="17" />
-      </button>
-      <button class="icon-btn download-btn" @click="handleDownload" aria-label="下载文件">
+      <button class="icon-btn download-btn" @click.stop="handleDownload" aria-label="下载文件">
         <Download :size="17" />
       </button>
     </div>
@@ -242,17 +239,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         </div>
       </div>
     </Teleport>
-
-    <!-- document-system：对话内打开编辑器（懒加载；仅文本类 + flag 开时可达） -->
-    <!-- 注：v1 不传 run_id —— ArtifactRef 不携带 run_id，后端 open 靠 source_url 的
-         agent-outputs/{userID}/ 前缀做归属校验已足够；run_id 弱关联留 v2 上传场景再接。 -->
-    <DocumentEditorModal
-      v-if="canEdit && showEditor"
-      :source-url="artifact.url"
-      :filename="artifact.filename"
-      :mime="artifact.mime"
-      @close="showEditor = false"
-    />
+    <!-- document-system：编辑器已上移为页面级右侧面板（AgentChatView 第三栏），由
+         documentsStore.current 驱动；本卡片只触发 openEditor（store.open）。 -->
   </div>
 </template>
 
@@ -311,6 +299,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   align-items: center;
   gap: 12px;
   width: 100%;
+}
+/* 可编辑文本类卡片：整卡可点击打开编辑器 */
+.file-row--clickable {
+  cursor: pointer;
 }
 
 /* Emerald document badge (playground A1 .doc-badge): soft emerald tint, rounded. */
