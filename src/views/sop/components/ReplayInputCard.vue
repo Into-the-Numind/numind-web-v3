@@ -15,7 +15,7 @@
   详见 spec §4。Props 仅 input + files，无对外 emit（图片放大为内部状态）。
 -->
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import {
   User,
   Paperclip,
@@ -97,17 +97,10 @@ function fileMeta(f: SopReplayFile): string {
   return [ext, size].filter(Boolean).join(' · ')
 }
 
-// SopStepView 实例在历史回看翻步时复用（无 :key），步骤切换 = props 变化时重置所有本地视图状态，
-// 避免上一步的图片放大覆层 / 展开状态残留到下一步。
-watch(
-  () => [props.input, props.files],
-  () => {
-    previewUrl.value = null
-    textExpanded.value = false
-    expandedDocs.value = new Set()
-    failedImages.value = new Set()
-  }
-)
+// 跨步重置由父级 SopStepView 用 :key="node.id" 在切步时重挂载本组件实现（见 SopStepView）。
+// 之前用 watch([input,files]) 重置——但 done-current 态 refreshNodeRun 会把 files 从空更新为
+// 文件列表，那次 props.files 变化会误触发重置，把用户刚展开的「查看提取文本」/长文收回（客户反馈
+// 的"附件不能展开"）。改用 :key 后，同一步内 files 更新不再重挂载，展开态得以保留。
 </script>
 
 <template>
