@@ -4,8 +4,9 @@
   回看历史 SOP 运行时（SopStepView 的 done-history / done-current 只读态），在 AI 输出
   （OutputCard）之上呈现当时这一步的输入上下文，方便用户回溯：
     - 你的输入：用户当时写的文字（已剥离合并进来的文件提取文本，见 utils/replayInput）
-    - 上传的素材：图片缩略图（点击放大，复用 AgentImagePreview）+ 文档卡片（点击新标签打开/下载）
-      每个文档可展开「查看提取文本」（系统当时喂给 AI 的内容）
+    - 上传的素材：图片缩略图（点击页面内放大，复用 AgentImagePreview）+ 文档卡片（只读展示，
+      不跳转打开原文件——历史 COS 对象可能已回收会报错）。每个文档可展开「查看提取文本」
+      （读入库时抽取的文本，内嵌预览，不依赖 COS）
 
   设计：安静、退后的中性色调（它是上下文，不是主角），与 OutputCard 的 accent 主角形成层次。
   纯只读 —— 无输入框、无上传/执行按钮。视觉 token 全部取 .sop-run-view-v2 scope。
