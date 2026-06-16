@@ -26,6 +26,10 @@ esac
 
 VITE_API_BASE_URL="/api"
 
+# notification-center 铃铛：dev/qa 开，prod 留空(=隐藏，保持休眠隔离不影响打 tag)
+VITE_ENABLE_NOTIFICATIONS=""
+if [ "$ENV" = "dev" ] || [ "$ENV" = "qa" ]; then VITE_ENABLE_NOTIFICATIONS="true"; fi
+
 SHA_TAG="${ROLLING_TAG}-${GIT_SHA}"
 IMG_ROLLING="${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${ROLLING_TAG}"
 IMG_SHA="${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${SHA_TAG}"
@@ -36,6 +40,7 @@ echo "  Dockerfile         : $DOCKERFILE"
 echo "  Git SHA            : $GIT_SHA"
 echo "  VITE_APP_ENV       : $VITE_APP_ENV"
 echo "  VITE_API_BASE_URL  : $VITE_API_BASE_URL"
+echo "  VITE_ENABLE_NOTIFICATIONS : ${VITE_ENABLE_NOTIFICATIONS:-(unset)}"
 echo "  Tags               : $IMG_ROLLING"
 echo "                       $IMG_SHA"
 echo "============================================="
@@ -59,6 +64,7 @@ docker build \
   --tag "$IMG_SHA" \
   --build-arg "VITE_APP_ENV=$VITE_APP_ENV" \
   --build-arg "VITE_API_BASE_URL=$VITE_API_BASE_URL" \
+  --build-arg "VITE_ENABLE_NOTIFICATIONS=$VITE_ENABLE_NOTIFICATIONS" \
   --label "git.commit=$GIT_SHA" \
   --label "build.env=$ENV" \
   --label "build.at=$(date -Iseconds)" \

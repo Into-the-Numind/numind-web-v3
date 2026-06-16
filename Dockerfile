@@ -4,10 +4,13 @@ FROM node:18-alpine AS builder
 # 构建参数
 ARG VITE_APP_ENV=production
 ARG VITE_API_BASE_URL
+# notification-center 铃铛显隐：dev/qa 传 true 开，prod 不传=隐藏（保持休眠隔离）
+ARG VITE_ENABLE_NOTIFICATIONS
 
 # 设置环境变量
 ENV VITE_APP_ENV=${VITE_APP_ENV}
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_ENABLE_NOTIFICATIONS=${VITE_ENABLE_NOTIFICATIONS}
 
 WORKDIR /app
 
