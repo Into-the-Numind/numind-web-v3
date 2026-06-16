@@ -125,6 +125,14 @@ describe('OutputCard', () => {
       expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(true)
     })
 
+    it('hides the meta group when latency_ms is 0 (missing / legacy data)', () => {
+      const wrapper = mount(OutputCard, {
+        props: { nodeRun: makeNodeRun({ latency_ms: 0 }), state: 'read-only', hasOutput: true }
+      })
+      expect(wrapper.find('.output__footer-meta').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="output-copy"]').exists()).toBe(true)
+    })
+
     it('renders no footer at all when nodeRun is null and hasOutput=false', () => {
       const wrapper = mount(OutputCard, {
         props: { nodeRun: null, state: 'read-only', hasOutput: false }

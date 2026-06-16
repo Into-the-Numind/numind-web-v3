@@ -10,7 +10,7 @@
   外层 card chrome 由本组件提供）。
 
   视觉契约对齐：
-    - 01-active-and-history.html `.output` / `.output__head` / `.output__body` / `.output__foot`
+    - 01-active-and-history.html `.output` / `.output__head` / `.output__body` / `.output__footer`
     - 02-additional-states.html `.output--streaming` + `.live-dot` / `.live-label`
 
   ## Props（spec §5.2）
@@ -216,12 +216,6 @@ function handleToggleBookmark() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.output__head-right {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
 }
 
 /* 正文下方页脚行：左=复制/保存生成记录，右=耗时/模型/tokens。同一行两端对齐 */
