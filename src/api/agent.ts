@@ -59,6 +59,19 @@ export const listAllHistorySessions = async (): Promise<RecentSession[]> => {
   return data
 }
 
+// instant-title-ux: 发送首条指令时即时从 prompt 生成 agent 会话标题（系统内部，不扣积分）。
+// 须在 createRun 落库后调用（否则后端 ListBySession 取不到 run）。
+export const generateAgentSessionTitle = async (
+  sessionId: string,
+  prompt: string
+): Promise<{ title: string }> => {
+  if (useMock()) return { title: '' }
+  const { data } = await request.post<{ title: string }>(`/v1/agent-sessions/${sessionId}/title`, {
+    prompt
+  })
+  return data
+}
+
 // 4. 会话快照（历史恢复）
 // sessionId is the UUID string from agent_run.session_id (backend varchar).
 export const getSessionSnapshot = async (sessionId: string): Promise<SessionSnapshot> => {
