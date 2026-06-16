@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import type { Agent } from '@/types/agentBuilder'
 import AppButton from '@/components/common/AppButton.vue'
@@ -12,11 +12,21 @@ import { formatDate } from '@/utils/datetime'
 import { HTTP_CHILD_ACCOUNT_FORBIDDEN, errorMessage, errorStatus } from '@/constants/agentErrno'
 
 const router = useRouter()
+const route = useRoute()
 const store = useAgentBuilderStore()
 const notifications = useNotificationsStore()
 
 const searchTerm = ref('')
 const listError = ref('')
+
+// Marketplace "装载到 Agent" flow: arrives here with ?attach_skill so the operator
+// picks which Agent to load a subscribed Skill into. Picking an agent carries the
+// skill to its edit page, which auto-binds it (SkillBindingPanel).
+const attachSkillId = computed(() => {
+  const v = Number(route.query.attach_skill)
+  return Number.isFinite(v) && v > 0 ? v : null
+})
+const attachSkillName = computed(() => (route.query.skill_name as string) || '')
 
 const confirmVisible = ref(false)
 const confirmTitle = ref('')
@@ -59,6 +69,11 @@ async function fetchList() {
 onMounted(fetchList)
 
 function goEdit(id: number) {
+  // Carry the skill through so the edit page auto-binds it (closes the marketplace loop).
+  if (attachSkillId.value) {
+    router.push(`/config/agents/${id}/edit?attach_skill=${attachSkillId.value}`)
+    return
+  }
   router.push(`/config/agents/${id}/edit`)
 }
 
@@ -117,6 +132,17 @@ function cancelTakedown() {
           + 新建智能体
         </AppButton>
       </div>
+    </div>
+
+    <!-- Marketplace 装载流程引导条 -->
+    <div v-if="attachSkillId" class="attach-banner">
+      <span class="attach-banner__text">
+        正在为技能<strong>「{{ attachSkillName || '订阅技能' }}」</strong>选择 Agent：点击下方任一
+        Agent 的「编辑」，进入后会自动装载。
+      </span>
+      <AppButton variant="secondary" size="sm" @click="router.push('/config/agents')"
+        >取消</AppButton
+      >
     </div>
 
     <!-- Search bar -->
@@ -235,6 +261,23 @@ function cancelTakedown() {
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: var(--radius-md);
+}
+
+.attach-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: hsla(152, 55%, 96%, 0.9);
+  border: 1px solid hsla(152, 45%, 80%, 0.8);
+  border-radius: var(--radius-md);
+}
+
+.attach-banner__text {
+  font-size: 14px;
+  color: #065f46;
 }
 
 .agent-list__error-banner .error-text {

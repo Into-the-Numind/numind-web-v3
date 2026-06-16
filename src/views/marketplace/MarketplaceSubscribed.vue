@@ -49,8 +49,16 @@ function goDetail(item: SubscriptionItem) {
 }
 
 function goLoadIntoAgent(item: SubscriptionItem) {
-  // 跳到 Skill 编辑/列表页，让用户选 Agent 装载 (沿用 #1 SkillBindingPanel UX)
-  router.push(`/config/skills/${item.subscription.cloned_skill_id}`)
+  // 装载发生在 Agent 编辑页的「装载的 Skill」面板。带上 skill 上下文跳到 Agent 列表
+  // 让用户选一个 Agent，选中后自动装载。旧实现错误地跳到了 Skill 编辑页——那里根本
+  // 没有「装载到 Agent」入口，订阅闭环就此断掉。
+  router.push({
+    path: '/config/agents',
+    query: {
+      attach_skill: String(item.subscription.cloned_skill_id),
+      skill_name: item.marketplace.name
+    }
+  })
 }
 
 function askUnsubscribe(item: SubscriptionItem) {

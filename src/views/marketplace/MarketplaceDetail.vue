@@ -56,10 +56,11 @@ const renderedBody = computed(() => {
 async function doSubscribe() {
   confirmSubscribeOpen.value = false
   try {
-    const res = await store.subscribe(marketplaceID.value)
+    await store.subscribe(marketplaceID.value)
     // Refresh mySubscriptions so the computed `subscribed` flips to true.
     await store.fetchMySubscriptions()
-    notifications.success(`订阅成功：已添加到你的技能库（skill id=${res.cloned_skill_id}）`)
+    // Guide the next step (drop the raw skill id — meaningless to operators).
+    notifications.success('订阅成功：已添加到你的技能库，可在「已订阅」里装载到 Agent')
   } catch (e) {
     notifications.error(`订阅失败：${(e as Error).message || '请稍后重试'}`)
   }

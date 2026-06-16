@@ -24,9 +24,14 @@ import SkillSelectorModal from './SkillSelectorModal.vue'
 
 interface Props {
   agentId: number
+  // Marketplace 装载闭环：非空时，加载完绑定列表后自动装载该 skill（用户从
+  // 「已订阅 → 装载到 Agent → 选 Agent」进来，到这里一步到位，无需再手动选）。
+  autoAttachSkillId?: number | null
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  autoAttachSkillId: null
+})
 
 const router = useRouter()
 const store = useSkillStore()
@@ -53,7 +58,28 @@ async function loadBindings() {
   }
 }
 
-onMounted(loadBindings)
+// maybeAutoAttach closes the marketplace 装载 loop: after the bindings load, if we
+// arrived with an auto-attach skill, bind it directly (idempotent — skip if already
+// bound; a same-name conflict surfaces the backend's friendly message).
+async function maybeAutoAttach() {
+  const skillId = props.autoAttachSkillId
+  if (!skillId) return
+  if (items.value.some((s) => s.id === skillId)) {
+    notifications.info('该技能已装载到此 Agent')
+    return
+  }
+  try {
+    await store.attach(props.agentId, skillId)
+    notifications.success('已为此 Agent 自动装载订阅的技能')
+  } catch (e) {
+    notifications.error((e as Error).message || '自动装载失败')
+  }
+}
+
+onMounted(async () => {
+  await loadBindings()
+  await maybeAutoAttach()
+})
 watch(() => props.agentId, loadBindings)
 
 // ---------- Attach ----------
