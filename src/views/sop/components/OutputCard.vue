@@ -277,7 +277,7 @@ function handleToggleBookmark() {
   font-size: 13px;
   color: var(--text-secondary);
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;

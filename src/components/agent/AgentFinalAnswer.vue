@@ -311,11 +311,9 @@ const copyText = async (): Promise<void> => {
 
 .answer-actions {
   margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #f3f4f6;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .ai-action-btn {

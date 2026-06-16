@@ -713,8 +713,8 @@ function handleDocClick(e: MouseEvent) {
                       >
                         <Check v-if="copiedMap[msg.id]" :size="14" />
                         <Copy v-else :size="14" />
+                        <span>{{ copiedMap[msg.id] ? '已复制' : '复制' }}</span>
                       </button>
-                      <span v-if="copiedMap[msg.id]" class="copied-toast">已复制</span>
                     </div>
                   </template>
                 </div>
@@ -1541,52 +1541,36 @@ body.chatbot-chat-route #app {
   align-items: center;
   gap: 8px;
   margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
   justify-content: flex-start;
   align-self: stretch;
 }
 
+/* 与 agent mode 的 .ai-action-btn 同款：带外框的图标+文字按钮 */
 .ai-action-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   background: transparent;
-  border: none;
+  border: 1px solid rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .ai-action-btn:hover {
   color: var(--primary);
-  background: rgba(37, 167, 105, 0.08);
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.04);
 }
 
 .ai-action-btn.copied {
   color: var(--primary);
-  background: rgba(37, 167, 105, 0.12);
-}
-
-.copied-toast {
-  font-size: 12px;
-  color: var(--primary);
-  font-weight: 500;
-  animation: copied-fade 0.2s ease;
-}
-
-@keyframes copied-fade {
-  from {
-    opacity: 0;
-    transform: translateX(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  border-color: var(--primary);
+  background: rgba(37, 167, 105, 0.08);
 }
 
 /* ===== User Bubble Attachment Cards ===== */
