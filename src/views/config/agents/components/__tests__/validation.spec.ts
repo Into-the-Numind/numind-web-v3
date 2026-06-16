@@ -30,9 +30,9 @@ describe("validation.ts — 12 question validators", () => {
   describe("validateQ3 (description)", () => {
     it("empty → error", () => expect(validateQ3("")).toBeTruthy());
     it("9 chars → error", () =>
-      expect(validateQ3("a".repeat(9))).toBe("描述应为 10-100 字"));
-    it("101 chars → error", () =>
-      expect(validateQ3("a".repeat(101))).toBe("描述应为 10-100 字"));
+      expect(validateQ3("a".repeat(9))).toBe("描述应为 10-20 字"));
+    it("21 chars → error", () =>
+      expect(validateQ3("a".repeat(21))).toBe("描述应为 10-20 字"));
     it("valid → empty", () =>
       expect(validateQ3("分析你的小红书笔记找出爆款规律")).toBe(""));
   });

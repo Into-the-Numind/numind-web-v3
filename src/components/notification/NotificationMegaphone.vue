@@ -203,11 +203,11 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 40px;
   height: 40px;
-  /* 绿边 + 绿色铃铛字形，与工作区卡片（HomeView .feature-card）边框同色 */
+  /* 绿边与卡片边框同色；铃铛字形用卡片图标的更深绿，更醒目 */
   border: 1px solid hsl(158, 50%, 78%);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  color: hsl(158, 50%, 78%);
+  color: hsl(160, 50%, 62%);
   cursor: pointer;
   transition:
     color var(--transition-fast),

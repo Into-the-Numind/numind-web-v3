@@ -37,7 +37,8 @@
               <textarea
                 v-model="form.description"
                 class="form-textarea"
-                placeholder="请输入模板描述（可选）"
+                placeholder="请输入模板描述（20 字以内，可选）"
+                maxlength="20"
                 rows="2"
               ></textarea>
             </div>

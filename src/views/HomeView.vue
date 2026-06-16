@@ -144,7 +144,7 @@
             </svg>
             <div class="card-left">
               <div class="feature-card-title">{{ workflow.title }}</div>
-              <div class="feature-card-desc">{{ truncateDesc(workflow.subtitle) }}</div>
+              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
             </div>
             <div class="card-right">
               <div class="feature-card-icon" :class="'icon-variant-' + (index % 3)">
@@ -245,7 +245,7 @@
             </svg>
             <div class="card-left">
               <div class="feature-card-title">{{ card.title }}</div>
-              <div class="feature-card-desc">{{ truncateDesc(card.subtitle) }}</div>
+              <div class="feature-card-desc">{{ card.subtitle }}</div>
             </div>
             <div class="card-right">
               <div class="feature-card-icon icon-variant-1">
@@ -292,9 +292,7 @@
           >
             <div class="card-left">
               <div class="feature-card-title">{{ agent.name }}</div>
-              <div class="feature-card-desc">
-                {{ truncateDesc(agent.description || '多步骤自主任务') }}
-              </div>
+              <div class="feature-card-desc">{{ agent.description || '多步骤自主任务' }}</div>
             </div>
             <div class="card-right">
               <div class="feature-card-icon icon-variant-2">
@@ -469,13 +467,6 @@ const greeting = computed(() => {
 })
 
 const sopWorkflows = computed<OnlineWorkflow[]>(() => templateWorkflows.value)
-
-// 卡片描述统一截断到 20 个字符内，超出补省略号，避免长描述撑破卡片布局。
-const DESC_MAX = 20
-const truncateDesc = (s?: string): string => {
-  const t = (s ?? '').trim()
-  return t.length > DESC_MAX ? t.slice(0, DESC_MAX) + '…' : t
-}
 
 // agentCards 合并"销售智能体"和普通 chatbot 成同构数组，一起按 hasPermission 排序
 // （销售智能体本质上也是一种 chatbot，不应永远占位 index 0）。
