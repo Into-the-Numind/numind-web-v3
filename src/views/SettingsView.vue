@@ -559,7 +559,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* org-branding：弹窗内字符数计数（右对齐淡灰，提示 100 字上限）*/
+/* org-branding：弹窗内字符数计数（右对齐淡灰，提示 10 字上限）*/
 .company-edit-counter {
   font-size: 12px;
   color: #9ca0ad;
