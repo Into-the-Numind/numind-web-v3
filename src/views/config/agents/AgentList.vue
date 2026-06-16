@@ -32,6 +32,13 @@ const filtered = computed<Agent[]>(() => {
   )
 })
 
+// 描述列统一截断到 20 个字符内，超出补省略号，避免长描述撑破表格列宽。
+const DESC_MAX = 20
+const truncateDesc = (s?: string): string => {
+  const t = (s ?? '').trim()
+  return t.length > DESC_MAX ? t.slice(0, DESC_MAX) + '…' : t
+}
+
 const columns: Column[] = [
   { key: 'name', title: '名称', align: 'left' },
   { key: 'description', title: '描述', align: 'left' },
@@ -148,6 +155,7 @@ function cancelTakedown() {
           <span v-else class="badge badge--problem" title="问卷模式">📋</span>
         </span>
       </template>
+      <template #cell-description="{ row }">{{ truncateDesc(row.description) }}</template>
       <template #cell-updated_at="{ row }">{{ formatDate(row.updated_at) }}</template>
       <template #cell-actions="{ row }">
         <div class="action-group">
