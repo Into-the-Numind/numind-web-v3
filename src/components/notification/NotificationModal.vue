@@ -188,9 +188,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
   border-radius: var(--radius-lg, 16px);
   width: 640px;
   max-width: 100%;
-  /* 固定高度 + 内部滚动：长问卷不撑破屏幕 */
-  height: 72vh;
-  max-height: 720px;
+  /* 固定高度 + 内部滚动：长问卷不撑破屏幕（再高一点点） */
+  height: 80vh;
+  max-height: 800px;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.15));
