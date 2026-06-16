@@ -50,7 +50,7 @@ onMounted(async () => {
           tags = item.category_tags
         }
       }
-      
+
       let tools: Record<string, any> = {}
       if (item.default_tool_flags) {
         if (typeof item.default_tool_flags === 'string') {
@@ -85,9 +85,9 @@ async function handleImport(tpl: TemplateItem) {
   try {
     await skillStore.importTemplate(tpl.id)
     notifications.success(`🌟 导入成功！已克隆「${tpl.name}」到您的技能库`)
-    setTimeout(() => {
-      router.push('/config/skills')
-    }, 800)
+    // Navigate immediately on success — the toast persists across the route change;
+    // the old 800ms setTimeout just made the UI feel frozen.
+    router.push('/config/skills')
   } catch (e) {
     notifications.error((e as Error).message || '导入模板失败')
   } finally {
@@ -110,9 +110,7 @@ function goBack() {
         </AppButton>
         <div class="title-with-badge">
           <h2>官方技能模板库</h2>
-          <span class="gradient-badge">
-            <Sparkles :size="12" class="mr-1" /> Preset Library
-          </span>
+          <span class="gradient-badge"> <Sparkles :size="12" class="mr-1" /> Preset Library </span>
         </div>
         <p class="subtitle">
           由 Numind 官方出品的高水平预置技能，一键即可克隆为本机构的独立技能资产并装载到 AI 智能体。
@@ -130,20 +128,16 @@ function goBack() {
       <span>{{ error }}</span>
       <AppButton variant="primary" @click="router.go(0)" class="mt-4">刷新重试</AppButton>
     </div>
-    <div v-else-if="templates.length === 0" class="template-browse__state">
-      暂无官方推荐模板
-    </div>
+    <div v-else-if="templates.length === 0" class="template-browse__state">暂无官方推荐模板</div>
 
     <!-- 模板卡片网格 -->
     <div v-else class="template-grid">
       <div v-for="tpl in templates" :key="tpl.id" class="template-card">
         <!-- 装饰渐变光晕背景 -->
         <div class="card-glow"></div>
-        
+
         <div class="card-header">
-          <div class="icon-wrapper">
-            🌟
-          </div>
+          <div class="icon-wrapper">🌟</div>
           <div class="title-section">
             <h4>{{ tpl.name }}</h4>
             <div class="tags">
@@ -159,9 +153,7 @@ function goBack() {
         <!-- 工具和配置概览 -->
         <div class="card-meta">
           <div class="meta-section">
-            <span class="meta-section-title">
-              <Terminal :size="12" class="mr-1" /> 预设工具
-            </span>
+            <span class="meta-section-title"> <Terminal :size="12" class="mr-1" /> 预设工具 </span>
             <div class="tools-list">
               <template v-if="tpl.default_tool_flags">
                 <span
@@ -283,7 +275,12 @@ function goBack() {
 
 .skeleton-card {
   height: 240px;
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-tint) 50%, var(--surface) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-tint) 50%,
+    var(--surface) 75%
+  );
   background-size: 200% 100%;
   animation: loading-shimmer 1.5s infinite;
   border-radius: var(--radius-md);
@@ -291,8 +288,12 @@ function goBack() {
 }
 
 @keyframes loading-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* 模板卡片网格 */

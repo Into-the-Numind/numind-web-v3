@@ -259,11 +259,13 @@ async function handleSave() {
 
 // ── After-save modal handlers ──────────────────────────────────────────────
 
-function onTrialChat() {
-  notifications.info('试聊功能即将上线')
+// After saving, send the operator to the agent's edit page where the
+// SkillBindingPanel lives —装载技能 is the real next configuration step (the old
+// "试聊一下" button only fired an "即将上线" toast and went to the detail page).
+function onConfigureSkills() {
   afterSaveModalVisible.value = false
   if (afterSavedAgentId.value) {
-    router.push(`/config/agents/${afterSavedAgentId.value}`)
+    router.push(`/config/agents/${afterSavedAgentId.value}/edit`)
   }
 }
 
@@ -379,8 +381,12 @@ onBeforeUnmount(() => {
         @update:model-value="Object.assign(form, $event)"
       />
 
-      <!-- Advanced mode link (edit mode only) -->
-      <div v-if="mode === 'edit' && agentId" class="advanced-link-wrap">
+      <!-- Advanced mode link — HIDDEN until custom-Prompt editing ships.
+           Toggling is irreversible (loses the questionnaire) and currently lands on a
+           read-only "即将上线" advanced editor, so it would only brick the agent's
+           editability. Re-enable (v-if back to mode==='edit') when AgentAdvancedEdit
+           becomes editable. -->
+      <div v-if="false" class="advanced-link-wrap">
         <button class="advanced-link" @click="openAdvancedToggleModal">
           需要更精细的控制？切换到高级模式 →
         </button>
@@ -403,7 +409,7 @@ onBeforeUnmount(() => {
     <AfterSaveModal
       :visible="afterSaveModalVisible"
       :agent-name="form.name"
-      @trial-chat="onTrialChat"
+      @configure-skills="onConfigureSkills"
       @skip="onSkip"
     />
 

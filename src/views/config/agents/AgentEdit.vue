@@ -11,6 +11,13 @@ const route = useRoute()
 const store = useAgentBuilderStore()
 const agentId = computed(() => Number(route.params.id))
 
+// Marketplace 装载闭环：从 AgentList(?attach_skill) 进来时，把要装载的 skill 传给
+// SkillBindingPanel，由它自动装载（用户无需再手动在选择器里找）。
+const attachSkillId = computed(() => {
+  const v = Number(route.query.attach_skill)
+  return Number.isFinite(v) && v > 0 ? v : null
+})
+
 // Fetch on mount and whenever the id changes (e.g. router recycles component)
 watch(
   agentId,
@@ -32,7 +39,7 @@ watch(
       显示在工具开关区块上方，让"装载哪些技能"成为配置助手的核心动作。
       Refs: docs/superpowers/specs/2026-05-24-agent-mode-v2-skill-as-artifact-design.md §5.4
     -->
-    <SkillBindingPanel :agent-id="agentId" />
+    <SkillBindingPanel :agent-id="agentId" :auto-attach-skill-id="attachSkillId" />
 
     <!-- 原有的工具开关 / 问卷编辑（根据 advanced_mode 分支） -->
     <AgentAdvancedEdit v-if="store.current?.advanced_mode" :agent-id="agentId" />

@@ -317,14 +317,16 @@ describe('AgentBuilder — edit mode', () => {
     expect(wrapper.find('.advanced-link').exists()).toBe(false)
   })
 
-  it('shows advanced-mode link in edit mode', async () => {
+  it('hides the advanced-mode link (stub disabled until editing ships)', async () => {
+    // The advanced toggle is irreversible and lands on a read-only "即将上线" editor,
+    // so it was hidden — it would only brick the agent's editability.
     const agent = makeAgent({ id: 10 })
     vi.mocked(agentApi.getAgent).mockResolvedValue(agent)
 
     const wrapper = await mountBuilder({
       props: { mode: 'edit', agentId: 10 }
     })
-    expect(wrapper.find('.advanced-link').exists()).toBe(true)
+    expect(wrapper.find('.advanced-link').exists()).toBe(false)
   })
 })
 
@@ -418,7 +420,7 @@ describe('AgentBuilder — AfterSaveModal interactions', () => {
     expect(router.currentRoute.value.path).toBe('/config/agents/77')
   })
 
-  it("shows toast on 'trial-chat' then navigates to detail", async () => {
+  it("'configure-skills' navigates to the agent's edit page (skill binding), no stub toast", async () => {
     const saved = makeAgent({ id: 88 })
     vi.mocked(agentApi.createAgent).mockResolvedValue(saved)
 
@@ -453,10 +455,11 @@ describe('AgentBuilder — AfterSaveModal interactions', () => {
     await flushPromises()
 
     const afterModal = wrapper.findComponent({ name: 'AfterSaveModal' })
-    await afterModal.vm.$emit('trial-chat')
+    await afterModal.vm.$emit('configure-skills')
     await flushPromises()
 
-    expect(toastSpy.info).toHaveBeenCalledWith('试聊功能即将上线')
-    expect(router.currentRoute.value.path).toBe('/config/agents/88')
+    // No more "即将上线" stub toast; routes to the edit page where skills are bound.
+    expect(toastSpy.info).not.toHaveBeenCalledWith('试聊功能即将上线')
+    expect(router.currentRoute.value.path).toBe('/config/agents/88/edit')
   })
 })
