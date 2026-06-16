@@ -26,7 +26,10 @@ const attachSkillId = computed(() => {
   const v = Number(route.query.attach_skill)
   return Number.isFinite(v) && v > 0 ? v : null
 })
-const attachSkillName = computed(() => (route.query.skill_name as string) || '')
+const attachSkillName = computed(() => {
+  const v = route.query.skill_name
+  return (Array.isArray(v) ? v[0] : v) || ''
+})
 
 const confirmVisible = ref(false)
 const confirmTitle = ref('')

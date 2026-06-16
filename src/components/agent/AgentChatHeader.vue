@@ -160,6 +160,11 @@ const cancelDisabled = computed(() => props.cancelling)
   color: var(--text-muted, #6b7280);
 }
 
+/* gray (待命/已结束/已取消) intentionally uses the base .status-badge styles */
+.badge-gray {
+  /* no override — neutral default */
+}
+
 .badge-green {
   background: hsla(152, 60%, 94%, 0.9);
   color: #047857;
