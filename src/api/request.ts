@@ -158,6 +158,13 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
+    // 二进制下载（responseType blob/arraybuffer，如 document-system 导出）：
+    // 跳过 JSON 信封（code/message/data）校验，直接返回原始数据。
+    const responseType = (response.config as { responseType?: string } | undefined)?.responseType
+    if (responseType === 'blob' || responseType === 'arraybuffer') {
+      return response.data as unknown as ApiResponse
+    }
+
     const res = response.data as any
 
     // 如果返回了 HTML 或其它非标准对象，通常是反向代理/网关配置问题

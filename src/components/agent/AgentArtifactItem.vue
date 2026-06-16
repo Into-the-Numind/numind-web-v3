@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { Download, Eye, FileText, X } from 'lucide-vue-next'
+import { computed, ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
+import { Download, Eye, FileText, Pencil, X } from 'lucide-vue-next'
+
+import { isEditable, isDocumentSystemEnabled } from '@/utils/editableArtifact'
+
+// document-system：编辑器模态懒加载（含 Milkdown ProseMirror 重依赖），不进 agent 主 bundle。
+const DocumentEditorModal = defineAsyncComponent(
+  () => import('@/components/document/DocumentEditorModal.vue')
+)
 
 interface Props {
   artifact: {
@@ -42,6 +49,17 @@ const fileTypeLabel = computed<string>(() => {
 // sandboxed iframe (see the HTML preview modal). startsWith() covers both
 // "text/html" and "text/html; charset=utf-8".
 const isHtml = computed<boolean>(() => props.artifact.mime.startsWith('text/html'))
+
+// document-system：文本类产物（md/txt/html/docx）显示"打开编辑"入口，
+// 受 feature flag（VITE_ENABLE_DOCUMENT_SYSTEM）+ 可编辑性双重控制。
+const canEdit = computed<boolean>(
+  () => isDocumentSystemEnabled() && isEditable(props.artifact.mime, props.artifact.filename)
+)
+const showEditor = ref(false)
+
+const openEditor = (): void => {
+  showEditor.value = true
+}
 
 const showPreview = ref(false)
 const showHtmlPreview = ref(false)
@@ -125,6 +143,15 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
       >
         <Eye :size="17" />
       </button>
+      <button
+        v-if="canEdit"
+        class="icon-btn edit-btn"
+        data-testid="doc-edit-btn"
+        @click="openEditor"
+        aria-label="打开编辑"
+      >
+        <Pencil :size="17" />
+      </button>
       <button class="icon-btn download-btn" @click="handleDownload" aria-label="下载文件">
         <Download :size="17" />
       </button>
@@ -137,6 +164,15 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         <span class="filename">{{ artifact.filename }}</span>
         <span class="file-type">{{ fileTypeLabel }}</span>
       </span>
+      <button
+        v-if="canEdit"
+        class="icon-btn edit-btn"
+        data-testid="doc-edit-btn"
+        @click="openEditor"
+        aria-label="打开编辑"
+      >
+        <Pencil :size="17" />
+      </button>
       <button class="icon-btn download-btn" @click="handleDownload" aria-label="下载文件">
         <Download :size="17" />
       </button>
@@ -206,6 +242,17 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         </div>
       </div>
     </Teleport>
+
+    <!-- document-system：对话内打开编辑器（懒加载；仅文本类 + flag 开时可达） -->
+    <!-- 注：v1 不传 run_id —— ArtifactRef 不携带 run_id，后端 open 靠 source_url 的
+         agent-outputs/{userID}/ 前缀做归属校验已足够；run_id 弱关联留 v2 上传场景再接。 -->
+    <DocumentEditorModal
+      v-if="canEdit && showEditor"
+      :source-url="artifact.url"
+      :filename="artifact.filename"
+      :mime="artifact.mime"
+      @close="showEditor = false"
+    />
   </div>
 </template>
 
