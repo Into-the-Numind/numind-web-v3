@@ -63,6 +63,13 @@
         <div v-else-if="store.list.length === 0" class="mp-state" data-testid="megaphone-empty">
           <BellOff :size="32" :stroke-width="1.4" class="mp-empty-icon" />
           <p class="mp-state-text">暂无通知</p>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            data-testid="megaphone-empty-refresh"
+            @click="reload"
+            >刷新</AppButton
+          >
         </div>
 
         <!-- success：列表（滚动到底 append） -->
@@ -231,7 +238,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #ef4444;
+  background: var(--color-danger, #ef4444);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -299,7 +306,7 @@ onBeforeUnmount(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--color-danger, #ef4444);
 }
 
 .mp-item-body {

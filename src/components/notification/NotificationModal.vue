@@ -82,6 +82,11 @@
                 />
               </section>
             </template>
+
+            <!-- 兜底：非 loading / 非 error 但无详情（罕见，如返回空）→ 不留白屏 -->
+            <div v-else class="nm-state" data-testid="modal-empty">
+              <p class="nm-state-text">无法显示该通知</p>
+            </div>
           </div>
         </div>
       </div>
@@ -125,8 +130,9 @@ async function handleSubmit(answers: SubmitAnswer[]) {
   const id = props.announcementId
   if (!id) return
   try {
-    await store.submitSurvey(id, answers)
-    toast.success('问卷提交成功，感谢参与')
+    const ok = await store.submitSurvey(id, answers)
+    if (ok) toast.success('问卷提交成功，感谢参与')
+    else toast.error('提交未被服务端确认，请重试')
   } catch (e) {
     const msg = e instanceof Error ? e.message : '提交失败，请稍后重试'
     toast.error(msg)
@@ -297,6 +303,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
   background: linear-gradient(90deg, #eef0f4 25%, #f6f7fa 50%, #eef0f4 75%);
   background-size: 200% 100%;
   animation: sk-shimmer 1.4s ease infinite;
+}
+
+.sk-line.sk-para {
+  width: 80%;
 }
 
 .sk-line.short {
