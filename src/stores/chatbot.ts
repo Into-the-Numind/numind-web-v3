@@ -44,6 +44,10 @@ export const useChatbotStore = defineStore('chatbot', () => {
   // instant-title-ux: draft mode — "新对话" clicked but no message sent yet, so the
   // session is NOT created and NOT shown in the sidebar until the first send.
   const isDraft = ref(false)
+  // Guard against a concurrent first-send creating two sessions: streaming.value is
+  // still false while createSessionForSend awaits, so the streaming guard can't cover
+  // this window (a programmatic double-call would otherwise orphan a session).
+  const isCreatingSession = ref(false)
   // instant-title-ux: ids of sessions whose title is being generated at send time —
   // the sidebar renders a pulsing placeholder for these. A separate Set (not a field
   // on the session object) so it survives the full-list fetchSessions refresh (C-1).
@@ -147,6 +151,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
   // placeholder, and kicks off instant title generation from the prompt (parallel —
   // does not block the chat stream). Returns false if creation failed.
   async function createSessionForSend(chatbotId: number, prompt: string): Promise<boolean> {
+    isCreatingSession.value = true
     try {
       const res = await createChatbotSession(chatbotId)
       const session = (res as any)?.data as ChatbotSession | undefined
@@ -155,8 +160,9 @@ export const useChatbotStore = defineStore('chatbot', () => {
       currentSession.value = session
       messages.value = []
       // Optimistic insert at the top (newest first); de-dup by id for safety.
+      // sessionsTotal is intentionally NOT bumped here — the post-stream fetchSessions
+      // syncs the real total from the backend.
       sessions.value = [session, ...sessions.value.filter((s) => s.id !== session.id)]
-      sessionsTotal.value += 1
       const pending = new Set(titlePendingIds.value)
       pending.add(session.id)
       titlePendingIds.value = pending
@@ -166,6 +172,8 @@ export const useChatbotStore = defineStore('chatbot', () => {
     } catch (e) {
       console.error('[chatbot] createSessionForSend failed:', e)
       return false
+    } finally {
+      isCreatingSession.value = false
     }
   }
 
@@ -276,6 +284,7 @@ export const useChatbotStore = defineStore('chatbot', () => {
     // session on first send — this is where the sidebar item first appears (with a
     // pulsing title placeholder) and instant title generation kicks off.
     if (!currentSession.value) {
+      if (isCreatingSession.value) return // concurrent first-send guard
       const chatbotId = currentChatbotId.value
       if (!chatbotId) return
       const ok = await createSessionForSend(chatbotId, text)

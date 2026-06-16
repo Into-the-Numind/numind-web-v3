@@ -10,6 +10,7 @@
  * 对应 plan T6 验收条件 §3
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useChatbotStore } from '../chatbot'
 import type { ChatbotSession } from '@/types/config'
@@ -356,7 +357,9 @@ describe('instant-title-ux draft flow', () => {
     vi.mocked(createChatbotSession).mockResolvedValueOnce({
       data: makeSession({ id: 100, chatbot_id: 7, title: '客服助手' })
     } as any)
-    vi.mocked(generateChatbotSessionTitle).mockResolvedValueOnce({ data: { title: '退货咨询' } } as any)
+    vi.mocked(generateChatbotSessionTitle).mockResolvedValueOnce({
+      data: { title: '退货咨询' }
+    } as any)
     vi.mocked(sendChatbotMessageStream).mockResolvedValueOnce(undefined as any)
     vi.mocked(listChatbotSessions).mockResolvedValue({
       data: { list: [makeSession({ id: 100, chatbot_id: 7, title: '退货咨询' })], total: 1 }
@@ -364,13 +367,60 @@ describe('instant-title-ux draft flow', () => {
 
     await store.sendMessage('怎么退货')
     // title generation is fire-and-forget — flush microtasks/macrotasks.
-    await new Promise((r) => setTimeout(r, 0))
+    await flushPromises()
 
     expect(createChatbotSession).toHaveBeenCalledWith(7)
     expect(generateChatbotSessionTitle).toHaveBeenCalledWith(100, '怎么退货')
+    // the stream must run against the newly-created session id
+    expect(vi.mocked(sendChatbotMessageStream).mock.calls[0][0]).toBe(100)
     expect(store.isDraft).toBe(false)
     expect(store.sessions.find((s) => s.id === 100)?.title).toBe('退货咨询')
     expect(store.titlePendingIds.has(100)).toBe(false)
+  })
+
+  it('连发第二条不再建会话/不再生成标题', async () => {
+    const store = useChatbotStore()
+    store.startDraft(7)
+    vi.mocked(createChatbotSession).mockResolvedValueOnce({
+      data: makeSession({ id: 102, chatbot_id: 7, title: '客服助手' })
+    } as any)
+    vi.mocked(generateChatbotSessionTitle).mockResolvedValueOnce({ data: { title: 'T' } } as any)
+    vi.mocked(sendChatbotMessageStream).mockResolvedValue(undefined as any)
+    vi.mocked(listChatbotSessions).mockResolvedValue({
+      data: { list: [makeSession({ id: 102, chatbot_id: 7, title: 'T' })], total: 1 }
+    } as any)
+
+    await store.sendMessage('第一条')
+    await flushPromises()
+    await store.sendMessage('第二条')
+    await flushPromises()
+
+    expect(createChatbotSession).toHaveBeenCalledTimes(1)
+    expect(generateChatbotSessionTitle).toHaveBeenCalledTimes(1)
+  })
+
+  it('首发建会话失败: 保持 draft, 不污染列表, 可重试', async () => {
+    const store = useChatbotStore()
+    store.startDraft(7)
+    vi.mocked(createChatbotSession).mockRejectedValueOnce(new Error('create boom'))
+
+    await store.sendMessage('你好')
+    expect(store.isDraft).toBe(true)
+    expect(store.sessions).toHaveLength(0)
+    expect(store.sessionsTotal).toBe(0)
+
+    // retry succeeds
+    vi.mocked(createChatbotSession).mockResolvedValueOnce({
+      data: makeSession({ id: 103, chatbot_id: 7, title: '客服助手' })
+    } as any)
+    vi.mocked(generateChatbotSessionTitle).mockResolvedValueOnce({ data: { title: 'X' } } as any)
+    vi.mocked(sendChatbotMessageStream).mockResolvedValue(undefined as any)
+    vi.mocked(listChatbotSessions).mockResolvedValue({
+      data: { list: [makeSession({ id: 103, chatbot_id: 7, title: 'X' })], total: 1 }
+    } as any)
+    await store.sendMessage('重试')
+    await flushPromises()
+    expect(store.currentSession?.id).toBe(103)
   })
 
   it('标题生成失败: 清除 pending, 不影响发送 (best-effort)', async () => {
@@ -387,7 +437,7 @@ describe('instant-title-ux draft flow', () => {
     } as any)
 
     await store.sendMessage('你好')
-    await new Promise((r) => setTimeout(r, 0))
+    await flushPromises()
 
     expect(store.titlePendingIds.has(101)).toBe(false)
     expect(sendChatbotMessageStream).toHaveBeenCalled()
