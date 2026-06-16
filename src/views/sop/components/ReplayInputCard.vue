@@ -4,8 +4,9 @@
   回看历史 SOP 运行时（SopStepView 的 done-history / done-current 只读态），在 AI 输出
   （OutputCard）之上呈现当时这一步的输入上下文，方便用户回溯：
     - 你的输入：用户当时写的文字（已剥离合并进来的文件提取文本，见 utils/replayInput）
-    - 上传的素材：图片缩略图（点击放大，复用 AgentImagePreview）+ 文档卡片（点击新标签打开/下载）
-      每个文档可展开「查看提取文本」（系统当时喂给 AI 的内容）
+    - 上传的素材：图片缩略图（点击页面内放大，复用 AgentImagePreview）+ 文档卡片（只读展示，
+      不跳转打开原文件——历史 COS 对象可能已回收会报错）。每个文档可展开「查看提取文本」
+      （读入库时抽取的文本，内嵌预览，不依赖 COS）
 
   设计：安静、退后的中性色调（它是上下文，不是主角），与 OutputCard 的 accent 主角形成层次。
   纯只读 —— 无输入框、无上传/执行按钮。视觉 token 全部取 .sop-run-view-v2 scope。
@@ -95,10 +96,6 @@ function fileMeta(f: SopReplayFile): string {
   return [ext, size].filter(Boolean).join(' · ')
 }
 
-function openFile(f: SopReplayFile): void {
-  if (f.file_url) window.open(f.file_url, '_blank', 'noopener,noreferrer')
-}
-
 // SopStepView 实例在历史回看翻步时复用（无 :key），步骤切换 = props 变化时重置所有本地视图状态，
 // 避免上一步的图片放大覆层 / 展开状态残留到下一步。
 watch(
@@ -175,12 +172,9 @@ watch(
       <ul v-if="docFiles.length" class="replay-input__docs">
         <li v-for="f in docFiles" :key="f.id" class="replay-input__doc">
           <div class="replay-input__doc-row">
-            <button
-              type="button"
-              class="replay-input__doc-main"
-              :title="`打开 ${f.file_name}`"
-              @click="openFile(f)"
-            >
+            <!-- 只读展示：不跳转打开原文件（历史 COS 对象可能已回收→报错页）。
+                 预览改由右侧「查看提取文本」内嵌展开承担（读入库抽取文本，不依赖 COS）。 -->
+            <div class="replay-input__doc-main" :title="f.file_name">
               <span class="replay-input__doc-icon" aria-hidden="true">
                 <component :is="docIcon(f)" :size="16" />
               </span>
@@ -188,7 +182,7 @@ watch(
                 <span class="replay-input__doc-name">{{ f.file_name }}</span>
                 <span v-if="fileMeta(f)" class="replay-input__doc-meta">{{ fileMeta(f) }}</span>
               </span>
-            </button>
+            </div>
             <button
               v-if="f.content"
               type="button"
@@ -418,17 +412,8 @@ watch(
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: none;
-  border: none;
-  font-family: inherit;
-  text-align: left;
   color: var(--text);
-  cursor: pointer;
-  transition: background var(--transition-fast, 0.15s ease);
-}
-
-.replay-input__doc-main:hover {
-  background: var(--surface-hover);
+  /* 只读展示，不可点击打开（无 cursor:pointer / hover 背景） */
 }
 
 .replay-input__doc-icon {
