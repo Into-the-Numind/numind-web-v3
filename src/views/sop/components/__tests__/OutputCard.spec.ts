@@ -169,6 +169,45 @@ describe('OutputCard', () => {
     })
   })
 
+  describe('model display name fuzzy matching (历史 model_name 与注册表 key 容错)', () => {
+    // 注册表用 thinking 变体 + 各模型；执行时存的 model_name 形态不一
+    const registry = [
+      model('deepseek-v4-pro', 'DeepSeek V4 Pro'),
+      model('deepseek-v3.2-thinking', 'DeepSeek V3.2'),
+      model('claude-sonnet-4-6-thinking', 'Claude Sonnet 4.6'),
+      model('gpt-5.4', 'GPT 5.4')
+    ]
+    function metaText(storedKey: string): string {
+      seedModels(registry)
+      const wrapper = mount(OutputCard, {
+        props: {
+          nodeRun: makeNodeRun({ model_name: storedKey }),
+          state: 'read-only',
+          hasOutput: true
+        }
+      })
+      return wrapper.find('.output__footer-meta').text()
+    }
+
+    it('exact key → display_name', () => {
+      expect(metaText('deepseek-v4-pro')).toContain('DeepSeek V4 Pro')
+    })
+    it('stored base key vs registry -thinking 变体 → display_name', () => {
+      const text = metaText('deepseek-v3.2')
+      expect(text).toContain('DeepSeek V3.2')
+      expect(text).not.toContain('deepseek-v3.2') // 不再显示原始 key
+    })
+    it('stored -think 简写 → display_name', () => {
+      expect(metaText('deepseek-v3.2-think')).toContain('DeepSeek V3.2')
+    })
+    it('stored 带日期后缀的 provider id → display_name', () => {
+      expect(metaText('gpt-5.4-2026-03-05')).toContain('GPT 5.4')
+    })
+    it('completely unmappable key → 回退原值', () => {
+      expect(metaText('totally-unknown-model')).toContain('totally-unknown-model')
+    })
+  })
+
   describe('regenerate emit interface (spec §5.2)', () => {
     it('declares regenerate emit and does not fire it by default', () => {
       const wrapper = mount(OutputCard, {
