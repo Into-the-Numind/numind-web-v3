@@ -1,6 +1,6 @@
 <template>
   <MainLayout>
-    <div class="settings-page" :data-tier="tier">
+    <div class="settings-page">
       <!-- Page Header -->
       <div class="page-header">
         <h1 class="page-title">设置</h1>
@@ -77,23 +77,6 @@
               </span>
               <button type="button" class="row-edit-btn" @click="openCompanyEdit">修改</button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section: 会员信息 -->
-      <div class="settings-section">
-        <div class="section-label">会员信息</div>
-        <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-label">会员状态</div>
-            <div class="row-value">
-              <span class="badge-tier">{{ tierLabel }}</span>
-            </div>
-          </div>
-          <div v-if="expiryText !== '—'" class="settings-row">
-            <div class="row-label">有效期至</div>
-            <div class="row-value">{{ expiryText }}</div>
           </div>
         </div>
       </div>
@@ -239,32 +222,11 @@ const currentUserId = computed((): number => {
   return typeof id === 'number' ? id : parseInt(String(id ?? '0'), 10)
 })
 
-// 会员状态：'free' / 'trial' / 'pro' — 数据源 credits store 的 BalanceDTO.membership_state
-const tier = computed(() => creditsStore.displayState)
-
-const tierLabel = computed(() => {
-  const t = tier.value
-  if (t === 'pro') return 'Pro 会员'
-  if (t === 'trial') return '体验会员'
-  return 'Free'
-})
-
 // Computed: profile
 const displayName = computed(() => userData.value.nickname || userStore.nickname || '加载中..')
 const displayId = computed(
   () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--'
 )
-
-// Computed: expiry — 数据源 credits store（pro 会员看 sub_expires_at；trial 看 trial_expires_at）
-const expiryText = computed(() => {
-  const t = tier.value
-  const iso =
-    t === 'pro' ? creditsStore.proExpiresAt : t === 'trial' ? creditsStore.trialExpiresAt : null
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (d.getFullYear() > 2090) return '永久有效'
-  return d.toLocaleDateString('zh-CN')
-})
 
 // Fetch user data
 const fetchData = async () => {
@@ -583,27 +545,6 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: #fff;
-}
-
-/* ===== Tier Badge ===== */
-.badge-tier {
-  display: inline-block;
-  padding: 3px 12px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.settings-page[data-tier='trial'] .badge-tier {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.settings-page[data-tier='pro'] .badge-tier {
-  background: #ecfdf5;
-  color: #059669;
 }
 
 /* ===== Confirm Dialog ===== */
