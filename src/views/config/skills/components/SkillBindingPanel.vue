@@ -183,7 +183,9 @@ function goSkillDetail(skill: Skill) {
       <div>
         <h3>装载的 Skill</h3>
         <p class="skill-binding-panel__hint">
-          Skill 是独立的技能资产，可以装载到多个 Agent。拖拽排序决定调用优先级。
+          Skill 是独立、可复用的能力包，运行时注入到这个
+          Agent，与问卷答案互补——问卷定义助手的基础人设，Skill 补充可跨 Agent
+          复用的专项能力。可装载到多个 Agent，拖拽排序决定调用优先级。
         </p>
       </div>
       <AppButton variant="primary" size="sm" @click="selectorOpen = true"> + 添加 Skill </AppButton>
