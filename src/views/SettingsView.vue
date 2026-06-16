@@ -60,9 +60,15 @@
               </div>
             </div>
           </div>
+          <!-- nickname-edit：昵称展示 + 「修改」按钮触发弹窗编辑；所有账户可用 -->
           <div class="settings-row">
             <div class="row-label">昵称</div>
-            <div class="row-value">{{ displayName }}</div>
+            <div class="row-value nickname-display-cell">
+              <span class="nickname-display-value">{{ displayName }}</span>
+              <button type="button" class="nickname-edit-btn" @click="openNicknameEdit">
+                修改
+              </button>
+            </div>
           </div>
           <div class="settings-row">
             <div class="row-label">用户 ID</div>
@@ -173,6 +179,43 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- nickname-edit：昵称编辑弹窗（点「修改」触发，确认/取消；所有账户可用） -->
+    <Teleport to="body">
+      <div v-if="nicknameEditVisible" class="confirm-overlay" @click.self="closeNicknameEdit">
+        <div class="confirm-dialog">
+          <div class="confirm-title">修改昵称</div>
+          <input
+            ref="nicknameEditFieldRef"
+            v-model="nicknameEditInput"
+            class="nickname-edit-input"
+            type="text"
+            :maxlength="NICKNAME_MAX"
+            :disabled="savingNickname"
+            @compositionstart="nicknameImeComposing = true"
+            @compositionend="nicknameImeComposing = false"
+            @keydown.enter="onNicknameEnterKey"
+          />
+          <div class="nickname-edit-counter">{{ nicknameEditInput.length }}/{{ NICKNAME_MAX }}</div>
+          <div class="confirm-actions">
+            <button
+              class="confirm-btn-cancel"
+              :disabled="savingNickname"
+              @click="closeNicknameEdit"
+            >
+              取消
+            </button>
+            <button
+              class="confirm-btn-save"
+              :disabled="savingNickname"
+              @click="confirmNicknameEdit"
+            >
+              {{ savingNickname ? '保存中…' : '确认' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </MainLayout>
 </template>
 
@@ -207,6 +250,15 @@ const savingCompany = ref(false)
 const imeComposing = ref(false) // 中文输入法组合中（用于回车守卫）
 const COMPANY_NAME_MAX = 10 // 公司名字符上限
 
+// nickname-edit：昵称展示态 + 弹窗编辑态（所有账户可用，与公司名弹窗独立）
+const savedNickname = ref('') // 当前已保存的昵称（空=未设置，展示回退到用户名）
+const nicknameEditVisible = ref(false) // 编辑弹窗开关
+const nicknameEditInput = ref('') // 弹窗内输入缓冲
+const nicknameEditFieldRef = ref<HTMLInputElement | null>(null)
+const savingNickname = ref(false)
+const nicknameImeComposing = ref(false) // 中文输入法组合中（回车守卫）
+const NICKNAME_MAX = 10 // 昵称字符上限
+
 // Confirm dialog
 const confirmVisible = ref(false)
 
@@ -223,7 +275,7 @@ const currentUserId = computed((): number => {
 })
 
 // Computed: profile
-const displayName = computed(() => userData.value.nickname || userStore.nickname || '加载中..')
+const displayName = computed(() => savedNickname.value || userStore.nickname || '加载中..')
 const displayId = computed(
   () => userData.value.id || userData.value.user_id || userStore.userInfo?.id || '--'
 )
@@ -237,6 +289,8 @@ const fetchData = async () => {
       userData.value = res.data || {}
       // org-branding：初始化展示用公司名（父账户用自己的值）
       companyName.value = (userData.value.company_name || '').trim()
+      // nickname-edit：初始化展示用昵称（空则展示回退到用户名）
+      savedNickname.value = (userData.value.nickname || '').trim()
     }
   } catch (error) {
     console.error('获取用户信息失败:', error)
@@ -297,6 +351,66 @@ const confirmCompanyEdit = async () => {
     notifications.error(err instanceof Error ? err.message : '网络错误，请稍后重试')
   } finally {
     savingCompany.value = false
+  }
+}
+
+// nickname-edit：打开昵称编辑弹窗（用当前值预填，自动聚焦输入框）
+const openNicknameEdit = () => {
+  nicknameEditInput.value = savedNickname.value
+  nicknameEditVisible.value = true
+  void nextTick(() => nicknameEditFieldRef.value?.focus())
+}
+
+// 关闭弹窗（保存中禁止关闭，避免半途态）
+const closeNicknameEdit = () => {
+  if (savingNickname.value) return
+  nicknameEditVisible.value = false
+}
+
+// 回车确认：中文输入法组合期间的回车用于选词/确认候选，不当作"确定"提交。
+// 守卫同公司名弹窗（keydown + isComposing / keyCode 229）。
+const onNicknameEnterKey = (e: KeyboardEvent) => {
+  if (nicknameImeComposing.value || e.isComposing || e.keyCode === 229) return
+  void confirmNicknameEdit()
+}
+
+// 确认保存：trim + 必填/上限校验 + 调接口 + 刷新用户信息 + toast
+const confirmNicknameEdit = async () => {
+  if (savingNickname.value) return
+  const next = nicknameEditInput.value.trim()
+  // 无变化直接关闭，不发请求
+  if (next === savedNickname.value) {
+    nicknameEditVisible.value = false
+    return
+  }
+  // 昵称必填（后端校验最小长度 1）
+  if (next.length === 0) {
+    notifications.error('昵称不能为空')
+    return
+  }
+  if (next.length > NICKNAME_MAX) {
+    notifications.error(`昵称不能超过 ${NICKNAME_MAX} 个字符`)
+    return
+  }
+  savingNickname.value = true
+  try {
+    const res = await updateProfile({ nickname: next })
+    if (res.code === 200 || res.code === 0) {
+      // 刷新用户信息 → 侧边栏等处昵称同步更新
+      await userStore.fetchUserInfo()
+      // 以服务端回写的有效值为准（避免后端规范化导致漂移）
+      const fresh = (userStore.userInfo?.nickname || '').trim()
+      savedNickname.value = fresh || next
+      nicknameEditVisible.value = false
+      notifications.success('昵称已更新')
+    } else {
+      notifications.error(res.message || res.msg || '保存失败')
+    }
+  } catch (err) {
+    console.error('保存昵称失败:', err)
+    notifications.error(err instanceof Error ? err.message : '网络错误，请稍后重试')
+  } finally {
+    savingNickname.value = false
   }
 }
 
@@ -457,14 +571,16 @@ onMounted(() => {
   color: #6b7085;
 }
 
-/* org-branding：公司名称展示 + 「修改」按钮（只展示，不直接点击编辑）*/
-.company-display-cell {
+/* org-branding + nickname-edit：可编辑展示行（值 + 「修改」按钮，只展示不内联编辑）*/
+.company-display-cell,
+.nickname-display-cell {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.company-display-value {
+.company-display-value,
+.nickname-display-value {
   font-size: 14px;
   font-weight: 500;
   color: #1a1d26;
@@ -475,7 +591,8 @@ onMounted(() => {
   color: #9ca0ad;
 }
 
-.row-edit-btn {
+.row-edit-btn,
+.nickname-edit-btn {
   appearance: none;
   border: 1px solid #e2e4ea;
   background: #ffffff;
@@ -491,13 +608,15 @@ onMounted(() => {
     border-color 0.15s;
 }
 
-.row-edit-btn:hover {
+.row-edit-btn:hover,
+.nickname-edit-btn:hover {
   background: #f3faf7;
   border-color: var(--color-primary);
 }
 
-/* 编辑弹窗内的输入框（沿用 confirm-dialog 风格）*/
-.company-edit-input {
+/* 编辑弹窗内的输入框（沿用 confirm-dialog 风格；company & nickname 弹窗共用）*/
+.company-edit-input,
+.nickname-edit-input {
   width: 100%;
   box-sizing: border-box;
   font-family: var(--font-sans);
@@ -512,17 +631,20 @@ onMounted(() => {
   transition: border-color 0.15s;
 }
 
-.company-edit-input:focus {
+.company-edit-input:focus,
+.nickname-edit-input:focus {
   border-color: var(--color-primary);
 }
 
-.company-edit-input:disabled {
+.company-edit-input:disabled,
+.nickname-edit-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* org-branding：弹窗内字符数计数（右对齐淡灰，提示 10 字上限）*/
-.company-edit-counter {
+/* 弹窗内字符数计数（右对齐淡灰，提示 10 字上限；company & nickname 共用）*/
+.company-edit-counter,
+.nickname-edit-counter {
   font-size: 12px;
   color: #9ca0ad;
   text-align: right;
