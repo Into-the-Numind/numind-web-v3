@@ -797,8 +797,8 @@ function handleDocClick(e: MouseEvent) {
           </button>
         </div>
 
-        <!-- Input Area -->
-        <div v-if="store.currentSession" class="input-stage">
+        <!-- Input Area — draft 态(store.isDraft, 无 currentSession)也必须渲染，否则点「新对话」后无输入框可打字 -->
+        <div v-if="store.currentSession || store.isDraft" class="input-stage">
           <div
             class="input-floating-container"
             :class="{ 'drag-over': isDragging }"
