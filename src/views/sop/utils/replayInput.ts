@@ -13,35 +13,45 @@
  */
 import type { SopReplayFile } from '@/views/sop/types'
 
-/** 有提取内容时，文件块以 `\n\n=== ` 起头拼接在用户文本之后 */
-const FILE_BLOCK_MARKER = '\n\n=== '
-/** 无法提取内容时，追加的文件提示段 */
-const UPLOAD_NOTE_MARKER = '\n\n用户已上传以下文件：'
+/** 无法提取内容时后端追加的提示段（老格式），按整段尾部剥掉 */
+const UPLOAD_NOTE_RE = /用户已上传以下文件：[\s\S]*$/
 
 /**
- * 从合并后的节点 input 中剥离上传文件块，只返回用户输入的文本。
+ * 从合并后的节点 input 中剥离上传文件内容，只返回用户真正输入的文本。
  *
- * @param input    sop_node_run.input（可能含合并进来的文件块）
- * @param hasFiles  该步是否确有上传文件（来自 files 数组长度）
- * @returns 用户文本（已 trim）。无文件时原样返回；文件块出现在最前（用户文本为空）时返回 ''。
+ * 为什么按「内容」而非「分隔符」剥离：input 的合成格式有两种且都不可靠地用 marker 区分——
+ *   - 新流程（前端 compose）：`<用户文本>\n\n<文件提取内容>`，**没有** `=== 文件名 ===` 标记
+ *   - 老流程（后端 multipart 合并）：`<用户文本>\n\n=== <文件名> ===\n<文件提取内容>`
+ * 而每个文件的 `content`（提取文本）我们手上就有，直接从 input 里精确移除最稳妥；同时移除老格式
+ * 的 `=== 文件名 ===` 标记行。input 可能是 CRLF、content 多为 LF，先统一成 LF 再比对。
+ *
+ * @param input  sop_node_run.input（可能含合并进来的文件内容）
+ * @param files  该步上传的文件（用其 file_name / content 精确移除）
+ * @returns 用户文本（已 trim）。无文件→原样返回；用户没输入文字→''。
  */
-export function stripMergedFileBlocks(input: string, hasFiles: boolean): string {
-  if (!hasFiles) return input // 无文件：绝不剥离（避免误伤含 === 的用户文本）
+export function stripMergedFileBlocks(
+  input: string,
+  files: ReadonlyArray<Pick<SopReplayFile, 'file_name' | 'content'>> = []
+): string {
+  if (files.length === 0) return input // 无文件：绝不剥离（避免误伤含 === 的用户文本）
   if (!input) return ''
 
-  // 取两个 \n\n-前缀分隔符的最早出现位置
-  let cut = -1
-  for (const marker of [FILE_BLOCK_MARKER, UPLOAD_NOTE_MARKER]) {
-    const idx = input.indexOf(marker)
-    if (idx >= 0 && (cut < 0 || idx < cut)) cut = idx
+  let result = input.replace(/\r\n/g, '\n') // 统一换行，便于与 content 精确比对
+  // 先去掉老后端格式的 `=== 文件名 ===` 标记行
+  for (const f of files) {
+    if (f.file_name) result = result.split(`=== ${f.file_name} ===`).join('')
   }
-  if (cut >= 0) return input.slice(0, cut).trim()
-
-  // 用户文本为空：input 直接以文件块 / 提示段开头
-  if (input.startsWith('=== ') || input.startsWith('用户已上传以下文件：')) return ''
-
-  // 有文件但无可识别块（防御）：保守全显，宁可多展示也不误删
-  return input.trim()
+  // 按文件内容移除，但**锚定**在拼接位置，避免误删用户文本中恰好同名的子串：
+  //   - 拼接块 = `\n\n<内容>`（compose/合并都用双换行分隔）→ 整块移除
+  //   - file-only（用户没输入文字）→ 剩余整体即文件内容 → 清空
+  for (const f of files) {
+    const content = (f.content ?? '').replace(/\r\n/g, '\n').trim()
+    if (!content) continue
+    result = result.split('\n\n' + content).join('')
+    if (result.trim() === content) result = ''
+  }
+  result = result.replace(UPLOAD_NOTE_RE, '') // 老的无内容提示段
+  return result.replace(/\n{3,}/g, '\n\n').trim() // 收敛多余空行
 }
 
 /** 人类可读文件大小：<1KB→B，<1MB→KB（整数），否则 MB（一位小数）。非法输入返回 ''。 */

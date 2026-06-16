@@ -274,6 +274,7 @@ defineExpose({
       <div v-else-if="isDoneCurrent || isDoneHistory" key="readonly" class="readonly-stack">
         <ReplayInputCard
           v-if="currentNodeRun"
+          :key="node?.id"
           :input="currentNodeRun.input"
           :files="currentNodeRun.files"
         />
