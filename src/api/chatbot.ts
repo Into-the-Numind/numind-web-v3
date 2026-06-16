@@ -40,6 +40,10 @@ export const listChatbotSessions = (offset = 0, limit = 20, chatbotId?: number) 
 export const renameChatbotSession = (id: number, title: string) =>
   request.put<{ data: ChatbotSession }>(`/v1/chatbot/sessions/${id}/rename`, { title })
 
+// instant-title-ux: 发送首条消息时即时从 prompt 生成会话标题（系统内部，不扣积分）。
+export const generateChatbotSessionTitle = (id: number, prompt: string) =>
+  request.post<{ data: { title: string } }>(`/v1/chatbot/sessions/${id}/title`, { prompt })
+
 export const pinChatbotSession = (id: number, pinned: boolean) =>
   request.put<{ data: ChatbotSession }>(`/v1/chatbot/sessions/${id}/pin`, { pinned })
 

@@ -67,10 +67,15 @@ const handleSend = async (text: string): Promise<void> => {
     return
   }
   try {
+    // instant-title-ux: for a NEW session, pre-generate the session_id so the sidebar
+    // item appears immediately with a pulsing title placeholder + instant title gen.
+    // The existing currentRun.session_id watcher navigates 'new' → this same id.
+    const newSid =
+      props.sessionId === 'new' ? store.prepareNewSession(store.currentAgent, text) : undefined
     await startStream({
       agent_skill_id: store.currentAgent.id,
       input_text: text,
-      session_id: props.sessionId !== 'new' ? props.sessionId : undefined,
+      session_id: props.sessionId !== 'new' ? props.sessionId : newSid,
       attachment_urls: store.attachments.map((a) => a.url)
     })
   } catch (err) {
@@ -367,7 +372,13 @@ watch(
         params: { sessionId: newSessionId },
         query: { agent_id: props.agentId }
       })
-      void store.fetchRecentSessions()
+      // instant-title-ux: skip the full-list refresh while this session's title is
+      // still generating — fetchRecentSessions would replace the array and could
+      // momentarily clobber the just-set optimistic title. The optimistic entry
+      // already carries the (soon-to-arrive) title; pending clears when /title returns.
+      if (!store.titlePendingIds.has(newSessionId)) {
+        void store.fetchRecentSessions()
+      }
     }
   }
 )
@@ -447,7 +458,13 @@ const handleRetrySnapshot = async (): Promise<void> => {
             }"
             @click="switchToSession(session)"
           >
-            <span class="session-title">{{
+            <span
+              v-if="store.titlePendingIds.has(session.session_id)"
+              class="session-title session-title--pending"
+              aria-label="标题生成中"
+              >生成中…</span
+            >
+            <span v-else class="session-title">{{
               session.session_name || session.preview_text || '新对话'
             }}</span>
             <div class="session-menu-container">
@@ -863,6 +880,22 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+}
+
+/* instant-title-ux: subtle pulse while the title is being generated at send time. */
+.session-title--pending {
+  color: var(--text-muted, var(--text-light));
+  animation: session-title-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes session-title-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* ===== Sidebar Overlay ===== */

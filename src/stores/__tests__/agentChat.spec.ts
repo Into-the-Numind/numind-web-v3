@@ -1,5 +1,6 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 import { useAgentChatStore } from '../agentChat'
 import type { NarrationEvent, AgentRun, ToolGroupMessage } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
@@ -12,6 +13,7 @@ vi.mock('@/api/agent', () => ({
   })),
   listRecentSessions: vi.fn(async () => []),
   listAllHistorySessions: vi.fn(async () => []),
+  generateAgentSessionTitle: vi.fn(async () => ({ title: '' })),
   estimateRun: vi.fn(async () => ({ min: 50, max: 150, is_large_task: false })),
   createRun: vi.fn(async () => ({
     run_id: 999,
@@ -616,5 +618,39 @@ describe('agentChat store', () => {
     expect(store.attachments.length).toBe(1)
     store.removeAttachment('https://cos.example/agent-attachments/1/x-keep.pdf')
     expect(store.attachments.length).toBe(0)
+  })
+})
+
+// ==================== instant-title-ux: prepareNewSession (agent) ====================
+
+describe('instant-title-ux prepareNewSession (agent)', () => {
+  it('预生成 session_id + 乐观入列 pulse + 秒生成标题更新', async () => {
+    vi.mocked(api.generateAgentSessionTitle).mockResolvedValueOnce({ title: '竞品调研' })
+    const store = useAgentChatStore()
+    const agent = { id: 1, name: 'A', emoji: '🤖' } as never
+
+    const sid = store.prepareNewSession(agent, '帮我做竞品调研')
+
+    expect(typeof sid).toBe('string')
+    expect(store.recentSessions[0].session_id).toBe(sid)
+    expect(store.recentSessions[0].agent_skill_id).toBe(1)
+    expect(store.titlePendingIds.has(sid)).toBe(true)
+
+    await flushPromises()
+
+    expect(api.generateAgentSessionTitle).toHaveBeenCalledWith(sid, '帮我做竞品调研')
+    expect(store.recentSessions[0].session_name).toBe('竞品调研')
+    expect(store.titlePendingIds.has(sid)).toBe(false)
+  })
+
+  it('标题端点失败重试后仍清 pending (best-effort)', async () => {
+    vi.mocked(api.generateAgentSessionTitle).mockRejectedValue(new Error('run not found yet'))
+    const store = useAgentChatStore()
+    const sid = store.prepareNewSession({ id: 1, name: 'A' } as never, '你好')
+    expect(store.titlePendingIds.has(sid)).toBe(true)
+    // generateAgentTitle retries once after 1200ms then gives up; wait it out.
+    await new Promise((r) => setTimeout(r, 1500))
+    expect(store.titlePendingIds.has(sid)).toBe(false)
+    expect(api.generateAgentSessionTitle).toHaveBeenCalledTimes(2) // initial + 1 retry
   })
 })

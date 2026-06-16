@@ -179,6 +179,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // ── State (16 refs) ─────────────────────────────────────────────────
   const availableAgents = ref<AgentSkill[]>([])
   const recentSessions = ref<RecentSession[]>([])
+  // instant-title-ux: session_ids whose title is being generated at send time —
+  // the sidebar renders a pulsing placeholder for these. Separate Set so it
+  // survives a full recentSessions refresh.
+  const titlePendingIds = ref<Set<string>>(new Set())
   const currentAgent = ref<AgentSkill | null>(null)
   const currentRun = ref<AgentRun | null>(null)
   const messages = ref<AgentMessage[]>([])
@@ -278,6 +282,58 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       recentSessions.value = await api.listAllHistorySessions()
     } catch {
       recentSessions.value = []
+    }
+  }
+
+  // prepareNewSession (instant-title-ux): on the first send of a NEW session, the
+  // frontend pre-generates the session_id and RETURNS it (the caller passes it to
+  // createRun via startStream). It immediately prepends a sidebar item with a pulsing
+  // title placeholder and kicks off instant title generation from the prompt.
+  function prepareNewSession(agent: AgentSkill | null, prompt: string): string {
+    const sessionId = uuid()
+    const optimistic: RecentSession = {
+      session_id: sessionId,
+      agent_skill_id: agent?.id ?? 0,
+      agent_name: agent?.name,
+      agent_emoji: agent?.emoji,
+      last_active_at: new Date().toISOString(),
+      status: 'running',
+      session_name: '',
+      preview_text: prompt.slice(0, 40),
+      is_pinned: false
+    } as RecentSession
+    recentSessions.value = [optimistic, ...recentSessions.value]
+    const pending = new Set(titlePendingIds.value)
+    pending.add(sessionId)
+    titlePendingIds.value = pending
+    void generateAgentTitle(sessionId, prompt)
+    return sessionId
+  }
+
+  // generateAgentTitle calls the send-time /title endpoint and live-updates the
+  // session_name. Best-effort. Retries once on ErrAgentRunNotFound because createRun
+  // persists the run slightly after the stream starts (design review B-2). Always
+  // clears the pending flag so the pulse stops.
+  async function generateAgentTitle(sessionId: string, prompt: string, attempt = 0): Promise<void> {
+    try {
+      const res = await api.generateAgentSessionTitle(sessionId, prompt)
+      if (res?.title) {
+        const s = recentSessions.value.find((x) => x.session_id === sessionId)
+        if (s) s.session_name = res.title
+      }
+    } catch (e) {
+      // Run row may not be persisted yet on the first attempt — retry once after a
+      // short delay (this outer finally runs only after the awaited retry returns,
+      // so the pending pulse stays on during the retry).
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1200))
+        return generateAgentTitle(sessionId, prompt, 1)
+      }
+      console.error('[agentChat] generateAgentTitle failed:', e)
+    } finally {
+      const pending = new Set(titlePendingIds.value)
+      pending.delete(sessionId)
+      titlePendingIds.value = pending
     }
   }
 
@@ -1295,6 +1351,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     ensureCurrentRun,
     availableAgents,
     recentSessions,
+    titlePendingIds,
     currentAgent,
     currentRun,
     messages,
@@ -1317,6 +1374,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     budgetThresholdState,
     fetchAvailableAgents,
     fetchRecentSessions,
+    prepareNewSession,
     estimateInput,
     startNewRun,
     pollNarration,
