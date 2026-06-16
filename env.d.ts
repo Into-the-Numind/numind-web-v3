@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_APP_ENV: string
   /** 通知中心 feature flag — 'true' 时显示铃铛入口（notification-center）。 */
   readonly VITE_ENABLE_NOTIFICATIONS?: string
+  /** 文档系统 feature flag — 'true' 时显示"打开编辑"入口（document-system）。prod 默认不设。 */
+  readonly VITE_ENABLE_DOCUMENT_SYSTEM?: string
 }
 
 interface ImportMeta {
