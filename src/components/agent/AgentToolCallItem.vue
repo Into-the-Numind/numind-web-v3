@@ -59,13 +59,11 @@ const label = computed<string>(() => {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  /* issue2: a light emerald rectangle behind each tool call so adjacent actions
-     read as distinct steps. Kept deliberately faint (same --primary hue as the
-     alive signals) + a single-line padding so it stays a flat timeline, not the
-     heavy card chrome the agent-process-timeline redesign removed. */
+  /* No background — a flat, fully transparent timeline. State is carried by the
+     leading icon (spinner / green check / red alert) + the dashed connector, not a
+     tinted rectangle. Padding stays for vertical rhythm AND the connector geometry
+     (its left/top offsets are measured off this padding). */
   padding: 5px 8px;
-  background: var(--tool-line-bg, hsla(160, 72%, 40%, 0.06));
-  border-radius: 6px;
   font-size: 13.5px;
   line-height: 1.55;
   /* anchor for the dashed connector (::after) to the next tool line */
@@ -85,15 +83,6 @@ const label = computed<string>(() => {
   pointer-events: none;
 }
 
-/* the running line is a touch more saturated so the eye lands on it. */
-.tl-line.active {
-  background: var(--tool-line-bg-active, hsla(160, 72%, 40%, 0.1));
-}
-/* an errored line drops the emerald tint for a faint red so the background never
-   contradicts the red icon/text. */
-.tl-line.error {
-  background: var(--tool-line-bg-error, hsla(0, 84%, 60%, 0.06));
-}
 .tl-ic {
   flex-shrink: 0;
   width: 16px;
