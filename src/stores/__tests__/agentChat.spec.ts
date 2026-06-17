@@ -508,6 +508,45 @@ describe('agentChat store', () => {
     expect(tg.tool_calls.find((t) => t.tool_call_id === 'b')?.current_state).toBe('result')
   })
 
+  it('loadSessionSnapshot finalizes a stuck tool to ERROR on an interrupted (failed) run', async () => {
+    // An interrupted run must NOT paint its lingering tool as a green "已完成".
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 1,
+      agent_skill_id: 1,
+      messages: [
+        {
+          id: 'tg-f',
+          type: 'tool_group',
+          timestamp: '',
+          tool_calls: [
+            {
+              tool_call_id: 'a',
+              tool_name: 'run_python',
+              current_state: 'use',
+              events: [
+                {
+                  run_id: 9,
+                  tool_call_id: 'a',
+                  tool_name: 'run_python',
+                  state: 'use',
+                  message: '正在运行代码',
+                  timestamp: '2026-06-10T00:00:00Z'
+                }
+              ]
+            }
+          ]
+        } as never
+      ],
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'failed'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot(1, true)
+    const tg = store.messages.find((m) => m.type === 'tool_group') as ToolGroupMessage
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'a')?.current_state).toBe('error')
+  })
+
   it('loadSessionSnapshot restores currentRun when session is waiting for an answer', async () => {
     vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
       session_id: 1,

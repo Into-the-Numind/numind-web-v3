@@ -21,6 +21,9 @@ const isActive = computed<boolean>(() => ACTIVE_STATES.includes(props.group.curr
 const isError = computed<boolean>(
   () => props.group.current_state === 'error' || props.group.current_state === 'rejected'
 )
+// done = the only remaining state today, 'result' (NarrationState is a closed
+// union). A future variant would also render as the done checkmark — intentional
+// catch-all so a new state never regresses to a stuck spinner.
 const isDone = computed<boolean>(() => !isActive.value && !isError.value)
 
 // The label transitions with the state: while running, the "use" (first) event's
@@ -98,7 +101,8 @@ const label = computed<string>(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* done lines are history → calm muted icon */
+  /* fallback icon color; the per-state rules below override it (active + done →
+     emerald, error → red), so this only shows if a state has no rule. */
   color: var(--text-muted, #8b90a0);
 }
 /* the currently-running line draws the eye in the brand accent (same emerald as
