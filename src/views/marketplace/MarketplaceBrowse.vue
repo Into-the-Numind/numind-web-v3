@@ -12,15 +12,15 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  Search, 
-  RefreshCcw, 
+import {
+  Search,
+  RefreshCcw,
   ArrowRight,
-  TrendingUp, 
-  Compass, 
-  Database, 
-  Cpu, 
-  MessageSquare, 
+  TrendingUp,
+  Compass,
+  Database,
+  Cpu,
+  MessageSquare,
   HelpCircle,
   Sparkles,
   Layers,
@@ -39,12 +39,18 @@ const CATEGORIES = ['销售', '调研', '数据分析', 'SOP', '客服', '其他
 // 根据分类获取对应图标
 function getCategoryIcon(category: string) {
   switch (category) {
-    case '销售': return TrendingUp
-    case '调研': return Compass
-    case '数据分析': return Database
-    case 'SOP': return Cpu
-    case '客服': return MessageSquare
-    default: return HelpCircle
+    case '销售':
+      return TrendingUp
+    case '调研':
+      return Compass
+    case '数据分析':
+      return Database
+    case 'SOP':
+      return Cpu
+    case '客服':
+      return MessageSquare
+    default:
+      return HelpCircle
   }
 }
 
@@ -110,10 +116,11 @@ function nextPage() {
             </div>
           </router-link>
         </div>
-        
+
         <h1 class="hero-headline">技能探索市场</h1>
         <p class="hero-subline">
-          在此浏览由其他机构发布的脱敏技能，支持一键订阅。开箱即用的高阶 SOP 工作流模板，助力团队效能跃迁。
+          在此浏览由其他机构发布的脱敏技能，支持一键引用订阅（只读、开发者更新后自动同步）。开箱即用的高阶
+          SOP 工作流模板，助力团队效能跃迁。
         </p>
       </header>
 
@@ -147,7 +154,7 @@ function nextPage() {
               <Layers :size="12" :stroke-width="1.5" />
               <span>技能分类</span>
             </div>
-            
+
             <nav class="pill-nav-list">
               <button
                 type="button"
@@ -158,7 +165,7 @@ function nextPage() {
                 <span class="pill-nav-dot"></span>
                 <span>全部技能</span>
               </button>
-              
+
               <button
                 v-for="cat in CATEGORIES"
                 :key="cat"
@@ -167,11 +174,11 @@ function nextPage() {
                 :class="{ active: store.queryCategory === cat }"
                 @click="selectCategory(cat)"
               >
-                <component 
-                  :is="getCategoryIcon(cat)" 
-                  :size="13" 
-                  :stroke-width="1.5" 
-                  class="pill-nav-icon" 
+                <component
+                  :is="getCategoryIcon(cat)"
+                  :size="13"
+                  :stroke-width="1.5"
+                  class="pill-nav-icon"
                 />
                 <span>{{ cat }}</span>
               </button>
@@ -195,9 +202,9 @@ function nextPage() {
         <main class="bento-main">
           <!-- 1. 加载状态：莫小派专属高雅骨架屏 -->
           <div v-if="store.loading" class="bento-grid">
-            <div 
-              v-for="i in 6" 
-              :key="i" 
+            <div
+              v-for="i in 6"
+              :key="i"
               class="bento-skeleton-card"
               :class="{ 'md:col-span-2': i % 3 === 0 }"
               aria-hidden="true"
@@ -232,7 +239,11 @@ function nextPage() {
               未找到相关技能模板，建议清空搜索条件或调整分类重试
             </p>
             <p v-else>市场暂无模板，期待您的加入</p>
-            <button v-if="store.queryQ || store.queryCategory" class="bezel-action-btn" @click="clearQuery">
+            <button
+              v-if="store.queryQ || store.queryCategory"
+              class="bezel-action-btn"
+              @click="clearQuery"
+            >
               <span>清除搜索条件</span>
             </button>
           </div>
@@ -262,10 +273,10 @@ function nextPage() {
                 <!-- 卡片头部 -->
                 <div class="card-title-row">
                   <div class="haptic-icon-shell" :class="item.category_tags[0] || '其他'">
-                    <component 
-                      :is="getCategoryIcon(item.category_tags[0] || '其他')" 
-                      :size="16" 
-                      :stroke-width="1.5" 
+                    <component
+                      :is="getCategoryIcon(item.category_tags[0] || '其他')"
+                      :size="16"
+                      :stroke-width="1.5"
                     />
                   </div>
                   <div class="card-headline-group">
@@ -282,7 +293,7 @@ function nextPage() {
                 <span class="subscription-metric">
                   <strong>{{ item.subscribe_count }}</strong> 次订阅
                 </span>
-                
+
                 <div class="capsule-tags">
                   <span v-for="t in item.category_tags.slice(0, 2)" :key="t" class="capsule-tag">
                     {{ t }}
@@ -298,20 +309,20 @@ function nextPage() {
           </div>
 
           <!-- 极简分页 -->
-          <div v-if="!store.isEmpty && store.total > store.queryPageSize" class="editorial-pagination">
-            <button 
-              class="editorial-pag-btn" 
-              :disabled="store.queryPage <= 1" 
-              @click="prevPage"
-            >
+          <div
+            v-if="!store.isEmpty && store.total > store.queryPageSize"
+            class="editorial-pagination"
+          >
+            <button class="editorial-pag-btn" :disabled="store.queryPage <= 1" @click="prevPage">
               上一页
             </button>
             <span class="editorial-pag-info">
-              第 <strong>{{ store.queryPage }}</strong> 页 / 共 {{ Math.ceil(store.total / store.queryPageSize) }} 页
+              第 <strong>{{ store.queryPage }}</strong> 页 / 共
+              {{ Math.ceil(store.total / store.queryPageSize) }} 页
             </span>
-            <button 
-              class="editorial-pag-btn" 
-              :disabled="store.queryPage * store.queryPageSize >= store.total" 
+            <button
+              class="editorial-pag-btn"
+              :disabled="store.queryPage * store.queryPageSize >= store.total"
               @click="nextPage"
             >
               下一页
@@ -799,12 +810,21 @@ function nextPage() {
   top: 0;
   height: 100%;
   width: 150px;
-  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 100%
+  );
   animation: shimmer 1.5s infinite;
 }
 @keyframes shimmer {
-  from { left: -150px; }
-  to { left: 100%; }
+  from {
+    left: -150px;
+  }
+  to {
+    left: 100%;
+  }
 }
 .skel-icon {
   width: 36px;

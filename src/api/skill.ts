@@ -1,6 +1,11 @@
 // API wrappers for /v1/skills/* + /v1/agents/:id/skills/* (11 endpoints, user_token).
 // Backend: numind-server feature agent-mode-v2-skill-as-artifact (v2 #1).
-// Parent-account only — child accounts receive HTTP 403 from backend biz layer.
+//
+// skill-3tier-visibility T4: 子账户不再被后端 403 拦截 —— 子账户可创建/编辑/删除自己的
+// 个人级（visibility='sub_user'）技能。列表接口返回三级可见性过滤后的行 + can_edit 派生字段。
+//
+// createSkill / updateSkill 的 payload 透传 visibility（CreateSkillRequest.visibility）：
+// 仅父账户可传 'institution'；子账户后端强制 'sub_user'；'official' 前端永不发送。
 //
 // 不要与 src/api/agentBuilder.ts 的 /v1/agent/skills/* 混淆（那是 v1 #5 路径，
 // 操作 agent_definition；本文件操作的是 v2 #1 独立 Skill 资产表）。

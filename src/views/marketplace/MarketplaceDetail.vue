@@ -59,8 +59,10 @@ async function doSubscribe() {
     await store.subscribe(marketplaceID.value)
     // Refresh mySubscriptions so the computed `subscribed` flips to true.
     await store.fetchMySubscriptions()
-    // Guide the next step (drop the raw skill id — meaningless to operators).
-    notifications.success('订阅成功：已添加到你的技能库，可在「已订阅」里装载到 Agent')
+    // 引用模式（skill-3tier-visibility T4）：订阅是引用而非克隆副本。
+    notifications.success(
+      '订阅成功：已引用此技能，可在「已订阅」里装载到 Agent（开发者更新自动同步）'
+    )
   } catch (e) {
     notifications.error(`订阅失败：${(e as Error).message || '请稍后重试'}`)
   }
@@ -72,7 +74,7 @@ async function doUnsubscribe() {
     await store.unsubscribe(marketplaceID.value)
     // store.unsubscribe already drops the row from mySubscriptions optimistically;
     // computed `subscribed` flips to false without an extra fetch.
-    notifications.success('已取消订阅：副本技能已软删除')
+    notifications.success('已取消订阅：引用已移除')
   } catch (e) {
     notifications.error(`取消订阅失败：${(e as Error).message || '请稍后重试'}`)
   }
@@ -117,6 +119,12 @@ function back() {
             <span class="meta__count">{{ store.currentItem.subscribe_count }} 人订阅</span>
           </div>
           <p class="desc">{{ store.currentItem.description }}</p>
+
+          <!-- 引用订阅说明 (skill-3tier-visibility T4) -->
+          <p class="reference-note">
+            订阅为<strong>引用模式</strong>（只读）：订阅后此技能以引用方式加入你的技能库，
+            发布者更新内容后你的引用会<strong>自动同步</strong>，无需重新订阅。
+          </p>
 
           <div class="actions">
             <AppButton
@@ -168,14 +176,14 @@ function back() {
       <ConfirmModal
         v-model="confirmSubscribeOpen"
         title="确认订阅"
-        message="订阅后会在你的技能库添加一份副本，可装载到 Agent。继续？"
+        message="订阅后会以引用方式加入你的技能库（只读），可装载到 Agent；发布者更新后自动同步。继续？"
         confirm-text="订阅"
         @confirm="doSubscribe"
       />
       <ConfirmModal
         v-model="confirmUnsubscribeOpen"
         title="确认取消订阅"
-        message="取消订阅会软删除你的副本技能。已装载到 Agent 的关系将失效。确认？"
+        message="取消订阅会移除该技能引用。已装载到 Agent 的关系将失效。确认？"
         variant="danger"
         confirm-text="取消订阅"
         @confirm="doUnsubscribe"
@@ -228,6 +236,19 @@ function back() {
 .desc {
   margin: 0 0 16px;
   color: var(--color-text-secondary, #4b5563);
+}
+.reference-note {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4338ca;
+}
+.reference-note strong {
+  font-weight: 600;
 }
 .actions {
   display: flex;

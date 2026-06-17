@@ -16,6 +16,14 @@ export type SkillSourceType =
 
 export type SkillOriginType = 'official' | 'tenant' | 'user'
 
+/**
+ * Skill 三级可见性（skill-3tier-visibility T4）— 与后端 model.Skill.Visibility ENUM 对齐。
+ *   - 'official'    → 官方出品，所有机构/用户可见，仅 admin seed/import-template 创建（API 永不可设）
+ *   - 'institution' → 机构级，本机构（父账户 + 其所有子账户）可见，仅父账户可创建/设置
+ *   - 'sub_user'    → 个人级，仅创建者本人可见（子账户默认；父账户也可建私有技能）
+ */
+export type SkillVisibility = 'official' | 'institution' | 'sub_user'
+
 /** Skill frontmatter 字段 — Markdown 顶部 YAML 块 of structured form */
 export interface Frontmatter {
   name: string
@@ -36,6 +44,8 @@ export interface ParsedFrontmatter {
 export interface Skill {
   id: number
   parent_user_id: number
+  /** 真实创建者 user id（skill-3tier-visibility T4）：父建=父 id，子建=子 id。 */
+  owner_user_id: number
   name: string
   description: string
   when_to_use: string
@@ -43,6 +53,12 @@ export interface Skill {
   body_md: string
   source_type: SkillSourceType
   source_template_id: number | null
+  /**
+   * 三级可见性（skill-3tier-visibility T4）— 替代 origin_type 作为列表主徽章依据。
+   * 'official' | 'institution' | 'sub_user'。
+   */
+  visibility: SkillVisibility
+  /** @deprecated 仍保留为 legacy provenance，但不再用于列表主徽章（改用 visibility）。 */
   origin_type: SkillOriginType
   version: number
   is_active: boolean
@@ -53,6 +69,20 @@ export interface Skill {
   // 列表/详情接口附加字段（join 计算，非 DB 列）
   bound_agent_count?: number
   bound_agents?: BoundAgentSummary[]
+
+  /**
+   * 当前调用者是否可编辑/删除/发布该 Skill（skill-3tier-visibility T4，后端 biz 计算的派生字段）。
+   * true iff（父账户 且 visibility='institution' 且 parent_user_id==自己）或（owner_user_id==自己）。
+   * 'official' 行对所有人只读（can_edit=false）。前端用此 gate 行级操作按钮。
+   */
+  can_edit?: boolean
+
+  /**
+   * 市场引用指针（skill-3tier-visibility T4，forward-only reference 模式）。
+   * 非 0 ⇒ 此行是市场订阅的引用指针，body 非权威（运行时从 marketplace 快照读取）。
+   */
+  subscription_id?: number
+  marketplace_id?: number
 }
 
 /** Skill 列表中显示「已装载的 Agent 简要」 */
@@ -101,6 +131,11 @@ export interface CreateSkillRequest {
   body_md: string
   source_type?: SkillSourceType
   source_template_id?: number | null
+  /**
+   * 可见性（skill-3tier-visibility T4）— 仅父账户可传 'institution'；子账户后端强制 'sub_user'。
+   * 'official' 故意不可从前端设置（仅 admin seed/import-template），永远不要发送。
+   */
+  visibility?: 'institution' | 'sub_user'
 }
 
 // PUT /v1/skills/:id 同 POST shape

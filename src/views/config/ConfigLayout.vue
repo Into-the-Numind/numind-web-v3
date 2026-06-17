@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import { useUserStore } from '@/stores/user'
@@ -32,25 +32,37 @@ import { useUserStore } from '@/stores/user'
 const route = useRoute()
 const userStore = useUserStore()
 
+// 确保 userInfo 就绪以正确显示 tab（子账户直达 /config/skills 时路由守卫不一定已 fetch）。
+onMounted(() => {
+  if (!userStore.userInfo) userStore.fetchUserInfo()
+})
+
 interface ConfigTab {
   label: string
   path: string
+  /** 父账户专属 tab（子账户隐藏）。 */
   parentOnly?: boolean
+  /** 子账户可见 tab（skill-3tier-visibility T4：技能管理对子账户开放）。 */
+  childVisible?: boolean
 }
 
+// skill-3tier-visibility T4: AI 助手/SOP/知识库/智能体 路由均 requiresParent，仅父账户可访问 →
+// 全部标 parentOnly（之前 AI 助手/SOP/知识库 误标为非 parentOnly，子账户点了会被守卫弹回）。
+// Skill 标 childVisible，子账户也能看到并管理个人技能。
 const allTabs: ConfigTab[] = [
-  { label: 'AI 助手', path: '/config/chatbots' },
-  { label: 'SOP', path: '/config/sop-templates' },
-  { label: '知识库', path: '/config/knowledge-bases' },
+  { label: 'AI 助手', path: '/config/chatbots', parentOnly: true },
+  { label: 'SOP', path: '/config/sop-templates', parentOnly: true },
+  { label: '知识库', path: '/config/knowledge-bases', parentOnly: true },
   { label: '智能体', path: '/config/agents', parentOnly: true },
-  { label: 'Skill', path: '/config/skills', parentOnly: true }
+  { label: 'Skill', path: '/config/skills', parentOnly: true, childVisible: true }
 ]
 
 // userInfo 未就绪时默认隐藏 parentOnly tab，避免 isParentUser=true 的 flash；
-// 加载完后再按 isParentUser 决定显隐。
+// 加载完后：父账户看全部；子账户仅看 childVisible 的 tab（即 Skill）。
 const tabs = computed<ConfigTab[]>(() => {
   if (!userStore.userInfo) return allTabs.filter((t) => !t.parentOnly)
-  return allTabs.filter((t) => !t.parentOnly || userStore.isParentUser)
+  if (userStore.isParentUser) return allTabs
+  return allTabs.filter((t) => t.childVisible)
 })
 
 function isActive(path: string) {

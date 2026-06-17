@@ -20,6 +20,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useSkillStore } from '@/stores/skill'
+import { useUserStore } from '@/stores/user'
 import { useNotificationsStore } from '@/stores/notifications'
 import {
   parseFrontmatter,
@@ -46,9 +47,26 @@ const props = defineProps<Props>()
 const router = useRouter()
 const route = useRoute()
 const store = useSkillStore()
+const userStore = useUserStore()
 const notifications = useNotificationsStore()
 
 const skillId = computed(() => (props.mode === 'edit' ? Number(route.params.id) : null))
+
+// ---------- 可见性 (skill-3tier-visibility T4) ----------
+// 父账户可选 机构级(institution, 默认) / 个人(sub_user)；子账户强制 sub_user（选择器禁用）。
+// 'official' 永不可从前端设置。
+type EditableVisibility = 'institution' | 'sub_user'
+const isParent = computed(() => userStore.isParentUser)
+const visibility = ref<EditableVisibility>('institution')
+
+// 子账户始终 sub_user；编辑已有 official 技能（理论上 can_edit=false 不会进编辑器）不在此可选范围。
+watch(
+  isParent,
+  (parent) => {
+    if (!parent) visibility.value = 'sub_user'
+  },
+  { immediate: true }
+)
 
 // ---------- 编辑器与表单 state ----------
 const rawContent = ref('') // 编辑器原始字符串（含 frontmatter）
@@ -80,6 +98,10 @@ const exceedsSoftLimit = computed(() => bodyBytes.value > SKILL_BODY_SOFT_LIMIT)
 const exceedsHardLimit = computed(() => bodyBytes.value > SKILL_BODY_HARD_LIMIT)
 
 const isDirty = computed(() => rawContent.value !== initialContent.value)
+
+// skill-3tier-visibility T4: 发布按钮按 can_edit gate（仅技能所有者可发布；官方/他人技能不可）。
+// 缺省（旧后端未返回 can_edit）回退 true 保持既有行为。
+const canPublish = computed(() => store.current?.can_edit !== false)
 
 const canSave = computed(() => {
   return (
@@ -119,6 +141,10 @@ async function loadForEdit() {
   }
   bodyMd.value = s.body_md
   allowedToolsText.value = (s.allowed_tools || []).join(', ')
+  // 编辑模式：用已有 visibility 预填（official 不在可编辑范围，回退 institution）。
+  visibility.value = s.visibility === 'sub_user' ? 'sub_user' : 'institution'
+  // 子账户即便编辑机构技能也无权改为非 sub_user（理论上 can_edit gate 已拦），强制兜底。
+  if (!isParent.value) visibility.value = 'sub_user'
   // 初始内容写编辑器（form-driven 防回环）
   isFormDriven = true
   rawContent.value = serializeFrontmatter(frontmatterForm.value, bodyMd.value)
@@ -147,6 +173,8 @@ allowed_tools: []
 }
 
 onMounted(async () => {
+  // 确保 userInfo 就绪，决定可见性选择器显隐（父账户才显示）。
+  if (!userStore.userInfo) await userStore.fetchUserInfo()
   if (props.mode === 'edit') {
     await loadForEdit()
   } else {
@@ -229,7 +257,9 @@ async function onSave() {
       when_to_use: frontmatterForm.value.when_to_use?.trim() || '',
       allowed_tools: frontmatterForm.value.allowed_tools || [],
       body_md: bodyMd.value,
-      source_type: 'custom'
+      source_type: 'custom',
+      // skill-3tier-visibility T4: 父账户传所选 visibility；子账户恒 'sub_user'（后端也会强制）。
+      visibility: isParent.value ? visibility.value : 'sub_user'
     }
     if (props.mode === 'create') {
       const created = await store.create(payload)
@@ -321,7 +351,7 @@ function formatBytes(n: number): string {
         <!-- 仅 edit 模式可见 (创建模式 skill 还未保存, 无法 publish). -->
         <!-- 跳转到 /marketplace/publish/:skill_id 走完整两步发布 flow. -->
         <AppButton
-          v-if="mode === 'edit' && skillId"
+          v-if="mode === 'edit' && skillId && canPublish"
           variant="text"
           :disabled="saving"
           @click="onPublishToMarketplace"
@@ -374,6 +404,24 @@ function formatBytes(n: number): string {
         <header class="panel-header">
           <h3>表单（与编辑器双向同步）</h3>
         </header>
+
+        <!-- 可见性选择器 (skill-3tier-visibility T4) -->
+        <div class="form-field">
+          <label class="form-label">可见性</label>
+          <select
+            v-model="visibility"
+            class="form-select"
+            :disabled="!isParent"
+            aria-label="可见性"
+          >
+            <option value="institution">机构级（本机构所有成员可见）</option>
+            <option value="sub_user">个人（仅自己可见）</option>
+          </select>
+          <p v-if="isParent" class="form-hint">
+            机构级技能对父账户及所有子账户可见；个人技能仅你本人可见。
+          </p>
+          <p v-else class="form-hint">子账户创建的技能为个人技能，仅你本人可见。</p>
+        </div>
 
         <div class="form-field">
           <label class="form-label">名称 <span class="required">*</span></label>
@@ -562,6 +610,27 @@ function formatBytes(n: number): string {
 }
 
 .form-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form-select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(169, 180, 185, 0.2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-select:focus {
   outline: none;
   border-color: var(--primary);
 }

@@ -24,6 +24,10 @@ const notifications = useNotificationsStore()
 
 const skillId = computed(() => Number(route.params.id))
 
+// skill-3tier-visibility T4: 编辑权限由后端 can_edit 派生字段决定（官方/跨租户/他人个人技能为 false）。
+// 缺省（旧后端未返回）回退 true 保持既有行为。
+const canEdit = computed(() => store.current?.can_edit !== false)
+
 onMounted(async () => {
   try {
     await store.fetchOne(skillId.value)
@@ -81,7 +85,7 @@ function goBack() {
         </div>
         <div class="skill-detail__actions">
           <AppButton variant="secondary" @click="goHistory">版本历史</AppButton>
-          <AppButton variant="primary" @click="goEdit">编辑</AppButton>
+          <AppButton v-if="canEdit" variant="primary" @click="goEdit">编辑</AppButton>
         </div>
       </header>
 
@@ -125,11 +129,19 @@ function goBack() {
           </div>
         </div>
         <div class="meta-row">
-          <span class="meta-label">出品来源</span>
+          <span class="meta-label">可见性</span>
           <div class="meta-value" style="display: flex; align-items: center; gap: 8px">
-            <span v-if="store.current.origin_type === 'official'" class="origin-badge origin-badge--official">🌟 官方出品</span>
-            <span v-else-if="store.current.origin_type === 'tenant'" class="origin-badge origin-badge--tenant">🏢 机构出品</span>
-            <span v-else class="origin-badge origin-badge--user">👤 自建技能</span>
+            <span
+              v-if="store.current.visibility === 'official'"
+              class="origin-badge origin-badge--official"
+              >🌟 官方</span
+            >
+            <span
+              v-else-if="store.current.visibility === 'institution'"
+              class="origin-badge origin-badge--tenant"
+              >🏢 机构</span
+            >
+            <span v-else class="origin-badge origin-badge--user">👤 我的</span>
             <span class="source-type-label">({{ store.current.source_type }})</span>
           </div>
         </div>

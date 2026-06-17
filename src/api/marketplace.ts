@@ -65,14 +65,17 @@ export const getMarketplace = async (id: number): Promise<MarketplaceItemDetail>
   return (res as unknown as { data: MarketplaceItemDetail }).data
 }
 
-// 7. POST /v1/marketplace/:id/subscribe — 订阅 = 复制副本进我的租户 skill 表
-//    spec §4.1: 返回 {cloned_skill_id, subscription_id}（**不**是 marketplace_id）
+// 7. POST /v1/marketplace/:id/subscribe — 订阅 = 引用模式（skill-3tier-visibility T4）
+//    不再克隆副本进我的租户；建立指向市场源的引用指针。
+//    返回 {subscription_id, source_skill_id}（cloned_skill_id 已移除）。
 export const subscribeMarketplace = async (id: number): Promise<SubscribeResponse> => {
   const res = await request.post(`/v1/marketplace/${id}/subscribe`)
   return (res as unknown as { data: SubscribeResponse }).data
 }
 
-// 8. DELETE /v1/marketplace/:id/unsubscribe — 取消订阅（软删 cloned skill + 删 subscription 行）
+// 8. DELETE /v1/marketplace/:id/unsubscribe — 取消订阅（删 subscription 引用行）
+//    引用模式：不持有租户本地副本技能，仅删除引用关系即可。
+//    （legacy clone 订阅由后端按 cloned_skill_id>0 走老的软删副本路径。）
 export const unsubscribeMarketplace = async (id: number): Promise<void> => {
   await request.delete(`/v1/marketplace/${id}/unsubscribe`)
 }
