@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
  * One line in the agent process timeline (Manus-style). Each tool call renders as
- * a single compact line: [state icon] [activity]. The activity label is stable
- * (the query / what it's doing) and does NOT jump text when the tool completes —
- * the leading icon carries the state instead (spinner while running, the tool's
- * type icon when done, an alert on error). No card, no badge, no per-line timer.
+ * a single compact line: [state icon] [activity] that TRANSITIONS IN PLACE — while
+ * running it shows the "use" activity + a spinner; once done it shows the "result"
+ * message + a green checkmark; an error shows an alert. One tool call = one line:
+ * it never spawns a second "已…" row, and never leaves a spinner stuck on a
+ * completed run. No card, no badge, no per-line timer.
  */
 import { computed } from 'vue'
 import type { ToolCallAggregate, NarrationState } from '@/types/agent'
-import { toolIcon } from '@/shared/agent-tool-icons'
-import { Loader2, AlertCircle } from 'lucide-vue-next'
+import { Loader2, AlertCircle, Check } from 'lucide-vue-next'
 
 interface Props {
   group: ToolCallAggregate
@@ -21,31 +21,31 @@ const isActive = computed<boolean>(() => ACTIVE_STATES.includes(props.group.curr
 const isError = computed<boolean>(
   () => props.group.current_state === 'error' || props.group.current_state === 'rejected'
 )
+const isDone = computed<boolean>(() => !isActive.value && !isError.value)
 
-// Stable label: the first (use) event's message, with any leading emoji and a
-// leading "正在" stripped, so the query/activity stays visible and the text
-// doesn't jump when it finishes. The leading-emoji strip matters because some
-// older narration templates still bake a presentation emoji (📚/📖/⚠) into the
-// message; the timeline now owns the icon (lucide, in .tl-ic), so the message's
-// own emoji would be a duplicate AND violate the no-emoji rule. Falls back to the
-// latest message, then the tool name.
+// The label transitions with the state: while running, the "use" (first) event's
+// activity ("加载技能：docx-author"); once done/errored, the latest event's message
+// (the result/error text, "已加载技能：docx-author"). A leading presentation emoji
+// (📚/📖/⚠ baked into older templates) and a leading "正在" are stripped — the
+// timeline owns the icon (lucide, in .tl-ic), so a message emoji would duplicate it
+// AND break the no-emoji rule. Falls back across events, then the tool name.
 const EMOJI_PREFIX = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}]\s*)+/u
 const label = computed<string>(() => {
   const first = props.group.events[0]
   const latest = props.group.events[props.group.events.length - 1]
-  const base = first?.message || latest?.message || props.group.tool_name
+  const base = isActive.value
+    ? first?.message || latest?.message || props.group.tool_name
+    : latest?.message || first?.message || props.group.tool_name
   return base.replace(EMOJI_PREFIX, '').replace(/^正在\s*/, '')
 })
-
-const typeIcon = computed(() => toolIcon(props.group.tool_name))
 </script>
 
 <template>
-  <div class="tl-line" :class="{ active: isActive, error: isError }">
+  <div class="tl-line" :class="{ active: isActive, error: isError, done: isDone }">
     <span class="tl-ic" aria-hidden="true">
       <Loader2 v-if="isActive" :size="14" class="tl-spin" />
       <AlertCircle v-else-if="isError" :size="14" />
-      <component :is="typeIcon" v-else :size="14" />
+      <Check v-else :size="14" />
     </span>
     <span class="tl-txt">{{ label }}</span>
   </div>
@@ -104,6 +104,11 @@ const typeIcon = computed(() => toolIcon(props.group.tool_name))
 /* the currently-running line draws the eye in the brand accent (same emerald as
    every other alive signal — the streaming caret and the run-pulse dot). */
 .tl-line.active .tl-ic {
+  color: var(--primary, hsl(160, 72%, 40%));
+}
+/* a completed step → green checkmark (success signal), distinct from the muted
+   default and the running emerald spinner by its shape. */
+.tl-line.done .tl-ic {
   color: var(--primary, hsl(160, 72%, 40%));
 }
 .tl-line.error .tl-ic {
