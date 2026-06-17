@@ -254,10 +254,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     return Array.from(map.values())
   })
 
-  const budgetThresholdState = computed<'under_60' | 'warning_60' | 'blocked_100'>(
-    () => currentRun.value?.credits_threshold_state ?? 'under_60'
-  )
-
   // ── Actions ──────────────────────────────────────────────────────────
   const fetchAvailableAgents = async (): Promise<void> => {
     loadingAgents.value = true
@@ -600,11 +596,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     } finally {
       cancelling.value = false
     }
-  }
-
-  const extendCurrentBudget = async (extra: number): Promise<void> => {
-    if (!currentRun.value) return
-    currentRun.value = await api.extendBudget(currentRun.value.id, { extra_credits: extra })
   }
 
   const uploadAttachment = async (file: File): Promise<void> => {
@@ -1011,8 +1002,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             status: 'running',
             state_reason: 'running',
             credits_used: 0,
-            credits_budget: 0,
-            credits_threshold_state: 'under_60',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }
@@ -1386,7 +1375,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isRunning,
     isWaitingForUser,
     toolGroups,
-    budgetThresholdState,
     fetchAvailableAgents,
     fetchRecentSessions,
     prepareNewSession,
@@ -1395,7 +1383,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     pollNarration,
     refreshRunStatus,
     cancelCurrent,
-    extendCurrentBudget,
     uploadAttachment,
     removeAttachment,
     loadSessionSnapshot,

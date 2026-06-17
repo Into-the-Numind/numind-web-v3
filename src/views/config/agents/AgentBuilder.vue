@@ -111,7 +111,6 @@ async function initForm() {
             agent.system_prompt || agent.custom_skill_body || agent.generated_skill_body || '',
           starters: [...(agent.starters ?? [])],
           tool_flags: { ...(agent.tool_flags ?? {}) },
-          credit_cap_per_session: agent.credit_cap_per_session,
           daily_credit_cap: agent.daily_credit_cap
         })
       }
@@ -135,7 +134,6 @@ async function initForm() {
             system_prompt: '',
             starters: [...(template.starters ?? [])],
             tool_flags: { ...(template.tool_flags ?? {}) },
-            credit_cap_per_session: template.credit_cap_per_session,
             daily_credit_cap: template.daily_credit_cap
           })
         }
@@ -154,7 +152,6 @@ async function initForm() {
               source.system_prompt || source.custom_skill_body || source.generated_skill_body || '',
             starters: [...(source.starters ?? [])],
             tool_flags: { ...(source.tool_flags ?? {}) },
-            credit_cap_per_session: source.credit_cap_per_session,
             daily_credit_cap: source.daily_credit_cap
           })
         }
@@ -196,7 +193,6 @@ function formToPayload(): CreateAgentPayload {
     system_prompt: form.system_prompt || undefined,
     starters: form.starters.length > 0 ? [...form.starters] : undefined,
     tool_flags: Object.keys(form.tool_flags).length > 0 ? { ...form.tool_flags } : undefined,
-    credit_cap_per_session: form.credit_cap_per_session,
     daily_credit_cap: form.daily_credit_cap
   }
 }

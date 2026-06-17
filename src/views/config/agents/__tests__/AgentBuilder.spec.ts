@@ -68,7 +68,6 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     advanced_mode: false,
     custom_skill_body: '',
     tool_flags: {},
-    credit_cap_per_session: null,
     daily_credit_cap: null,
     version: 1,
     is_active: true,
@@ -90,7 +89,6 @@ function makeTemplate(overrides: Partial<SkillTemplate> = {}): SkillTemplate {
     starters: ['示例问题一', '示例问题二'],
     questionnaire_answers: {},
     tool_flags: {},
-    credit_cap_per_session: null,
     daily_credit_cap: null,
     created_at: '2026-01-01T00:00:00Z',
     ...overrides
@@ -107,7 +105,6 @@ function validFormState(overrides: Record<string, unknown> = {}) {
     system_prompt: '你是一个销售助手，负责帮助用户解决问题。',
     starters: [],
     tool_flags: {},
-    credit_cap_per_session: null,
     daily_credit_cap: null,
     ...overrides
   }

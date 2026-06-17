@@ -91,12 +91,6 @@ export interface AgentRun {
    *  Undefined while the backend contract addition is not yet deployed;
    *  views fall back to 0 via `?? 0`. */
   credits_used?: number
-  /** Maximum credits budget for this run. Populated by RunSummary enrichment.
-   *  Undefined until backend ships; views fall back to 0 via `?? 0`. */
-  credits_budget?: number
-  /** Budget threshold state driven by credits_used / credits_budget ratio.
-   *  Undefined until backend ships; store getter defaults to 'under_60'. */
-  credits_threshold_state?: 'under_60' | 'warning_60' | 'blocked_100'
   created_at: string
   updated_at: string
   finished_at?: string
@@ -133,10 +127,6 @@ export interface CreateRunResponse {
 export interface CancelRunResponse {
   run_id: number
   status: 'cancelling' | 'cancelled'
-}
-
-export interface ExtendBudgetRequest {
-  extra_credits: number
 }
 
 // ─────────────────────────────────────────

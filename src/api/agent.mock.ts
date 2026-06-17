@@ -12,7 +12,6 @@ import type {
   EstimateResponse,
   RecentSession,
   SupportContact,
-  ExtendBudgetRequest,
   UploadResponse,
   AgentRunStatus
 } from '@/types/agent'
@@ -369,8 +368,6 @@ export const getRun = async (runId: number): Promise<AgentRun> => {
       agent_skill_id: 1,
       status: 'failed',
       credits_used: 0,
-      credits_budget: 0,
-      credits_threshold_state: 'under_60',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -382,8 +379,6 @@ export const getRun = async (runId: number): Promise<AgentRun> => {
     agent_skill_id: state.agent_skill_id,
     status: state.status,
     credits_used: state.credits_used,
-    credits_budget: state.credits_budget,
-    credits_threshold_state: state.threshold_state,
     created_at: state.created_at,
     updated_at: new Date().toISOString()
   }
@@ -423,17 +418,6 @@ export const cancelRun = async (runId: number): Promise<CancelRunResponse> => {
   const state = _runState.get(runId)
   if (state) state.status = 'cancelled'
   return { run_id: runId, status: 'cancelled' }
-}
-
-export const extendBudget = async (runId: number, req: ExtendBudgetRequest): Promise<AgentRun> => {
-  await delay(120)
-  const state = _runState.get(runId)
-  if (state) {
-    state.credits_budget += req.extra_credits
-    state.status = 'running'
-    state.threshold_state = 'under_60'
-  }
-  return getRun(runId)
 }
 
 export const getSupportContact = async (): Promise<SupportContact> => {

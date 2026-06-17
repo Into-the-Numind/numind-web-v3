@@ -29,7 +29,6 @@ const form = computed<AgentFormState>(() => ({
     '',
   starters: props.agent.starters ?? [],
   tool_flags: props.agent.tool_flags ?? {},
-  credit_cap_per_session: props.agent.credit_cap_per_session,
   daily_credit_cap: props.agent.daily_credit_cap
 }))
 </script>

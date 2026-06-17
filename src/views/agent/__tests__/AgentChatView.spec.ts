@@ -50,14 +50,11 @@ vi.mock('@/api/agent', () => ({
     agent_skill_id: 1,
     status: 'running' as const,
     credits_used: 0,
-    credits_budget: 200,
-    credits_threshold_state: 'under_60' as const,
     created_at: '',
     updated_at: ''
   })),
   fetchNarrationEvents: vi.fn(async () => []),
   cancelRun: vi.fn(),
-  extendBudget: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 1,

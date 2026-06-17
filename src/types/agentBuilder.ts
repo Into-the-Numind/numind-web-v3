@@ -96,7 +96,6 @@ export interface Agent {
   advanced_mode: boolean
   custom_skill_body: string
   tool_flags: ToolFlags
-  credit_cap_per_session: number | null // 后端 *uint
   daily_credit_cap: number | null
   version: number
   is_active: boolean
@@ -134,7 +133,6 @@ export interface SkillTemplate {
   starters: string[]
   questionnaire_answers: QuestionnaireAnswers
   tool_flags: ToolFlags
-  credit_cap_per_session: number | null
   daily_credit_cap: number | null
   created_at: string
 }
@@ -151,7 +149,6 @@ export interface CreateAgentPayload {
   system_prompt?: string
   starters?: string[]
   tool_flags?: ToolFlags
-  credit_cap_per_session?: number | null
   daily_credit_cap?: number | null
   source_template_id?: number | null
 }
@@ -173,7 +170,6 @@ export interface AgentFormState {
   starters: string[]
   // tool_flags + cap 隐藏字段（v1 通过模板预设或保持默认）
   tool_flags: ToolFlags
-  credit_cap_per_session: number | null
   daily_credit_cap: number | null
 }
 
@@ -194,7 +190,6 @@ export function initialFormState(): AgentFormState {
       media: true,
       dangerous: true
     },
-    credit_cap_per_session: null,
     daily_credit_cap: null
   }
 }
