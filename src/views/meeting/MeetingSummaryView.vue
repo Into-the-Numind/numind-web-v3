@@ -1,10 +1,10 @@
 <!--
-  MeetingSummaryView — 会议「会后」页 (SPEC §0.3 / §5)
+  MeetingSummaryView — 会议「会后」页 (SPEC §0 / §3 / §5)
 
   内容:
     - AI 纪要 (markdown 渲染, summary_status 反映 none/generating/done/failed)
     - 完整转写稿 (segments 按 seq)
-    - 录音回放 (按 segment 顺序播放 audio_url; 自研顺序播放器, 无外部库)
+    - 录音回放 (SPEC §3: 单个 <audio :src="recording_url"> 整场录音, 浏览器原生控件)
     - 导出 (纪要 .md / 转写 .txt 下载, 纯前端 Blob)
 
   4 状态:
@@ -82,43 +82,19 @@
           </div>
         </section>
 
-        <!-- 录音回放 -->
-        <section v-if="playableSegments.length > 0" class="block">
+        <!-- 录音回放 (SPEC §3: 整场单文件录音, 原生 audio 控件) -->
+        <section v-if="recordingUrl" class="block">
           <div class="block-head">
             <h2 class="block-title">录音回放</h2>
-            <span class="block-sub">按发言顺序连续播放</span>
+            <span class="block-sub">整场录音</span>
           </div>
           <div class="block-body">
-            <div class="player">
-              <button type="button" class="player-btn" @click="togglePlay">
-                <Pause v-if="isPlaying" :size="18" />
-                <Play v-else :size="18" />
-              </button>
-              <div class="player-info">
-                <span class="player-pos">
-                  第 {{ currentPlayIndex + 1 }} / {{ playableSegments.length }} 段
-                </span>
-                <span class="player-hint">
-                  {{ isPlaying ? '播放中' : '已暂停' }} ·
-                  {{ formatMs(playableSegments[currentPlayIndex]?.start_ms ?? 0) }}
-                </span>
-              </div>
-              <button
-                type="button"
-                class="player-reset"
-                :disabled="currentPlayIndex === 0 && !isPlaying"
-                @click="resetPlayback"
-              >
-                <RotateCcw :size="14" />
-                <span>从头</span>
-              </button>
-            </div>
-            <!-- 单一 audio 元素, src 随段切换; ended 事件推进到下一段 -->
+            <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
             <audio
-              ref="audioEl"
-              class="audio-hidden"
-              preload="none"
-              @ended="onSegmentEnded"
+              class="full-audio"
+              controls
+              preload="metadata"
+              :src="recordingUrl"
               @error="onAudioError"
             />
             <p v-if="playError" class="audio-error">{{ playError }}</p>
@@ -157,9 +133,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Download, Play, Pause, RotateCcw } from 'lucide-vue-next'
+import { ArrowLeft, Download } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import { useMeetingStore } from '@/stores/meeting'
@@ -182,10 +158,10 @@ const spokenSegments = computed(() =>
   [...meeting.segments].filter((s) => s.text.trim().length > 0).sort((a, b) => a.seq - b.seq)
 )
 
-// Segments that actually have an audio URL, in seq order (replay source).
-const playableSegments = computed(() =>
-  [...meeting.segments].filter((s) => !!s.audio_url).sort((a, b) => a.seq - b.seq)
-)
+// Full-session recording URL (SPEC §3). Empty string when no recording was
+// uploaded (e.g. upload failed or a legacy per-segment session); the playback
+// block is hidden in that case.
+const recordingUrl = computed(() => (meeting.currentSession?.recording_url ?? '').trim())
 
 const hasSummary = computed(
   () =>
@@ -196,73 +172,14 @@ const renderedSummary = computed(() =>
   renderMarkdown(stripCodeFence(meeting.currentSession?.summary ?? ''))
 )
 
-// ── Sequential audio playback ──────────────────────────────────────────────
-const audioEl = ref<HTMLAudioElement | null>(null)
-const isPlaying = ref(false)
-const currentPlayIndex = ref(0)
+// ── Full-session audio playback (SPEC §3) ──────────────────────────────────
+// A single native <audio> plays the whole-meeting recording (recording_url).
+// We only surface load/playback failures; the browser's built-in controls drive
+// play/pause/seek.
 const playError = ref('')
 
-const loadAndPlay = (index: number): void => {
-  const seg = playableSegments.value[index]
-  if (!seg || !seg.audio_url || !audioEl.value) return
-  audioEl.value.src = seg.audio_url
-  void audioEl.value.play().catch((err) => {
-    playError.value = `播放失败：${(err as Error)?.message ?? '无法加载音频'}`
-    isPlaying.value = false
-  })
-}
-
-const togglePlay = (): void => {
-  if (!audioEl.value) return
-  if (isPlaying.value) {
-    audioEl.value.pause()
-    isPlaying.value = false
-    return
-  }
-  playError.value = ''
-  isPlaying.value = true
-  // If nothing loaded yet, start from current index. getAttribute('src') returns
-  // null when the attribute is absent (reliable across implementations), whereas
-  // the .src property can resolve to the document base URL even with no source.
-  if (!audioEl.value.getAttribute('src')) {
-    loadAndPlay(currentPlayIndex.value)
-  } else {
-    void audioEl.value.play().catch(() => {
-      isPlaying.value = false
-    })
-  }
-}
-
-const onSegmentEnded = (): void => {
-  if (currentPlayIndex.value < playableSegments.value.length - 1) {
-    currentPlayIndex.value += 1
-    loadAndPlay(currentPlayIndex.value)
-  } else {
-    // Reached the end.
-    isPlaying.value = false
-    currentPlayIndex.value = 0
-    if (audioEl.value) audioEl.value.removeAttribute('src')
-  }
-}
-
 const onAudioError = (): void => {
-  // Skip a broken segment instead of stalling the whole replay.
-  if (isPlaying.value && currentPlayIndex.value < playableSegments.value.length - 1) {
-    currentPlayIndex.value += 1
-    loadAndPlay(currentPlayIndex.value)
-  } else {
-    isPlaying.value = false
-  }
-}
-
-const resetPlayback = (): void => {
-  if (audioEl.value) {
-    audioEl.value.pause()
-    audioEl.value.removeAttribute('src')
-  }
-  currentPlayIndex.value = 0
-  isPlaying.value = false
-  playError.value = ''
+  playError.value = '录音加载失败，链接可能已过期，请稍后重试。'
 }
 
 // ── Export (front-end Blob download) ───────────────────────────────────────
@@ -355,17 +272,6 @@ const load = async (): Promise<void> => {
 
 onMounted(() => {
   void load()
-})
-
-onUnmounted(() => {
-  if (audioEl.value) {
-    audioEl.value.pause()
-    audioEl.value.removeAttribute('src')
-    // load() after removing src aborts any pending segment fetch and resets the
-    // element to its empty state — without it a slow/in-flight request can keep
-    // downloading after the view is gone.
-    audioEl.value.load()
-  }
 })
 </script>
 
@@ -585,70 +491,11 @@ onUnmounted(() => {
   border-radius: 4px;
 }
 
-/* ===== player ===== */
-.player {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.player-btn {
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.player-btn:hover {
-  background: var(--accent-hover);
-}
-.player-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.player-pos {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
-.player-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.player-reset {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 12.5px;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.player-reset:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-.player-reset:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.audio-hidden {
-  display: none;
+/* ===== player (full-session native audio) ===== */
+.full-audio {
+  width: 100%;
+  height: 40px;
+  display: block;
 }
 .audio-error {
   margin: 12px 0 0;

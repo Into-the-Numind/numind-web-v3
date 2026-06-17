@@ -1,25 +1,29 @@
 <!--
-  MeetingLiveView — 会议「进行中」页 (SPEC §0.2 / §5)
+  MeetingLiveView — 会议「进行中」页 (SPEC §0 / §2 / §5)
 
   布局 (双栏):
-    - 左: 滚动转写稿 (segments 按 seq, 新内容自动滚到底)
+    - 左: 滚动转写稿 (finals 按 seq 正常色 + 末尾 interim 灰/斜体覆盖式更新)
     - 右: 反馈流 (卡片区分 auto/manual; 流式 token 实时显示在临时气泡)
 
-  录音控制:
-    - useMeetingRecorder 持续采集 → 每 ~auto_interval/recorder-interval 吐出 WAV →
-      ingestSegment → 追加 store.segments
+  实时流式 ASR (SPEC §2):
+    - 开始录音 → meeting.startAsrStream() 建我方 ws (relay → 阿里 Paraformer-realtime)
+      + recorder.start() 持续采集 PCM → 每 ~100ms 经 meeting.sendPcmFrame() 发二进制帧
+    - 后端逐句回 interim (灰显, 覆盖式) / final (落 meeting_segment, 追加 store.segments)
     - 计时器 / 暂停 / 结束
     - 「现在给我反馈」按钮 → trigger=manual (总是生成)
 
   自动反馈定时器:
     - 每 auto_interval_seconds 检查 store.canFeedback (有自上次反馈以来的新转写) →
-      若满足则 requestFeedback('auto')
+      若满足则 requestFeedback('auto')。转写现在实时更新, 逻辑不变。
     - auto skip 时静默, 不渲染气泡 (store 已处理 streamingFeedback=null)
 
-  结束 = 销毁性操作 → ConfirmModal (ui-ux §4)
+  结束 (SPEC §3):
+    - recorder.stop() 拿整场 blob → meeting.finishAsrStream() 收尾转写 →
+      meeting.uploadRecording(blob) 上传整场录音 → meeting.endMeeting() 生成纪要
+    - = 销毁性操作 → ConfirmModal (ui-ux §4)
 
   4 状态: 加载会话详情 (loadingDetail) / 会话不存在/已结束 (error 跳转) /
-           录音运行态 / 反馈空态。
+           录音运行态 / 反馈空态。错误态: 麦克风 micError + 实时转写断流 asrError 提示。
 -->
 <template>
   <div class="live-route">
@@ -107,26 +111,35 @@
       </header>
 
       <p v-if="micError" class="mic-error-bar">{{ micError }}</p>
+      <!-- 实时转写断流提示 (SPEC §2 error/closed): ws 异常但录音仍在本地继续 -->
+      <p v-else-if="asrError" class="mic-error-bar">
+        实时转写中断：{{ asrError }}
+        <button type="button" class="asr-retry-btn" @click="retryAsrStream">重连</button>
+      </p>
 
       <!-- 双栏 -->
       <div class="live-body">
-        <!-- 左: 转写稿 -->
+        <!-- 左: 转写稿 (finals 正常色 + 末尾 interim 灰/斜体覆盖式) -->
         <section class="panel transcript-panel">
           <div class="panel-head">
             <h2 class="panel-title">实时转写</h2>
             <span class="panel-count">{{ spokenSegments.length }} 段</span>
           </div>
           <div ref="transcriptScroll" class="panel-scroll">
-            <div v-if="spokenSegments.length === 0" class="panel-empty">
-              <p>开始录音后，转写会在这里实时滚动出现。</p>
+            <div v-if="spokenSegments.length === 0 && !interimText" class="panel-empty">
+              <p>开始录音后，转写会在这里逐句实时滚动出现。</p>
             </div>
             <ul v-else class="transcript-list">
               <li v-for="seg in spokenSegments" :key="seg.id" class="transcript-seg">
                 <span class="seg-time">{{ formatMs(seg.start_ms) }}</span>
                 <span class="seg-text">{{ seg.text }}</span>
               </li>
+              <!-- 当前句中间结果 (SPEC §2 interim): 灰显斜体, 覆盖式更新, 句末转为 final -->
+              <li v-if="interimText" class="transcript-seg transcript-seg--interim">
+                <span class="seg-time">···</span>
+                <span class="seg-text seg-text--interim">{{ interimText }}</span>
+              </li>
             </ul>
-            <p v-if="meeting.ingesting" class="ingesting-hint">转写中…</p>
           </div>
         </section>
 
@@ -223,13 +236,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Mic, Pause, Play, Square, Sparkles } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useMeetingStore } from '@/stores/meeting'
 import { useNotificationsStore } from '@/stores/notifications'
-import { useMeetingRecorder, type RecorderSegment } from '@/composables/useMeetingRecorder'
+import { useMeetingRecorder } from '@/composables/useMeetingRecorder'
 import { renderMarkdown } from '@/utils/markdown'
 
 interface Props {
@@ -240,6 +254,9 @@ const props = defineProps<Props>()
 const router = useRouter()
 const meeting = useMeetingStore()
 const notifications = useNotificationsStore()
+
+// Reactive refs off the store for direct template binding (interim tail render).
+const { interimText } = storeToRefs(meeting)
 
 const sessionId = computed(() => Number(props.id))
 
@@ -252,6 +269,10 @@ const initializing = ref(true)
 const loadError = ref('')
 const starting = ref(false)
 const micError = ref('')
+// Realtime-ASR stream error (ws relay / dashscope). Distinct from micError: the
+// local recording keeps running even if the transcript stream drops, so we show
+// a non-blocking bar with a reconnect affordance instead of a fatal state.
+const asrError = ref('')
 
 const sessionTitle = computed(() => meeting.currentSession?.title || '进行中的会议')
 
@@ -261,31 +282,46 @@ const spokenSegments = computed(() =>
   [...meeting.segments].filter((s) => s.text.trim().length > 0).sort((a, b) => a.seq - b.seq)
 )
 
-// ── Recorder ───────────────────────────────────────────────────────────────
-// onSegment fires once per recorder window with a WAV blob → upload via store.
+// ── Recorder (realtime PCM streaming + parallel full recording, SPEC §2/§3) ──
+// onPcmFrame fires ~every 100ms with one raw PCM 16k mono frame → forward over
+// the ASR ws via the store. onRecording delivers the full-session blob on stop()
+// (we also receive it as stop()'s resolved value, so this is belt-and-braces).
 const recorder = useMeetingRecorder({
-  intervalMs: 10000,
-  onSegment: (seg: RecorderSegment) => {
-    void handleRecorderSegment(seg)
+  onPcmFrame: (frame: ArrayBuffer) => {
+    // Frontend gate (belt-and-braces with the relay's own buffering): only send
+    // once the backend signalled `ready` (dashscope task-started). Frames before
+    // ready are dropped here so we never push audio into a not-yet-open task.
+    if (meeting.asrReady) meeting.sendPcmFrame(frame)
   },
   onError: (err: Error) => {
-    notifications.warning(`录音窗口异常：${err.message}`)
+    notifications.warning(`录音处理异常：${err.message}`)
   }
 })
 
-const handleRecorderSegment = async (seg: RecorderSegment): Promise<void> => {
-  await meeting.ingestSegment({
-    audio: seg.blob,
-    seq: seg.seq,
-    start_ms: seg.startMs
-  })
-}
+// True while a deliberate end/leave teardown is running. Suppresses the ASR-drop
+// watcher below so a clean stream close during stop() doesn't flash a reconnect
+// prompt. Distinct from meeting.ending (store flag for the endMeeting API call,
+// which only flips later); teardown closes the stream BEFORE that.
+const teardownInProgress = ref(false)
 
 // Mirror recorder state into the store so getters (canFeedback) stay consistent.
 watch(
   () => [recorder.isRecording.value, recorder.isPaused.value, recorder.elapsedMs.value] as const,
   ([rec, paused, elapsed]) => {
     meeting.setRecordingState(rec, paused, elapsed)
+  }
+)
+
+// Surface an unexpected ASR ws drop as a non-blocking bar (SPEC §2 error/closed):
+// the stream closing while the recorder is still capturing means the transcript
+// link broke mid-meeting (relay/dashscope error or network) — show a reconnect
+// affordance. A clean close during end/leave (teardownInProgress) is ignored.
+watch(
+  () => meeting.asrStreaming,
+  (streaming, was) => {
+    if (was && !streaming && recorder.state.value !== 'idle' && !teardownInProgress.value) {
+      asrError.value = meeting.error ?? '连接已断开'
+    }
   }
 )
 
@@ -310,9 +346,24 @@ const recStatusLabel = computed(() => {
 const startRecording = async (): Promise<void> => {
   starting.value = true
   micError.value = ''
+  asrError.value = ''
   try {
+    // Open the realtime ASR ws FIRST so the relay's dashscope task is starting
+    // up while we acquire the mic. PCM frames sent before `ready` are buffered /
+    // tolerated by the relay; the store gates nothing on asrReady for sending.
+    meeting.startAsrStream()
+    // Then start continuous capture — each PCM frame streams via onPcmFrame.
     await recorder.start()
+    // Race guard: the ASR ws can fail/close DURING mic acquisition (before the
+    // recorder leaves 'idle'), so the asrStreaming watcher's `recorder.state !==
+    // 'idle'` guard would miss it and asrError would never set. Now that the
+    // recorder is active, if the stream already died, surface the reconnect bar.
+    if (!meeting.asrStreaming) {
+      asrError.value = meeting.error ?? '实时转写连接失败，请点重连'
+    }
   } catch (err) {
+    // Mic acquisition failed → tear the ASR stream back down (no audio to send).
+    meeting.closeAsrStream()
     micError.value =
       (err as Error)?.name === 'NotAllowedError'
         ? '麦克风权限被拒绝，请在浏览器允许后重试'
@@ -327,6 +378,13 @@ const pauseRecording = (): void => {
 }
 const resumeRecording = (): void => {
   recorder.resume()
+}
+
+// Reconnect the ASR ws after a drop (recording is still running locally; we just
+// rebuild the transcript stream so subsequent speech is captured again).
+const retryAsrStream = (): void => {
+  asrError.value = ''
+  meeting.startAsrStream()
 }
 
 // ── Feedback ─────────────────────────────────────────────────────────────
@@ -384,9 +442,25 @@ const askEnd = (): void => {
   endConfirmOpen.value = true
 }
 const doEnd = async (): Promise<void> => {
+  teardownInProgress.value = true
   stopAutoTimer()
   feedbackAbort?.abort()
-  await recorder.stop()
+  feedbackAbort = null
+  // Stop capture → flush trailing PCM + finalize the full-session blob (SPEC §3).
+  const blob = await recorder.stop()
+  // Signal end-of-audio so the relay drains dashscope's final sentences. dashscope
+  // lags the audio, so a final sentence or two arrives AFTER finish — wait (≤5s)
+  // for the relay's `closed` before hard-closing, so those trailing finals land in
+  // the transcript. The hard close is the timeout fallback (relay never closed).
+  meeting.finishAsrStream()
+  await meeting.waitForAsrClosed(5000)
+  meeting.closeAsrStream()
+  // Upload the full-session recording for post-meeting playback (SPEC §3).
+  // Non-fatal: a failed upload only loses playback, transcript + summary stand.
+  if (blob) {
+    const ok = await meeting.uploadRecording(blob)
+    if (!ok && meeting.error) notifications.warning(`录音上传失败：${meeting.error}`)
+  }
   const session = await meeting.endMeeting()
   if (session) {
     router.push({ name: 'meeting-summary', params: { id: String(session.id) } })
@@ -417,7 +491,9 @@ const transcriptScroll = ref<HTMLElement | null>(null)
 const feedbackScroll = ref<HTMLElement | null>(null)
 
 watch(
-  () => spokenSegments.value.length,
+  // Scroll on a new final segment OR a live interim update so the latest
+  // transcript (incl. the grey in-progress tail) stays in view.
+  () => [spokenSegments.value.length, interimText.value] as const,
   () => {
     nextTick(() => {
       if (transcriptScroll.value)
@@ -472,10 +548,15 @@ const loadAndInit = async (): Promise<void> => {
 }
 
 const teardown = async (): Promise<void> => {
+  teardownInProgress.value = true
   stopAutoTimer()
   feedbackAbort?.abort()
   feedbackAbort = null
+  // Stop local capture and tear down the ASR ws. Leaving does NOT end the session
+  // (SPEC: it only stops local recording), so we don't upload the partial blob —
+  // closing the stream just releases the socket + clears interim state.
   await recorder.stop()
+  meeting.closeAsrStream()
 }
 
 onMounted(() => {
@@ -689,6 +770,22 @@ onUnmounted(() => {
   background: rgba(239, 68, 68, 0.06);
   border-bottom: 1px solid rgba(239, 68, 68, 0.15);
 }
+.asr-retry-btn {
+  margin-left: 10px;
+  padding: 2px 10px;
+  border: 1px solid #ef4444;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.asr-retry-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
 
 /* ===== Body (two columns) ===== */
 .live-body {
@@ -772,9 +869,15 @@ onUnmounted(() => {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.ingesting-hint {
-  margin: 12px 0 0;
-  font-size: 12px;
+/* Live interim sentence (SPEC §2): greyed + italic, overwrite-style. */
+.transcript-seg--interim {
+  opacity: 0.95;
+}
+.transcript-seg--interim .seg-time {
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+.seg-text--interim {
   color: var(--text-muted);
   font-style: italic;
 }

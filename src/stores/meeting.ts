@@ -12,7 +12,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import * as api from '@/api/meeting'
 import type {
   MeetingSession,
@@ -20,11 +20,12 @@ import type {
   MeetingFeedback,
   MeetingPreset,
   CreateMeetingRequest,
-  IngestSegmentRequest,
   SavePresetRequest,
   FeedbackRequest,
   FeedbackErrorPayload,
-  MeetingFeedbackTrigger
+  MeetingFeedbackTrigger,
+  AsrFinalSegment,
+  AsrStreamHandle
 } from '@/types/meeting'
 
 export const useMeetingStore = defineStore('meeting', () => {
@@ -42,6 +43,19 @@ export const useMeetingStore = defineStore('meeting', () => {
   const recording = ref(false)
   const paused = ref(false)
   const elapsedMs = ref(0)
+
+  // ── Realtime ASR (SPEC §2) ───────────────────────────────────────────
+  // The in-progress (not yet finalized) sentence from the ASR `interim` frame.
+  // Overwrite-style: each interim replaces it; cleared when the sentence
+  // finalizes (a `final` frame) or the stream closes. Rendered greyed/italic.
+  const interimText = ref('')
+  // True once the backend sent `ready` (Ali task-started) → safe to send audio.
+  const asrReady = ref(false)
+  // True while an ASR ws is open (between openAsrStream and its close).
+  const asrStreaming = ref(false)
+  // The live ASR ws handle (sendPCM / finish / close). Null when no stream open.
+  // Held outside Vue reactivity (it's an imperative handle, not render state).
+  let asrHandle: AsrStreamHandle | null = null
   // Monotonic timestamp (ms, from session start) of the last segment that
   // actually carried transcript text — used to gate auto feedback (canFeedback).
   const lastTranscribedMs = ref(0)
@@ -61,7 +75,8 @@ export const useMeetingStore = defineStore('meeting', () => {
   const creating = ref(false)
   const loadingDetail = ref(false)
   const loadingList = ref(false)
-  const ingesting = ref(false)
+  // True while the full-session recording is uploading (SPEC §3).
+  const uploadingRecording = ref(false)
   const ending = ref(false)
   const loadingPresets = ref(false)
   const savingPreset = ref(false)
@@ -71,14 +86,27 @@ export const useMeetingStore = defineStore('meeting', () => {
   const error = ref<string | null>(null)
 
   // ── Getters ──────────────────────────────────────────────────────────
-  /** Full transcript text, segments joined in seq order (silent segments skipped). */
-  const transcript = computed(() =>
+  /** Finalized transcript text, segments joined in seq order (silent skipped). */
+  const finalsTranscript = computed(() =>
     [...segments.value]
       .sort((a, b) => a.seq - b.seq)
       .map((s) => s.text)
       .filter((t) => t.trim().length > 0)
       .join('\n')
   )
+
+  /**
+   * Full transcript: finalized segments joined in seq order, with the live
+   * in-progress (interim) sentence appended at the end (SPEC §5). The view
+   * renders the interim tail greyed/italic via `interimText` directly; this
+   * getter is the plain-text rollup used for length gating / display fallback.
+   */
+  const transcript = computed(() => {
+    const finals = finalsTranscript.value
+    const interim = interimText.value.trim()
+    if (!interim) return finals
+    return finals ? `${finals}\n${interim}` : interim
+  })
 
   /** Total transcribed character count (drives "enough new transcript" gating). */
   const transcriptLength = computed(() => segments.value.reduce((acc, s) => acc + s.text.length, 0))
@@ -128,6 +156,7 @@ export const useMeetingStore = defineStore('meeting', () => {
       feedbacks.value = []
       lastFeedbackSeq.value = -1
       lastTranscribedMs.value = 0
+      interimText.value = ''
       return session
     } catch (err) {
       error.value = (err as Error).message ?? '创建会议失败'
@@ -176,34 +205,161 @@ export const useMeetingStore = defineStore('meeting', () => {
   }
 
   /**
-   * ingestSegment — upload one recorded WAV window for ASR and append the
-   * returned segment. Called per recorder window (SPEC §3 segments). On success
+   * appendFinalSegment — fold an ASR `final` frame's segment into `segments`
+   * (SPEC §2). De-dups by seq (defensive against a redelivered frame), keeps
+   * seq order, clears the interim tail (that sentence is now finalized), and
    * advances lastTranscribedMs when the segment carried real text.
    *
-   * Returns the persisted segment (or null on failure) so the caller can react.
+   * The wire `final.segment` is a subset of MeetingSegment (no session_id /
+   * audio_url — streaming segments store no per-segment audio, SPEC §3); we
+   * widen it to a MeetingSegment with session_id from the current session and a
+   * null audio_url so the rest of the store/view treats it uniformly.
    */
-  const ingestSegment = async (payload: IngestSegmentRequest): Promise<MeetingSegment | null> => {
+  const appendFinalSegment = (seg: AsrFinalSegment): void => {
+    const sessionId = currentSession.value?.id ?? 0
+    const segment: MeetingSegment = {
+      id: seg.id,
+      session_id: sessionId,
+      seq: seg.seq,
+      text: seg.text,
+      start_ms: seg.start_ms,
+      duration_seconds: seg.duration_seconds,
+      audio_url: null,
+      created_at: seg.created_at
+    }
+    segments.value = [...segments.value.filter((s) => s.seq !== segment.seq), segment].sort(
+      (a, b) => a.seq - b.seq
+    )
+    // The interim sentence just became this final → clear the grey tail.
+    interimText.value = ''
+    if (segment.text.trim().length > 0) {
+      lastTranscribedMs.value = segment.start_ms + segment.duration_seconds * 1000
+    }
+  }
+
+  /**
+   * startAsrStream — open the realtime ASR ws for the active session and wire
+   * its frames into store state (SPEC §2). Returns the handle so the view can
+   * push PCM frames (from useMeetingRecorder.onPcmFrame) and finish/close.
+   *
+   * Idempotent-ish: if a stream is already open it is closed first. Errors from
+   * the ws surface via `error` (frontend-state.md §3) and stop the stream; the
+   * recording itself (full webm) is independent and keeps going.
+   */
+  const startAsrStream = (): AsrStreamHandle | null => {
     if (!currentSession.value) return null
-    const sessionId = currentSession.value.id
-    ingesting.value = true
-    try {
-      const res = await api.ingestSegment(sessionId, payload)
-      const segment = res.segment
-      // De-dup by seq (defensive against retries) then insert in order.
-      segments.value = [...segments.value.filter((s) => s.seq !== segment.seq), segment].sort(
-        (a, b) => a.seq - b.seq
-      )
-      if (segment.text.trim().length > 0) {
-        lastTranscribedMs.value = segment.start_ms + segment.duration_seconds * 1000
+    // Tear down any prior stream defensively.
+    if (asrHandle) {
+      asrHandle.close()
+      asrHandle = null
+    }
+    asrReady.value = false
+    asrStreaming.value = true
+    interimText.value = ''
+    error.value = null
+
+    asrHandle = api.openAsrStream(currentSession.value.id, {
+      onReady: () => {
+        asrReady.value = true
+      },
+      onInterim: (text) => {
+        interimText.value = text
+      },
+      onFinal: (segment) => {
+        appendFinalSegment(segment)
+      },
+      onError: (message) => {
+        // Non-fatal to the recording; surface to the user (retry = restart stream).
+        error.value = message || '实时转写出错'
+      },
+      onClosed: () => {
+        asrStreaming.value = false
+        asrReady.value = false
+        interimText.value = ''
+        // The ws is fully closed — drop the handle so no stale reference lingers
+        // (a later sendPcmFrame / finish / close becomes a clean no-op).
+        asrHandle = null
       }
-      return segment
+    })
+    return asrHandle
+  }
+
+  /** sendPcmFrame — forward one raw PCM frame over the open ASR ws (no-op if none). */
+  const sendPcmFrame = (frame: ArrayBuffer): void => {
+    asrHandle?.sendPCM(frame)
+  }
+
+  /**
+   * finishAsrStream — signal end-of-audio to the backend (graceful finish).
+   * The stream stays open until the backend sends `closed` (then onClosed fires).
+   */
+  const finishAsrStream = (): void => {
+    asrHandle?.finish()
+  }
+
+  /**
+   * waitForAsrClosed — resolve once the ASR ws has fully closed (onClosed flips
+   * asrStreaming → false) OR after `timeoutMs`, whichever comes first.
+   *
+   * Why: dashscope (Ali Paraformer) processing lags behind the audio, so after
+   * `finish` the relay still emits a final sentence or two before sending
+   * `closed`. doEnd() awaits this so those trailing finals land in the transcript
+   * before we hard-close. The timeout is a safety net — if the relay never sends
+   * `closed` (network drop), we don't hang the end flow forever; the caller then
+   * hard-closes as a fallback.
+   *
+   * Resolves immediately if no stream is open (asrStreaming already false).
+   */
+  const waitForAsrClosed = (timeoutMs = 5000): Promise<void> => {
+    if (!asrStreaming.value) return Promise.resolve()
+    return new Promise<void>((resolve) => {
+      let settled = false
+      const finish = (): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        stop()
+        resolve()
+      }
+      const stop = watch(asrStreaming, (streaming) => {
+        if (!streaming) finish()
+      })
+      const timer = setTimeout(finish, Math.max(0, timeoutMs))
+    })
+  }
+
+  /** closeAsrStream — hard-close the ASR ws (idempotent) and reset stream state. */
+  const closeAsrStream = (): void => {
+    if (asrHandle) {
+      asrHandle.close()
+      asrHandle = null
+    }
+    asrStreaming.value = false
+    asrReady.value = false
+    interimText.value = ''
+  }
+
+  /**
+   * uploadRecording — upload the full-session audio blob (webm/opus from the
+   * parallel MediaRecorder) and merge the returned session (carries
+   * recording_url) into state (SPEC §3). Non-fatal: a failed upload leaves the
+   * transcript/summary intact, only playback is missing.
+   *
+   * Returns true on success. Surfaces failures via `error` per frontend-state.md.
+   */
+  const uploadRecording = async (blob: Blob): Promise<boolean> => {
+    if (!currentSession.value) return false
+    const sessionId = currentSession.value.id
+    uploadingRecording.value = true
+    try {
+      const session = await api.uploadRecording(sessionId, blob)
+      currentSession.value = session
+      return true
     } catch (err) {
-      // Segment ingest failures are non-fatal (one lost window) — surface but do
-      // not throw; the recording keeps going.
-      error.value = (err as Error).message ?? '转写失败'
-      return null
+      error.value = (err as Error).message ?? '录音上传失败'
+      return false
     } finally {
-      ingesting.value = false
+      uploadingRecording.value = false
     }
   }
 
@@ -355,6 +511,11 @@ export const useMeetingStore = defineStore('meeting', () => {
 
   // ── Reset ────────────────────────────────────────────────────────────
   const reset = (): void => {
+    // Tear down any live ASR ws so a navigation away doesn't leak the socket.
+    if (asrHandle) {
+      asrHandle.close()
+      asrHandle = null
+    }
     currentSession.value = null
     segments.value = []
     feedbacks.value = []
@@ -367,10 +528,13 @@ export const useMeetingStore = defineStore('meeting', () => {
     lastFeedbackSeq.value = -1
     feedbackStreaming.value = false
     streamingFeedback.value = null
+    interimText.value = ''
+    asrReady.value = false
+    asrStreaming.value = false
     creating.value = false
     loadingDetail.value = false
     loadingList.value = false
-    ingesting.value = false
+    uploadingRecording.value = false
     ending.value = false
     loadingPresets.value = false
     savingPreset.value = false
@@ -389,6 +553,9 @@ export const useMeetingStore = defineStore('meeting', () => {
     recording,
     paused,
     elapsedMs,
+    interimText,
+    asrReady,
+    asrStreaming,
     lastTranscribedMs,
     lastFeedbackSeq,
     feedbackStreaming,
@@ -396,7 +563,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     creating,
     loadingDetail,
     loadingList,
-    ingesting,
+    uploadingRecording,
     ending,
     loadingPresets,
     savingPreset,
@@ -404,6 +571,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     error,
     // getters
     transcript,
+    finalsTranscript,
     transcriptLength,
     isRecording,
     isPaused,
@@ -415,7 +583,13 @@ export const useMeetingStore = defineStore('meeting', () => {
     createSession,
     loadSession,
     loadHistory,
-    ingestSegment,
+    startAsrStream,
+    sendPcmFrame,
+    finishAsrStream,
+    waitForAsrClosed,
+    closeAsrStream,
+    appendFinalSegment,
+    uploadRecording,
     endMeeting,
     requestFeedback,
     loadPresets,
