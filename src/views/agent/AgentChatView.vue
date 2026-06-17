@@ -582,8 +582,14 @@ const handleRetrySnapshot = async (): Promise<void> => {
         </div>
       </main>
 
-      <!-- 第三栏：文档编辑器面板（点开 agent 文本类产物时展开） -->
-      <DocumentEditorPanel v-if="docPanelOpen" class="doc-col" />
+      <!-- 第三栏：文档编辑器面板（点开 agent 文本类产物时展开）。
+           仅在正常对话态渲染——侧栏常驻后它与 .page-loading/.state-error 同为
+           .app-container 的 flex 子项，这里显式排除加载/失败态，避免旧会话的
+           文档面板与加载态并排闪现。 -->
+      <DocumentEditorPanel
+        v-if="docPanelOpen && !isLoadingSnapshot && !hasSnapshotError"
+        class="doc-col"
+      />
     </div>
 
     <!-- Budget exceeded modal -->

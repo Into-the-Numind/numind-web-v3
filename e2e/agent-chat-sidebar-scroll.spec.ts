@@ -22,8 +22,17 @@
  * Strategy: mock-driven + hermetic auth (matches agent-chat-rename-overlay.spec.ts),
  * so this never depends on live dev data or auth.setup.ts.
  *
- * Run:
- *   VITE_AGENT_MOCK=true npm run test:e2e -- agent-chat-sidebar-scroll
+ * Data source note: under VITE_AGENT_MOCK=true the sidebar's session list comes
+ * from the IN-PROCESS mock (src/api/agent.mock.ts → listAllHistorySessions, 2
+ * DEMO_RECENT entries), NOT from a network call. The /v1/agent-sessions/recent
+ * Playwright route in setupAgentMocks is a no-op here (the app short-circuits the
+ * network in mock mode) — it's kept only because the helper is shared. Two sessions
+ * is enough: we need one history item to click; the assertion is node-identity
+ * (no remount), not scroll pixels.
+ *
+ * Run (skip the setup project — this spec is hermetic, and `setup` would try a real
+ * login against the dev backend the vite proxy points at):
+ *   VITE_AGENT_MOCK=true npx playwright test --no-deps --project=e2e agent-chat-sidebar-scroll
  */
 
 import { test, expect } from '@playwright/test'
