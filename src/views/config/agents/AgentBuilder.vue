@@ -59,10 +59,6 @@ const afterSavedAgentId = ref<number | null>(null)
 const leaveConfirmVisible = ref(false)
 const pendingResolve = ref<((value: boolean) => void) | null>(null)
 
-// ── Advanced toggle confirm (inline; M10 will add dedicated component) ─────
-
-const advancedConfirmVisible = ref(false)
-
 // ── Dirty check ───────────────────────────────────────────────────────────
 
 const isDirty = computed(() => JSON.stringify(form) !== initialFormSnapshot.value)
@@ -276,28 +272,6 @@ function onSkip() {
   }
 }
 
-// ── Advanced toggle ────────────────────────────────────────────────────────
-
-function openAdvancedToggleModal() {
-  advancedConfirmVisible.value = true
-}
-
-async function confirmAdvancedToggle() {
-  advancedConfirmVisible.value = false
-  if (!props.agentId) return
-  try {
-    await store.toggleAdvanced(props.agentId)
-    // Reload the edit page — AgentEdit wrapper will now route to AgentAdvancedEdit
-    router.push(`/config/agents/${props.agentId}/edit`)
-  } catch (e) {
-    notifications.error((e as Error).message || '切换失败')
-  }
-}
-
-function cancelAdvancedToggle() {
-  advancedConfirmVisible.value = false
-}
-
 // ── Route leave guard ──────────────────────────────────────────────────────
 
 function confirmLeave() {
@@ -380,30 +354,7 @@ onBeforeUnmount(() => {
         :errors="errors"
         @update:model-value="Object.assign(form, $event)"
       />
-
-      <!-- Advanced mode link — HIDDEN until custom-Prompt editing ships.
-           Toggling is irreversible (loses the questionnaire) and currently lands on a
-           read-only "即将上线" advanced editor, so it would only brick the agent's
-           editability. Re-enable (v-if back to mode==='edit') when AgentAdvancedEdit
-           becomes editable. -->
-      <div v-if="false" class="advanced-link-wrap">
-        <button class="advanced-link" @click="openAdvancedToggleModal">
-          需要更精细的控制？切换到高级模式 →
-        </button>
-      </div>
     </div>
-
-    <!-- Advanced toggle confirm modal -->
-    <ConfirmModal
-      :model-value="advancedConfirmVisible"
-      title="切换到高级模式"
-      message="切换到高级模式后，你可以直接编辑 Prompt 代码，但操作不可逆。确定要继续吗？"
-      confirm-text="确认切换"
-      cancel-text="取消"
-      variant="danger"
-      @confirm="confirmAdvancedToggle"
-      @cancel="cancelAdvancedToggle"
-    />
 
     <!-- After-save modal -->
     <AfterSaveModal
@@ -529,29 +480,4 @@ onBeforeUnmount(() => {
 }
 
 /* Advanced mode link */
-.advanced-link-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--outline-variant);
-}
-
-.advanced-link {
-  background: none;
-  border: none;
-  font-size: var(--text-sm);
-  color: var(--on-surface-variant);
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  transition:
-    color var(--transition-fast),
-    text-decoration-color var(--transition-fast);
-  padding: 0;
-}
-
-.advanced-link:hover {
-  color: var(--tertiary);
-  text-decoration-color: currentColor;
-}
 </style>

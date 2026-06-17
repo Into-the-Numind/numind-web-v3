@@ -281,12 +281,7 @@
 
       <!-- AI 智能体入口 -->
       <div v-if="agentChatStore.availableAgents.length" class="workspace-section">
-        <div class="agent-section-head">
-          <div class="section-label">AI 智能体</div>
-          <button type="button" class="agent-history-link" @click="goAgentHistory">
-            查看历史 →
-          </button>
-        </div>
+        <div class="section-label">AI 智能体</div>
         <div class="feature-cards">
           <button
             v-for="agent in agentChatStore.availableAgents"
@@ -655,12 +650,6 @@ const handleAgentClick = (agentId: number) => {
   })
 }
 
-// goAgentHistory opens the student's cross-agent history + search (previously
-// reachable only by typing the URL — no nav entry existed anywhere).
-const goAgentHistory = () => {
-  void router.push({ name: 'agent-history' })
-}
-
 const fetchChatbots = async () => {
   chatbotsLoading.value = true
   try {
@@ -751,28 +740,6 @@ onMounted(() => {
   text-transform: uppercase;
   margin-bottom: 16px;
   padding-left: 4px;
-}
-
-.agent-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.agent-history-link {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  color: #8b90a0;
-  padding: 0 4px;
-  transition: color 0.15s ease;
-}
-
-.agent-history-link:hover {
-  color: var(--color-primary, #10b981);
 }
 
 /* ===== Feature Cards (已上线) ===== */

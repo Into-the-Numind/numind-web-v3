@@ -26,23 +26,6 @@ const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
 }>()
 
-const statusBadge = computed<{ icon: string; label: string; color: string }>(() => {
-  if (props.readOnly) return { icon: '📂', label: '已结束', color: 'gray' }
-  const s = props.run?.status
-  if (!s) return { icon: '⚪', label: '待命', color: 'gray' }
-  if (s === 'running' || s === 'pending') {
-    if (props.run?.credits_threshold_state === 'warning_60') {
-      return { icon: '🟡', label: '进行中', color: 'orange' }
-    }
-    return { icon: '🟢', label: '进行中', color: 'green' }
-  }
-  if (s === 'completed') return { icon: '✅', label: '已完成', color: 'green' }
-  if (s === 'cancelled') return { icon: '⏸', label: '已取消', color: 'gray' }
-  if (s === 'failed' || s === 'timeout') return { icon: '❌', label: '任务失败', color: 'red' }
-  if (s === 'budget_exhausted') return { icon: '💳', label: '积分用尽', color: 'red' }
-  return { icon: '⚪', label: '待命', color: 'gray' }
-})
-
 const showCancel = computed(() => {
   if (props.readOnly) return false
   const s = props.run?.status
@@ -53,7 +36,7 @@ const cancelDisabled = computed(() => props.cancelling)
 </script>
 
 <template>
-  <header class="agent-chat-header" :class="['status-' + statusBadge.color]">
+  <header class="agent-chat-header">
     <div class="left">
       <button class="sidebar-toggle" @click="emit('toggle-sidebar')" aria-label="切换侧边栏">
         <svg
@@ -75,13 +58,6 @@ const cancelDisabled = computed(() => props.cancelling)
     </div>
 
     <div class="right">
-      <!-- Run status (incl. 已结束 for a read-only / completed record) — the
-           statusBadge computed existed but was never rendered, so a student had
-           no signal a run was finished vs still live. -->
-      <span class="status-badge" :class="'badge-' + statusBadge.color">
-        <span class="badge-icon">{{ statusBadge.icon }}</span>
-        <span class="badge-label">{{ statusBadge.label }}</span>
-      </span>
       <AppButton
         v-if="showCancel"
         variant="secondary"
@@ -144,44 +120,6 @@ const cancelDisabled = computed(() => props.cancelling)
 .right {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-  background: hsla(160, 12%, 94%, 0.8);
-  color: var(--text-muted, #6b7280);
-}
-
-/* gray (待命/已结束/已取消) intentionally uses the base .status-badge styles */
-.badge-gray {
-  /* no override — neutral default */
-}
-
-.badge-green {
-  background: hsla(152, 60%, 94%, 0.9);
-  color: #047857;
-}
-
-.badge-orange {
-  background: hsla(38, 90%, 94%, 0.9);
-  color: #b45309;
-}
-
-.badge-red {
-  background: hsla(0, 80%, 96%, 0.9);
-  color: #b91c1c;
-}
-
-.badge-icon {
-  font-size: 11px;
 }
 
 /* cancel 按钮覆盖为红色 danger 风格 */
