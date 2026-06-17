@@ -19,6 +19,7 @@ import type {
   MeetingSegment,
   MeetingFeedback,
   MeetingPreset,
+  MeetingSummaryStatus,
   CreateMeetingRequest,
   SavePresetRequest,
   FeedbackRequest,
@@ -59,11 +60,12 @@ export const useMeetingStore = defineStore('meeting', () => {
   // Monotonic timestamp (ms, from session start) of the last segment that
   // actually carried transcript text — used to gate auto feedback (canFeedback).
   const lastTranscribedMs = ref(0)
-  // Anchor (highest segment seq) consumed by the last feedback — auto trigger
-  // only fires when new transcript has arrived since. Sentinel -1 means "no
-  // feedback yet" so the very first segment (seq=0) can satisfy canFeedback's
-  // strict `seq > lastFeedbackSeq` gate (a seq=0-only meeting would otherwise
-  // never trigger once lastFeedbackSeq settled at 0).
+  // Anchor (highest segment seq) consumed by the last feedback — the auto
+  // content-gate (canFeedback) only fires when ENOUGH new transcript has arrived
+  // since this anchor (FEEDBACK_V2 §1: ≥2 new final segments OR ≥~100 chars).
+  // Sentinel -1 means "no feedback yet" so the very first segment (seq=0) is
+  // counted as new (a seq=0-only meeting would otherwise never count anything
+  // once lastFeedbackSeq settled at 0).
   const lastFeedbackSeq = ref(-1)
   // True while a feedback SSE stream is in flight (manual or auto).
   const feedbackStreaming = ref(false)
@@ -120,22 +122,36 @@ export const useMeetingStore = defineStore('meeting', () => {
     segments.value.reduce((max, s) => (s.seq > max ? s.seq : max), -1)
   )
 
+  // Content-gate thresholds (FEEDBACK_V2 §1): the auto timer only fires once
+  // ENOUGH genuinely new transcript has accumulated since the last feedback —
+  // either ≥2 new final segments OR ≥~100 new characters. A single short
+  // utterance ("好的") no longer triggers a feedback round; this kills the
+  // "talked over / interrupting" feel and the request storm on choppy transcripts.
+  const FEEDBACK_MIN_NEW_SEGMENTS = 2
+  const FEEDBACK_MIN_NEW_CHARS = 100
+
   /**
-   * canFeedback — true when it is meaningful to request feedback now:
+   * canFeedback — true when it is meaningful to request AUTO feedback now:
    *  - a session is active,
    *  - no feedback stream is already in flight,
-   *  - AND there is at least one non-empty transcript segment that arrived since
-   *    the last feedback (lastFeedbackSeq). Manual feedback may bypass the
-   *    "new transcript" part via requestManualFeedback's own check, but for the
-   *    AUTO timer this getter is the gate.
+   *  - AND the transcript that arrived since the last feedback (lastFeedbackSeq)
+   *    crosses the content gate: ≥2 new non-empty final segments OR ≥~100 new
+   *    chars. Manual feedback bypasses this gate (requestFeedback is called
+   *    directly with trigger='manual'); for the AUTO timer this getter is the gate.
    */
   const canFeedback = computed(() => {
     if (!isActive.value) return false
     if (feedbackStreaming.value) return false
-    const hasNewTranscript = segments.value.some(
-      (s) => s.seq > lastFeedbackSeq.value && s.text.trim().length > 0
-    )
-    return hasNewTranscript
+    let newSegments = 0
+    let newChars = 0
+    for (const s of segments.value) {
+      if (s.seq <= lastFeedbackSeq.value) continue
+      const len = s.text.trim().length
+      if (len === 0) continue
+      newSegments += 1
+      newChars += len
+    }
+    return newSegments >= FEEDBACK_MIN_NEW_SEGMENTS || newChars >= FEEDBACK_MIN_NEW_CHARS
   })
 
   // ── Recorder-state sync (called by the view's useMeetingRecorder) ─────
@@ -363,6 +379,17 @@ export const useMeetingStore = defineStore('meeting', () => {
     }
   }
 
+  /**
+   * endMeeting — POST /v1/meetings/:id/end (FEEDBACK_V2 §3.1: now ASYNC).
+   *
+   * The backend returns IMMEDIATELY (秒回) after flipping status→ended +
+   * summary_status→'generating'; the minutes are produced by a background
+   * goroutine. So the returned session usually carries summary_status==='generating'
+   * (occasionally 'done' if generation was near-instant). This action no longer
+   * blocks on summary generation — the Summary view polls getSession until the
+   * status settles to 'done' / 'failed'. We only persist whatever the end call
+   * returns into currentSession so the Summary page starts from a correct status.
+   */
   const endMeeting = async (): Promise<MeetingSession | null> => {
     if (!currentSession.value) return null
     const sessionId = currentSession.value.id
@@ -377,6 +404,30 @@ export const useMeetingStore = defineStore('meeting', () => {
       return null
     } finally {
       ending.value = false
+    }
+  }
+
+  /**
+   * refreshSession — re-fetch the session detail (GET /v1/meetings/:id) and merge
+   * into state, WITHOUT toggling loadingDetail (so a background poll doesn't flash
+   * the full-page skeleton). Used by the Summary view to poll summary_status while
+   * it transitions generating → done / failed (FEEDBACK_V2 §3.2). Errors surface
+   * via `error` per frontend-state.md §3; returns the updated status or null on failure.
+   */
+  const refreshSession = async (id: number): Promise<MeetingSummaryStatus | null> => {
+    try {
+      const detail = await api.getSession(id)
+      currentSession.value = detail.session
+      // Keep transcript/feedbacks fresh too (cheap; summary view ignores them but
+      // a re-entered live view benefits from consistency).
+      segments.value = [...detail.segments].sort((a, b) => a.seq - b.seq)
+      feedbacks.value = [...detail.feedbacks].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      return detail.session.summary_status
+    } catch (err) {
+      error.value = (err as Error).message ?? '加载会议失败'
+      return null
     }
   }
 
@@ -591,6 +642,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     appendFinalSegment,
     uploadRecording,
     endMeeting,
+    refreshSession,
     requestFeedback,
     loadPresets,
     savePreset,

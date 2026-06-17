@@ -4,7 +4,7 @@
   用户在这里:
     - 填写角色定位 + 反馈规则 (role_prompt, 自由文本)
     - 可选从预设载入 / 把当前配置存为预设 (SPEC §3 presets)
-    - 设置 auto_interval_seconds (自动反馈最小间隔, 默认 60)
+    - 设置 auto_interval_seconds (自动反馈间隔 5–60 秒, 默认 15; FEEDBACK_V2 §1 去档位)
     - 授权麦克风 (start 一个临时 recorder 探针 → 立刻 stop, 仅为触发授权弹窗)
     - 「开始会议」→ createSession → 跳 /meeting/live/:id
 
@@ -82,23 +82,23 @@
 
         <!-- auto_interval -->
         <div class="field">
-          <label class="field-label" for="auto-interval">自动反馈最小间隔（秒）</label>
+          <label class="field-label" for="auto-interval">自动反馈间隔（秒）</label>
           <div class="interval-row">
             <input
               id="auto-interval"
               v-model.number="autoIntervalSeconds"
               class="interval-input"
               type="number"
-              min="15"
-              max="600"
-              step="5"
+              min="5"
+              max="60"
+              step="1"
               @blur="validateInterval"
             />
             <span class="interval-suffix">秒 / 次</span>
           </div>
           <p v-if="intervalError" class="hint hint--error">{{ intervalError }}</p>
           <p v-else class="hint hint--muted">
-            每隔这么久，且有新转写时，AI 自动判断是否给反馈（最少 15 秒）。
+            每隔这么久，且有足够新转写时，AI 自动判断是否给反馈（5–60 秒）。
           </p>
         </div>
 
@@ -191,7 +191,7 @@ const notifications = useNotificationsStore()
 
 // ── Form state ───────────────────────────────────────────────────────────
 const rolePrompt = ref('')
-const autoIntervalSeconds = ref(60)
+const autoIntervalSeconds = ref(15)
 const selectedPresetId = ref<number | null>(null)
 const newPresetName = ref('')
 const showSavePreset = ref(false)
@@ -212,8 +212,8 @@ const validateRolePrompt = (): boolean => {
 
 const validateInterval = (): boolean => {
   const v = autoIntervalSeconds.value
-  if (!Number.isFinite(v) || v < 15 || v > 600) {
-    intervalError.value = '间隔需在 15–600 秒之间'
+  if (!Number.isFinite(v) || v < 5 || v > 60) {
+    intervalError.value = '间隔需在 5–60 秒之间'
     return false
   }
   intervalError.value = ''
@@ -269,7 +269,9 @@ const onPresetChange = (): void => {
   const p = selectedPreset.value
   if (!p) return
   rolePrompt.value = p.role_prompt
-  autoIntervalSeconds.value = p.auto_interval_seconds
+  // Clamp into the new 5–60 range (FEEDBACK_V2 §1): older builtin presets may
+  // carry a legacy interval (e.g. 60 or a higher value) outside the new bounds.
+  autoIntervalSeconds.value = Math.min(60, Math.max(5, p.auto_interval_seconds))
   rolePromptError.value = ''
   intervalError.value = ''
 }

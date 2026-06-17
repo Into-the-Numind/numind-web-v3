@@ -155,7 +155,13 @@ export interface IngestSegmentResponse {
   segment: MeetingSegment
 }
 
-/** POST /v1/meetings/:id/end → { session } (with summary + summary_status='done') */
+/**
+ * POST /v1/meetings/:id/end → { session }.
+ * v2: /end now returns near-instantly (秒回) with summary_status='generating' —
+ * the AI minutes are produced by a background goroutine after the response, so
+ * `session.summary` is still empty here. The Summary page polls until
+ * summary_status flips to 'done' (or 'failed').
+ */
 export interface EndMeetingResponse {
   session: MeetingSession
 }

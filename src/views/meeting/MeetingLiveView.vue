@@ -402,13 +402,42 @@ const requestManual = async (): Promise<void> => {
   }
 }
 
+// ── Pause-awareness (FEEDBACK_V2 §1) ─────────────────────────────────────────
+// Wall-clock (ms) of the last time the live interim sentence changed — i.e. the
+// last moment we had evidence someone is mid-sentence. The auto timer uses this
+// to DEFER a tick that lands while a speaker is still talking (a fresh interim
+// arrived <~1s ago), so feedback never interrupts mid-thought; the next tick
+// re-checks. 0 means "no interim seen yet" (never deferred on that basis).
+const lastInterimAtMs = ref(0)
+// How recently an interim must have updated to count as "still speaking". A
+// natural pause (~1s with no new interim) lets the deferred tick proceed.
+const INTERIM_ACTIVE_WINDOW_MS = 1000
+
+// Each interim frame overwrites interimText (store onInterim); stamp the time so
+// the auto timer can tell "actively speaking" from "settled". A final frame
+// clears interimText (empty) — we leave the stamp; the emptiness itself signals
+// the sentence settled, so the gate below keys on interimText being non-empty.
+watch(interimText, (text) => {
+  if (text && text.trim().length > 0) lastInterimAtMs.value = Date.now()
+})
+
 const requestAuto = async (): Promise<void> => {
-  // canFeedback gate: active + not streaming + new transcript since last feedback.
+  // Content gate (store.canFeedback): active + not streaming + ENOUGH new
+  // transcript since the last feedback (≥2 new finals OR ≥~100 new chars).
   if (!meeting.canFeedback) return
+  // Pause-awareness: if a speaker is mid-sentence right now (interim is non-empty
+  // AND it last updated <~1s ago), DEFER — don't cut them off. We simply skip
+  // this tick; the next auto tick re-evaluates once the interim settles.
+  const interim = interimText.value.trim()
+  if (interim && Date.now() - lastInterimAtMs.value < INTERIM_ACTIVE_WINDOW_MS) {
+    return
+  }
   feedbackAbort = new AbortController()
   await meeting.requestFeedback('auto', feedbackAbort.signal)
   feedbackAbort = null
   // auto skip is silent (store sets streamingFeedback=null, no card appended).
+  // No cooldown (FEEDBACK_V2 §1): the next tick fires as soon as the content gate
+  // is satisfied again — there is no fixed quiet window after giving feedback.
 }
 
 const renderFeedback = (content: string): string => renderMarkdown(content)
@@ -418,16 +447,16 @@ let autoTimer: ReturnType<typeof setInterval> | null = null
 
 const startAutoTimer = (): void => {
   stopAutoTimer()
-  const intervalSec = meeting.currentSession?.auto_interval_seconds ?? 60
-  autoTimer = setInterval(
-    () => {
-      // Only fire while actively recording — paused/idle should not auto-feedback.
-      if (recorder.isRecording.value) {
-        void requestAuto()
-      }
-    },
-    Math.max(15, intervalSec) * 1000
-  )
+  // User-set base interval, clamped to 5-60s (FEEDBACK_V2 §1: lower bound 15→5,
+  // no "克制/适中/积极" tiers — just the number). Default 15 when unset.
+  const intervalSec = meeting.currentSession?.auto_interval_seconds ?? 15
+  const clamped = Math.min(60, Math.max(5, intervalSec))
+  autoTimer = setInterval(() => {
+    // Only fire while actively recording — paused/idle should not auto-feedback.
+    if (recorder.isRecording.value) {
+      void requestAuto()
+    }
+  }, clamped * 1000)
 }
 const stopAutoTimer = (): void => {
   if (autoTimer) {
@@ -441,30 +470,86 @@ const endConfirmOpen = ref(false)
 const askEnd = (): void => {
   endConfirmOpen.value = true
 }
+// Hard cap on recorder.stop() before we move on regardless (FEEDBACK_V2 §3.2).
+// If the MediaRecorder/AudioContext teardown hangs, we must NOT wedge the whole
+// end flow — the session still has to be ended + summarized. We lose the upload
+// blob in that case (playback only), but transcript + summary are unaffected.
+const RECORDER_STOP_TIMEOUT_MS = 3000
+
 const doEnd = async (): Promise<void> => {
   teardownInProgress.value = true
   stopAutoTimer()
   feedbackAbort?.abort()
   feedbackAbort = null
-  // Stop capture → flush trailing PCM + finalize the full-session blob (SPEC §3).
-  const blob = await recorder.stop()
-  // Signal end-of-audio so the relay drains dashscope's final sentences. dashscope
-  // lags the audio, so a final sentence or two arrives AFTER finish — wait (≤5s)
-  // for the relay's `closed` before hard-closing, so those trailing finals land in
-  // the transcript. The hard close is the timeout fallback (relay never closed).
-  meeting.finishAsrStream()
-  await meeting.waitForAsrClosed(5000)
-  meeting.closeAsrStream()
-  // Upload the full-session recording for post-meeting playback (SPEC §3).
-  // Non-fatal: a failed upload only loses playback, transcript + summary stand.
-  if (blob) {
-    const ok = await meeting.uploadRecording(blob)
-    if (!ok && meeting.error) notifications.warning(`录音上传失败：${meeting.error}`)
+
+  // 1) Stop capture → flush trailing PCM + finalize the full-session blob (SPEC §3).
+  // Wrap in a timeout race: a hung stop() must never block reaching endMeeting()
+  // (the root cause of the "session stuck active / no summary" bug). On timeout or
+  // error we proceed with blob=null (recorder cleanup still ran best-effort).
+  let blob: Blob | null = null
+  // Capture the timeout id so a normal stop() win clears it — otherwise the 3s
+  // timer keeps spinning after we've moved on, only to resolve into the void.
+  let stopTimeoutId: ReturnType<typeof setTimeout> | undefined
+  try {
+    blob = await Promise.race<Blob | null>([
+      recorder.stop().then((b) => {
+        clearTimeout(stopTimeoutId)
+        return b
+      }),
+      new Promise<null>((resolve) => {
+        stopTimeoutId = setTimeout(() => resolve(null), RECORDER_STOP_TIMEOUT_MS)
+      })
+    ])
+  } catch (err) {
+    // recorder.stop() rejected — non-fatal; keep ending the meeting. Clear the
+    // timer too so a reject doesn't leave the 3s fallback running.
+    clearTimeout(stopTimeoutId)
+    notifications.warning(`停止录音异常：${(err as Error)?.message ?? '未知错误'}`)
   }
+
+  // 2) Drain the ASR relay's trailing finals, then hard-close. Each step is
+  // best-effort — a stuck/erroring ASR teardown must not block the end either.
+  try {
+    meeting.finishAsrStream()
+    await meeting.waitForAsrClosed(5000)
+  } catch {
+    /* ignore — closeAsrStream below is the unconditional fallback */
+  }
+  meeting.closeAsrStream()
+
+  // 3) Upload the full-session recording for playback (SPEC §3). Non-fatal: a
+  // failed/absent upload only loses playback; transcript + summary stand. This
+  // runs BEFORE endMeeting but must never gate it (try-catch swallows throws).
+  if (blob) {
+    try {
+      const ok = await meeting.uploadRecording(blob)
+      if (!ok && meeting.error) notifications.warning(`录音上传失败：${meeting.error}`)
+    } catch (err) {
+      notifications.warning(`录音上传失败：${(err as Error)?.message ?? '未知错误'}`)
+    }
+  }
+
+  // 4) END THE MEETING — ALWAYS, no matter what happened above (FEEDBACK_V2 §3.2).
+  // endMeeting is now near-instant (秒回, summary_status=generating); the Summary
+  // page polls for the minutes. We jump to it whenever we have a session id so the
+  // user sees the generating state — even if a transient end error needs a retry.
   const session = await meeting.endMeeting()
+  const targetId = session?.id ?? meeting.currentSession?.id ?? sessionId.value
   if (session) {
     router.push({ name: 'meeting-summary', params: { id: String(session.id) } })
+  } else if (Number.isFinite(targetId) && targetId > 0) {
+    // End call failed but the session exists — surface the error, still navigate to
+    // the summary so the user isn't stranded on a dead live view (it shows the
+    // failed/none state + a path forward rather than a frozen recording UI).
+    notifications.error(meeting.error ?? '结束会议失败')
+    router.push({ name: 'meeting-summary', params: { id: String(targetId) } })
   } else {
+    // No valid session id to navigate to — the user is STRANDED on the live view.
+    // Reset teardownInProgress so the ASR-drop watcher can fire again (otherwise a
+    // subsequent stream drop would be silently swallowed and the reconnect bar
+    // would never show). The recorder is already torn down here, so a re-armed
+    // watcher only re-surfaces genuine drops on any retry.
+    teardownInProgress.value = false
     notifications.error(meeting.error ?? '结束会议失败')
   }
 }
