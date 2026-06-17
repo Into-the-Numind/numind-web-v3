@@ -45,7 +45,8 @@ const welcomeMessage = computed({
   set: (v) => patchField('welcome_message', v)
 })
 
-const MAX_SYSTEM_PROMPT_LEN = 16384
+// 与后端 SystemPromptMaxLen 对齐（64KB）— biz/skill/service.go SystemPromptMaxLen。
+const MAX_SYSTEM_PROMPT_LEN = 65536
 
 const systemPrompt = computed({
   get: () => props.modelValue.system_prompt,

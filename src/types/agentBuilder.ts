@@ -89,7 +89,7 @@ export interface Agent {
   description: string
   icon_url: string // 可能是 URL / "lucide:Bot" / "data:image/png;base64,..."
   welcome_message: string
-  system_prompt?: string // 行为指引（可选，最长 16384 字符）
+  system_prompt?: string // 行为指引/提示词（最长 65536 字符，与后端 SystemPromptMaxLen 对齐）
   starters: string[] // 后端 datatypes.JSON 序列化后 = array
   questionnaire_answers: QuestionnaireAnswers
   generated_skill_body: string
