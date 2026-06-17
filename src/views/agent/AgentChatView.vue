@@ -433,25 +433,10 @@ const handleRetrySnapshot = async (): Promise<void> => {
 
 <template>
   <div class="agent-view">
-    <!-- 加载快照中 -->
-    <div v-if="isLoadingSnapshot" class="page-loading">
-      <div class="loading-spinner" />
-      <div class="loading-text">加载中...</div>
-    </div>
-
-    <!-- 快照加载失败 -->
-    <div v-else-if="hasSnapshotError" class="state-error">
-      <div class="error-icon">😢</div>
-      <h2 class="error-title">会话加载失败</h2>
-      <p class="error-msg">{{ store.sessionError }}</p>
-      <div class="error-actions">
-        <AppButton @click="handleRetrySnapshot">重试</AppButton>
-        <AppButton variant="secondary" @click="goBackToHome">返回首页</AppButton>
-      </div>
-    </div>
-
-    <!-- 正常 / First-run / 历史 / readOnly -->
-    <div v-else class="app-container">
+    <!-- app-container 常驻：左侧会话列表（.sessions-list）永不随「快照加载/失败」
+         卸载，保住滚动位置——点击靠下的历史会话不再让列表跳回顶部。加载/失败状态
+         只替换右侧主区域（见下方 main 区三选一）。 -->
+    <div class="app-container">
       <!-- Sidebar -->
       <aside class="sidebar" :class="{ 'mobile-open': sidebarOpen }">
         <!-- 返回首页 -->
@@ -526,8 +511,26 @@ const handleRetrySnapshot = async (): Promise<void> => {
       <!-- Sidebar Overlay (Mobile) -->
       <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false" />
 
+      <!-- 主区域三选一：加载快照中 / 加载失败 / 正常对话（侧栏已在上方常驻不卸载）-->
+      <!-- 加载快照中 -->
+      <div v-if="isLoadingSnapshot" class="page-loading">
+        <div class="loading-spinner" />
+        <div class="loading-text">加载中...</div>
+      </div>
+
+      <!-- 快照加载失败 -->
+      <div v-else-if="hasSnapshotError" class="state-error">
+        <div class="error-icon">😢</div>
+        <h2 class="error-title">会话加载失败</h2>
+        <p class="error-msg">{{ store.sessionError }}</p>
+        <div class="error-actions">
+          <AppButton @click="handleRetrySnapshot">重试</AppButton>
+          <AppButton variant="secondary" @click="goBackToHome">返回首页</AppButton>
+        </div>
+      </div>
+
       <!-- Main Chat Area -->
-      <main class="main-stage">
+      <main v-else class="main-stage">
         <!-- Header -->
         <AgentChatHeader
           :agent="store.currentAgent"
@@ -765,11 +768,15 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
 
 /* ===== Page Loading ===== */
 .page-loading {
+  /* 现在作为 .app-container 的 flex 子项渲染在常驻侧栏右侧，
+     用 flex:1 填满主区域宽度并居中 spinner（不再是整页 100vh）。 */
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100%;
   color: var(--text-muted);
 }
 
