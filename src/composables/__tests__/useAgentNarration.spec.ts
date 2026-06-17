@@ -14,7 +14,6 @@ vi.mock('@/api/agent', () => ({
   createRun: vi.fn(),
   getRun: vi.fn(),
   cancelRun: vi.fn(),
-  extendBudget: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn()
 }))
@@ -54,8 +53,6 @@ describe('useAgentNarration', () => {
       agent_skill_id: 1,
       status: 'running',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     }
@@ -76,8 +73,6 @@ describe('useAgentNarration', () => {
       agent_skill_id: 1,
       status: 'running',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     }
@@ -111,8 +106,6 @@ describe('useAgentNarration', () => {
       agent_skill_id: 1,
       status: 'running',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     }
@@ -132,8 +125,6 @@ describe('useAgentNarration', () => {
       agent_skill_id: 1,
       status: 'running',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     }
@@ -163,8 +154,6 @@ describe('useAgentNarration', () => {
       agent_skill_id: 1,
       status: 'completed',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     }

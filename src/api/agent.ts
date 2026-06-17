@@ -12,7 +12,6 @@ import type {
   EstimateResponse,
   RecentSession,
   SupportContact,
-  ExtendBudgetRequest,
   UploadResponse
 } from '@/types/agent'
 
@@ -122,14 +121,7 @@ export const cancelRun = async (runId: number): Promise<CancelRunResponse> => {
   return data
 }
 
-// 10. 续费
-export const extendBudget = async (runId: number, req: ExtendBudgetRequest): Promise<AgentRun> => {
-  if (useMock()) return mock.extendBudget(runId, req)
-  const { data } = await request.post<AgentRun>(`/v1/agent-runs/${runId}/extend-budget`, req)
-  return data
-}
-
-// 11. 父账户客服联系方式
+// 10. 父账户客服联系方式
 export const getSupportContact = async (): Promise<SupportContact> => {
   if (useMock()) return mock.getSupportContact()
   const { data } = await request.get<SupportContact>('/v1/tenant-settings/support-contact')

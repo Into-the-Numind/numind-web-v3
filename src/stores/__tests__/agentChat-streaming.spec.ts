@@ -52,15 +52,12 @@ vi.mock('@/api/agent', () => ({
       agent_skill_id: 1,
       status: 'running',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     })
   ),
   fetchNarrationEvents: vi.fn(async () => []),
   cancelRun: vi.fn(async () => ({ run_id: 999, status: 'cancelled' as const })),
-  extendBudget: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 999,
@@ -695,8 +692,6 @@ describe('applyStreamEvent', () => {
         agent_skill_id: 1,
         status: 'running',
         credits_used: 0,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -708,8 +703,6 @@ describe('applyStreamEvent', () => {
         status: 'completed',
         final_output: 'The final answer is 42',
         credits_used: 10,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -744,8 +737,6 @@ describe('applyStreamEvent', () => {
         agent_skill_id: 1,
         status: 'running',
         credits_used: 0,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -758,8 +749,6 @@ describe('applyStreamEvent', () => {
         state_reason: 'waiting_for_user_choice',
         final_output: '已挖到大量信息。但在进入竞品分析前，有几个关键信息需要确认。让我先问你：',
         credits_used: 5,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -799,8 +788,6 @@ describe('applyStreamEvent', () => {
         agent_skill_id: 1,
         status: 'running',
         credits_used: 0,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -813,8 +800,6 @@ describe('applyStreamEvent', () => {
         // Same content as what token_delta accumulated below.
         final_output: 'Hello world from streaming',
         credits_used: 10,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -860,8 +845,6 @@ describe('applyStreamEvent', () => {
       status: 'completed',
       final_output: 'answer',
       credits_used: 10,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     })
@@ -891,8 +874,6 @@ describe('applyStreamEvent', () => {
         agent_skill_id: 1,
         status: 'running',
         credits_used: 0,
-        credits_budget: 200,
-        credits_threshold_state: 'under_60',
         created_at: '',
         updated_at: ''
       })
@@ -1002,8 +983,6 @@ function completedRun(id: number, finalOutput: string): AgentRun {
     status: 'completed',
     final_output: finalOutput,
     credits_used: 10,
-    credits_budget: 200,
-    credits_threshold_state: 'under_60',
     created_at: '',
     updated_at: ''
   }
@@ -1018,8 +997,6 @@ function runningRun(id: number): AgentRun {
     agent_skill_id: 1,
     status: 'running',
     credits_used: 0,
-    credits_budget: 200,
-    credits_threshold_state: 'under_60',
     created_at: '',
     updated_at: ''
   }

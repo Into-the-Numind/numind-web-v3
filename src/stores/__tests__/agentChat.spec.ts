@@ -29,15 +29,12 @@ vi.mock('@/api/agent', () => ({
       agent_skill_id: 1,
       status: 'running',
       credits_used: 0,
-      credits_budget: 200,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     })
   ),
   fetchNarrationEvents: vi.fn(async (): Promise<NarrationEvent[]> => []),
   cancelRun: vi.fn(async () => ({ run_id: 999, status: 'cancelled' as const })),
-  extendBudget: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 1,
@@ -118,8 +115,6 @@ describe('agentChat store', () => {
       agent_skill_id: 1,
       status: 'failed',
       credits_used: 0,
-      credits_budget: 0,
-      credits_threshold_state: 'under_60',
       created_at: '',
       updated_at: ''
     })
@@ -423,13 +418,6 @@ describe('agentChat store', () => {
     expect(store.toolGroups[0].current_state).toBe('result')
     expect(store.toolGroups[0].events.length).toBe(2)
     expect(store.toolGroups[1].tool_call_id).toBe('tc-2')
-  })
-
-  it('budgetThresholdState reads from currentRun', async () => {
-    const store = useAgentChatStore()
-    expect(store.budgetThresholdState).toBe('under_60')
-    await store.startNewRun(1, 'hi')
-    expect(store.budgetThresholdState).toBe('under_60')
   })
 
   it('loadSessionSnapshot prepends restored system message when compact_summary exists', async () => {

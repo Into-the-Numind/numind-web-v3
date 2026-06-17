@@ -33,7 +33,6 @@ const form = computed<AgentFormState>(() => ({
     '',
   starters: props.snapshot.starters ?? [],
   tool_flags: props.snapshot.tool_flags ?? {},
-  credit_cap_per_session: props.snapshot.credit_cap_per_session,
   daily_credit_cap: props.snapshot.daily_credit_cap
 }))
 </script>

@@ -13,19 +13,13 @@ const mkAgent = (): AgentSkill => ({
   updated_at: ''
 })
 
-const mkRun = (
-  status: AgentRunStatus,
-  thresholdState: 'under_60' | 'warning_60' | 'blocked_100' = 'under_60',
-  usedCredits = 0
-): AgentRun => ({
+const mkRun = (status: AgentRunStatus, usedCredits = 0): AgentRun => ({
   id: 1,
   session_id: 1,
   user_id: 1,
   agent_skill_id: 1,
   status,
   credits_used: usedCredits,
-  credits_budget: 200,
-  credits_threshold_state: thresholdState,
   created_at: '',
   updated_at: ''
 })

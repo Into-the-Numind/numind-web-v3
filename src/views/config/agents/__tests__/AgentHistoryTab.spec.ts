@@ -54,7 +54,6 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     advanced_mode: false,
     custom_skill_body: '',
     tool_flags: {},
-    credit_cap_per_session: null,
     daily_credit_cap: null,
     version: 3,
     is_active: true,

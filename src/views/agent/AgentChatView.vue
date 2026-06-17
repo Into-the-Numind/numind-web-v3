@@ -8,7 +8,6 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useAgentNarration } from '@/composables/useAgentNarration'
 import { useAgentRun } from '@/composables/useAgentRun'
 import { useAgentStream } from '@/composables/useAgentStream'
-import { useAgentCost } from '@/composables/useAgentCost'
 import * as api from '@/api/agent'
 import type { AnswerItemPayload } from '@/api/agent'
 import { handleSessionIdTransition } from './session-watchers'
@@ -17,7 +16,6 @@ import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
 import AgentFirstRun from '@/components/agent/AgentFirstRun.vue'
 import AgentMessageList from '@/components/agent/AgentMessageList.vue'
 import AgentInputArea from '@/components/agent/AgentInputArea.vue'
-import AgentBudgetExceededModal from '@/components/agent/AgentBudgetExceededModal.vue'
 import AgentLowBalanceModal from '@/components/agent/AgentLowBalanceModal.vue'
 import { useDocumentsStore } from '@/stores/documents'
 import type { SupportContact } from '@/types/agent'
@@ -43,7 +41,6 @@ const notifications = useNotificationsStore()
 const narration = useAgentNarration()
 const runCtrl = useAgentRun()
 const { start: startStream, stop: stopStream, isStreaming, startResume } = useAgentStream()
-const cost = useAgentCost()
 const documentsStore = useDocumentsStore()
 
 // 第三栏文档面板的显隐：有当前文档 / 加载中 / 打开出错任一即展开。
@@ -153,19 +150,6 @@ const handleUpload = async (file: File): Promise<void> => {
 
 const handleReject = (reason: string): void => {
   notifications.info(reason)
-}
-
-const handleBudgetContinue = async (extra: number): Promise<void> => {
-  await store.extendCurrentBudget(extra)
-  narration.start()
-}
-
-const handleBudgetStop = async (): Promise<void> => {
-  await handleCancel()
-}
-
-const handleBudgetLowBalance = (): void => {
-  showLowBalance.value = true
 }
 
 const handlePurchase = (): void => {
@@ -347,7 +331,6 @@ onMounted(async () => {
     }
   }
 
-  cost.watchThresholds()
   window.addEventListener('click', closeAllMenus)
 })
 
@@ -395,15 +378,6 @@ watch(
       if (!store.titlePendingIds.has(newSessionId)) {
         void store.fetchRecentSessions()
       }
-    }
-  }
-)
-
-watch(
-  () => cost.budgetExceeded.value,
-  (exceeded) => {
-    if (exceeded) {
-      narration.stop()
     }
   }
 )
@@ -591,16 +565,6 @@ const handleRetrySnapshot = async (): Promise<void> => {
         class="doc-col"
       />
     </div>
-
-    <!-- Budget exceeded modal -->
-    <AgentBudgetExceededModal
-      :open="cost.budgetExceeded.value"
-      :used-credits="store.currentRun?.credits_used ?? 0"
-      :current-balance="currentBalance"
-      @continue="handleBudgetContinue"
-      @stop="handleBudgetStop"
-      @low-balance="handleBudgetLowBalance"
-    />
 
     <!-- Low balance modal -->
     <AgentLowBalanceModal
