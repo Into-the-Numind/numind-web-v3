@@ -1,9 +1,10 @@
 /**
- * Unit tests for AgentBuilder.vue (M9b)
+ * Unit tests for AgentBuilder.vue
  *
- * Strategy: mock @/api/agent (API layer) + vue-router + useToast.
+ * Strategy: mock @/api/agentBuilder (API layer) + vue-router + useToast.
  * Real Pinia store runs with mocked API underneath.
- * Covers: init modes, validation gate, save success, after-save modal, dirty check.
+ * Covers: init modes, validation gate (incl. required system_prompt), save
+ * success, payload shape (no questionnaire_answers), after-save modal.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -19,7 +20,6 @@ vi.mock('@/api/agentBuilder', () => ({
   deleteAgent: vi.fn(),
   listAgentHistory: vi.fn(),
   restoreAgent: vi.fn(),
-  toggleAgentAdvanced: vi.fn(),
   listSkillTemplates: vi.fn()
 }))
 
@@ -61,16 +61,9 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     description: '这是一个十字符以上的描述文本',
     icon_url: 'lucide:Bot',
     welcome_message: '欢迎使用本助手，这是一条超过二十字符的欢迎语测试文本',
+    system_prompt: '你是一个测试助手，负责回答用户的问题。',
     starters: [],
-    questionnaire_answers: {
-      q6: ['analyze_data'],
-      q7: ['text'],
-      q8: 800,
-      q9: 'no_web_search',
-      q10: '',
-      q11: '',
-      q12: 'friendly'
-    },
+    questionnaire_answers: {},
     generated_skill_body: '',
     advanced_mode: false,
     custom_skill_body: '',
@@ -95,17 +88,27 @@ function makeTemplate(overrides: Partial<SkillTemplate> = {}): SkillTemplate {
     icon_url: 'lucide:Sparkles',
     welcome_message: '你好，我是模板助手，超过二十字符的欢迎语占位文本',
     starters: ['示例问题一', '示例问题二'],
-    questionnaire_answers: {
-      q6: ['generate_content'],
-      q7: ['text'],
-      q8: 600,
-      q9: 'no_web_search',
-      q12: 'professional'
-    },
+    questionnaire_answers: {},
     tool_flags: {},
     credit_cap_per_session: null,
     daily_credit_cap: null,
     created_at: '2026-01-01T00:00:00Z',
+    ...overrides
+  }
+}
+
+/** A complete, valid form-state to emit from AgentForm in create-mode tests. */
+function validFormState(overrides: Record<string, unknown> = {}) {
+  return {
+    name: '完整助手名',
+    icon_url: 'lucide:Bot',
+    description: '这是超过十字的助手描述内容',
+    welcome_message: '欢迎使用本助手，这是超过二十字的欢迎语文本内容',
+    system_prompt: '你是一个销售助手，负责帮助用户解决问题。',
+    starters: [],
+    tool_flags: {},
+    credit_cap_per_session: null,
+    daily_credit_cap: null,
     ...overrides
   }
 }
@@ -150,16 +153,28 @@ describe('AgentBuilder — create mode (scratch)', () => {
 
   it('shows validation errors when save clicked with empty form', async () => {
     const wrapper = await mountBuilder()
-    // 模板第一个 <button> 是 header 里的"返回"按钮，必须按文案找"保存"
-    // 才能触发 handleSave（之前 find('button') 点的是返回按钮，不会跑校验）
     const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('保存'))
     expect(saveBtn).toBeDefined()
     await saveBtn!.trigger('click')
     await flushPromises()
-    // Should NOT call createAgent
     expect(agentApi.createAgent).not.toHaveBeenCalled()
-    // Validation error text should appear
-    expect(wrapper.text()).toMatch(/请输入助手名字|请输入描述|请输入欢迎语/)
+    expect(wrapper.text()).toMatch(/请输入助手名字|请输入描述|请输入欢迎语|请输入提示词/)
+  })
+
+  it('blocks save when system_prompt is empty (required)', async () => {
+    const wrapper = await mountBuilder()
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit('update:modelValue', validFormState({ system_prompt: '' }))
+    await flushPromises()
+
+    const saveBtn = wrapper
+      .findAllComponents({ name: 'AppButton' })
+      .find((b) => b.text().includes('保存'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+
+    expect(agentApi.createAgent).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('请输入提示词')
   })
 
   it('calls store.create and opens AfterSaveModal on valid form save', async () => {
@@ -168,30 +183,10 @@ describe('AgentBuilder — create mode (scratch)', () => {
 
     const wrapper = await mountBuilder()
 
-    // Populate form with valid values via v-model (update:modelValue)
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
-    await form.vm.$emit('update:modelValue', {
-      name: '新建助手',
-      icon_url: 'lucide:Bot',
-      description: '这是超过十字的助手描述内容',
-      welcome_message: '欢迎使用本助手，这是超过二十字的欢迎语文本内容',
-      starters: [],
-      questionnaire_answers: {
-        q6: ['analyze_data'],
-        q7: ['text'],
-        q8: 800,
-        q9: 'no_web_search',
-        q10: '',
-        q11: '',
-        q12: 'friendly'
-      },
-      tool_flags: {},
-      credit_cap_per_session: null,
-      daily_credit_cap: null
-    })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit('update:modelValue', validFormState({ name: '新建助手' }))
     await flushPromises()
 
-    // Click save button
     const saveBtn = wrapper
       .findAllComponents({ name: 'AppButton' })
       .find((b) => b.text().includes('保存'))
@@ -200,9 +195,31 @@ describe('AgentBuilder — create mode (scratch)', () => {
     await flushPromises()
 
     expect(agentApi.createAgent).toHaveBeenCalled()
-    // AfterSaveModal should become visible
     const afterModal = wrapper.findComponent({ name: 'AfterSaveModal' })
     expect(afterModal.props('visible')).toBe(true)
+  })
+
+  it('create payload includes system_prompt and NO questionnaire_answers', async () => {
+    const saved = makeAgent({ id: 43 })
+    vi.mocked(agentApi.createAgent).mockResolvedValue(saved)
+
+    const wrapper = await mountBuilder()
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit(
+      'update:modelValue',
+      validFormState({ system_prompt: '你是一个客服助手，态度友好。' })
+    )
+    await flushPromises()
+
+    const saveBtn = wrapper
+      .findAllComponents({ name: 'AppButton' })
+      .find((b) => b.text().includes('保存'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+
+    const callArg = vi.mocked(agentApi.createAgent).mock.calls[0]?.[0]
+    expect(callArg?.system_prompt).toBe('你是一个客服助手，态度友好。')
+    expect(callArg).not.toHaveProperty('questionnaire_answers')
   })
 })
 
@@ -220,8 +237,7 @@ describe('AgentBuilder — create mode (from template)', () => {
     })
 
     expect(agentApi.listSkillTemplates).toHaveBeenCalled()
-    // Form should be prefilled with template name
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
     expect((form.props('modelValue') as { name: string }).name).toBe('模板助手')
   })
 
@@ -233,19 +249,17 @@ describe('AgentBuilder — create mode (from template)', () => {
 
     const wrapper = await mountBuilder({ query: { from: 'template:7' } })
 
-    // Populate required fields via emit
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
-    await form.vm.$emit('update:modelValue', {
-      name: template.name,
-      icon_url: template.icon_url,
-      description: template.description,
-      welcome_message: template.welcome_message,
-      starters: template.starters,
-      questionnaire_answers: template.questionnaire_answers,
-      tool_flags: {},
-      credit_cap_per_session: null,
-      daily_credit_cap: null
-    })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit(
+      'update:modelValue',
+      validFormState({
+        name: template.name,
+        icon_url: template.icon_url,
+        description: template.description,
+        welcome_message: template.welcome_message,
+        starters: template.starters
+      })
+    )
     await flushPromises()
 
     const saveBtn = wrapper
@@ -271,7 +285,7 @@ describe('AgentBuilder — create mode (from copy)', () => {
     const wrapper = await mountBuilder({ query: { from: 'copy:5' } })
 
     expect(agentApi.getAgent).toHaveBeenCalledWith(5)
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
     expect((form.props('modelValue') as { name: string }).name).toBe('原始助手 - 副本')
   })
 })
@@ -291,6 +305,24 @@ describe('AgentBuilder — edit mode', () => {
 
     expect(agentApi.getAgent).toHaveBeenCalledWith(10)
     expect(wrapper.text()).toContain('编辑：被编辑助手')
+  })
+
+  it('seeds system_prompt from generated_skill_body for old questionnaire agents', async () => {
+    const agent = makeAgent({
+      id: 11,
+      system_prompt: '',
+      generated_skill_body: '这是旧问卷模式生成的提示词正文'
+    })
+    vi.mocked(agentApi.getAgent).mockResolvedValue(agent)
+
+    const wrapper = await mountBuilder({
+      props: { mode: 'edit', agentId: 11 }
+    })
+
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    expect((form.props('modelValue') as { system_prompt: string }).system_prompt).toBe(
+      '这是旧问卷模式生成的提示词正文'
+    )
   })
 
   it('calls patchAgent (via store.update) on save in edit mode', async () => {
@@ -316,18 +348,6 @@ describe('AgentBuilder — edit mode', () => {
     const wrapper = await mountBuilder()
     expect(wrapper.find('.advanced-link').exists()).toBe(false)
   })
-
-  it('hides the advanced-mode link (stub disabled until editing ships)', async () => {
-    // The advanced toggle is irreversible and lands on a read-only "即将上线" editor,
-    // so it was hidden — it would only brick the agent's editability.
-    const agent = makeAgent({ id: 10 })
-    vi.mocked(agentApi.getAgent).mockResolvedValue(agent)
-
-    const wrapper = await mountBuilder({
-      props: { mode: 'edit', agentId: 10 }
-    })
-    expect(wrapper.find('.advanced-link').exists()).toBe(false)
-  })
 })
 
 describe('AgentBuilder — validation errors', () => {
@@ -338,27 +358,8 @@ describe('AgentBuilder — validation errors', () => {
   it('shows name error when name is too short', async () => {
     const wrapper = await mountBuilder()
 
-    // Set a single-char name
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
-    await form.vm.$emit('update:modelValue', {
-      name: 'A',
-      icon_url: 'lucide:Bot',
-      description: '',
-      welcome_message: '',
-      starters: [],
-      questionnaire_answers: {
-        q6: [],
-        q7: [],
-        q8: 800,
-        q9: 'no_web_search',
-        q10: '',
-        q11: '',
-        q12: 'friendly'
-      },
-      tool_flags: {},
-      credit_cap_per_session: null,
-      daily_credit_cap: null
-    })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit('update:modelValue', validFormState({ name: 'A' }))
     await flushPromises()
 
     const saveBtn = wrapper
@@ -383,27 +384,8 @@ describe('AgentBuilder — AfterSaveModal interactions', () => {
 
     const wrapper = await mountBuilder()
 
-    // Open modal by triggering save with valid data
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
-    await form.vm.$emit('update:modelValue', {
-      name: '完整助手名',
-      icon_url: 'lucide:Bot',
-      description: '这是超过十字的助手描述内容',
-      welcome_message: '欢迎使用本助手，这是超过二十字的欢迎语文本内容',
-      starters: [],
-      questionnaire_answers: {
-        q6: ['analyze_data'],
-        q7: ['text'],
-        q8: 800,
-        q9: 'no_web_search',
-        q10: '',
-        q11: '',
-        q12: 'friendly'
-      },
-      tool_flags: {},
-      credit_cap_per_session: null,
-      daily_credit_cap: null
-    })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit('update:modelValue', validFormState())
     await flushPromises()
 
     const saveBtn = wrapper
@@ -412,7 +394,6 @@ describe('AgentBuilder — AfterSaveModal interactions', () => {
     await saveBtn!.trigger('click')
     await flushPromises()
 
-    // Emit skip from AfterSaveModal
     const afterModal = wrapper.findComponent({ name: 'AfterSaveModal' })
     await afterModal.vm.$emit('skip')
     await flushPromises()
@@ -426,26 +407,8 @@ describe('AgentBuilder — AfterSaveModal interactions', () => {
 
     const wrapper = await mountBuilder()
 
-    const form = wrapper.findComponent({ name: 'QuestionnaireForm' })
-    await form.vm.$emit('update:modelValue', {
-      name: '完整助手名',
-      icon_url: 'lucide:Bot',
-      description: '这是超过十字的助手描述内容',
-      welcome_message: '欢迎使用本助手，这是超过二十字的欢迎语文本内容',
-      starters: [],
-      questionnaire_answers: {
-        q6: ['analyze_data'],
-        q7: ['text'],
-        q8: 800,
-        q9: 'no_web_search',
-        q10: '',
-        q11: '',
-        q12: 'friendly'
-      },
-      tool_flags: {},
-      credit_cap_per_session: null,
-      daily_credit_cap: null
-    })
+    const form = wrapper.findComponent({ name: 'AgentForm' })
+    await form.vm.$emit('update:modelValue', validFormState())
     await flushPromises()
 
     const saveBtn = wrapper
@@ -458,7 +421,6 @@ describe('AgentBuilder — AfterSaveModal interactions', () => {
     await afterModal.vm.$emit('configure-skills')
     await flushPromises()
 
-    // No more "即将上线" stub toast; routes to the edit page where skills are bound.
     expect(toastSpy.info).not.toHaveBeenCalledWith('试聊功能即将上线')
     expect(router.currentRoute.value.path).toBe('/config/agents/88/edit')
   })

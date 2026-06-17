@@ -1,4 +1,4 @@
-// API wrappers for /v1/agent/skills/* (9 endpoints, user_token middleware).
+// API wrappers for /v1/agent/skills/* (8 endpoints, user_token middleware).
 // Backend: numind-server feature #5 agent-mode-skill-system (merged e05498b6).
 // Parent-account only — child accounts receive HTTP 403 from backend biz layer.
 //
@@ -67,13 +67,7 @@ export const restoreAgent = async (id: number, version: number): Promise<Agent> 
   return (res as unknown as { data: Agent }).data
 }
 
-// 8. POST /v1/agent/skills/:id/advanced-toggle — Switch to advanced (irreversible)
-export const toggleAgentAdvanced = async (id: number): Promise<Agent> => {
-  const res = await request.post(`/v1/agent/skills/${id}/advanced-toggle`)
-  return (res as unknown as { data: Agent }).data
-}
-
-// 9. GET /v1/agent/skill-templates — Built-in templates (no pagination)
+// 8. GET /v1/agent/skill-templates — Built-in templates (no pagination)
 export const listSkillTemplates = async (): Promise<SkillTemplate[]> => {
   const res = await request.get('/v1/agent/skill-templates')
   return (res as unknown as { data: SkillTemplate[] }).data

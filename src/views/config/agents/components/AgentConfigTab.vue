@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { Agent, AgentFormState } from '@/types/agentBuilder'
 import { formatDate } from '@/utils/datetime'
-import QuestionnaireForm from './QuestionnaireForm.vue'
+import AgentForm from './AgentForm.vue'
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -14,15 +14,20 @@ const props = defineProps<Props>()
 
 // ── Computed ───────────────────────────────────────────────────────────────
 
-/** Map Agent → AgentFormState for QuestionnaireForm (readonly mode) */
+/** Map Agent → AgentFormState for AgentForm (readonly mode).
+ * Effective prompt: old questionnaire-mode agents keep their real prompt in
+ * custom_skill_body / generated_skill_body, so surface it here. */
 const form = computed<AgentFormState>(() => ({
   name: props.agent.name,
   description: props.agent.description,
   icon_url: props.agent.icon_url,
   welcome_message: props.agent.welcome_message,
-  system_prompt: props.agent.system_prompt ?? '',
+  system_prompt:
+    props.agent.system_prompt ||
+    props.agent.custom_skill_body ||
+    props.agent.generated_skill_body ||
+    '',
   starters: props.agent.starters ?? [],
-  questionnaire_answers: props.agent.questionnaire_answers,
   tool_flags: props.agent.tool_flags ?? {},
   credit_cap_per_session: props.agent.credit_cap_per_session,
   daily_credit_cap: props.agent.daily_credit_cap
@@ -36,7 +41,7 @@ const form = computed<AgentFormState>(() => ({
       <span class="updated-at">最后更新：{{ formatDate(agent.updated_at) }}</span>
     </div>
 
-    <QuestionnaireForm :model-value="form" readonly />
+    <AgentForm :model-value="form" readonly />
   </div>
 </template>
 

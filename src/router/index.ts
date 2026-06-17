@@ -156,7 +156,11 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'agents/new',
         name: 'config-agents-new',
-        component: () => import('@/views/config/agents/AgentCreateChoose.vue'),
+        component: () => import('@/views/config/agents/AgentBuilder.vue'),
+        // 直接进入创建页（无模式选择屏）。mode='create' 必传——否则 AgentBuilder
+        // 收到 undefined 会落入 edit 分支 PATCH /v1/agent/skills/undefined → 400。
+        // 仍接受 ?from=template:N / ?from=copy:N（AgentBuilder 内部解析）。
+        props: { mode: 'create' },
         meta: { title: '创建助手', requiresAuth: true, requiresParent: true }
       },
       {

@@ -89,7 +89,7 @@ export interface Agent {
   description: string
   icon_url: string // 可能是 URL / "lucide:Bot" / "data:image/png;base64,..."
   welcome_message: string
-  system_prompt?: string // 行为指引（可选，最长 16384 字符）
+  system_prompt?: string // 行为指引/提示词（最长 65536 字符，与后端 SystemPromptMaxLen 对齐）
   starters: string[] // 后端 datatypes.JSON 序列化后 = array
   questionnaire_answers: QuestionnaireAnswers
   generated_skill_body: string
@@ -150,12 +150,10 @@ export interface CreateAgentPayload {
   welcome_message?: string
   system_prompt?: string
   starters?: string[]
-  questionnaire_answers?: QuestionnaireAnswers
   tool_flags?: ToolFlags
   credit_cap_per_session?: number | null
   daily_credit_cap?: number | null
   source_template_id?: number | null
-  custom_skill_body?: string
 }
 
 // PATCH payload — 所有 optional；advanced_mode / is_active / parent_user_id 不可改
@@ -166,15 +164,13 @@ export type PatchAgentPayload = Partial<Omit<CreateAgentPayload, 'source_templat
 // ============================================================
 
 export interface AgentFormState {
-  // Q1-Q5 顶层字段
+  // 顶层字段
   name: string
   icon_url: string
   description: string
   welcome_message: string
   system_prompt: string
   starters: string[]
-  // Q6-Q12 嵌套
-  questionnaire_answers: QuestionnaireAnswers
   // tool_flags + cap 隐藏字段（v1 通过模板预设或保持默认）
   tool_flags: ToolFlags
   credit_cap_per_session: number | null
@@ -184,9 +180,6 @@ export interface AgentFormState {
 /**
  * 初始化空表单 state（仅 NEW-create 路径调用；
  * Edit / template / copy 模式不调此函数，从后端 / 模板拷贝填充）。
- *
- * Q11 默认提示语作为 UI 友好预填——让 textarea 不空白；用户可改可清空。
- * EditMode 直接用 backend value（不强制注入此字符串）。
  */
 export function initialFormState(): AgentFormState {
   return {
@@ -196,15 +189,6 @@ export function initialFormState(): AgentFormState {
     welcome_message: '',
     system_prompt: '',
     starters: [],
-    questionnaire_answers: {
-      q6: [],
-      q7: [],
-      q8: 800,
-      q9: 'no_web_search',
-      q10: '',
-      q11: '这个问题有点超出我的能力范围，你可以去问老师或者换个方式描述一下～',
-      q12: 'friendly'
-    },
     tool_flags: {
       code_sandbox: true,
       media: true,

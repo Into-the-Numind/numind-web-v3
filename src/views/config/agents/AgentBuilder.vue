@@ -7,7 +7,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { validateForm } from './components/validation'
 import { initialFormState } from '@/types/agentBuilder'
 import type { AgentFormState, CreateAgentPayload, PatchAgentPayload } from '@/types/agentBuilder'
-import QuestionnaireForm from './components/QuestionnaireForm.vue'
+import AgentForm from './components/AgentForm.vue'
 import AfterSaveModal from './components/AfterSaveModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -104,9 +104,12 @@ async function initForm() {
           icon_url: agent.icon_url,
           description: agent.description,
           welcome_message: agent.welcome_message,
-          system_prompt: agent.system_prompt ?? '',
+          // Seed the prompt editor with the EFFECTIVE prompt. Old questionnaire-mode
+          // agents have system_prompt="" with the real prompt in custom_skill_body
+          // (advanced) or generated_skill_body — surface it so editing preserves it.
+          system_prompt:
+            agent.system_prompt || agent.custom_skill_body || agent.generated_skill_body || '',
           starters: [...(agent.starters ?? [])],
-          questionnaire_answers: { ...(agent.questionnaire_answers ?? {}) },
           tool_flags: { ...(agent.tool_flags ?? {}) },
           credit_cap_per_session: agent.credit_cap_per_session,
           daily_credit_cap: agent.daily_credit_cap
@@ -131,9 +134,6 @@ async function initForm() {
             welcome_message: template.welcome_message,
             system_prompt: '',
             starters: [...(template.starters ?? [])],
-            questionnaire_answers: {
-              ...(template.questionnaire_answers ?? {})
-            },
             tool_flags: { ...(template.tool_flags ?? {}) },
             credit_cap_per_session: template.credit_cap_per_session,
             daily_credit_cap: template.daily_credit_cap
@@ -149,9 +149,10 @@ async function initForm() {
             icon_url: source.icon_url,
             description: source.description,
             welcome_message: source.welcome_message,
-            system_prompt: source.system_prompt ?? '',
+            // Effective prompt for copy too — old agents keep their real prompt.
+            system_prompt:
+              source.system_prompt || source.custom_skill_body || source.generated_skill_body || '',
             starters: [...(source.starters ?? [])],
-            questionnaire_answers: { ...(source.questionnaire_answers ?? {}) },
             tool_flags: { ...(source.tool_flags ?? {}) },
             credit_cap_per_session: source.credit_cap_per_session,
             daily_credit_cap: source.daily_credit_cap
@@ -194,7 +195,6 @@ function formToPayload(): CreateAgentPayload {
     welcome_message: form.welcome_message || undefined,
     system_prompt: form.system_prompt || undefined,
     starters: form.starters.length > 0 ? [...form.starters] : undefined,
-    questionnaire_answers: { ...form.questionnaire_answers },
     tool_flags: Object.keys(form.tool_flags).length > 0 ? { ...form.tool_flags } : undefined,
     credit_cap_per_session: form.credit_cap_per_session,
     daily_credit_cap: form.daily_credit_cap
@@ -242,14 +242,7 @@ async function handleSave() {
     afterSaveModalVisible.value = true
   } catch (e) {
     const msg = (e as Error).message || '保存失败，请重试'
-    // Try to parse backend field errors like "questionnaire.q6 required"
-    const fieldMatch = msg.match(/questionnaire\.(q\d+)/)
-    if (fieldMatch) {
-      errors.value = { [fieldMatch[1]]: msg }
-      scrollToFirstError()
-    } else {
-      notifications.error(msg)
-    }
+    notifications.error(msg)
   }
 }
 
@@ -349,7 +342,7 @@ onBeforeUnmount(() => {
 
     <!-- Form -->
     <div v-else class="agent-builder__body">
-      <QuestionnaireForm
+      <AgentForm
         :model-value="form"
         :errors="errors"
         @update:model-value="Object.assign(form, $event)"
