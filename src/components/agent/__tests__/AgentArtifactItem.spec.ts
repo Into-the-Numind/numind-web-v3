@@ -12,8 +12,9 @@
  * 需要 attachTo: document.body 并通过 document.querySelector 查找。
  * 每个用例都 unmount，移除组件挂在 document 上的 keydown 监听。
  */
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { setActivePinia, createPinia } from 'pinia'
 import AgentArtifactItem from '../AgentArtifactItem.vue'
 
 const htmlArtifact = {
@@ -22,6 +23,13 @@ const htmlArtifact = {
   url: 'https://example-bucket.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/report.html?sign=abc',
   mime: 'text/html; charset=utf-8'
 }
+
+beforeEach(() => {
+  // AgentArtifactItem 在 setup 里调用 useDocumentsStore()（文档系统 feature 引入），
+  // mount 前必须有 active Pinia，否则 getActivePinia() 报错（真实 App 在 main.ts
+  // 已 app.use(pinia)，仅本单测漏了初始化）。
+  setActivePinia(createPinia())
+})
 
 afterEach(() => {
   // 清理 Teleport 残留，避免污染下一个用例的 document.body 查询
