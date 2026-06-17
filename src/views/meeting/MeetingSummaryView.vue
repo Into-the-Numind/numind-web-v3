@@ -72,6 +72,9 @@
             class="block-body block-empty"
           >
             <p>纪要生成失败。你仍可查看下方完整转写。</p>
+            <AppButton variant="secondary" :loading="retrying" @click="retrySummary">
+              重新检查
+            </AppButton>
           </div>
           <div v-else-if="hasSummary" class="block-body">
             <!-- eslint-disable-next-line vue/no-v-html -->
@@ -133,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Download } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
@@ -249,6 +252,38 @@ const formatDate = (iso: string | null): string => {
   })
 }
 
+// ── Summary polling (FEEDBACK_V2 §3.2) ──────────────────────────────────────
+// /end is now async (秒回 with summary_status='generating'); the minutes are
+// produced by a backend goroutine. While the status is 'generating' we poll
+// GET /v1/meetings/:id every ~2.5s (refreshSession — no full-page skeleton flash)
+// until it settles to 'done' (render the minutes) or 'failed' (show the failure +
+// a re-check affordance). The poll is torn down on unmount and whenever the status
+// settles, so it never leaks across navigation.
+const POLL_INTERVAL_MS = 2500
+let pollTimer: ReturnType<typeof setInterval> | null = null
+const retrying = ref(false)
+
+const stopPolling = (): void => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+const startPolling = (): void => {
+  stopPolling()
+  if (meeting.currentSession?.summary_status !== 'generating') return
+  pollTimer = setInterval(() => {
+    void (async () => {
+      const status = await meeting.refreshSession(sessionId.value)
+      // Stop once it settles (done/failed) or the fetch failed (null). A null
+      // here surfaced an error via the store; we don't hammer the endpoint on a
+      // persistent failure — the user can re-check manually.
+      if (status === null || status !== 'generating') stopPolling()
+    })()
+  }, POLL_INTERVAL_MS)
+}
+
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 const goHistory = (): void => {
   router.push({ name: 'meeting-history' })
@@ -259,6 +294,19 @@ const retryLoad = async (): Promise<void> => {
   await load()
 }
 
+// Manual re-check from the 'failed' state: re-fetch once; if the backend goroutine
+// is in fact still generating (status flipped back), resume polling.
+const retrySummary = async (): Promise<void> => {
+  if (retrying.value) return
+  retrying.value = true
+  try {
+    await meeting.refreshSession(sessionId.value)
+    if (meeting.currentSession?.summary_status === 'generating') startPolling()
+  } finally {
+    retrying.value = false
+  }
+}
+
 const load = async (): Promise<void> => {
   if (!Number.isFinite(sessionId.value) || sessionId.value <= 0) {
     loadError.value = '无效的会议 ID'
@@ -267,11 +315,18 @@ const load = async (): Promise<void> => {
   await meeting.loadSession(sessionId.value)
   if (!meeting.currentSession) {
     loadError.value = meeting.error ?? '会议不存在'
+    return
   }
+  // Kick off polling if the summary is still being generated.
+  startPolling()
 }
 
 onMounted(() => {
   void load()
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 </script>
 
