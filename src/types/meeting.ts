@@ -193,3 +193,106 @@ export interface MeetingFeedbackEvent {
   type: MeetingFeedbackEventType
   data: unknown
 }
+
+// ---------------------------------------------------------------------------
+// Realtime ASR WebSocket protocol (SPEC §2 — our front↔back contract)
+//
+// Endpoint: GET /v1/meetings/:id/asr-stream?token=<user_jwt> (ws upgrade).
+// Front → back: binary frames = raw PCM 16bit LE 16kHz mono (~100ms/frame);
+//               text frame {"action":"finish"} = user ended.
+// Back → front (JSON text frames): the five message kinds below.
+// ---------------------------------------------------------------------------
+
+/** Discriminant for a backend → frontend ASR WS message (SPEC §2). */
+export type AsrMessageType = 'ready' | 'interim' | 'final' | 'error' | 'closed'
+
+/** `{"type":"ready"}` — Ali task-started; client may begin sending audio. */
+export interface AsrReadyMessage {
+  type: 'ready'
+}
+
+/**
+ * `{"type":"interim","text":"<current sentence>"}` — overwrite-style update of
+ * the in-progress (not yet finalized) sentence, rendered greyed/italic.
+ */
+export interface AsrInterimMessage {
+  type: 'interim'
+  text: string
+}
+
+/**
+ * `final.segment` — the persisted meeting_segment for a finalized sentence
+ * (SPEC §2). A subset of MeetingSegment (audio_url/session_id omitted on the
+ * wire for the realtime path; audio_url is empty for streaming segments anyway).
+ */
+export interface AsrFinalSegment {
+  id: number
+  seq: number
+  text: string
+  start_ms: number
+  duration_seconds: number
+  created_at: string
+}
+
+/**
+ * `{"type":"final","segment":{...}}` — sentence finalized + persisted as a
+ * meeting_segment; the store appends it to `segments`.
+ */
+export interface AsrFinalMessage {
+  type: 'final'
+  segment: AsrFinalSegment
+}
+
+/** `{"type":"error","message":"..."}` — relay or dashscope error. */
+export interface AsrErrorMessage {
+  type: 'error'
+  message: string
+}
+
+/** `{"type":"closed"}` — Ali task-finished; the relay closed cleanly. */
+export interface AsrClosedMessage {
+  type: 'closed'
+}
+
+/** Any backend → frontend ASR WS message (discriminated union on `type`). */
+export type AsrMessage =
+  | AsrReadyMessage
+  | AsrInterimMessage
+  | AsrFinalMessage
+  | AsrErrorMessage
+  | AsrClosedMessage
+
+/**
+ * Event handlers for an open ASR stream (see api/meeting.ts:openAsrStream).
+ * All optional so callers wire only what they need. `onOpen` fires when the
+ * underlying ws connects (transport-level), distinct from `onReady` which
+ * fires on the protocol-level `ready` message (Ali task-started).
+ */
+export interface AsrStreamHandlers {
+  /** ws transport opened (not yet ready to send audio). */
+  onOpen?: () => void
+  /** Protocol `ready` — safe to start sending PCM. */
+  onReady?: () => void
+  /** Protocol `interim` — overwrite-style current-sentence update. */
+  onInterim?: (text: string) => void
+  /** Protocol `final` — a finalized + persisted segment. */
+  onFinal?: (segment: AsrFinalSegment) => void
+  /** Protocol `error`, or a transport/parse error (message is user-facing). */
+  onError?: (message: string) => void
+  /** Protocol `closed`, or the ws transport closed for any reason. */
+  onClosed?: () => void
+}
+
+/**
+ * Handle to an open ASR stream. `sendPCM` forwards one raw-PCM frame as a
+ * binary ws message; `finish` sends {"action":"finish"} (graceful end);
+ * `close` tears the socket down immediately.
+ */
+export interface AsrStreamHandle {
+  /** Send one raw PCM 16bit LE 16kHz mono frame (binary). No-op if not open. */
+  sendPCM: (frame: ArrayBuffer) => void
+  /** Signal end-of-audio to the backend ({"action":"finish"}). */
+  finish: () => void
+  /** Close the underlying ws immediately (idempotent). */
+  close: () => void
+}
