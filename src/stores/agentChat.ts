@@ -483,12 +483,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // reads as "executing" once the run is done. Idempotent; only rewrites groups
   // that actually had a lingering in-flight tool.
   const IN_FLIGHT_STATES: NarrationState[] = ['queued', 'use', 'progress']
-  const finalizeToolGroups = (): void => {
+  // statusOverride lets the replay path (loadSessionSnapshot) pass the snapshot's
+  // run status directly — currentRun is usually unset on replay, so without it the
+  // live-state fallback would mis-paint a completed run's stuck tool as 'error'.
+  const finalizeToolGroups = (statusOverride?: string): void => {
     // A normally-completed run's lingering tools really did finish → 'result'. An
     // interrupted run (cancelled / failed / timeout / budget_exhausted) → 'error',
     // so we never paint an interrupted tool as a green "已完成".
-    const terminalState: NarrationState =
-      currentRun.value?.status === 'completed' ? 'result' : 'error'
+    const status = statusOverride ?? currentRun.value?.status
+    const terminalState: NarrationState = status === 'completed' ? 'result' : 'error'
     for (let i = 0; i < messages.value.length; i++) {
       const m = messages.value[i]
       if (m.type !== 'tool_group') continue
@@ -702,6 +705,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           markdown: snap.compact_summary,
           timestamp: new Date().toISOString()
         })
+      }
+      // Replay hygiene: a terminal (completed/failed/...) run can't still be
+      // executing a tool, but legacy runs persisted before the shared-tool_call_id
+      // backend fix (2026-06-14) carry a lingering in-flight 'use' aggregate → a
+      // spinner stuck forever on the timeline (customer-reported). Finalize them to
+      // the run's terminal state. Skip running/paused runs (a waiting
+      // ask_user_question must keep its live state).
+      // Only finalize TERMINAL runs — never 'running'/'pending' (a still-live or
+      // not-yet-started run, e.g. a paused ask_user_question, must keep its state).
+      const replayStatus = snap.status ?? snap.run?.status
+      if (replayStatus && replayStatus !== 'running' && replayStatus !== 'pending') {
+        finalizeToolGroups(replayStatus)
       }
     } catch (err) {
       sessionError.value = (err as Error).message ?? '会话加载失败'

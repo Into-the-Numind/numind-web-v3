@@ -449,6 +449,104 @@ describe('agentChat store', () => {
     expect(store.isReadOnly).toBe(true)
   })
 
+  it('loadSessionSnapshot finalizes a lingering in-flight tool on a completed run (no stuck spinner on replay)', async () => {
+    // Legacy split data: a run persisted before the shared-tool_call_id backend fix
+    // (2026-06-14) carries use & result under DIFFERENT tool_call_ids, so the 'use'
+    // aggregate never reached a terminal state. A COMPLETED run can't still be
+    // executing a tool, yet replay used to leave it 'use' → AgentToolCallItem spins
+    // forever (customer-reported). loadSessionSnapshot must finalize it.
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 1,
+      agent_skill_id: 1,
+      messages: [
+        {
+          id: 'tg-old',
+          type: 'tool_group',
+          timestamp: '',
+          tool_calls: [
+            {
+              tool_call_id: 'a',
+              tool_name: 'load_skill',
+              current_state: 'use',
+              events: [
+                {
+                  run_id: 7,
+                  tool_call_id: 'a',
+                  tool_name: 'load_skill',
+                  state: 'use',
+                  message: '正在加载技能：docx-author',
+                  timestamp: '2026-06-10T00:00:00Z'
+                }
+              ]
+            },
+            {
+              tool_call_id: 'b',
+              tool_name: 'load_skill',
+              current_state: 'result',
+              events: [
+                {
+                  run_id: 7,
+                  tool_call_id: 'b',
+                  tool_name: 'load_skill',
+                  state: 'result',
+                  message: '已加载技能：docx-author',
+                  timestamp: '2026-06-10T00:00:01Z'
+                }
+              ]
+            }
+          ]
+        } as never
+      ],
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'completed'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot(1, true)
+    const tg = store.messages.find((m) => m.type === 'tool_group') as ToolGroupMessage
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'a')?.current_state).toBe('result')
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'b')?.current_state).toBe('result')
+  })
+
+  it('loadSessionSnapshot finalizes a stuck tool to ERROR on an interrupted (failed) run', async () => {
+    // An interrupted run must NOT paint its lingering tool as a green "已完成".
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 1,
+      agent_skill_id: 1,
+      messages: [
+        {
+          id: 'tg-f',
+          type: 'tool_group',
+          timestamp: '',
+          tool_calls: [
+            {
+              tool_call_id: 'a',
+              tool_name: 'run_python',
+              current_state: 'use',
+              events: [
+                {
+                  run_id: 9,
+                  tool_call_id: 'a',
+                  tool_name: 'run_python',
+                  state: 'use',
+                  message: '正在运行代码',
+                  timestamp: '2026-06-10T00:00:00Z'
+                }
+              ]
+            }
+          ]
+        } as never
+      ],
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'failed'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot(1, true)
+    const tg = store.messages.find((m) => m.type === 'tool_group') as ToolGroupMessage
+    expect(tg.tool_calls.find((t) => t.tool_call_id === 'a')?.current_state).toBe('error')
+  })
+
   it('loadSessionSnapshot restores currentRun when session is waiting for an answer', async () => {
     vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
       session_id: 1,
