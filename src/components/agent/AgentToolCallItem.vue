@@ -65,7 +65,23 @@ const typeIcon = computed(() => toolIcon(props.group.tool_name))
   border-radius: 6px;
   font-size: 13.5px;
   line-height: 1.55;
+  /* anchor for the dashed connector (::after) to the next tool line */
+  position: relative;
 }
+
+/* 同一 narration 下相邻工具调用之间：左侧状态图标用竖向虚线上下相连，形成
+   连续的过程时间线（Manus 风）。每条 .tl-line（最后一条除外）在自己图标正
+   下方画一段虚线，跨过行间 gap 连到下一条的图标上方。 */
+.tl-line:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 16px; /* 图标水平中心：padding-left 8 + .tl-ic 宽 16 的一半 */
+  top: 22px; /* 紧接本行图标下方（图标底 ≈ 21px） */
+  bottom: -8px; /* 跨过 .tool-timeline 的 3px gap，连到下一行图标上方 */
+  border-left: 1px dashed var(--border, #d4d8df);
+  pointer-events: none;
+}
+
 /* the running line is a touch more saturated so the eye lands on it. */
 .tl-line.active {
   background: var(--tool-line-bg-active, hsla(160, 72%, 40%, 0.1));
