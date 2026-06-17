@@ -805,6 +805,58 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     return tgMsg
   }
 
+  // ── T3: in-run seq ordering ────────────────────────────────────────────────
+  // The backend emits a single monotonic seq per run (one atomic counter shared by
+  // every emitter). seqBlockStart marks where the CURRENT run's streamed items
+  // begin in messages.value; reorderStreamTailBySeq keeps that tail sorted by seq.
+  // Normal single-channel arrival is already in seq order → the fast-path bails
+  // (no-op); the sort only repairs a rare out-of-order arrival. seqBlockRunId
+  // resets the block on stream_start AND on a run_id change (resume safety), so
+  // user/historical messages and prior runs (seq resets per run) are never
+  // reordered. seq itself is never shown to the user.
+  let seqBlockStart = 0
+  let seqBlockRunId = -1
+
+  const tagStreamSeq = (msg: { seq?: number }, e: AgentStreamEvent): void => {
+    if (typeof e.seq !== 'number' || e.seq <= 0) return
+    if (e.run_id !== seqBlockRunId) {
+      // New run reached via resume (no stream_start): the just-pushed item starts
+      // the block. stream_start sets the boundary explicitly for the normal path.
+      seqBlockRunId = e.run_id
+      seqBlockStart = Math.max(0, messages.value.length - 1)
+    }
+    if (msg.seq === undefined) msg.seq = e.seq
+  }
+
+  const reorderStreamTailBySeq = (): void => {
+    const arr = messages.value
+    const start = seqBlockStart
+    if (start < 0 || start >= arr.length - 1) return
+    // Fast path: bail if the tail is already non-decreasing by seq.
+    let ordered = true
+    for (let i = start + 1; i < arr.length; i++) {
+      const a = arr[i - 1].seq
+      const b = arr[i].seq
+      if (typeof a === 'number' && typeof b === 'number' && a > b) {
+        ordered = false
+        break
+      }
+    }
+    if (ordered) return
+    const sorted = arr
+      .slice(start)
+      .map((m, i) => ({ m, i }))
+      .sort((x, y) => {
+        const sx = typeof x.m.seq === 'number' ? x.m.seq : Number.MAX_SAFE_INTEGER
+        const sy = typeof y.m.seq === 'number' ? y.m.seq : Number.MAX_SAFE_INTEGER
+        return sx - sy || x.i - y.i
+      })
+      .map((x) => x.m)
+    for (let i = 0; i < sorted.length; i++) {
+      if (arr[start + i] !== sorted[i]) arr[start + i] = sorted[i]
+    }
+  }
+
   /**
    * Locate a ToolCallAggregate by tool_call_id across all streaming tool_group
    * messages and apply a mutator. No-ops gracefully if not found.
@@ -1006,6 +1058,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             updated_at: new Date().toISOString()
           }
         }
+        // T3: this run's streamed items start at the current tail; keep them
+        // ordered by the backend's monotonic seq from here on.
+        seqBlockRunId = e.run_id
+        seqBlockStart = messages.value.length
         break
       }
 
@@ -1017,8 +1073,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         const payload = e.data as TokenDeltaPayload
         if (!payload?.message_id) break
         const msg = ensureStreamingAssistantMessage(payload.message_id, e.run_id)
+        tagStreamSeq(msg, e)
         msg.markdown += payload.text
         msg.isStreaming = true
+        reorderStreamTailBySeq()
         break
       }
 
@@ -1026,7 +1084,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         const payload = e.data as ReasoningDeltaPayload
         if (!payload?.message_id) break
         const msg = ensureStreamingAssistantMessage(payload.message_id, e.run_id)
+        tagStreamSeq(msg, e)
         msg.reasoning = (msg.reasoning ?? '') + payload.text
+        reorderStreamTailBySeq()
         break
       }
 
@@ -1056,6 +1116,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         if (!payload?.tool_call_id) break
         const step = e.step ?? 0
         const group = ensureStreamingToolGroupForStep(step)
+        tagStreamSeq(group, e)
         // Avoid duplicates (idempotent)
         if (!group.tool_calls.find((t) => t.tool_call_id === payload.tool_call_id)) {
           const actionLabels: Record<string, string> = {
@@ -1125,6 +1186,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             messages.value[idx] = { ...group }
           }
         }
+        reorderStreamTailBySeq()
         break
       }
 
