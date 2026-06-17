@@ -1,4 +1,4 @@
-// Pinia store for parent-account agent (Skill) CRUD, history, restore, advanced toggle.
+// Pinia store for parent-account agent (Skill) CRUD, history, restore.
 // Setup syntax (per numind-web-v3 CLAUDE.md §2).
 // Relocated from numind-admin-web/src/stores/agent.ts in agent-mode-configurator-relocate (2026-05-22).
 //
@@ -17,7 +17,6 @@ import {
   deleteAgent,
   listAgentHistory,
   restoreAgent,
-  toggleAgentAdvanced,
   listSkillTemplates,
   type ListAgentsParams
 } from '@/api/agentBuilder'
@@ -61,7 +60,7 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
   const templatesLoading = ref(false)
   const templatesError = ref('')
 
-  // --- Shared saving flag (create/update/restore/toggleAdvanced/softDelete) ---
+  // --- Shared saving flag (create/update/restore/softDelete) ---
   const saving = ref(false)
 
   // --- Getter ---
@@ -165,17 +164,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     }
   }
 
-  async function toggleAdvanced(id: number): Promise<Agent> {
-    saving.value = true
-    try {
-      const a = normalizeAgent(await toggleAgentAdvanced(id))
-      current.value = a
-      return a
-    } finally {
-      saving.value = false
-    }
-  }
-
   async function fetchTemplates() {
     templatesLoading.value = true
     templatesError.value = ''
@@ -233,7 +221,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     softDelete,
     fetchHistory,
     restore,
-    toggleAdvanced,
     fetchTemplates,
     $reset
   }

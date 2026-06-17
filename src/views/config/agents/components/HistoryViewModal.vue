@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import type { Agent, AgentFormState } from '@/types/agentBuilder'
-import QuestionnaireForm from './QuestionnaireForm.vue'
+import AgentForm from './AgentForm.vue'
 
 // ── Props / Emits ──────────────────────────────────────────────────────────
 
@@ -19,14 +19,19 @@ defineEmits<{
 
 // ── Computed ───────────────────────────────────────────────────────────────
 
+// Effective prompt: old questionnaire-mode snapshots keep their real prompt in
+// custom_skill_body / generated_skill_body, so surface it here.
 const form = computed<AgentFormState>(() => ({
   name: props.snapshot.name,
   description: props.snapshot.description,
   icon_url: props.snapshot.icon_url,
   welcome_message: props.snapshot.welcome_message,
-  system_prompt: props.snapshot.system_prompt ?? '',
+  system_prompt:
+    props.snapshot.system_prompt ||
+    props.snapshot.custom_skill_body ||
+    props.snapshot.generated_skill_body ||
+    '',
   starters: props.snapshot.starters ?? [],
-  questionnaire_answers: props.snapshot.questionnaire_answers,
   tool_flags: props.snapshot.tool_flags ?? {},
   credit_cap_per_session: props.snapshot.credit_cap_per_session,
   daily_credit_cap: props.snapshot.daily_credit_cap
@@ -51,7 +56,7 @@ const form = computed<AgentFormState>(() => ({
           </header>
 
           <div class="modal-body">
-            <QuestionnaireForm :model-value="form" readonly />
+            <AgentForm :model-value="form" readonly />
           </div>
         </div>
       </div>

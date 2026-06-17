@@ -3,7 +3,6 @@ import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import AgentBuilder from './AgentBuilder.vue'
-import AgentAdvancedEdit from './AgentAdvancedEdit.vue'
 // v2 #1 agent-mode-v2-skill-as-artifact — Skill 装载面板嵌入 Agent 编辑页
 import SkillBindingPanel from '@/views/config/skills/components/SkillBindingPanel.vue'
 
@@ -41,9 +40,8 @@ watch(
     -->
     <SkillBindingPanel :agent-id="agentId" :auto-attach-skill-id="attachSkillId" />
 
-    <!-- 原有的工具开关 / 问卷编辑（根据 advanced_mode 分支） -->
-    <AgentAdvancedEdit v-if="store.current?.advanced_mode" :agent-id="agentId" />
-    <AgentBuilder v-else mode="edit" :agent-id="agentId" />
+    <!-- 助手编辑（统一直接编辑页：名称/头像/描述/欢迎语/引导问题 + 提示词） -->
+    <AgentBuilder mode="edit" :agent-id="agentId" />
   </div>
 </template>
 

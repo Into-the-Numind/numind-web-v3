@@ -173,8 +173,6 @@ function cancelTakedown() {
       <template #cell-name="{ row }">
         <span class="name-wrapper">
           {{ row.name }}
-          <span v-if="row.advanced_mode" class="badge badge--advanced" title="高级模式">🔧</span>
-          <span v-else class="badge badge--problem" title="问卷模式">📋</span>
         </span>
       </template>
       <template #cell-updated_at="{ row }">{{ formatDate(row.updated_at) }}</template>
@@ -294,23 +292,6 @@ function cancelTakedown() {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.badge {
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 6px;
-  font-weight: 500;
-}
-
-.badge--advanced {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.badge--problem {
-  background: #fff7ed;
-  color: #c2410c;
 }
 
 /* Action group */
