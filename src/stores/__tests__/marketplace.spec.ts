@@ -42,7 +42,10 @@ const fixtureSubItem: SubscriptionItem = {
     id: 201,
     subscriber_user_id: 20,
     marketplace_id: 1,
-    cloned_skill_id: 999,
+    // skill-3tier-visibility T4 引用模式：source_skill_id>0, cloned_skill_id=0 (legacy 字段保留)。
+    source_skill_id: 100,
+    subscribed_version: 3,
+    cloned_skill_id: 0,
     subscribed_at: '2026-05-24T11:00:00Z'
   },
   marketplace: fixtureItem,
@@ -62,8 +65,8 @@ vi.mock('@/api/marketplace', () => ({
   getMarketplace: vi.fn(async (): Promise<MarketplaceItemDetail> => fixtureDetail),
   subscribeMarketplace: vi.fn(
     async (): Promise<SubscribeResponse> => ({
-      cloned_skill_id: 999,
-      subscription_id: 201
+      subscription_id: 201,
+      source_skill_id: 100
     })
   ),
   unsubscribeMarketplace: vi.fn(async () => undefined),
@@ -134,7 +137,7 @@ describe('useMarketplaceStore', () => {
     expect(store.currentItem?.subscribe_count).toBe(5)
 
     const res = await store.subscribe(1)
-    expect(res.cloned_skill_id).toBe(999)
+    expect(res.source_skill_id).toBe(100)
     expect(res.subscription_id).toBe(201)
     expect(store.currentItem?.subscribe_count).toBe(6)
   })

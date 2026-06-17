@@ -97,7 +97,9 @@ function goBack() {
 
       <header class="page-header">
         <h1>发布到技能市场</h1>
-        <p class="subtitle">脱敏后的技能将对所有父账户可见。请仔细核对脱敏内容。</p>
+        <p class="subtitle">
+          脱敏后的技能将对所有机构可见（机构技能与个人技能均可发布，需你对该技能有编辑权限）。请仔细核对脱敏内容。
+        </p>
       </header>
 
       <!-- Skill 不存在 -->

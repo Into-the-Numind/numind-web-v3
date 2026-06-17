@@ -109,13 +109,22 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/config',
     component: () => import('@/views/config/ConfigLayout.vue'),
+    // skill-3tier-visibility T4: 父路由不再整体 requiresParent —— 子账户需能访问
+    // /config/skills（个人技能管理）。父账户专属性下沉到各非 skills 子路由（它们各自
+    // 仍带 requiresParent: true）。skills 子路由仅 requiresAuth，允许子账户进入。
     meta: {
       title: '配置中心',
-      requiresAuth: true,
-      requiresParent: true
+      requiresAuth: true
     },
     children: [
-      { path: '', redirect: '/config/chatbots' },
+      // 父账户落 chatbots（默认配置首页）；子账户只能访问 skills，落 skills。
+      {
+        path: '',
+        redirect: () => {
+          const us = useUserStore()
+          return us.isParentUser ? '/config/chatbots' : '/config/skills'
+        }
+      },
       {
         path: 'chatbots',
         component: () => import('@/views/config/ChatbotList.vue'),
@@ -194,11 +203,13 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '编辑助手', requiresAuth: true, requiresParent: true }
       },
       // 我的技能 (agent-mode-v2-skill-as-artifact, 2026-05-24)
+      // skill-3tier-visibility T4: 技能 CRUD 路由对子账户开放（仅 requiresAuth，无 requiresParent）——
+      // 子账户可管理自己的个人级技能。官方模板库（skills/templates，导入为机构技能）仍父账户专属。
       {
         path: 'skills',
         name: 'config-skills',
         component: () => import('@/views/config/skills/SkillList.vue'),
-        meta: { title: 'Skill', requiresAuth: true, requiresParent: true }
+        meta: { title: 'Skill', requiresAuth: true }
       },
       {
         path: 'skills/templates',
@@ -211,26 +222,26 @@ const routes: RouteRecordRaw[] = [
         name: 'config-skills-new',
         component: () => import('@/views/config/skills/SkillEditor.vue'),
         props: { mode: 'create' },
-        meta: { title: '新建技能', requiresAuth: true, requiresParent: true }
+        meta: { title: '新建技能', requiresAuth: true }
       },
       {
         path: 'skills/:id',
         name: 'config-skills-detail',
         component: () => import('@/views/config/skills/SkillDetail.vue'),
-        meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
+        meta: { title: '技能详情', requiresAuth: true }
       },
       {
         path: 'skills/:id/edit',
         name: 'config-skills-edit',
         component: () => import('@/views/config/skills/SkillEditor.vue'),
         props: { mode: 'edit' },
-        meta: { title: '编辑技能', requiresAuth: true, requiresParent: true }
+        meta: { title: '编辑技能', requiresAuth: true }
       },
       {
         path: 'skills/:id/history',
         name: 'config-skills-history',
         component: () => import('@/views/config/skills/SkillHistory.vue'),
-        meta: { title: '技能历史', requiresAuth: true, requiresParent: true }
+        meta: { title: '技能历史', requiresAuth: true }
       }
     ]
   },

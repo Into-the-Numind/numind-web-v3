@@ -50,8 +50,12 @@ function goDetail(item: SubscriptionItem) {
 
 function goLoadIntoAgent(item: SubscriptionItem) {
   // 装载发生在 Agent 编辑页的「装载的 Skill」面板。带上 skill 上下文跳到 Agent 列表
-  // 让用户选一个 Agent，选中后自动装载。旧实现错误地跳到了 Skill 编辑页——那里根本
-  // 没有「装载到 Agent」入口，订阅闭环就此断掉。
+  // 让用户选一个 Agent，选中后自动装载。
+  //
+  // skill-3tier-visibility T4（引用模式）：订阅会在本租户建立「引用指针」技能行（后端处理），
+  // 该指针行才是可装载到 Agent 的本地 skill。legacy clone 行用 cloned_skill_id；
+  // 引用行后端把 cloned_skill_id 复用为指针 skill id（或仍由后端 hydrate 提供）。
+  // 这里透传 cloned_skill_id 作为本地可装载 skill id，与后端约定一致。
   router.push({
     path: '/config/agents',
     query: {
@@ -59,6 +63,14 @@ function goLoadIntoAgent(item: SubscriptionItem) {
       skill_name: item.marketplace.name
     }
   })
+}
+
+// skill-3tier-visibility T4: 原版状态提示。
+//   - 市场行 is_public=false → 原版已下架（引用仍可装载但不再更新）。
+//   - 后续若后端提供源 skill 当前 version，可与 subscribed_version 比对提示「原版已更新」。
+function sourceStatusHint(item: SubscriptionItem): string {
+  if (item.marketplace.is_public === false) return '原版已下架'
+  return ''
 }
 
 function askUnsubscribe(item: SubscriptionItem) {
@@ -130,11 +142,17 @@ function onPageChange(p: number) {
       >
         <template #cell-name="{ row }">
           <span class="name-cell">{{ (row as SubscriptionItem).marketplace.name }}</span>
+          <span class="badge badge--reference" title="引用自市场，开发者更新后自动同步（只读）"
+            >引用</span
+          >
           <span
             v-if="(row as SubscriptionItem).marketplace.is_platform_recommended"
             class="badge badge--recommended"
             >推荐</span
           >
+          <span v-if="sourceStatusHint(row as SubscriptionItem)" class="badge badge--stale">{{
+            sourceStatusHint(row as SubscriptionItem)
+          }}</span>
         </template>
         <template #cell-category_tags="{ row }">
           <span
@@ -166,7 +184,7 @@ function onPageChange(p: number) {
         title="确认取消订阅"
         :message="
           pending
-            ? `取消订阅「${pending.marketplace.name}」会软删除你的副本技能${
+            ? `取消订阅「${pending.marketplace.name}」会移除该技能引用${
                 pending.agent_count > 0 ? `（影响 ${pending.agent_count} 个 Agent 装载关系）` : ''
               }。继续？`
             : ''
@@ -223,6 +241,22 @@ function onPageChange(p: number) {
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 11px;
+}
+.badge--reference {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-right: 4px;
+}
+.badge--stale {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-left: 4px;
 }
 .tag {
   display: inline-block;

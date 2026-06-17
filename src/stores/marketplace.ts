@@ -144,14 +144,14 @@ export const useMarketplaceStore = defineStore('marketplace', () => {
   // ===========================================================
 
   /**
-   * Subscribe to a marketplace item. Returns the cloned skill id + subscription id
-   * (spec §4.1 — note the field is subscription_id, not marketplace_id).
-   * Locally updates currentItem.subscribe_count for optimistic UI; consumers can
-   * refetchDetail if they need authoritative state.
+   * Subscribe to a marketplace item (skill-3tier-visibility T4 — 引用模式).
+   * Returns { subscription_id, source_skill_id } — 不再返回 cloned_skill_id（订阅是
+   * 引用而非克隆副本）。Locally updates currentItem.subscribe_count for optimistic UI;
+   * consumers can refetchDetail if they need authoritative state.
    */
   async function subscribe(
     marketplaceID: number
-  ): Promise<{ cloned_skill_id: number; subscription_id: number }> {
+  ): Promise<{ subscription_id: number; source_skill_id: number }> {
     saving.value = true
     try {
       const res = await subscribeMarketplace(marketplaceID)

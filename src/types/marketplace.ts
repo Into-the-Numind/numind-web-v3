@@ -38,6 +38,14 @@ export interface SkillSubscription {
   id: number
   subscriber_user_id: number
   marketplace_id: number
+  /**
+   * 引用模式（skill-3tier-visibility T4，forward-only）：发布者原始 skill id（= marketplace.source_skill_id）。
+   * 新订阅 > 0；legacy clone 行 = 0。一行 source_skill_id 与 cloned_skill_id 恰好一个非零。
+   */
+  source_skill_id: number
+  /** 订阅时刻 source skill 的 Version 快照，用于「原版已更新/已删除」提示；0 = 未知（legacy）。 */
+  subscribed_version: number
+  /** @deprecated legacy clone 模式：副本 skill id。新引用订阅恒为 0。 */
   cloned_skill_id: number
   subscribed_at: string
 }
@@ -99,10 +107,14 @@ export interface PublishRequest {
   confirmed_sanitized_body: string
 }
 
-/** POST /v1/marketplace/:id/subscribe response. */
+/**
+ * POST /v1/marketplace/:id/subscribe response（skill-3tier-visibility T4，引用模式）。
+ * 订阅不再克隆副本到我的租户，而是建立引用指针：返回 subscription_id + source_skill_id。
+ * cloned_skill_id 字段已从新响应移除。
+ */
 export interface SubscribeResponse {
-  cloned_skill_id: number
   subscription_id: number
+  source_skill_id: number
 }
 
 /** Re-export Skill so callers (Publish flow) get the source-skill type for diff context. */
