@@ -75,17 +75,11 @@ describe('AgentChatHeader', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
-  it('renders the run status badge (incl. 已结束 for a read-only record)', () => {
-    const live = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
-    })
-    expect(live.find('.status-badge').exists()).toBe(true)
-    expect(live.find('.status-badge').text()).toContain('进行中')
-
-    const done = mount(AgentChatHeader, {
+  it('does not render a status badge (removed per product decision)', () => {
+    const w = mount(AgentChatHeader, {
       props: { agent: mkAgent(), run: mkRun('completed'), balance: 1000, readOnly: true }
     })
-    expect(done.find('.status-badge').text()).toContain('已结束')
+    expect(w.find('.status-badge').exists()).toBe(false)
   })
 
   // "已用 X 积分" credits_used 显示已按产品决定移除（不需要在 header 暴露会话花费），

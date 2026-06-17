@@ -249,19 +249,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/agent/history',
-    name: 'agent-history',
-    component: () => import('@/views/agent/AgentHistoryView.vue'),
-    meta: { title: '助手历史', requiresAuth: true }
-  },
-  {
-    // Task 3.5: full-text Chinese search over agent history messages
-    path: '/agent/history/search',
-    name: 'agent-history-search',
-    component: () => import('@/views/agent/AgentHistorySearchView.vue'),
-    meta: { title: '搜索历史', requiresAuth: true }
-  },
-  {
     path: '/agent/chat/:sessionId',
     name: 'agent-chat',
     component: () => import('@/views/agent/AgentChatView.vue'),
