@@ -1234,3 +1234,47 @@ describe('reconcileFromDB edge cases (P2)', () => {
     expect(store.messages.filter((m) => m.type === 'final_answer').length).toBe(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// T3/TD4 — in-run seq ordering of streamed timeline items
+// ---------------------------------------------------------------------------
+describe('applyStreamEvent: seq ordering (T3)', () => {
+  it('reorders the run tail by seq when items arrive out of order', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 7, seq: 1 }))
+    // tool_call_start arrives FIRST with a higher seq...
+    store.applyStreamEvent(
+      makeEvent(
+        'tool_call_start',
+        { tool_call_id: 'tc-1', tool_name: 'web_search', input_preview: {} },
+        { run_id: 7, seq: 5, step: 0 }
+      )
+    )
+    // ...then a token_delta arrives with a LOWER seq (out of order).
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-1', text: 'hi' }, { run_id: 7, seq: 3 })
+    )
+    // The assistant message (seq 3) must end up BEFORE the tool group (seq 5).
+    expect(store.messages.map((m) => m.type)).toEqual(['assistant', 'tool_group'])
+    expect(store.messages[0].seq).toBe(3)
+    expect(store.messages[1].seq).toBe(5)
+  })
+
+  it('leaves in-order arrival untouched (fast-path no-op) and never reorders across the user message', () => {
+    const store = useAgentChatStore()
+    // A prior user message (no seq) must never be reordered into the run's tail.
+    store.messages.push({ id: 'u1', type: 'user', text: 'q', timestamp: '2026-05-27T10:00:00Z' })
+    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 7, seq: 1 }))
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-1', text: 'hi' }, { run_id: 7, seq: 2 })
+    )
+    store.applyStreamEvent(
+      makeEvent(
+        'tool_call_start',
+        { tool_call_id: 'tc-1', tool_name: 'web_search', input_preview: {} },
+        { run_id: 7, seq: 3, step: 0 }
+      )
+    )
+    expect(store.messages.map((m) => m.type)).toEqual(['user', 'assistant', 'tool_group'])
+  })
+})

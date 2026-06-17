@@ -147,6 +147,12 @@ interface BaseMessage {
   /** client-generated uuid */
   id: string
   timestamp: string
+  /**
+   * Internal ordering key = the originating stream event's monotonic per-run seq
+   * (the backend emits a single atomic counter per run). Used to keep a run's
+   * streamed items in seq order; NEVER rendered to the user.
+   */
+  seq?: number
 }
 
 export interface UserMessage extends BaseMessage {
