@@ -15,8 +15,8 @@
 /** meeting_session.status — SPEC §2.1 */
 export type MeetingSessionStatus = 'active' | 'ended'
 
-/** meeting_session.summary_status — SPEC §2.1 */
-export type MeetingSummaryStatus = 'none' | 'generating' | 'done' | 'failed'
+/** meeting_session.summary_status — SPEC §2.1（skipped = 结束时选择不生成纪要） */
+export type MeetingSummaryStatus = 'none' | 'generating' | 'done' | 'failed' | 'skipped'
 
 /** meeting_feedback.trigger — SPEC §2.3 / §3.1 */
 export type MeetingFeedbackTrigger = 'auto' | 'manual'

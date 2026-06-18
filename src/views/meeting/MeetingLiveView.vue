@@ -221,11 +221,16 @@
     <ConfirmModal
       v-model="endConfirmOpen"
       title="结束会议"
-      message="结束后将停止录音并生成 AI 纪要，无法继续录制。确定结束吗？"
+      message="结束后将停止录音，无法继续录制。"
       variant="danger"
-      confirm-text="结束并生成纪要"
+      :confirm-text="generateSummaryOnEnd ? '结束并生成纪要' : '仅结束会议'"
       @confirm="doEnd"
-    />
+    >
+      <label class="end-summary-toggle">
+        <input v-model="generateSummaryOnEnd" type="checkbox" />
+        <span>结束后生成 AI 会议纪要</span>
+      </label>
+    </ConfirmModal>
 
     <ConfirmModal
       v-model="leaveConfirmOpen"
@@ -509,7 +514,10 @@ const stopAutoTimer = (): void => {
 
 // ── End (destructive) ──────────────────────────────────────────────────────
 const endConfirmOpen = ref(false)
+// 结束时是否生成 AI 纪要（默认生成；用户可在确认弹窗里取消勾选 → 只结束不生成）。
+const generateSummaryOnEnd = ref(true)
 const askEnd = (): void => {
+  generateSummaryOnEnd.value = true // 每次打开确认弹窗都默认勾选
   endConfirmOpen.value = true
 }
 // Hard cap on recorder.stop() before we move on regardless (FEEDBACK_V2 §3.2).
@@ -575,7 +583,7 @@ const doEnd = async (): Promise<void> => {
   // endMeeting is now near-instant (秒回, summary_status=generating); the Summary
   // page polls for the minutes. We jump to it whenever we have a session id so the
   // user sees the generating state — even if a transient end error needs a retry.
-  const session = await meeting.endMeeting()
+  const session = await meeting.endMeeting(generateSummaryOnEnd.value)
   const targetId = session?.id ?? meeting.currentSession?.id ?? sessionId.value
   if (session) {
     router.push({ name: 'meeting-summary', params: { id: String(session.id) } })
@@ -1180,6 +1188,24 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.05);
   padding: 1px 5px;
   border-radius: 4px;
+}
+
+/* 结束确认弹窗里的"是否生成纪要"复选框 */
+.end-summary-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #4a4a4a);
+  cursor: pointer;
+  user-select: none;
+}
+.end-summary-toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-primary, #1a7f6b);
 }
 
 /* ===== Responsive ===== */

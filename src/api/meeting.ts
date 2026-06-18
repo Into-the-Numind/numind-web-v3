@@ -90,11 +90,14 @@ export const ingestSegment = async (
   return res.data
 }
 
-/** POST /v1/meetings/:id/end — end + synchronously generate summary. Returns session. */
-export const endMeeting = async (id: number): Promise<MeetingSession> => {
-  const res = (await request.post(
-    `${BASE}/${id}/end`
-  )) as unknown as ApiResponse<EndMeetingResponse>
+/**
+ * POST /v1/meetings/:id/end — end the meeting (async summary).
+ * generateSummary=false 时只结束、不生成纪要（后端 summary_status=skipped）。
+ */
+export const endMeeting = async (id: number, generateSummary = true): Promise<MeetingSession> => {
+  const res = (await request.post(`${BASE}/${id}/end`, {
+    generate_summary: generateSummary
+  })) as unknown as ApiResponse<EndMeetingResponse>
   return res.data.session
 }
 

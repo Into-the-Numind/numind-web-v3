@@ -390,13 +390,13 @@ export const useMeetingStore = defineStore('meeting', () => {
    * status settles to 'done' / 'failed'. We only persist whatever the end call
    * returns into currentSession so the Summary page starts from a correct status.
    */
-  const endMeeting = async (): Promise<MeetingSession | null> => {
+  const endMeeting = async (generateSummary = true): Promise<MeetingSession | null> => {
     if (!currentSession.value) return null
     const sessionId = currentSession.value.id
     ending.value = true
     error.value = null
     try {
-      const session = await api.endMeeting(sessionId)
+      const session = await api.endMeeting(sessionId, generateSummary)
       currentSession.value = session
       return session
     } catch (err) {

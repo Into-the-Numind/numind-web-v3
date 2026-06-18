@@ -49,6 +49,8 @@
         <div class="confirm-dialog" role="dialog" aria-modal="true">
           <div v-if="title" class="confirm-title">{{ title }}</div>
           <div class="confirm-message">{{ message }}</div>
+          <!-- 可选额外内容（如复选框）；不传则不渲染，对既有调用方无影响。 -->
+          <slot />
           <div class="confirm-actions">
             <button type="button" class="confirm-btn confirm-btn--cancel" @click="handleCancel">
               {{ cancelText }}
