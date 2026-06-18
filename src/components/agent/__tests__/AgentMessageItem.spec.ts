@@ -363,7 +363,7 @@ describe('AgentMessageItem', () => {
       expect(wrapper.find('.code-stream-toggle').attributes('aria-expanded')).toBe('true')
     })
 
-    it('hides the code box once the tool finishes (result state)', async () => {
+    it('hides the code box at the step boundary (step_done)', async () => {
       const store = useAgentChatStore()
       seedActiveCodeTool(store)
       const msg: AgentMessage = {
@@ -375,18 +375,12 @@ describe('AgentMessageItem', () => {
       }
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
       await flushPromises()
-      expect(wrapper.find('.code-stream').exists()).toBe(true)
-      // tool completes → activeCodeStream empties → box collapses
-      store.applyStreamEvent({
-        type: 'tool_call_result',
-        seq: 3,
-        ts,
-        run_id: 1,
-        step: 0,
-        data: { tool_call_id: 'tc-code', preview: '{"ok":true}', duration_ms: 5 }
-      })
+      expect(wrapper.find('.code-stream-body').exists()).toBe(true)
+      // step boundary → buffer cleared → activeCodeStream empties → box collapses.
+      // (NOT tool_call_result — args-delta provider id ≠ result backend UUID.)
+      store.applyStreamEvent({ type: 'step_done', seq: 3, ts, run_id: 1, step: 0, data: {} })
       await flushPromises()
-      expect(wrapper.find('.code-stream').exists()).toBe(false)
+      expect(wrapper.find('.code-stream-body').exists()).toBe(false)
     })
 
     it('does not render the code box when the bubble is not streaming', async () => {
@@ -401,7 +395,7 @@ describe('AgentMessageItem', () => {
       }
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
       await flushPromises()
-      expect(wrapper.find('.code-stream').exists()).toBe(false)
+      expect(wrapper.find('.code-stream-body').exists()).toBe(false)
     })
   })
 
