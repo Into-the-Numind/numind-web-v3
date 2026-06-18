@@ -231,6 +231,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // Keyed by step index (string) so multi-step runs each get their own group.
   const streamingToolGroupIds = ref<Map<number, string>>(new Map())
 
+  // followup3 FE-3 fix: live "writing code" buffer, keyed by tool_call_id and
+  // DECOUPLED from the tool_call aggregate. The tool_call_args_delta SSE arrives
+  // BEFORE tool_call_start creates the aggregate (the model streams the function
+  // arguments while composing; the assembled tool call + tool_call_start fire
+  // afterwards — confirmed via dev SSE capture run 180). Writing into the not-yet-
+  // existing aggregate was a silent no-op, so the box never showed. Buffer here
+  // regardless of aggregate state; activeCodeStream reads it; ids are marked done
+  // on result/error (box collapses) and everything clears on reset.
+  const liveCodeStreams = ref<Record<string, string>>({})
+  const liveCodeStreamOrder = ref<string[]>([])
+  const liveCodeStreamDoneIds = ref<string[]>([])
+
   const inputText = ref('')
   const attachments = ref<UploadResponse[]>([])
   const estimate = ref<EstimateResponse | null>(null)
@@ -298,23 +310,21 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   // followup3 FE-3: the accumulated argument text (code/document content) of the
   // tool call that is CURRENTLY being composed — drives the live "writing code" box
-  // in the streaming bubble. Scans streaming tool_group messages for the LAST tool
-  // call that is still ACTIVE (use/progress/queued) and has argsStream content.
-  // Returns '' once that tool finishes (result/error) so the box collapses on
-  // generation success. Only whitelisted generation tools ever accumulate argsStream
-  // (backend gates tool_call_args_delta emission by tool name).
+  // in the streaming bubble. Reads the liveCodeStreams buffer (decoupled from the
+  // aggregate, since args-delta arrives before tool_call_start): the LAST buffered
+  // tool_call_id not yet marked done. Returns '' once that tool finishes
+  // (result/error → id added to liveCodeStreamDoneIds) so the box collapses on
+  // generation success. Only whitelisted generation tools ever emit args-delta
+  // (backend gates emission by tool name).
   const activeCodeStream = computed<string>(() => {
-    const ACTIVE: NarrationState[] = ['queued', 'use', 'progress']
-    let latest = ''
-    for (const m of messages.value) {
-      if (m.type !== 'tool_group') continue
-      for (const tc of (m as ToolGroupMessage).tool_calls) {
-        if (ACTIVE.includes(tc.current_state) && tc.argsStream) {
-          latest = tc.argsStream
-        }
+    // Latest tool_call_id that is still streaming args (not yet result/error).
+    for (let i = liveCodeStreamOrder.value.length - 1; i >= 0; i--) {
+      const id = liveCodeStreamOrder.value[i]
+      if (!liveCodeStreamDoneIds.value.includes(id) && liveCodeStreams.value[id]) {
+        return liveCodeStreams.value[id]
       }
     }
-    return latest
+    return ''
   })
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -1021,7 +1031,31 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           b.isStreaming = false
         }
         if (finalOut) {
-          streamingBubbles[streamingBubbles.length - 1].markdown = finalOut
+          // followup3 fix: convert the LAST finalized bubble into a 'final_answer'
+          // message — matching the reloaded snapshot, which ends in 'final_answer'.
+          // A plain 'assistant' bubble renders finalOut as raw markdown: artifact
+          // links stay plain text (no file cards) and there's no copy button, so the
+          // user had to refresh to see them. AgentFinalAnswer (final_answer type)
+          // splits the markdown into prose + artifact cards and shows the copy button.
+          const last = streamingBubbles[streamingBubbles.length - 1]
+          // Locate by _stream_id (stable identity) rather than indexOf(reference) —
+          // explicit and survives any future filter/clone of streamingBubbles.
+          const idx = messages.value.findIndex(
+            (m) =>
+              m.type === 'assistant' &&
+              (m as StreamingAssistantMessage)._stream_id === last._stream_id
+          )
+          if (idx >= 0) {
+            messages.value[idx] = {
+              id: last.id,
+              type: 'final_answer',
+              markdown: finalOut,
+              run_id: runId,
+              timestamp: last.timestamp
+            }
+          } else {
+            last.markdown = finalOut
+          }
         }
         return
       }
@@ -1284,13 +1318,21 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // followup3 FE-3: incremental tool-call argument (code/document content) for
         // a whitelisted generation tool. Backend gates emission by tool name, so any
         // event that arrives here belongs to a tool whose args we want to show live.
-        // Accumulate by tool_call_id into the aggregate's argsStream — the streaming
-        // bubble renders this in a live "writing code" box (AgentMessageItem).
+        // Buffer it in liveCodeStreams (NOT the tool_call aggregate): this event
+        // arrives BEFORE tool_call_start creates the aggregate, so writing into the
+        // aggregate was a silent no-op (the dev bug). The streaming bubble renders
+        // activeCodeStream in a live "writing code" box (AgentMessageItem).
         const payload = e.data as ToolCallArgsDeltaPayload
         if (!payload?.tool_call_id || !payload.args_delta) break
-        updateStreamingToolCall(payload.tool_call_id, (tc) => {
-          tc.argsStream = (tc.argsStream ?? '') + payload.args_delta
-        })
+        // Buffer by tool_call_id, independent of the (not-yet-created) aggregate.
+        const acid = payload.tool_call_id
+        if (!(acid in liveCodeStreams.value)) {
+          liveCodeStreamOrder.value = [...liveCodeStreamOrder.value, acid]
+        }
+        liveCodeStreams.value = {
+          ...liveCodeStreams.value,
+          [acid]: (liveCodeStreams.value[acid] ?? '') + payload.args_delta
+        }
         break
       }
 
@@ -1335,6 +1377,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             timestamp: e.ts
           })
         })
+        // followup3 FE-3 fix: tool finished → mark its live code stream done so the
+        // box collapses (activeCodeStream skips done ids).
+        if (!liveCodeStreamDoneIds.value.includes(payload.tool_call_id)) {
+          liveCodeStreamDoneIds.value = [...liveCodeStreamDoneIds.value, payload.tool_call_id]
+        }
         // NOTE: generated images are NOT pushed as a transient artifact bubble
         // here — that bubble was lost on reload (loadSessionSnapshot rebuilds from
         // agent_run.messages, which never persisted it). The backend now embeds
@@ -1362,6 +1409,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             timestamp: e.ts
           })
         })
+        if (!liveCodeStreamDoneIds.value.includes(payload.tool_call_id)) {
+          liveCodeStreamDoneIds.value = [...liveCodeStreamDoneIds.value, payload.tool_call_id]
+        }
         break
       }
 
@@ -1508,6 +1558,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     lastStreamDeltaAt.value = null
     currentToolGroupId.value = null
     streamingToolGroupIds.value = new Map()
+    liveCodeStreams.value = {}
+    liveCodeStreamOrder.value = []
+    liveCodeStreamDoneIds.value = []
     inputText.value = ''
     attachments.value = []
     estimate.value = null
