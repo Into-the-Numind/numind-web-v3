@@ -1,16 +1,16 @@
 /**
- * AgentArtifactItem 单元测试 — HTML artifact 沙箱渲染回归保护
+ * AgentArtifactItem 单元测试 — 卡片交互模型 + HTML 沙箱预览安全边界
  *
- * 背景：后端 create_html 工具把 agent 生成的 HTML 原样(raw / un-escaped)发布到 COS，
- * 若被 prompt-injection（web_search / RAG 内容）注入 <script>，直接打开会执行。
- * 前端必须把 HTML artifact 渲染在一个 fully-sandboxed iframe 里
- * （空 sandbox：无 allow-scripts / 无 allow-same-origin），让注入脚本无法以
- * app 身份读取或外泄任何东西。本测试是该加固的回归护栏 —— 若有人日后给 iframe
- * 加上 allow-scripts / allow-same-origin（或任何 sandbox token），测试立刻 FAIL。
+ * 交互模型（dev followup2 第三轮）：卡片只显一个【下载】按钮；【预览/编辑】通过点击
+ * 卡片本身进入 —— HTML→渲染预览(iframe)，可编辑文档→编辑器，其余格式→提示"暂不支持预览"。
  *
- * 注意：预览用 <Teleport to="body">，iframe 挂在 document.body，
- * 需要 attachTo: document.body 并通过 document.querySelector 查找。
- * 每个用例都 unmount，移除组件挂在 document 上的 keydown 监听。
+ * HTML 预览安全边界（产品负责人批准放开脚本以真渲染样式）：iframe 用
+ * sandbox="allow-scripts"（让报告自带的 Tailwind CDN / 图表 JS 跑起来渲染样式），
+ * 但**绝不**加 allow-same-origin / allow-top-navigation —— opaque origin，脚本碰不到
+ * app 的 cookie/DOM/会话。本测试是该边界的回归护栏：谁日后给 iframe 加了
+ * allow-same-origin / allow-top-navigation，测试立刻 FAIL。
+ *
+ * 注意：预览用 <Teleport to="body">，iframe 挂在 document.body。
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -25,49 +25,50 @@ const htmlArtifact = {
 }
 
 beforeEach(() => {
-  // AgentArtifactItem 在 setup 里调用 useDocumentsStore()（文档系统 feature 引入），
-  // mount 前必须有 active Pinia，否则 getActivePinia() 报错（真实 App 在 main.ts
-  // 已 app.use(pinia)，仅本单测漏了初始化）。
   setActivePinia(createPinia())
 })
 
 afterEach(() => {
-  // 清理 Teleport 残留，避免污染下一个用例的 document.body 查询
-  // （与仓库内 BoosterPurchaseDialog.spec.ts 的 Teleport 用例同一惯例）
   document.body.innerHTML = ''
 })
 
-describe('AgentArtifactItem — HTML sandbox preview', () => {
-  it('renders HTML artifacts inside a fully sandboxed iframe (empty sandbox)', async () => {
+describe('AgentArtifactItem — HTML preview (click card) + sandbox security boundary', () => {
+  it('clicking the card opens the HTML preview iframe with allow-scripts but NOT allow-same-origin', async () => {
     const wrapper = mount(AgentArtifactItem, {
       props: { artifact: htmlArtifact },
       attachTo: document.body
     })
 
-    // iframe 仅在打开预览后才渲染（懒加载，避免预先请求 COS）
+    // iframe 懒加载：未点击前不渲染（不预先请求 COS）
     expect(document.querySelector('iframe')).toBeNull()
 
-    await wrapper.get('[data-testid="html-preview-btn"]').trigger('click')
+    // 预览通过点击卡片本身进入（不再有独立的眼睛按钮）
+    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
 
-    const iframe = document.querySelector('iframe')
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement
     expect(iframe).not.toBeNull()
-    const frame = iframe as HTMLIFrameElement
+    expect(iframe.getAttribute('src')).toBe(htmlArtifact.url)
 
-    // src 指向 COS 预签名 URL
-    expect(frame.getAttribute('src')).toBe(htmlArtifact.url)
-
-    // 关键断言：sandbox 必须存在且为空字符串（最强限制）。
-    // toBe('') 是 adversarially-complete 的护栏：任何新增 token
-    // （allow-scripts / allow-same-origin / allow-popups / allow-top-navigation …）都会让它 FAIL。
-    expect(frame.hasAttribute('sandbox')).toBe(true)
-    const sandbox = frame.getAttribute('sandbox') ?? ''
-    expect(sandbox).toBe('')
-    expect(sandbox).not.toContain('allow-scripts')
+    const sandbox = iframe.getAttribute('sandbox') ?? ''
+    // allow-scripts 必须在 —— 否则报告靠 JS 渲染的样式失效(裸文字)
+    expect(sandbox).toContain('allow-scripts')
+    // 安全边界：绝不能有 allow-same-origin / allow-top-navigation（opaque origin 隔离）
     expect(sandbox).not.toContain('allow-same-origin')
-
+    expect(sandbox).not.toContain('allow-top-navigation')
     // 不通过 referrer 泄露预签名 URL
-    expect(frame.getAttribute('referrerpolicy')).toBe('no-referrer')
+    expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer')
 
+    wrapper.unmount()
+  })
+
+  it('the download button downloads WITHOUT opening the preview (stops propagation)', async () => {
+    const wrapper = mount(AgentArtifactItem, {
+      props: { artifact: htmlArtifact },
+      attachTo: document.body
+    })
+    await wrapper.get('[data-testid="artifact-download"]').trigger('click')
+    // 点下载按钮不应触发预览
+    expect(document.querySelector('iframe')).toBeNull()
     wrapper.unmount()
   })
 
@@ -76,14 +77,12 @@ describe('AgentArtifactItem — HTML sandbox preview', () => {
       props: { artifact: htmlArtifact },
       attachTo: document.body
     })
-    await wrapper.get('[data-testid="html-preview-btn"]').trigger('click')
+    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
     expect(document.querySelector('iframe')).not.toBeNull()
 
     const closeBtn = document.querySelector('[aria-label="关闭预览"]') as HTMLButtonElement
-    expect(closeBtn).not.toBeNull()
     closeBtn.click()
     await flushPromises()
-
     expect(document.querySelector('iframe')).toBeNull()
     wrapper.unmount()
   })
@@ -93,12 +92,10 @@ describe('AgentArtifactItem — HTML sandbox preview', () => {
       props: { artifact: htmlArtifact },
       attachTo: document.body
     })
-    await wrapper.get('[data-testid="html-preview-btn"]').trigger('click')
+    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
     expect(document.querySelector('iframe')).not.toBeNull()
-
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await flushPromises()
-
     expect(document.querySelector('iframe')).toBeNull()
     wrapper.unmount()
   })
@@ -108,73 +105,34 @@ describe('AgentArtifactItem — HTML sandbox preview', () => {
       props: { artifact: htmlArtifact },
       attachTo: document.body
     })
-    await wrapper.get('[data-testid="html-preview-btn"]').trigger('click')
-
+    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
     const frame = document.querySelector('iframe') as HTMLIFrameElement
     frame.dispatchEvent(new Event('error'))
     await flushPromises()
-
-    // 错误兜底：提示 + 下载查看入口（满足 ui-ux Rule 2 的 error 状态）
     expect(document.body.textContent).toContain('页面无法显示')
     expect(document.body.textContent).toContain('下载查看')
     wrapper.unmount()
   })
+})
 
-  it('clears the loading state once the iframe load event fires', async () => {
-    const wrapper = mount(AgentArtifactItem, {
-      props: { artifact: htmlArtifact },
-      attachTo: document.body
-    })
-    await wrapper.get('[data-testid="html-preview-btn"]').trigger('click')
-
-    const frame = document.querySelector('iframe') as HTMLIFrameElement
-    frame.dispatchEvent(new Event('load'))
-    await flushPromises()
-
-    expect(document.body.textContent).not.toContain('加载中')
-    wrapper.unmount()
-  })
-
-  it('still offers a download button for HTML artifacts (explicit user action)', () => {
-    const wrapper = mount(AgentArtifactItem, { props: { artifact: htmlArtifact } })
-    expect(wrapper.find('[aria-label="下载文件"]').exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('does NOT render an iframe or preview button for image artifacts', () => {
-    const imageArtifact = {
-      id: 2,
-      filename: 'chart.png',
-      url: 'https://example-bucket.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/chart.png?sign=abc',
-      mime: 'image/png'
+describe('AgentArtifactItem — non-previewable card click → hint', () => {
+  it('clicking a non-previewable, non-editable file (pdf) flashes "暂不支持预览"', async () => {
+    const pdf = {
+      id: 9,
+      filename: 'report.pdf',
+      url: 'https://b.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/report.pdf?sign=abc',
+      mime: 'application/pdf'
     }
-    const wrapper = mount(AgentArtifactItem, {
-      props: { artifact: imageArtifact },
-      attachTo: document.body
-    })
-    expect(wrapper.find('[data-testid="html-preview-btn"]').exists()).toBe(false)
+    const wrapper = mount(AgentArtifactItem, { props: { artifact: pdf } })
+    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
+    expect(wrapper.text()).toContain('暂不支持预览')
     expect(document.querySelector('iframe')).toBeNull()
-    wrapper.unmount()
-  })
-
-  it('does NOT render an iframe or preview button for non-HTML files (e.g. docx)', () => {
-    const docArtifact = {
-      id: 3,
-      filename: 'report.docx',
-      url: 'https://example-bucket.cos.ap-guangzhou.myqcloud.com/agent-outputs/42/report.docx?sign=abc',
-      mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    }
-    const wrapper = mount(AgentArtifactItem, { props: { artifact: docArtifact } })
-    expect(wrapper.find('[data-testid="html-preview-btn"]').exists()).toBe(false)
-    expect(document.querySelector('iframe')).toBeNull()
-    // 非 HTML 文件仍提供下载
-    expect(wrapper.find('[aria-label="下载文件"]').exists()).toBe(true)
     wrapper.unmount()
   })
 })
 
 describe('AgentArtifactItem — A1 file card structure', () => {
-  it('docx renders the A1 file card: emerald doc badge + filename + uppercase type label', () => {
+  it('docx renders the A1 file card: emerald doc badge + filename + uppercase type label + download', () => {
     const doc = {
       id: 1,
       filename: '莫小派_获客调研.docx',
@@ -185,9 +143,10 @@ describe('AgentArtifactItem — A1 file card structure', () => {
     expect(wrapper.find('.file-row').exists()).toBe(true)
     expect(wrapper.find('.doc-badge').exists()).toBe(true)
     expect(wrapper.find('.filename').text()).toBe('莫小派_获客调研.docx')
-    // type label = uppercase extension (DOCX), not a KB size (ArtifactRef has no size)
     expect(wrapper.find('.file-type').text()).toBe('DOCX')
     expect(wrapper.text()).not.toContain('KB')
+    // 只有一个下载按钮（无独立预览/编辑按钮）
+    expect(wrapper.find('[data-testid="artifact-download"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -218,10 +177,8 @@ describe('AgentArtifactItem — S2 image card structure (#3)', () => {
     expect(thumb.exists()).toBe(true)
     expect(thumb.attributes('src')).toBe(img.url)
     expect(wrapper.find('.filename').text()).toBe('chart.png')
-    // S2 = bare image, NOT the framed file-card path: no doc-badge / file-row chrome.
     expect(wrapper.find('.doc-badge').exists()).toBe(false)
     expect(wrapper.find('.file-row').exists()).toBe(false)
-    // clicking the thumbnail opens the full-image preview modal
     await wrapper.find('.image-wrap').trigger('click')
     expect(document.querySelector('.preview-img')).not.toBeNull()
     wrapper.unmount()

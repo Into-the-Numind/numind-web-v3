@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 
@@ -26,92 +26,103 @@ function mountItem(mime: string, filename: string) {
   return mount(AgentArtifactItem, {
     props: {
       artifact: { id: 1, filename, url: `https://x/agent-outputs/7/1-${filename}`, mime }
-    }
+    },
+    attachTo: document.body
   })
 }
 
-// 编辑器是页面级右侧面板（AgentChatView 第三栏）。卡片不再有独立编辑按钮，
-// 而是整张可点击：canEdit 时打 data-testid="doc-open-card" + 类 file-row--clickable。
-const openCard = '[data-testid="doc-open-card"]'
+// 卡片交互模型（followup2 第三轮）：卡片只有【下载】按钮 + 整卡可点。点击卡片 →
+// HTML→渲染预览（不开编辑器）；可编辑文档(docx/md/txt, flag 开)→打开编辑器(documentsStore.open)；
+// 其余格式→提示"暂不支持预览"，不开编辑器。
+const card = '[data-testid="artifact-card"]'
 
 beforeEach(() => {
   setActivePinia(createPinia())
   flag.enabled = true
   vi.clearAllMocks()
 })
+afterEach(() => {
+  document.body.innerHTML = ''
+})
 
-describe('AgentArtifactItem 打开编辑入口（AC1）', () => {
-  it('flag 开 + 文本类(docx) → 卡片可点击打开', () => {
-    expect(mountItem(DOCX, 'report.docx').find(openCard).exists()).toBe(true)
-  })
-
-  it('flag 开 + 文本类(md) → 可点击', () => {
-    expect(mountItem('text/markdown', 'note.md').find(openCard).exists()).toBe(true)
-  })
-
-  it('flag 开 + 文本类(txt) → 可点击', () => {
-    expect(mountItem('text/plain', 'note.txt').find(openCard).exists()).toBe(true)
-  })
-
-  it('flag 开 + 文本类(html, 走 isHtml 分支) → 可点击', () => {
-    expect(mountItem('text/html', 'page.html').find(openCard).exists()).toBe(true)
-  })
-
-  it('flag 开 + 非文本类(xlsx) → 不可点击', () => {
-    expect(
-      mountItem('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'a.xlsx')
-        .find(openCard)
-        .exists()
-    ).toBe(false)
-  })
-
-  it('flag 开 + 非文本类(pptx) → 不可点击', () => {
-    expect(
-      mountItem(
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'a.pptx'
-      )
-        .find(openCard)
-        .exists()
-    ).toBe(false)
-  })
-
-  it('flag 开 + 非文本类(csv) → 不可点击', () => {
-    expect(mountItem('text/csv', 'data.csv').find(openCard).exists()).toBe(false)
-  })
-
-  it('flag 开 + 非文本类(png) → 不可点击', () => {
-    expect(mountItem('image/png', 'chart.png').find(openCard).exists()).toBe(false)
-  })
-
-  it('flag 开 + 非文本类(pdf) → 不可点击', () => {
-    expect(mountItem('application/pdf', 'a.pdf').find(openCard).exists()).toBe(false)
-  })
-
-  it('flag 关 + 文本类 → 不可点击（休眠隔离）', () => {
-    flag.enabled = false
-    expect(mountItem(DOCX, 'report.docx').find(openCard).exists()).toBe(false)
-  })
-
-  it('点击卡片 → 调用 documentsStore.open（带 source_url/filename/mime）', async () => {
+describe('AgentArtifactItem 点击卡片行为（编辑/预览/提示）', () => {
+  it('flag 开 + 可编辑(docx) 点击卡片 → documentsStore.open（带 source_url/filename/mime）', async () => {
     const store = useDocumentsStore()
     const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
     const w = mountItem(DOCX, 'report.docx')
-    await w.find(openCard).trigger('click')
+    await w.get(card).trigger('click')
     expect(openSpy).toHaveBeenCalledTimes(1)
     expect(openSpy).toHaveBeenCalledWith({
       source_url: 'https://x/agent-outputs/7/1-report.docx',
       filename: 'report.docx',
       mime: DOCX
     })
+    w.unmount()
   })
 
-  it('非文本类卡片点击 → 不触发 open', async () => {
+  it('flag 开 + 可编辑(md) 点击卡片 → 开编辑器', async () => {
     const store = useDocumentsStore()
     const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
-    const w = mountItem('application/pdf', 'a.pdf')
-    // pdf 卡片仍可点（下载/预览按钮），但不应触发 open
-    await w.find('.file-row').trigger('click')
+    const w = mountItem('text/markdown', 'note.md')
+    await w.get(card).trigger('click')
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    w.unmount()
+  })
+
+  it('flag 开 + 可编辑(txt) 点击卡片 → 开编辑器', async () => {
+    const store = useDocumentsStore()
+    const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
+    const w = mountItem('text/plain', 'note.txt')
+    await w.get(card).trigger('click')
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    w.unmount()
+  })
+
+  it('html 点击卡片 → 渲染预览(iframe)，不开编辑器', async () => {
+    const store = useDocumentsStore()
+    const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
+    const w = mountItem('text/html', 'page.html')
+    await w.get(card).trigger('click')
     expect(openSpy).not.toHaveBeenCalled()
+    expect(document.querySelector('iframe')).not.toBeNull()
+    w.unmount()
+  })
+
+  it('flag 关 + docx 点击卡片 → 不开编辑器（提示不支持）', async () => {
+    flag.enabled = false
+    const store = useDocumentsStore()
+    const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
+    const w = mountItem(DOCX, 'report.docx')
+    await w.get(card).trigger('click')
+    expect(openSpy).not.toHaveBeenCalled()
+    expect(w.text()).toContain('暂不支持预览')
+    w.unmount()
+  })
+
+  it('非预览非编辑(pdf/xlsx/pptx/csv) 点击卡片 → 不开编辑器 + 提示', async () => {
+    for (const [mime, name] of [
+      ['application/pdf', 'a.pdf'],
+      ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'a.xlsx'],
+      ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'a.pptx'],
+      ['text/csv', 'data.csv']
+    ]) {
+      const store = useDocumentsStore()
+      const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
+      const w = mountItem(mime, name)
+      await w.get(card).trigger('click')
+      expect(openSpy, `${name} 不应开编辑器`).not.toHaveBeenCalled()
+      expect(w.text(), `${name} 应提示不支持`).toContain('暂不支持预览')
+      w.unmount()
+      vi.clearAllMocks()
+    }
+  })
+
+  it('下载按钮点击 → 不触发编辑/预览（stop 冒泡）', async () => {
+    const store = useDocumentsStore()
+    const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
+    const w = mountItem(DOCX, 'report.docx')
+    await w.get('[data-testid="artifact-download"]').trigger('click')
+    expect(openSpy).not.toHaveBeenCalled()
+    w.unmount()
   })
 })
