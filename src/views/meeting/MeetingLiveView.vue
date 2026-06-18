@@ -125,6 +125,10 @@
             <h2 class="panel-title">实时转写</h2>
             <span class="panel-count">{{ spokenSegments.length }} 段</span>
           </div>
+          <!-- 说话人识别提示 (DIARIZATION_SPEC §6, flag-gated): 会中 A/B/C 为初步识别. -->
+          <p v-if="diarizationEnabled && showSpeakerHint" class="speaker-hint">
+            {{ speakerHintText }}
+          </p>
           <div ref="transcriptScroll" class="panel-scroll">
             <div v-if="spokenSegments.length === 0 && !interimText" class="panel-empty">
               <p>开始录音后，转写会在这里逐句实时滚动出现。</p>
@@ -132,11 +136,30 @@
             <ul v-else class="transcript-list">
               <li v-for="seg in spokenSegments" :key="seg.id" class="transcript-seg">
                 <span class="seg-time">{{ formatMs(seg.start_ms) }}</span>
+                <!-- 说话人色标 (DIARIZATION_SPEC §6, flag-gated): final→online→灰. -->
+                <span
+                  v-if="diarizationEnabled"
+                  class="seg-speaker"
+                  :class="{
+                    'seg-speaker--weak': speakerWeak(seg),
+                    'seg-speaker--unknown': speakerUnknown(seg)
+                  }"
+                  :style="speakerStyle(seg)"
+                  :title="speakerTitle(seg)"
+                >
+                  {{ speakerBadge(seg) }}
+                </span>
                 <span class="seg-text">{{ seg.text }}</span>
               </li>
               <!-- 当前句中间结果 (SPEC §2 interim): 灰显斜体, 覆盖式更新, 句末转为 final -->
               <li v-if="interimText" class="transcript-seg transcript-seg--interim">
                 <span class="seg-time">···</span>
+                <span
+                  v-if="diarizationEnabled"
+                  class="seg-speaker seg-speaker--weak seg-speaker--unknown"
+                  title="正在识别说话人…"
+                  >…</span
+                >
                 <span class="seg-text seg-text--interim">{{ interimText }}</span>
               </li>
             </ul>
@@ -254,6 +277,7 @@ import { useMeetingStore } from '@/stores/meeting'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useMeetingRecorder } from '@/composables/useMeetingRecorder'
 import { renderMarkdown } from '@/utils/markdown'
+import type { MeetingSegment } from '@/types/meeting'
 
 interface Props {
   id: string
@@ -290,6 +314,155 @@ const sessionTitle = computed(() => meeting.currentSession?.title || '进行中�
 const spokenSegments = computed(() =>
   [...meeting.segments].filter((s) => s.text.trim().length > 0).sort((a, b) => a.seq - b.seq)
 )
+
+// ── Speaker diarization (DIARIZATION_SPEC §6 / §7 T10, flag-gated) ──────────
+// VITE_ENABLE_MEETING_DIARIZATION='true' turns on the per-segment speaker label +
+// color. OFF/unset → the transcript renders exactly as before (no labels, no
+// color block) — a pure additive overlay, fully removable with the flag.
+const diarizationEnabled = import.meta.env.VITE_ENABLE_MEETING_DIARIZATION === 'true'
+
+// Speaker color palette (DIARIZATION_SPEC §6: "取色板不同色"). 8 distinct hues
+// matching MAX_SPEAKERS=8 (§5 D9). Each entry: a text/border color + a soft
+// background tint. color_index (from meeting_speaker) / a derived online index is
+// taken mod the palette length so we never overflow.
+const SPEAKER_PALETTE = [
+  { fg: 'hsl(160, 60%, 34%)', bg: 'hsl(160, 55%, 94%)' }, // teal (brand-adjacent)
+  { fg: 'hsl(212, 70%, 46%)', bg: 'hsl(212, 80%, 95%)' }, // blue
+  { fg: 'hsl(28, 78%, 46%)', bg: 'hsl(28, 85%, 94%)' }, // amber
+  { fg: 'hsl(280, 52%, 50%)', bg: 'hsl(280, 60%, 95%)' }, // violet
+  { fg: 'hsl(340, 65%, 50%)', bg: 'hsl(340, 75%, 96%)' }, // rose
+  { fg: 'hsl(96, 48%, 38%)', bg: 'hsl(96, 55%, 93%)' }, // green
+  { fg: 'hsl(190, 60%, 40%)', bg: 'hsl(190, 65%, 93%)' }, // cyan
+  { fg: 'hsl(255, 55%, 56%)', bg: 'hsl(255, 65%, 96%)' } // indigo
+]
+const paletteAt = (index: number): { fg: string; bg: string } =>
+  SPEAKER_PALETTE[
+    ((index % SPEAKER_PALETTE.length) + SPEAKER_PALETTE.length) % SPEAKER_PALETTE.length
+  ]
+
+// Below this confidence a label is weakened (translucent + "?") even if not
+// flagged provisional (DIARIZATION_SPEC §6 "低 speaker_confidence 弱化").
+const SPEAKER_CONFIDENCE_FLOOR = 0.55
+
+// A0-indexed cluster id → letter A/B/C… for online (temp) labels (§6).
+const onlineLetter = (clusterId: number): string => {
+  if (clusterId < 0) return '?'
+  // 0→A, 1→B, … 25→Z, then wrap with a numeric suffix to stay unique-ish.
+  const base = clusterId % 26
+  const cycle = Math.floor(clusterId / 26)
+  const letter = String.fromCharCode(65 + base)
+  return cycle === 0 ? letter : `${letter}${cycle + 1}`
+}
+
+/**
+ * Resolved speaker display for one segment (DIARIZATION_SPEC §6 precedence):
+ *   final_speaker_id (→ meeting_speaker: 1/2/3) ?? online_speaker_id (A/B/C temp)
+ *   ?? grey "发言人?".
+ * `weak` = provisional OR low confidence → render translucent + a trailing "?".
+ * `known` = false when we have no speaker id at all (grey fallback).
+ */
+interface SpeakerView {
+  label: string
+  fg: string
+  bg: string
+  weak: boolean
+  known: boolean
+}
+const resolveSpeaker = (seg: MeetingSegment): SpeakerView => {
+  const conf = seg.speaker_confidence
+  const lowConf = typeof conf === 'number' && conf < SPEAKER_CONFIDENCE_FLOOR
+  // 1) Final label wins (post offline pass): map via meeting_speaker.
+  if (typeof seg.final_speaker_id === 'number' && seg.final_speaker_id >= 0) {
+    const sp = meeting.speakerByCluster[seg.final_speaker_id]
+    const colorIndex = sp ? sp.color_index : seg.final_speaker_id
+    const { fg, bg } = paletteAt(colorIndex)
+    return {
+      label: sp ? sp.display_label : `发言人 ${seg.final_speaker_id + 1}`,
+      fg,
+      bg,
+      weak: lowConf,
+      known: true
+    }
+  }
+  // 2) Online temp label (会中): A/B/C, weakened when provisional / low conf.
+  if (typeof seg.online_speaker_id === 'number' && seg.online_speaker_id >= 0) {
+    const { fg, bg } = paletteAt(seg.online_speaker_id)
+    return {
+      label: onlineLetter(seg.online_speaker_id),
+      fg,
+      bg,
+      weak: Boolean(seg.online_provisional) || lowConf,
+      known: true
+    }
+  }
+  // 3) No speaker id → grey unknown.
+  return {
+    label: '?',
+    fg: 'var(--text-muted)',
+    bg: 'var(--surface-tint)',
+    weak: true,
+    known: false
+  }
+}
+
+// Per-render memo of resolved speaker views keyed by segment id, so each row's
+// badge/style/title share ONE resolveSpeaker() call (template helpers below all
+// read from this). Recomputes when segments OR the speaker roster change.
+const speakerViews = computed<Record<number, SpeakerView>>(() => {
+  if (!diarizationEnabled) return {}
+  const map: Record<number, SpeakerView> = {}
+  for (const seg of spokenSegments.value) map[seg.id] = resolveSpeaker(seg)
+  return map
+})
+
+// Badge text: the label, with a trailing "?" when weakened (provisional / low
+// conf), and "发言人?" for the fully-unknown grey fallback (DIARIZATION_SPEC §6).
+const speakerBadge = (seg: MeetingSegment): string => {
+  const v = speakerViews.value[seg.id]
+  if (!v) return ''
+  if (!v.known) return '发言人?'
+  return v.weak ? `${v.label}?` : v.label
+}
+const speakerStyle = (seg: MeetingSegment): Record<string, string> => {
+  const v = speakerViews.value[seg.id]
+  if (!v) return {}
+  return { '--spk-fg': v.fg, '--spk-bg': v.bg }
+}
+const speakerWeak = (seg: MeetingSegment): boolean => speakerViews.value[seg.id]?.weak ?? false
+const speakerUnknown = (seg: MeetingSegment): boolean =>
+  !(speakerViews.value[seg.id]?.known ?? false)
+
+// Whether any segment carries a speaker label at all (online or final). Drives
+// the hint line — no point showing "初步识别" before any label has landed.
+const hasAnySpeakerLabel = computed(() =>
+  spokenSegments.value.some((s) => {
+    const v = speakerViews.value[s.id]
+    return v ? v.known : false
+  })
+)
+const showSpeakerHint = computed(() => hasAnySpeakerLabel.value)
+// Honest status copy (DIARIZATION_SPEC §6 / §8): online A/B/C are provisional and
+// auto-corrected to 1/2/3 after the meeting; done = final labels are authoritative.
+const speakerHintText = computed(() => {
+  switch (meeting.diarizationStatus) {
+    case 'refining':
+      return '正在校正说话人…（标签稍后将自动更新）'
+    case 'done':
+      return '说话人已校正'
+    default:
+      return '说话人为初步识别（A/B/C），会后将自动校正'
+  }
+})
+const speakerTitle = (seg: MeetingSegment): string => {
+  const v = speakerViews.value[seg.id]
+  if (!v) return ''
+  if (!v.known) return '未能识别说话人'
+  // Final (offline) label is authoritative; online label is provisional.
+  const refined = typeof seg.final_speaker_id === 'number' && seg.final_speaker_id >= 0
+  if (refined) return `说话人 ${v.label}`
+  const note = v.weak ? '（初步识别，置信度较低）' : '（初步识别，会后将自动校正）'
+  return `说话人 ${v.label}${note}`
+}
 
 // ── Recorder (realtime PCM streaming + parallel full recording, SPEC §2/§3) ──
 // onPcmFrame fires ~every 100ms with one raw PCM 16k mono frame → forward over
@@ -1049,6 +1222,45 @@ onUnmounted(() => {
 .seg-text--interim {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ===== Speaker label (DIARIZATION_SPEC §6, flag-gated) ===== */
+.seg-speaker {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 1px;
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  /* Per-segment palette via inline --spk-fg / --spk-bg custom props. */
+  color: var(--spk-fg, var(--text-secondary));
+  background: var(--spk-bg, var(--surface-tint));
+  white-space: nowrap;
+}
+/* Provisional / low-confidence → translucent (DIARIZATION_SPEC §6 "弱化"). */
+.seg-speaker--weak {
+  opacity: 0.55;
+  font-weight: 600;
+}
+/* Fully-unknown grey fallback ("发言人?"). */
+.seg-speaker--unknown {
+  color: var(--text-muted);
+  background: var(--surface-tint);
+  font-weight: 600;
+}
+
+.speaker-hint {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
 }
 
 /* ===== Feedback ===== */

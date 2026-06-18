@@ -21,6 +21,17 @@ export type MeetingSummaryStatus = 'none' | 'generating' | 'done' | 'failed' | '
 /** meeting_feedback.trigger — SPEC §2.3 / §3.1 */
 export type MeetingFeedbackTrigger = 'auto' | 'manual'
 
+/**
+ * meeting_session.diarization_status — DIARIZATION_SPEC §6 / §7 (T10/T11).
+ * Lifecycle of speaker diarization for a session:
+ *  - none     — diarization not run (flag off, or no audio yet)
+ *  - online   — online incremental clustering produced provisional A/B/C labels
+ *  - refining — offline global re-clustering in flight ("正在校正说话人…")
+ *  - done     — offline re-clustering finished; final 1/2/3 labels are authoritative
+ *  - failed   — offline pass failed (online labels, if any, still stand)
+ */
+export type MeetingDiarizationStatus = 'none' | 'online' | 'refining' | 'done' | 'failed'
+
 // ---------------------------------------------------------------------------
 // Core DTOs (SPEC §2 / §3)
 // ---------------------------------------------------------------------------
@@ -52,6 +63,19 @@ export interface MeetingSession {
   ended_at: string | null
   created_at: string
   updated_at: string
+
+  // ── Speaker diarization (DIARIZATION_SPEC §6, flag-gated) ─────────────
+  /**
+   * Distinct speaker count for this meeting (offline result). null when
+   * diarization has not produced a final speaker set yet. Optional on the wire:
+   * a backend without the diarization migration omits it entirely.
+   */
+  speaker_count?: number | null
+  /**
+   * Diarization lifecycle (DIARIZATION_SPEC §6). Defaults to 'none' server-side;
+   * optional on the wire so a pre-migration backend response stays valid.
+   */
+  diarization_status?: MeetingDiarizationStatus
 }
 
 /** MeetingSegment — mirrors meeting_segment (SPEC §2.2). */
@@ -67,6 +91,52 @@ export interface MeetingSegment {
   duration_seconds: number
   /** COS URL of this segment's audio (for replay); null when absent */
   audio_url: string | null
+  created_at: string
+
+  // ── Speaker diarization (DIARIZATION_SPEC §6, flag-gated) ─────────────
+  // All optional on the wire: a pre-migration backend omits them; diarization
+  // OFF leaves them absent. Display precedence (DIARIZATION_SPEC §6):
+  //   final_speaker_id (→ meeting_speaker map: 1/2/3) ?? online_speaker_id
+  //   (A/B/C temp) ?? "发言人?" (grey).
+  /**
+   * Online incremental cluster id (会中临时编号). Maps to a letter label A/B/C.
+   * null when no online label was assigned (silent / too-short / soft-degraded).
+   */
+  online_speaker_id?: number | null
+  /**
+   * True when the online label was assigned with low confidence (grey-zone match
+   * not committed to a centroid) → render weakened (translucent + "?").
+   */
+  online_provisional?: boolean
+  /**
+   * Final cluster id from offline global re-clustering (会后精修 1/2/3). When
+   * present it WINS over online_speaker_id; maps via the meeting_speaker list.
+   * null until the offline pass completes.
+   */
+  final_speaker_id?: number | null
+  /**
+   * Speaker-attribution confidence in [0,1] (cosine-similarity derived). Below
+   * a threshold the label is weakened regardless of provisional. null = unknown.
+   */
+  speaker_confidence?: number | null
+}
+
+/**
+ * MeetingSpeaker — mirrors meeting_speaker (DIARIZATION_SPEC §6). One row per
+ * distinct final cluster in a meeting; gives a stable in-appearance-order display
+ * label (1/2/3) + a palette color index. Used to map a segment's final_speaker_id
+ * → human label + color. Appears in MeetingDetailResponse.speakers when the
+ * offline pass has run; absent otherwise.
+ */
+export interface MeetingSpeaker {
+  id: number
+  meeting_id: number
+  /** Final cluster id this row labels (matches MeetingSegment.final_speaker_id). */
+  cluster_id: number
+  /** Stable human label in appearance order ("1" / "2" / "发言人 1" …). */
+  display_label: string
+  /** Index into the front-end speaker color palette (mod palette length). */
+  color_index: number
   created_at: string
 }
 
@@ -143,11 +213,17 @@ export interface ListMeetingsResponse {
   total: number
 }
 
-/** GET /v1/meetings/:id → { session, segments, feedbacks } (summary lives on session) */
+/** GET /v1/meetings/:id → { session, segments, feedbacks, speakers? } (summary lives on session) */
 export interface MeetingDetailResponse {
   session: MeetingSession
   segments: MeetingSegment[]
   feedbacks: MeetingFeedback[]
+  /**
+   * Final speaker roster (DIARIZATION_SPEC §6). Present once the offline pass has
+   * run; optional so a pre-migration backend response stays valid. Maps a
+   * segment's final_speaker_id → display label + palette color.
+   */
+  speakers?: MeetingSpeaker[]
 }
 
 /** POST /v1/meetings/:id/segments → { segment } */
@@ -238,6 +314,14 @@ export interface AsrFinalSegment {
   start_ms: number
   duration_seconds: number
   created_at: string
+
+  // ── Online speaker diarization (DIARIZATION_SPEC §3 / §6, flag-gated) ──
+  // The relay's online incremental clustering may attach a temp speaker label to
+  // a finalized segment and push it on the `final` frame (or a later `closed`
+  // re-push). All optional: absent when diarization is OFF or soft-degraded.
+  online_speaker_id?: number | null
+  online_provisional?: boolean
+  speaker_confidence?: number | null
 }
 
 /**
