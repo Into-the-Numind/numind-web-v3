@@ -1,7 +1,8 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import AgentMessageItem from '../AgentMessageItem.vue'
+import { useAgentChatStore } from '@/stores/agentChat'
 import type { AgentMessage } from '@/types/agent'
 
 const ts = '2026-05-21T10:00:00Z'
@@ -275,6 +276,159 @@ describe('AgentMessageItem', () => {
       await wrapper.setProps({
         msg: { ...msg, markdown: 'Streaming... done', isStreaming: false }
       })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
+    })
+  })
+
+  // followup3 FE-3: the live "writing code" box shows the active generation tool's
+  // streamed argument content and collapses once the tool finishes.
+  describe('streaming code box (FE-3)', () => {
+    function seedActiveCodeTool(store: ReturnType<typeof useAgentChatStore>): void {
+      store.applyStreamEvent({
+        type: 'tool_call_start',
+        seq: 1,
+        ts,
+        run_id: 1,
+        step: 0,
+        data: { tool_call_id: 'tc-code', tool_name: 'run_python', input_digest: 'd' }
+      })
+      store.applyStreamEvent({
+        type: 'tool_call_args_delta',
+        seq: 2,
+        ts,
+        run_id: 1,
+        step: 0,
+        data: { tool_call_id: 'tc-code', function_name: 'run_python', args_delta: 'print(1)\n' }
+      })
+    }
+
+    it('renders the code box with streamed content while a generation tool is active', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-1',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      const box = wrapper.find('.code-stream-body')
+      expect(box.exists()).toBe(true)
+      expect(box.text()).toContain('print(1)')
+      // default expanded
+      expect(wrapper.find('.code-stream-toggle').exists()).toBe(true)
+    })
+
+    it('keeps the "正在生成…" indicator visible alongside the code box (FE-3 review P1)', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-p1',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      // spinner indicator and code box must co-exist while a tool streams its code —
+      // they used to be mutually exclusive (isGenerating suppressed by active tool).
+      expect(wrapper.find('.generation-stall').exists()).toBe(true)
+      expect(wrapper.find('.code-stream-body').exists()).toBe(true)
+    })
+
+    it('toggles the code box via the arrow button (collapse hides body, expand shows it)', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-toggle',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      const toggle = wrapper.find('.code-stream-toggle')
+      // aria-expanded mirrors codeBoxExpanded — definitive signal for the toggle
+      // logic (more robust than isVisible() against jsdom v-show display:none).
+      expect(toggle.attributes('aria-expanded')).toBe('true') // default expanded
+      await toggle.trigger('click')
+      expect(wrapper.find('.code-stream-toggle').attributes('aria-expanded')).toBe('false')
+      // body is hidden (v-show → inline display:none) when collapsed
+      expect(wrapper.find('.code-stream-body').attributes('style')).toContain('display: none')
+      await wrapper.find('.code-stream-toggle').trigger('click')
+      expect(wrapper.find('.code-stream-toggle').attributes('aria-expanded')).toBe('true')
+    })
+
+    it('hides the code box once the tool finishes (result state)', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-2',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      expect(wrapper.find('.code-stream').exists()).toBe(true)
+      // tool completes → activeCodeStream empties → box collapses
+      store.applyStreamEvent({
+        type: 'tool_call_result',
+        seq: 3,
+        ts,
+        run_id: 1,
+        step: 0,
+        data: { tool_call_id: 'tc-code', preview: '{"ok":true}', duration_ms: 5 }
+      })
+      await flushPromises()
+      expect(wrapper.find('.code-stream').exists()).toBe(false)
+    })
+
+    it('does not render the code box when the bubble is not streaming', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-3',
+        type: 'assistant',
+        markdown: 'done',
+        isStreaming: false,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      expect(wrapper.find('.code-stream').exists()).toBe(false)
+    })
+  })
+
+  // followup3 FE-1: the token-silent "正在生成…" indicator is a LEADING spinner
+  // + text, NOT trailing pulsing dots. Regression guard so a revert to .gen-dots
+  // (or removal of the spinner) fails here.
+  describe('generation indicator (FE-1 spinner)', () => {
+    it('shows a leading spinner + "正在生成…" while streaming-but-silent, with no pulse dots', async () => {
+      const store = useAgentChatStore()
+      // Force isGenerationStalled() true: streaming, no active tool, last delta long ago.
+      store.lastStreamDeltaAt = Date.now() - 5000
+      const msg: AgentMessage = {
+        id: 'gen-1',
+        type: 'assistant',
+        markdown: 'partial',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      const stall = wrapper.find('.generation-stall')
+      expect(stall.exists()).toBe(true)
+      expect(stall.text()).toContain('正在生成')
+      // spinner present; the old pulse-dots element is gone
+      expect(wrapper.find('.gen-spinner').exists()).toBe(true)
+      expect(wrapper.find('.gen-dots').exists()).toBe(false)
+      // and the bare caret is not shown when the generation indicator is up
       expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
     })
   })

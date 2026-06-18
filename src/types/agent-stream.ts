@@ -18,6 +18,7 @@ export type AgentStreamEventType =
   | 'reasoning_delta'
   | 'assistant_message'
   | 'tool_call_start'
+  | 'tool_call_args_delta'
   | 'tool_call_progress'
   | 'tool_call_result'
   | 'tool_call_error'
@@ -82,6 +83,18 @@ export interface ToolCallStartPayload {
   input_digest: string
   /** Truncated input JSON (first 500 chars) for preview display */
   input_preview?: Record<string, unknown>
+}
+
+/** tool_call_args_delta — incremental tool-call argument (code/document content)
+ *  streamed for the whitelisted generation tools (run_python / create_html /
+ *  create_docx / create_csv / create_json / create_text / create_png_chart). The
+ *  backend gates emission by tool name; other tools never send this. Accumulating
+ *  args_delta by tool_call_id reconstructs the tool's full argument JSON live so
+ *  the UI can show a "writing code" preview while the LLM composes a long call. */
+export interface ToolCallArgsDeltaPayload {
+  tool_call_id: string
+  function_name: string
+  args_delta: string
 }
 
 /** tool_call_progress — narration / progress update inside a tool call */
@@ -170,6 +183,7 @@ export type TokenDeltaEvent = AgentStreamEvent<TokenDeltaPayload>
 export type ReasoningDeltaEvent = AgentStreamEvent<ReasoningDeltaPayload>
 export type AssistantMessageEvent = AgentStreamEvent<AssistantMessagePayload>
 export type ToolCallStartEvent = AgentStreamEvent<ToolCallStartPayload>
+export type ToolCallArgsDeltaEvent = AgentStreamEvent<ToolCallArgsDeltaPayload>
 export type ToolCallProgressEvent = AgentStreamEvent<ToolCallProgressPayload>
 export type ToolCallResultEvent = AgentStreamEvent<ToolCallResultPayload>
 export type ToolCallErrorEvent = AgentStreamEvent<ToolCallErrorPayload>

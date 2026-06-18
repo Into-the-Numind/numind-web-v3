@@ -1,19 +1,17 @@
 /**
- * AgentArtifactItem 单元测试 — 卡片交互模型 + HTML 沙箱预览安全边界
+ * AgentArtifactItem 单元测试 — 卡片交互模型
  *
- * 交互模型（dev followup2 第三轮）：卡片只显一个【下载】按钮；【预览/编辑】通过点击
- * 卡片本身进入 —— HTML→渲染预览(iframe)，可编辑文档→编辑器，其余格式→提示"暂不支持预览"。
+ * 交互模型（followup3）：卡片只显一个【下载】按钮；点击卡片本身 —— 可编辑文档
+ * (docx/md/txt)→打开右侧编辑器；图片→放大 modal；其余格式（含 HTML）→提示"暂不支持预览"。
  *
- * HTML 预览安全边界（产品负责人批准放开脚本以真渲染样式）：iframe 用
- * sandbox="allow-scripts"（让报告自带的 Tailwind CDN / 图表 JS 跑起来渲染样式），
- * 但**绝不**加 allow-same-origin / allow-top-navigation —— opaque origin，脚本碰不到
- * app 的 cookie/DOM/会话。本测试是该边界的回归护栏：谁日后给 iframe 加了
- * allow-same-origin / allow-top-navigation，测试立刻 FAIL。
+ * followup3 FE-2：HTML 从源头切断 iframe 预览，只下载。本测试断言 HTML 卡片点击
+ * 不再产生 iframe，而是 flash"暂不支持预览"——是该决策的回归护栏：谁日后又给
+ * HTML 加回 iframe 预览，测试立刻 FAIL。
  *
- * 注意：预览用 <Teleport to="body">，iframe 挂在 document.body。
+ * 注意：图片预览用 <Teleport to="body">，挂在 document.body。
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import AgentArtifactItem from '../AgentArtifactItem.vue'
 
@@ -32,87 +30,32 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('AgentArtifactItem — HTML preview (click card) + sandbox security boundary', () => {
-  it('clicking the card opens the HTML preview iframe with allow-scripts but NOT allow-same-origin', async () => {
+describe('AgentArtifactItem — HTML is download-only (no iframe preview)', () => {
+  it('clicking an HTML card flashes "暂不支持预览" and never renders an iframe', async () => {
     const wrapper = mount(AgentArtifactItem, {
       props: { artifact: htmlArtifact },
       attachTo: document.body
     })
 
-    // iframe 懒加载：未点击前不渲染（不预先请求 COS）
+    // 点击前后都不应出现 iframe（HTML 预览已从源头移除）
     expect(document.querySelector('iframe')).toBeNull()
-
-    // 预览通过点击卡片本身进入（不再有独立的眼睛按钮）
     await wrapper.get('[data-testid="artifact-card"]').trigger('click')
-
-    const iframe = document.querySelector('iframe') as HTMLIFrameElement
-    expect(iframe).not.toBeNull()
-    expect(iframe.getAttribute('src')).toBe(htmlArtifact.url)
-
-    const sandbox = iframe.getAttribute('sandbox') ?? ''
-    // 对抗性完整：sandbox 必须 EXACTLY 'allow-scripts' —— 既保证脚本能跑(否则裸文字),
-    // 又保证没有任何其它 token(allow-same-origin/allow-top-navigation/allow-popups…)。
-    // 任何新增 token 都让此断言 FAIL（安全边界的护栏）。
-    expect(sandbox).toBe('allow-scripts')
-    expect(sandbox).not.toContain('allow-same-origin')
-    expect(sandbox).not.toContain('allow-top-navigation')
-    expect(sandbox).not.toContain('allow-popups')
-    // 不通过 referrer 泄露预签名 URL
-    expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer')
+    expect(document.querySelector('iframe')).toBeNull()
+    expect(wrapper.text()).toContain('暂不支持预览')
 
     wrapper.unmount()
   })
 
-  it('the download button downloads WITHOUT opening the preview (stops propagation)', async () => {
+  it('the download button is present and stops propagation (no preview triggered)', async () => {
     const wrapper = mount(AgentArtifactItem, {
       props: { artifact: htmlArtifact },
       attachTo: document.body
     })
+    expect(wrapper.find('[data-testid="artifact-download"]').exists()).toBe(true)
     await wrapper.get('[data-testid="artifact-download"]').trigger('click')
-    // 点下载按钮不应触发预览
+    // 点下载按钮不应出现 iframe，也不应 flash 提示（stop 冒泡）
     expect(document.querySelector('iframe')).toBeNull()
-    wrapper.unmount()
-  })
-
-  it('closes the preview via the close button', async () => {
-    const wrapper = mount(AgentArtifactItem, {
-      props: { artifact: htmlArtifact },
-      attachTo: document.body
-    })
-    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
-    expect(document.querySelector('iframe')).not.toBeNull()
-
-    const closeBtn = document.querySelector('[aria-label="关闭预览"]') as HTMLButtonElement
-    closeBtn.click()
-    await flushPromises()
-    expect(document.querySelector('iframe')).toBeNull()
-    wrapper.unmount()
-  })
-
-  it('closes the preview when Escape is pressed', async () => {
-    const wrapper = mount(AgentArtifactItem, {
-      props: { artifact: htmlArtifact },
-      attachTo: document.body
-    })
-    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
-    expect(document.querySelector('iframe')).not.toBeNull()
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-    await flushPromises()
-    expect(document.querySelector('iframe')).toBeNull()
-    wrapper.unmount()
-  })
-
-  it('shows a download fallback when the iframe fails to load', async () => {
-    const wrapper = mount(AgentArtifactItem, {
-      props: { artifact: htmlArtifact },
-      attachTo: document.body
-    })
-    await wrapper.get('[data-testid="artifact-card"]').trigger('click')
-    const frame = document.querySelector('iframe') as HTMLIFrameElement
-    frame.dispatchEvent(new Event('error'))
-    await flushPromises()
-    expect(document.body.textContent).toContain('页面无法显示')
-    expect(document.body.textContent).toContain('下载查看')
+    expect(wrapper.text()).not.toContain('暂不支持预览')
     wrapper.unmount()
   })
 })

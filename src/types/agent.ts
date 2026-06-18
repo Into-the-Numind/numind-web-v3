@@ -262,6 +262,11 @@ export interface ToolCallAggregate {
   /** Skill name captured at tool_call_start for load_skill, so the result-state
    *  label can show "已加载技能：<name>" (tool_call_result carries no input). 问题一. */
   skill_name?: string
+  /** Accumulated tool-call argument increments (code/document content) streamed via
+   *  tool_call_args_delta for whitelisted generation tools — feeds the live "writing
+   *  code" preview box in the streaming bubble (followup3 FE-3). Undefined for tools
+   *  the backend does not stream args for. */
+  argsStream?: string
 }
 
 // ─────────────────────────────────────────

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { isGenerationStalled } from '@/utils/agentGeneration'
@@ -23,7 +23,7 @@ import AgentImagePreview from './AgentImagePreview.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
 import { useImagePreview } from '@/composables/useImagePreview'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
-import { Copy, Check, Paperclip } from 'lucide-vue-next'
+import { Copy, Check, Paperclip, LoaderCircle, ChevronDown, ChevronRight } from 'lucide-vue-next'
 
 interface Props {
   msg: AgentMessage
@@ -132,6 +132,31 @@ const isGenerating = computed<boolean>(() =>
   )
 )
 
+// followup3 FE-3: live "writing code" preview. While the streaming bubble is active
+// and a whitelisted generation tool is composing its argument (code/document
+// content), the store accumulates that text into activeCodeStream. We show it in a
+// collapsible fixed-height monospace box below the "正在生成…" indicator. Default
+// expanded; the box auto-scrolls to the tail as content streams in (typewriter feel)
+// and disappears the instant the tool finishes (activeCodeStream goes empty).
+const codeStream = computed<string>(() =>
+  asAssistant.value?.isStreaming ? store.activeCodeStream : ''
+)
+const codeBoxExpanded = ref(true)
+const codeScrollEl = ref<HTMLElement | null>(null)
+const toggleCodeBox = (): void => {
+  codeBoxExpanded.value = !codeBoxExpanded.value
+}
+watch(codeStream, async (val, old) => {
+  // followup3 FE-3 review (P2): default-expanded must hold for EVERY new tool run,
+  // not just the first — reset on each empty→non-empty transition so a box the user
+  // collapsed during tool-1 doesn't start collapsed for tool-2.
+  if (val && !old) codeBoxExpanded.value = true
+  if (!val || !codeBoxExpanded.value) return
+  await nextTick()
+  const el = codeScrollEl.value
+  if (el) el.scrollTop = el.scrollHeight
+})
+
 const systemText = computed<string>(() => {
   const sys = asSystem.value
   if (!sys) return ''
@@ -213,11 +238,36 @@ const systemText = computed<string>(() => {
         <div class="markdown-body" v-html="renderedMarkdown" @click="handleImageClick"></div>
         <template v-if="asAssistant.isStreaming">
           <!-- 问题三: token-silent stretch → upgrade the bare caret to an explicit
-               "正在生成…" indicator so a long file-generation wait doesn't look frozen. -->
-          <span v-if="isGenerating" class="generation-stall" aria-live="polite"
-            >正在生成<span class="gen-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span
-          >
+               "正在生成…" indicator so a long file-generation wait doesn't look frozen.
+               followup3 FE-1: leading spinner + text (replaces the trailing pulse dots). -->
+          <!-- followup3 FE-3 review (P1): the "正在生成…" indicator must stay visible
+               WHILE a tool streams its code (codeStream non-empty) — isGenerating alone
+               is suppressed once a tool is active, which would otherwise leave the code
+               box with no header label. Show it whenever isGenerating OR codeStream. -->
+          <span v-if="isGenerating || codeStream" class="generation-stall" aria-live="polite">
+            <LoaderCircle :size="14" class="gen-spinner" aria-hidden="true" />
+            <span>正在生成…</span>
+          </span>
           <span v-else class="streaming-cursor" aria-hidden="true">▎</span>
+          <!-- followup3 FE-3: live "writing code" box — only while a whitelisted
+               generation tool is composing its argument. Default expanded; pure
+               arrow toggle; fixed-height monospace scroll box auto-scrolled to tail;
+               collapses/disappears the instant the tool finishes. -->
+          <div v-if="codeStream" class="code-stream">
+            <button
+              type="button"
+              class="code-stream-toggle"
+              :aria-expanded="codeBoxExpanded"
+              aria-label="展开/收起生成过程"
+              @click="toggleCodeBox"
+            >
+              <ChevronDown v-if="codeBoxExpanded" :size="14" />
+              <ChevronRight v-else :size="14" />
+            </button>
+            <pre v-show="codeBoxExpanded" ref="codeScrollEl" class="code-stream-body">{{
+              codeStream
+            }}</pre>
+          </div>
         </template>
       </div>
       <AgentImagePreview :url="previewImageUrl" @close="closePreview" />
@@ -649,46 +699,79 @@ const systemText = computed<string>(() => {
   vertical-align: middle;
 }
 
-/* 问题三: the "正在生成…" indicator shown while the bubble is streaming but token-silent
-   (the LLM is composing a tool call / file content). The flowing dots read as active
-   progress where the static caret read as frozen. */
+/* 问题三 / followup3 FE-1: the "正在生成…" indicator shown while the bubble is
+   streaming but token-silent (the LLM is composing a tool call / file content).
+   A leading spinning loader + label reads as active progress where the static
+   caret read as frozen. */
 .generation-stall {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary, #5f6577);
   font-size: 13px;
   user-select: none;
 }
-.gen-dots {
-  display: inline-flex;
+.gen-spinner {
+  flex-shrink: 0;
+  color: var(--color-primary, hsl(160, 72%, 40%));
+  animation: gen-spin 0.8s linear infinite;
 }
-.gen-dots i {
-  font-style: normal;
-  animation: gen-blink 1.4s infinite both;
-}
-.gen-dots i:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.gen-dots i:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes gen-blink {
-  0%,
-  80%,
-  100% {
-    opacity: 0.2;
-  }
-  40% {
-    opacity: 1;
+@keyframes gen-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
+/* followup3 FE-3: live "writing code" box under the generation indicator. */
+.code-stream {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+}
+.code-stream-toggle {
+  flex-shrink: 0;
+  margin-top: 2px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #5f6577);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+}
+.code-stream-toggle:hover {
+  background: var(--surface-low, #f3f4f6);
+  color: var(--color-text, #1f2937);
+}
+.code-stream-body {
+  flex: 1;
+  min-width: 0;
+  height: 160px;
+  margin: 0;
+  overflow: auto;
+  background: #1f2937;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* The caret is a presence marker; under reduced-motion it stays solid (no blink)
-   rather than flashing — still a "the pen is in hand" signal, no motion. */
+   rather than flashing — still a "the pen is in hand" signal, no motion. The
+   spinner likewise degrades to a static (non-rotating) loader glyph. */
 @media (prefers-reduced-motion: reduce) {
-  .gen-dots i {
+  .gen-spinner {
     animation: none;
-    opacity: 0.6;
   }
   .streaming-cursor {
     animation: none;

@@ -360,6 +360,75 @@ describe('applyStreamEvent', () => {
     expect(store.messages.length).toBe(0)
   })
 
+  // followup3 FE-3 — tool_call_args_delta accumulates code/document content
+  describe('tool_call_args_delta (FE-3 live code box)', () => {
+    it('accumulates args_delta into the tool call argsStream by tool_call_id', async () => {
+      const store = useAgentChatStore()
+      await seedToolCall(store, 'tc-code', 0)
+      store.applyStreamEvent(
+        makeEvent('tool_call_args_delta', {
+          tool_call_id: 'tc-code',
+          function_name: 'run_python',
+          args_delta: 'import pandas'
+        })
+      )
+      store.applyStreamEvent(
+        makeEvent('tool_call_args_delta', {
+          tool_call_id: 'tc-code',
+          function_name: 'run_python',
+          args_delta: ' as pd\n'
+        })
+      )
+      const group = store.messages.find((m) => m.type === 'tool_group')
+      const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+      expect(tc?.argsStream).toBe('import pandas as pd\n')
+    })
+
+    it('no-op when tool_call_id not found or args_delta empty', async () => {
+      const store = useAgentChatStore()
+      await seedToolCall(store, 'tc-x', 0)
+      // unknown id → no change anywhere
+      store.applyStreamEvent(
+        makeEvent('tool_call_args_delta', {
+          tool_call_id: 'ghost',
+          function_name: 'run_python',
+          args_delta: 'x'
+        })
+      )
+      // empty delta → no accumulation onto tc-x
+      store.applyStreamEvent(
+        makeEvent('tool_call_args_delta', {
+          tool_call_id: 'tc-x',
+          function_name: 'run_python',
+          args_delta: ''
+        })
+      )
+      const group = store.messages.find((m) => m.type === 'tool_group')
+      const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+      expect(tc?.argsStream).toBeUndefined()
+    })
+
+    it('activeCodeStream exposes the active tool argsStream and clears once it finishes', async () => {
+      const store = useAgentChatStore()
+      await seedToolCall(store, 'tc-active', 0)
+      store.applyStreamEvent(
+        makeEvent('tool_call_args_delta', {
+          tool_call_id: 'tc-active',
+          function_name: 'create_html',
+          args_delta: '<html>'
+        })
+      )
+      // While the tool is still in 'use' state, the live box reads its content.
+      expect(store.activeCodeStream).toBe('<html>')
+      // Once the tool completes, the box collapses (activeCodeStream empties) even
+      // though argsStream is still retained on the (now-finished) aggregate.
+      store.applyStreamEvent(
+        makeEvent('tool_call_result', { tool_call_id: 'tc-active', preview: '{"ok":true}' })
+      )
+      expect(store.activeCodeStream).toBe('')
+    })
+  })
+
   // 8. tool_call_result — sets state to result and sets preview
   it('tool_call_result: sets current_state=result + preview + appends event', async () => {
     const store = useAgentChatStore()

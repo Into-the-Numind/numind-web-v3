@@ -31,9 +31,9 @@ function mountItem(mime: string, filename: string) {
   })
 }
 
-// 卡片交互模型（followup2 第三轮）：卡片只有【下载】按钮 + 整卡可点。点击卡片 →
-// HTML→渲染预览（不开编辑器）；可编辑文档(docx/md/txt, flag 开)→打开编辑器(documentsStore.open)；
-// 其余格式→提示"暂不支持预览"，不开编辑器。
+// 卡片交互模型（followup3）：卡片只有【下载】按钮 + 整卡可点。点击卡片 →
+// 可编辑文档(docx/md/txt, flag 开)→打开编辑器(documentsStore.open)；
+// HTML 及其余格式(pdf/xlsx/pptx/csv)→提示"暂不支持预览"，不开编辑器、不渲染 iframe。
 const card = '[data-testid="artifact-card"]'
 
 beforeEach(() => {
@@ -78,13 +78,14 @@ describe('AgentArtifactItem 点击卡片行为（编辑/预览/提示）', () =>
     w.unmount()
   })
 
-  it('html 点击卡片 → 渲染预览(iframe)，不开编辑器', async () => {
+  it('html 点击卡片 → 提示"暂不支持预览"，不开编辑器、不渲染 iframe（followup3）', async () => {
     const store = useDocumentsStore()
     const openSpy = vi.spyOn(store, 'open').mockResolvedValue({} as never)
     const w = mountItem('text/html', 'page.html')
     await w.get(card).trigger('click')
     expect(openSpy).not.toHaveBeenCalled()
-    expect(document.querySelector('iframe')).not.toBeNull()
+    expect(document.querySelector('iframe')).toBeNull()
+    expect(w.text()).toContain('暂不支持预览')
     w.unmount()
   })
 
