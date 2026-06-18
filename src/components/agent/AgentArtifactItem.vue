@@ -219,15 +219,17 @@ onUnmounted(() => {
                   cookies / localStorage / DOM / window.opener — it cannot touch the user
                   session (CodePen-tier isolation). Worst case is confined to the iframe.
                 - NO allow-top-navigation → cannot hijack the app tab.
+                - NO allow-popups → a prompt-injected script cannot spam pop-up tabs.
                 - referrerpolicy="no-referrer" → don't leak the presigned COS URL.
-              DO NOT add allow-same-origin or allow-top-navigation without a security review.
+              The ONLY token is allow-scripts. DO NOT add allow-same-origin /
+              allow-top-navigation / allow-popups without a security review.
               Backend threat model: numind-server biz/agent/tool_create_html.go (renderHTML).
             -->
             <iframe
               :src="artifact.url"
               :title="artifact.filename"
               class="html-preview-frame"
-              sandbox="allow-scripts allow-popups"
+              sandbox="allow-scripts"
               referrerpolicy="no-referrer"
               loading="lazy"
               @load="onIframeLoad"

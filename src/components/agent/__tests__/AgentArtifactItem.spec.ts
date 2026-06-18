@@ -50,11 +50,13 @@ describe('AgentArtifactItem — HTML preview (click card) + sandbox security bou
     expect(iframe.getAttribute('src')).toBe(htmlArtifact.url)
 
     const sandbox = iframe.getAttribute('sandbox') ?? ''
-    // allow-scripts 必须在 —— 否则报告靠 JS 渲染的样式失效(裸文字)
-    expect(sandbox).toContain('allow-scripts')
-    // 安全边界：绝不能有 allow-same-origin / allow-top-navigation（opaque origin 隔离）
+    // 对抗性完整：sandbox 必须 EXACTLY 'allow-scripts' —— 既保证脚本能跑(否则裸文字),
+    // 又保证没有任何其它 token(allow-same-origin/allow-top-navigation/allow-popups…)。
+    // 任何新增 token 都让此断言 FAIL（安全边界的护栏）。
+    expect(sandbox).toBe('allow-scripts')
     expect(sandbox).not.toContain('allow-same-origin')
     expect(sandbox).not.toContain('allow-top-navigation')
+    expect(sandbox).not.toContain('allow-popups')
     // 不通过 referrer 泄露预签名 URL
     expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer')
 
