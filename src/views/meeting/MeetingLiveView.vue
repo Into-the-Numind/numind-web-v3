@@ -157,6 +157,10 @@
               <span>现在给我反馈</span>
             </button>
           </div>
+          <div v-if="showCopilotStatus" class="copilot-status">
+            <span class="copilot-dot" aria-hidden="true" />
+            <span class="copilot-status-text">{{ copilotStatusText }}</span>
+          </div>
           <div ref="feedbackScroll" class="panel-scroll">
             <div
               v-if="meeting.feedbacks.length === 0 && !meeting.feedbackStreaming"
@@ -397,6 +401,7 @@ const requestManual = async (): Promise<void> => {
   feedbackAbort = new AbortController()
   const fb = await meeting.requestFeedback('manual', feedbackAbort.signal)
   feedbackAbort = null
+  if (fb) lastFeedbackMs.value = Date.now()
   if (!fb && meeting.error) {
     notifications.error(meeting.error)
   }
@@ -412,6 +417,29 @@ const lastInterimAtMs = ref(0)
 // How recently an interim must have updated to count as "still speaking". A
 // natural pause (~1s with no new interim) lets the deferred tick proceed.
 const INTERIM_ACTIVE_WINDOW_MS = 1000
+
+// ── 副驾心跳状态 (FEEDBACK_V2 后续: 沉默时也让用户知道副驾在听、刚判断无需提醒) ──────
+// nowMs 每秒跳一次(仅录音时), 让"上次提醒 X 秒前"实时刷新。
+const nowMs = ref(Date.now())
+let statusTicker: ReturnType<typeof setInterval> | null = null
+// 上次真正给出反馈(手动或自动)的时刻。
+const lastFeedbackMs = ref(0)
+// 上次自动检查的时刻 + 是否静默 skip — 驱动"刚判断暂无需提醒", 让沉默看起来是"在听"而非卡死。
+const lastAutoCheckMs = ref(0)
+const lastAutoSkipped = ref(false)
+
+const showCopilotStatus = computed(() => recorder.isRecording.value)
+const copilotStatusText = computed(() => {
+  let s = '副驾在听'
+  if (lastFeedbackMs.value > 0) {
+    const sec = Math.max(0, Math.floor((nowMs.value - lastFeedbackMs.value) / 1000))
+    s += sec < 60 ? ` · 上次提醒 ${sec} 秒前` : ` · 上次提醒 ${Math.floor(sec / 60)} 分钟前`
+  }
+  if (lastAutoSkipped.value && nowMs.value - lastAutoCheckMs.value < 8000) {
+    s += ' · 刚判断暂无需提醒'
+  }
+  return s
+})
 
 // Each interim frame overwrites interimText (store onInterim); stamp the time so
 // the auto timer can tell "actively speaking" from "settled". A final frame
@@ -433,8 +461,12 @@ const requestAuto = async (): Promise<void> => {
     return
   }
   feedbackAbort = new AbortController()
-  await meeting.requestFeedback('auto', feedbackAbort.signal)
+  const fb = await meeting.requestFeedback('auto', feedbackAbort.signal)
   feedbackAbort = null
+  // 心跳: 记录本次自动检查结果(skip vs 给反馈), 让状态行能显示"刚判断暂无需提醒"。
+  lastAutoCheckMs.value = Date.now()
+  lastAutoSkipped.value = !fb && !meeting.error
+  if (fb) lastFeedbackMs.value = Date.now()
   // auto skip is silent (store sets streamingFeedback=null, no card appended).
   // No cooldown (FEEDBACK_V2 §1): the next tick fires as soon as the content gate
   // is satisfied again — there is no fixed quiet window after giving feedback.
@@ -457,11 +489,21 @@ const startAutoTimer = (): void => {
       void requestAuto()
     }
   }, clamped * 1000)
+  // 心跳时钟: 每秒跳一次, 让"上次提醒 X 秒前"实时刷新。
+  if (!statusTicker) {
+    statusTicker = setInterval(() => {
+      nowMs.value = Date.now()
+    }, 1000)
+  }
 }
 const stopAutoTimer = (): void => {
   if (autoTimer) {
     clearInterval(autoTimer)
     autoTimer = null
+  }
+  if (statusTicker) {
+    clearInterval(statusTicker)
+    statusTicker = null
   }
 }
 
@@ -909,6 +951,40 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--text-muted);
 }
+.copilot-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  border-bottom: 1px solid var(--border-subtle, #eef0f2);
+}
+.copilot-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: copilot-pulse 1.8s ease-out infinite;
+}
+.copilot-status-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes copilot-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
 .panel-scroll {
   flex: 1;
   overflow-y: auto;
