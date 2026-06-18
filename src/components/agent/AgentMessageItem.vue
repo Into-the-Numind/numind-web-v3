@@ -23,7 +23,7 @@ import AgentImagePreview from './AgentImagePreview.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
 import { useImagePreview } from '@/composables/useImagePreview'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
-import { Copy, Check, Paperclip } from 'lucide-vue-next'
+import { Copy, Check, Paperclip, LoaderCircle } from 'lucide-vue-next'
 
 interface Props {
   msg: AgentMessage
@@ -213,10 +213,12 @@ const systemText = computed<string>(() => {
         <div class="markdown-body" v-html="renderedMarkdown" @click="handleImageClick"></div>
         <template v-if="asAssistant.isStreaming">
           <!-- 问题三: token-silent stretch → upgrade the bare caret to an explicit
-               "正在生成…" indicator so a long file-generation wait doesn't look frozen. -->
-          <span v-if="isGenerating" class="generation-stall" aria-live="polite"
-            >正在生成<span class="gen-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span
-          >
+               "正在生成…" indicator so a long file-generation wait doesn't look frozen.
+               followup3 FE-1: leading spinner + text (replaces the trailing pulse dots). -->
+          <span v-if="isGenerating" class="generation-stall" aria-live="polite">
+            <LoaderCircle :size="14" class="gen-spinner" aria-hidden="true" />
+            <span>正在生成…</span>
+          </span>
           <span v-else class="streaming-cursor" aria-hidden="true">▎</span>
         </template>
       </div>
@@ -649,46 +651,35 @@ const systemText = computed<string>(() => {
   vertical-align: middle;
 }
 
-/* 问题三: the "正在生成…" indicator shown while the bubble is streaming but token-silent
-   (the LLM is composing a tool call / file content). The flowing dots read as active
-   progress where the static caret read as frozen. */
+/* 问题三 / followup3 FE-1: the "正在生成…" indicator shown while the bubble is
+   streaming but token-silent (the LLM is composing a tool call / file content).
+   A leading spinning loader + label reads as active progress where the static
+   caret read as frozen. */
 .generation-stall {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary, #5f6577);
   font-size: 13px;
   user-select: none;
 }
-.gen-dots {
-  display: inline-flex;
+.gen-spinner {
+  flex-shrink: 0;
+  color: var(--color-primary, hsl(160, 72%, 40%));
+  animation: gen-spin 0.8s linear infinite;
 }
-.gen-dots i {
-  font-style: normal;
-  animation: gen-blink 1.4s infinite both;
-}
-.gen-dots i:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.gen-dots i:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes gen-blink {
-  0%,
-  80%,
-  100% {
-    opacity: 0.2;
-  }
-  40% {
-    opacity: 1;
+@keyframes gen-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
 /* The caret is a presence marker; under reduced-motion it stays solid (no blink)
-   rather than flashing — still a "the pen is in hand" signal, no motion. */
+   rather than flashing — still a "the pen is in hand" signal, no motion. The
+   spinner likewise degrades to a static (non-rotating) loader glyph. */
 @media (prefers-reduced-motion: reduce) {
-  .gen-dots i {
+  .gen-spinner {
     animation: none;
-    opacity: 0.6;
   }
   .streaming-cursor {
     animation: none;

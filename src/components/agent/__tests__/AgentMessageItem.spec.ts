@@ -1,7 +1,8 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import AgentMessageItem from '../AgentMessageItem.vue'
+import { useAgentChatStore } from '@/stores/agentChat'
 import type { AgentMessage } from '@/types/agent'
 
 const ts = '2026-05-21T10:00:00Z'
@@ -275,6 +276,34 @@ describe('AgentMessageItem', () => {
       await wrapper.setProps({
         msg: { ...msg, markdown: 'Streaming... done', isStreaming: false }
       })
+      expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
+    })
+  })
+
+  // followup3 FE-1: the token-silent "正在生成…" indicator is a LEADING spinner
+  // + text, NOT trailing pulsing dots. Regression guard so a revert to .gen-dots
+  // (or removal of the spinner) fails here.
+  describe('generation indicator (FE-1 spinner)', () => {
+    it('shows a leading spinner + "正在生成…" while streaming-but-silent, with no pulse dots', async () => {
+      const store = useAgentChatStore()
+      // Force isGenerationStalled() true: streaming, no active tool, last delta long ago.
+      store.lastStreamDeltaAt = Date.now() - 5000
+      const msg: AgentMessage = {
+        id: 'gen-1',
+        type: 'assistant',
+        markdown: 'partial',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      const stall = wrapper.find('.generation-stall')
+      expect(stall.exists()).toBe(true)
+      expect(stall.text()).toContain('正在生成')
+      // spinner present; the old pulse-dots element is gone
+      expect(wrapper.find('.gen-spinner').exists()).toBe(true)
+      expect(wrapper.find('.gen-dots').exists()).toBe(false)
+      // and the bare caret is not shown when the generation indicator is up
       expect(wrapper.find('.streaming-cursor').exists()).toBe(false)
     })
   })
