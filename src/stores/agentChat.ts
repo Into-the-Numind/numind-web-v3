@@ -37,6 +37,7 @@ import type {
   ReasoningDeltaPayload,
   AssistantMessagePayload,
   ToolCallStartPayload,
+  ToolCallArgsDeltaPayload,
   ToolCallProgressPayload,
   ToolCallResultPayload,
   ToolCallErrorPayload,
@@ -293,6 +294,27 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         m.type === 'tool_group' &&
         (m as ToolGroupMessage).tool_calls.some((t) => ACTIVE.includes(t.current_state))
     )
+  })
+
+  // followup3 FE-3: the accumulated argument text (code/document content) of the
+  // tool call that is CURRENTLY being composed — drives the live "writing code" box
+  // in the streaming bubble. Scans streaming tool_group messages for the LAST tool
+  // call that is still ACTIVE (use/progress/queued) and has argsStream content.
+  // Returns '' once that tool finishes (result/error) so the box collapses on
+  // generation success. Only whitelisted generation tools ever accumulate argsStream
+  // (backend gates tool_call_args_delta emission by tool name).
+  const activeCodeStream = computed<string>(() => {
+    const ACTIVE: NarrationState[] = ['queued', 'use', 'progress']
+    let latest = ''
+    for (const m of messages.value) {
+      if (m.type !== 'tool_group') continue
+      for (const tc of (m as ToolGroupMessage).tool_calls) {
+        if (ACTIVE.includes(tc.current_state) && tc.argsStream) {
+          latest = tc.argsStream
+        }
+      }
+    }
+    return latest
   })
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -1258,6 +1280,20 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         break
       }
 
+      case 'tool_call_args_delta': {
+        // followup3 FE-3: incremental tool-call argument (code/document content) for
+        // a whitelisted generation tool. Backend gates emission by tool name, so any
+        // event that arrives here belongs to a tool whose args we want to show live.
+        // Accumulate by tool_call_id into the aggregate's argsStream — the streaming
+        // bubble renders this in a live "writing code" box (AgentMessageItem).
+        const payload = e.data as ToolCallArgsDeltaPayload
+        if (!payload?.tool_call_id || !payload.args_delta) break
+        updateStreamingToolCall(payload.tool_call_id, (tc) => {
+          tc.argsStream = (tc.argsStream ?? '') + payload.args_delta
+        })
+        break
+      }
+
       case 'tool_call_progress': {
         const payload = e.data as ToolCallProgressPayload
         if (!payload?.tool_call_id) break
@@ -1512,6 +1548,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isRunning,
     isWaitingForUser,
     hasActiveToolCall,
+    activeCodeStream,
     toolGroups,
     fetchAvailableAgents,
     fetchRecentSessions,

@@ -280,6 +280,89 @@ describe('AgentMessageItem', () => {
     })
   })
 
+  // followup3 FE-3: the live "writing code" box shows the active generation tool's
+  // streamed argument content and collapses once the tool finishes.
+  describe('streaming code box (FE-3)', () => {
+    function seedActiveCodeTool(store: ReturnType<typeof useAgentChatStore>): void {
+      store.applyStreamEvent({
+        type: 'tool_call_start',
+        seq: 1,
+        ts,
+        run_id: 1,
+        step: 0,
+        data: { tool_call_id: 'tc-code', tool_name: 'run_python', input_digest: 'd' }
+      })
+      store.applyStreamEvent({
+        type: 'tool_call_args_delta',
+        seq: 2,
+        ts,
+        run_id: 1,
+        step: 0,
+        data: { tool_call_id: 'tc-code', function_name: 'run_python', args_delta: 'print(1)\n' }
+      })
+    }
+
+    it('renders the code box with streamed content while a generation tool is active', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-1',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      const box = wrapper.find('.code-stream-body')
+      expect(box.exists()).toBe(true)
+      expect(box.text()).toContain('print(1)')
+      // default expanded
+      expect(wrapper.find('.code-stream-toggle').exists()).toBe(true)
+    })
+
+    it('hides the code box once the tool finishes (result state)', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-2',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      expect(wrapper.find('.code-stream').exists()).toBe(true)
+      // tool completes → activeCodeStream empties → box collapses
+      store.applyStreamEvent({
+        type: 'tool_call_result',
+        seq: 3,
+        ts,
+        run_id: 1,
+        step: 0,
+        data: { tool_call_id: 'tc-code', preview: '{"ok":true}', duration_ms: 5 }
+      })
+      await flushPromises()
+      expect(wrapper.find('.code-stream').exists()).toBe(false)
+    })
+
+    it('does not render the code box when the bubble is not streaming', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-3',
+        type: 'assistant',
+        markdown: 'done',
+        isStreaming: false,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      expect(wrapper.find('.code-stream').exists()).toBe(false)
+    })
+  })
+
   // followup3 FE-1: the token-silent "正在生成…" indicator is a LEADING spinner
   // + text, NOT trailing pulsing dots. Regression guard so a revert to .gen-dots
   // (or removal of the spinner) fails here.
