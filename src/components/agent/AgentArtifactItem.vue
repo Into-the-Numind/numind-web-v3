@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { Download, Eye, FileText, X } from 'lucide-vue-next'
+import { Download, Eye, FileText, SquarePen, X } from 'lucide-vue-next'
 
 import { isEditable, isDocumentSystemEnabled } from '@/utils/editableArtifact'
 import { useDocumentsStore } from '@/stores/documents'
@@ -170,6 +170,19 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         <span class="filename">{{ artifact.filename }}</span>
         <span class="file-type">{{ fileTypeLabel }}</span>
       </span>
+      <!-- issue6: make the editable affordance visible — a non-HTML doc (docx/md/txt)
+           that can be edited shows an explicit "编辑/打开" button, otherwise it looks
+           download-only. Whole card is still clickable (file-row--clickable). -->
+      <button
+        v-if="canEdit"
+        class="icon-btn edit-btn"
+        data-testid="doc-edit-btn"
+        @click.stop="openEditor"
+        aria-label="编辑文档"
+        title="编辑"
+      >
+        <SquarePen :size="17" />
+      </button>
       <button class="icon-btn download-btn" @click.stop="handleDownload" aria-label="下载文件">
         <Download :size="17" />
       </button>
