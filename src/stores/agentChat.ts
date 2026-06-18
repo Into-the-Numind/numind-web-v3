@@ -237,11 +237,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // arguments while composing; the assembled tool call + tool_call_start fire
   // afterwards — confirmed via dev SSE capture run 180). Writing into the not-yet-
   // existing aggregate was a silent no-op, so the box never showed. Buffer here
-  // regardless of aggregate state; activeCodeStream reads it; ids are marked done
-  // on result/error (box collapses) and everything clears on reset.
+  // regardless of aggregate state; activeCodeStream reads the latest; the buffer is
+  // cleared at each step boundary (step_done) so the box collapses when the model
+  // finishes the step, and on reset.
   const liveCodeStreams = ref<Record<string, string>>({})
   const liveCodeStreamOrder = ref<string[]>([])
-  const liveCodeStreamDoneIds = ref<string[]>([])
 
   const inputText = ref('')
   const attachments = ref<UploadResponse[]>([])
@@ -309,22 +309,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   })
 
   // followup3 FE-3: the accumulated argument text (code/document content) of the
-  // tool call that is CURRENTLY being composed — drives the live "writing code" box
-  // in the streaming bubble. Reads the liveCodeStreams buffer (decoupled from the
-  // aggregate, since args-delta arrives before tool_call_start): the LAST buffered
-  // tool_call_id not yet marked done. Returns '' once that tool finishes
-  // (result/error → id added to liveCodeStreamDoneIds) so the box collapses on
-  // generation success. Only whitelisted generation tools ever emit args-delta
-  // (backend gates emission by tool name).
+  // tool call CURRENTLY being composed — drives the live "writing code" box in the
+  // streaming bubble. Reads the liveCodeStreams buffer (decoupled from the aggregate,
+  // since args-delta arrives before tool_call_start), returning the LATEST buffered
+  // tool_call_id's content. The buffer is cleared at each step boundary (step_done),
+  // so the box collapses the instant the model finishes writing this step's args —
+  // we do NOT key the collapse on tool_call_result, because the args-delta carries the
+  // PROVIDER tool-call id (call_00_…) while result carries a different backend UUID,
+  // so a result-based done-match never fires (dev bug: box hung through the answer).
   const activeCodeStream = computed<string>(() => {
-    // Latest tool_call_id that is still streaming args (not yet result/error).
-    for (let i = liveCodeStreamOrder.value.length - 1; i >= 0; i--) {
-      const id = liveCodeStreamOrder.value[i]
-      if (!liveCodeStreamDoneIds.value.includes(id) && liveCodeStreams.value[id]) {
-        return liveCodeStreams.value[id]
-      }
-    }
-    return ''
+    const order = liveCodeStreamOrder.value
+    if (order.length === 0) return ''
+    return liveCodeStreams.value[order[order.length - 1]] ?? ''
   })
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -1012,34 +1008,37 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           : run
       const finalOut = run.final_output ?? ''
 
-      // Match only bubbles that BELONG to this run AND are still streaming.
-      // The isStreaming guard makes reconcile re-entry truly idempotent: a
-      // duplicate terminal SSE frame would otherwise re-overwrite markdown
-      // (current backend returns a stable final_output, so it's invisible —
-      // but reviewer flagged this as a latent correctness bug masked by the
-      // test using identical mock values).
-      const streamingBubbles = messages.value.filter(
+      // Idempotency: if this run already produced a final_answer (a prior
+      // terminal/reconcile converted or pushed it), there is nothing left to do.
+      const alreadyHasFinal = messages.value.some(
+        (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId
+      )
+      if (alreadyHasFinal) return
+
+      // ALL assistant bubbles for THIS run — regardless of isStreaming. The
+      // final-answer turn's assistant_message already set isStreaming=false BEFORE
+      // this terminal/reconcile fired (dev SSE run 180: assistant_message + step_done
+      // precede terminal). An isStreaming-only filter therefore missed the bubble, so
+      // it never became a final_answer and the file cards + copy button only appeared
+      // after a manual refresh. Match by _run_id (only streaming-created bubbles carry
+      // it; reloaded snapshot bubbles do not, and are already final_answer anyway).
+      const runBubbles = messages.value.filter(
         (m): m is StreamingAssistantMessage =>
           m.type === 'assistant' &&
           (m as StreamingAssistantMessage)._stream_id !== undefined &&
-          (m as StreamingAssistantMessage)._run_id === runId &&
-          (m as StreamingAssistantMessage).isStreaming === true
+          (m as StreamingAssistantMessage)._run_id === runId
       )
 
-      if (streamingBubbles.length > 0) {
-        for (const b of streamingBubbles) {
+      if (runBubbles.length > 0) {
+        for (const b of runBubbles) {
           b.isStreaming = false
         }
         if (finalOut) {
-          // followup3 fix: convert the LAST finalized bubble into a 'final_answer'
-          // message — matching the reloaded snapshot, which ends in 'final_answer'.
-          // A plain 'assistant' bubble renders finalOut as raw markdown: artifact
-          // links stay plain text (no file cards) and there's no copy button, so the
-          // user had to refresh to see them. AgentFinalAnswer (final_answer type)
-          // splits the markdown into prose + artifact cards and shows the copy button.
-          const last = streamingBubbles[streamingBubbles.length - 1]
-          // Locate by _stream_id (stable identity) rather than indexOf(reference) —
-          // explicit and survives any future filter/clone of streamingBubbles.
+          // Convert the LAST bubble to a 'final_answer' so AgentFinalAnswer renders
+          // the artifact cards + copy button live (matching the reloaded snapshot,
+          // which ends in 'final_answer'). A plain 'assistant' bubble renders finalOut
+          // as raw markdown — links stay plain text (no cards) and no copy button.
+          const last = runBubbles[runBubbles.length - 1]
           const idx = messages.value.findIndex(
             (m) =>
               m.type === 'assistant' &&
@@ -1060,41 +1059,23 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         return
       }
 
-      // Fallback: no ACTIVE streaming bubble for this run. Push the DB
-      // final_output as a stand-alone final_answer, but only if this run
-      // has NO existing UI representation. A second reconcile fires when:
-      //   (a) duplicate terminal SSE frame — the first reconcile already
-      //       finalized a bubble (filter now empty because isStreaming=false);
-      //       must NOT push final_answer because the finalized bubble IS the
-      //       UI for this run.
-      //   (b) the first reconcile already pushed a final_answer (tool-only
-      //       run path); subsequent calls must dedup against that.
-      // A run paused for ask_user_question is NOT done. The backend still
-      // synthesises final_output from the last assistant turn (the agent's
-      // pre-question prose, e.g. "…让我先问你："), but pushing it as a
-      // final_answer makes a merely-paused run look "回答完毕" — the question
-      // card is the UI for a waiting run, not a final answer (customer bug).
-      // answer-resume-lifecycle F3: state_reason==='running' = resumed leg in
-      // flight; its final_output is still the stale pre-question prose.
+      // Fallback: no streaming-created assistant bubble for this run (e.g. a
+      // tool-only run). Push final_output as a stand-alone final_answer. The
+      // alreadyHasFinal guard above makes this idempotent. A run paused for
+      // ask_user_question is NOT done (final_output is the pre-question prose);
+      // state_reason==='running' is a resumed leg still in flight.
       if (
         finalOut &&
         run.state_reason !== 'waiting_for_user_choice' &&
         run.state_reason !== 'running'
       ) {
-        const hasAnyUiForRun = messages.value.some(
-          (m) =>
-            (m.type === 'assistant' && (m as StreamingAssistantMessage)._run_id === runId) ||
-            (m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId)
-        )
-        if (!hasAnyUiForRun) {
-          messages.value.push({
-            id: uuid(),
-            type: 'final_answer',
-            markdown: finalOut,
-            run_id: runId,
-            timestamp: new Date().toISOString()
-          })
-        }
+        messages.value.push({
+          id: uuid(),
+          type: 'final_answer',
+          markdown: finalOut,
+          run_id: runId,
+          timestamp: new Date().toISOString()
+        })
       }
     } catch {
       // Network error during reconcile — streaming UI is already visible, silently ignore
@@ -1377,11 +1358,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             timestamp: e.ts
           })
         })
-        // followup3 FE-3 fix: tool finished → mark its live code stream done so the
-        // box collapses (activeCodeStream skips done ids).
-        if (!liveCodeStreamDoneIds.value.includes(payload.tool_call_id)) {
-          liveCodeStreamDoneIds.value = [...liveCodeStreamDoneIds.value, payload.tool_call_id]
-        }
+        // followup3 FE-3 fix: the live "writing code" box is collapsed at the step
+        // boundary (step_done), NOT here — args-delta carries the PROVIDER tool-call
+        // id while this result carries a backend UUID, so a result-keyed clear would
+        // never match the buffered entry.
         // NOTE: generated images are NOT pushed as a transient artifact bubble
         // here — that bubble was lost on reload (loadSessionSnapshot rebuilds from
         // agent_run.messages, which never persisted it). The backend now embeds
@@ -1409,14 +1389,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             timestamp: e.ts
           })
         })
-        if (!liveCodeStreamDoneIds.value.includes(payload.tool_call_id)) {
-          liveCodeStreamDoneIds.value = [...liveCodeStreamDoneIds.value, payload.tool_call_id]
-        }
         break
       }
 
       case 'step_done':
-        // Step boundary — no direct UI action; just log
+        // followup3 FE-3 fix: a step boundary means the model finished writing this
+        // step's tool args → collapse the live "writing code" box. Clear the buffer
+        // HERE (not on tool_call_result) because args-delta carries the PROVIDER
+        // tool-call id (call_00_…) while result carries a different backend UUID, so a
+        // result-keyed clear never matches and the box hung through the final answer.
+        liveCodeStreams.value = {}
+        liveCodeStreamOrder.value = []
         console.debug('[agent-stream] step_done', e.step)
         break
 
@@ -1560,7 +1543,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     streamingToolGroupIds.value = new Map()
     liveCodeStreams.value = {}
     liveCodeStreamOrder.value = []
-    liveCodeStreamDoneIds.value = []
     inputText.value = ''
     attachments.value = []
     estimate.value = null

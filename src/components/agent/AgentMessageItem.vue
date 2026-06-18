@@ -247,14 +247,10 @@ const systemText = computed<string>(() => {
           <span v-if="isGenerating || codeStream" class="generation-stall" aria-live="polite">
             <LoaderCircle :size="14" class="gen-spinner" aria-hidden="true" />
             <span>正在生成…</span>
-          </span>
-          <span v-else class="streaming-cursor" aria-hidden="true">▎</span>
-          <!-- followup3 FE-3: live "writing code" box — only while a whitelisted
-               generation tool is composing its argument. Default expanded; pure
-               arrow toggle; fixed-height monospace scroll box auto-scrolled to tail;
-               collapses/disappears the instant the tool finishes. -->
-          <div v-if="codeStream" class="code-stream">
+            <!-- followup3 fix: the toggle arrow sits inline AFTER "正在生成…", not on
+                 the left of the code block; it toggles the left-aligned box below. -->
             <button
+              v-if="codeStream"
               type="button"
               class="code-stream-toggle"
               :aria-expanded="codeBoxExpanded"
@@ -264,10 +260,18 @@ const systemText = computed<string>(() => {
               <ChevronDown v-if="codeBoxExpanded" :size="14" />
               <ChevronRight v-else :size="14" />
             </button>
-            <pre v-show="codeBoxExpanded" ref="codeScrollEl" class="code-stream-body">{{
-              codeStream
-            }}</pre>
-          </div>
+          </span>
+          <span v-else class="streaming-cursor" aria-hidden="true">▎</span>
+          <!-- followup3 FE-3: live "writing code" box — left-aligned, fixed-height
+               monospace scroll box auto-scrolled to tail. The toggle arrow lives in
+               the "正在生成…" line above; collapses at the step boundary. -->
+          <pre
+            v-if="codeStream"
+            v-show="codeBoxExpanded"
+            ref="codeScrollEl"
+            class="code-stream-body"
+            >{{ codeStream }}</pre
+          >
         </template>
       </div>
       <AgentImagePreview :url="previewImageUrl" @close="closePreview" />
@@ -722,19 +726,12 @@ const systemText = computed<string>(() => {
   }
 }
 
-/* followup3 FE-3: live "writing code" box under the generation indicator. */
-.code-stream {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin-top: 8px;
-  width: 100%;
-}
+/* followup3 FE-3: the toggle arrow sits inline in the "正在生成…" line (a flex
+   child of .generation-stall), not on the left of the code block. */
 .code-stream-toggle {
   flex-shrink: 0;
-  margin-top: 2px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -749,15 +746,18 @@ const systemText = computed<string>(() => {
   background: var(--surface-low, #f3f4f6);
   color: var(--color-text, #1f2937);
 }
+/* Left-aligned, full-width, uniformly-rounded code box below the indicator. */
 .code-stream-body {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   height: 160px;
-  margin: 0;
+  margin: 8px 0 0;
   overflow: auto;
   background: #1f2937;
   color: #e5e7eb;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 10px 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
   font-size: 12px;
