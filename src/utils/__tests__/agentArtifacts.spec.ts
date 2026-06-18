@@ -18,6 +18,9 @@ const COS_IMG =
 // A presigned COS docx download URL.
 const COS_DOCX =
   'https://numind-1234.cos.ap-guangzhou.myqcloud.com/agent-outputs/run42/report.docx?q-sign-algorithm=sha1&q-signature=def'
+// A presigned COS HTML URL (问题五 — must extract to a text/html artifact → card).
+const COS_HTML =
+  'https://numind-1234.cos.ap-guangzhou.myqcloud.com/agent-outputs/run42/page.html?q-sign-algorithm=sha1&q-signature=ghi'
 
 describe('extractArtifacts — COS images & downloads', () => {
   it('① extracts a signed COS image and a signed COS docx with correct mime', () => {
@@ -43,6 +46,15 @@ describe('extractArtifacts — COS images & downloads', () => {
     expect(prose).not.toContain(COS_DOCX)
     expect(prose).not.toContain('chart.png')
     expect(prose).not.toContain('report.docx')
+  })
+
+  it('问题五: extracts a standalone COS HTML link as a text/html artifact (card)', () => {
+    const md = `页面做好了：\n\n[查看页面](${COS_HTML})`
+    const { prose, artifacts } = extractArtifacts(md)
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0]).toEqual({ filename: '查看页面', url: COS_HTML, mime: 'text/html' })
+    expect(prose).not.toContain(COS_HTML)
+    expect(prose).toContain('页面做好了：')
   })
 })
 
