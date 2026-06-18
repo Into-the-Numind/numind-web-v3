@@ -106,9 +106,8 @@ describe('AgentToolCallItem — flat timeline line', () => {
   })
 
   // 问题四: while running, the label follows the LATEST event so a tool that emits
-  // progress updates shows the newest activity (not the frozen first 'use' line), and
-  // flowing dots render beside the label as an extra liveness signal.
-  it('progress: label follows the latest progress event + shows flowing dots while active', () => {
+  // progress updates shows the newest activity (not the frozen first 'use' line).
+  it('progress: label follows the latest progress event while active', () => {
     const w = mount(AgentToolCallItem, {
       props: {
         group: grp(
@@ -122,13 +121,15 @@ describe('AgentToolCallItem — flat timeline line', () => {
       }
     })
     expect(w.find('.tl-txt').text()).toBe('已写入 3 个区块')
-    expect(w.find('.tl-dots').exists()).toBe(true)
   })
 
-  it('done: no flowing dots (only active states show them)', () => {
+  // 问题5b: the redundant flowing dots were removed — an active tool line shows the
+  // Loader2 spinner as its sole liveness signal (one state, one signal).
+  it('active line shows only the spinner, no flowing dots', () => {
     const w = mount(AgentToolCallItem, {
-      props: { group: grp('result', [ev('use', '正在生成网页...'), ev('result', '网页已生成')]) }
+      props: { group: grp('use', [ev('use', '正在生成网页...', 'create_html')], 'create_html') }
     })
+    expect(w.findComponent(Loader2).exists()).toBe(true)
     expect(w.find('.tl-dots').exists()).toBe(false)
   })
 })

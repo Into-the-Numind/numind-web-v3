@@ -29,8 +29,18 @@ const lastMsgStreaming = computed<boolean>(() => {
   return !!last && last.type === 'assistant' && !!(last as AssistantMessage).isStreaming
 })
 
+/** 问题5a: belt-and-suspenders — even if isRunning somehow reads stale-true (e.g. a
+ *  lagging reconcile race), a run whose status is a TERMINAL one (completed/failed/
+ *  cancelled/timeout/budget_exhausted) must never show the "处理中…" pulse. Only
+ *  running/pending are non-terminal, so anything else = ended. */
+const TERMINAL_STATUSES = ['completed', 'timeout', 'failed', 'cancelled', 'budget_exhausted']
+const isTerminal = computed<boolean>(() => {
+  const s = store.currentRun?.status
+  return s != null && TERMINAL_STATUSES.includes(s)
+})
+
 const visible = computed<boolean>(
-  () => store.isRunning && !store.isWaitingForUser && !lastMsgStreaming.value
+  () => store.isRunning && !isTerminal.value && !store.isWaitingForUser && !lastMsgStreaming.value
 )
 
 // 1s ticker drives the silence ladder + the elapsed while visible.

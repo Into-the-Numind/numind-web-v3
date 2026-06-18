@@ -148,6 +148,20 @@ function streamingToolUseLabel(
   }
 }
 
+/** A run status that means the run has truly ended (no more work). 'running' and
+ *  'pending' are the only non-terminal statuses. Used to guard against a stale DB
+ *  read downgrading an already-terminal run back to "still working" (问题5a). */
+const TERMINAL_STATUSES: AgentRunStatus[] = [
+  'completed',
+  'timeout',
+  'failed',
+  'cancelled',
+  'budget_exhausted'
+]
+function isTerminalStatus(status?: AgentRunStatus): boolean {
+  return status != null && TERMINAL_STATUSES.includes(status)
+}
+
 function statusFromTerminalReason(reason?: string): AgentRunStatus {
   switch (reason) {
     case 'completed':
@@ -199,6 +213,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const narrationEvents = ref<NarrationEvent[]>([])
   const lastNarrationTs = ref<string>('')
   const stuckSince = ref<number | null>(null)
+  // 问题三: wall-clock (Date.now) of the last token/reasoning delta during a stream.
+  // Drives the streaming bubble's stall detection — when the assistant is still
+  // streaming but this stops advancing (LLM composing tool args), the caret is
+  // upgraded to an explicit "正在生成…" indicator. Reset on each new turn.
+  const lastStreamDeltaAt = ref<number | null>(null)
   // Tracks the in-flight tool_group message that mirrors toolGroups computed.
   // Without this bridge, narrationEvents pile up in the store and the existing
   // `toolGroups` computed has no consumer — AgentMessageItem only renders
@@ -259,6 +278,21 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       agg.current_state = ev.state
     }
     return Array.from(map.values())
+  })
+
+  // 问题三: is any tool call currently mid-flight? While a tool runs, its timeline
+  // line (AgentToolCallItem spinner) owns the liveness signal, so the streaming
+  // bubble must NOT also show a "正在生成…" indicator. Covers both surfaces: the
+  // polling-path aggregates (toolGroups) and the streaming-path tool_group
+  // messages. ACTIVE = queued/use/progress (mirrors AgentToolCallItem.ACTIVE_STATES).
+  const hasActiveToolCall = computed<boolean>(() => {
+    const ACTIVE: NarrationState[] = ['queued', 'use', 'progress']
+    if (toolGroups.value.some((g) => ACTIVE.includes(g.current_state))) return true
+    return messages.value.some(
+      (m) =>
+        m.type === 'tool_group' &&
+        (m as ToolGroupMessage).tool_calls.some((t) => ACTIVE.includes(t.current_state))
+    )
   })
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -927,9 +961,23 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *      final_answer, deduped against re-entrant calls.
    */
   const reconcileFromDB = async (runId: number): Promise<void> => {
+    // 问题5a: the terminal SSE handler already set currentRun to a terminal status
+    // synchronously (before this async getRun resolves). The authoritative DB read
+    // can lag the in-memory terminal (the row may not be flushed yet) and return a
+    // stale 'running'/'pending' — assigning it back would flip isRunning true again
+    // and leave the bottom "处理中…" pulse spinning forever after the task ended.
+    // So: once a run is locally terminal, never let a non-terminal DB read downgrade
+    // it. (A genuine answer-resume keeps status='running' via refreshRunStatus, not
+    // this path, so this guard does not strand a real resumed leg.)
+    const wasTerminal = currentRun.value?.id === runId && isTerminalStatus(currentRun.value?.status)
+    const lockedStatus = currentRun.value?.status
+    const lockedReason = currentRun.value?.state_reason
     try {
       const run = await api.getRun(runId)
-      currentRun.value = run
+      currentRun.value =
+        wasTerminal && !isTerminalStatus(run.status)
+          ? { ...run, status: lockedStatus!, state_reason: lockedReason ?? run.state_reason }
+          : run
       const finalOut = run.final_output ?? ''
 
       // Match only bubbles that BELONG to this run AND are still streaming.
@@ -1030,6 +1078,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     narrationEvents.value = []
     lastNarrationTs.value = ''
     stuckSince.value = null
+    lastStreamDeltaAt.value = null
     currentToolGroupId.value = null
     attachments.value = []
     inputText.value = ''
@@ -1083,6 +1132,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         tagStreamSeq(msg, e)
         msg.markdown += payload.text
         msg.isStreaming = true
+        lastStreamDeltaAt.value = Date.now()
         reorderStreamTailBySeq()
         break
       }
@@ -1093,6 +1143,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         const msg = ensureStreamingAssistantMessage(payload.message_id, e.run_id)
         tagStreamSeq(msg, e)
         msg.reasoning = (msg.reasoning ?? '') + payload.text
+        lastStreamDeltaAt.value = Date.now()
         reorderStreamTailBySeq()
         break
       }
@@ -1418,6 +1469,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     narrationEvents.value = []
     lastNarrationTs.value = ''
     stuckSince.value = null
+    lastStreamDeltaAt.value = null
     currentToolGroupId.value = null
     streamingToolGroupIds.value = new Map()
     inputText.value = ''
@@ -1446,6 +1498,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     narrationEvents,
     lastNarrationTs,
     stuckSince,
+    lastStreamDeltaAt,
     inputText,
     attachments,
     estimate,
@@ -1458,6 +1511,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     sessionError,
     isRunning,
     isWaitingForUser,
+    hasActiveToolCall,
     toolGroups,
     fetchAvailableAgents,
     fetchRecentSessions,

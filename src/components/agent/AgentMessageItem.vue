@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
+import { useAgentChatStore } from '@/stores/agentChat'
+import { isGenerationStalled } from '@/utils/agentGeneration'
 import type {
   AgentMessage,
   UserMessage,
@@ -104,6 +106,32 @@ const asQuestionPrompt = computed<QuestionPromptMessage | null>(() =>
   props.msg.type === 'question_prompt' ? (props.msg as QuestionPromptMessage) : null
 )
 
+// 问题三: while the streaming assistant bubble sits token-silent (the LLM is composing
+// a tool call's args / file content), the bare blinking caret reads as frozen. A 1s
+// ticker re-evaluates isStalled so the caret upgrades to an explicit "正在生成…"
+// indicator once the silence crosses the threshold AND no tool is active yet (a running
+// tool's timeline line owns the liveness signal). nowMs is in Date.now()'s domain to
+// match the store's lastStreamDeltaAt.
+const store = useAgentChatStore()
+const nowMs = ref(Date.now())
+let stallTicker: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  stallTicker = setInterval(() => {
+    nowMs.value = Date.now()
+  }, 1000)
+})
+onUnmounted(() => {
+  if (stallTicker) clearInterval(stallTicker)
+})
+const isGenerating = computed<boolean>(() =>
+  isGenerationStalled(
+    !!asAssistant.value?.isStreaming,
+    store.hasActiveToolCall,
+    store.lastStreamDeltaAt,
+    nowMs.value
+  )
+)
+
 const systemText = computed<string>(() => {
   const sys = asSystem.value
   if (!sys) return ''
@@ -139,7 +167,11 @@ const systemText = computed<string>(() => {
         <Copy v-else :size="14" />
       </button>
       <div class="bubble">
-        <p class="text">{{ asUser.text }}</p>
+        <!-- 问题一: a pure-attachment message (no typed text) must not render an
+             empty <p> — that empty paragraph plus .user-atts' border-top left a
+             stray divider above the chips. Render text only when present; the
+             divider CSS below is then keyed on a preceding .text sibling. -->
+        <p v-if="asUser.text" class="text">{{ asUser.text }}</p>
         <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
           <span v-for="a in asUser.attachments ?? []" :key="a.url" class="att">
             📎 {{ a.filename }}
@@ -178,7 +210,14 @@ const systemText = computed<string>(() => {
         />
         <!-- eslint-disable-next-line vue/no-v-html (markdown 已 DOMPurify sanitize) -->
         <div class="markdown-body" v-html="renderedMarkdown" @click="handleImageClick"></div>
-        <span v-if="asAssistant.isStreaming" class="streaming-cursor" aria-hidden="true">▎</span>
+        <template v-if="asAssistant.isStreaming">
+          <!-- 问题三: token-silent stretch → upgrade the bare caret to an explicit
+               "正在生成…" indicator so a long file-generation wait doesn't look frozen. -->
+          <span v-if="isGenerating" class="generation-stall" aria-live="polite"
+            >正在生成<span class="gen-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span
+          >
+          <span v-else class="streaming-cursor" aria-hidden="true">▎</span>
+        </template>
       </div>
       <AgentImagePreview :url="previewImageUrl" @close="closePreview" />
     </div>
@@ -415,12 +454,18 @@ const systemText = computed<string>(() => {
 }
 
 .user-atts {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* 问题一: the divider + top spacing only make sense when there is text ABOVE the
+   chips. A pure-attachment bubble (no .text sibling) shows just the chips, no
+   stray rule. */
+.text + .user-atts {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .att {
@@ -594,9 +639,47 @@ const systemText = computed<string>(() => {
   vertical-align: middle;
 }
 
+/* 问题三: the "正在生成…" indicator shown while the bubble is streaming but token-silent
+   (the LLM is composing a tool call / file content). The flowing dots read as active
+   progress where the static caret read as frozen. */
+.generation-stall {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--text-secondary, #5f6577);
+  font-size: 13px;
+  user-select: none;
+}
+.gen-dots {
+  display: inline-flex;
+}
+.gen-dots i {
+  font-style: normal;
+  animation: gen-blink 1.4s infinite both;
+}
+.gen-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.gen-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes gen-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
 /* The caret is a presence marker; under reduced-motion it stays solid (no blink)
    rather than flashing — still a "the pen is in hand" signal, no motion. */
 @media (prefers-reduced-motion: reduce) {
+  .gen-dots i {
+    animation: none;
+    opacity: 0.6;
+  }
   .streaming-cursor {
     animation: none;
     opacity: 1;
