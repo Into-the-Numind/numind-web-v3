@@ -104,4 +104,31 @@ describe('AgentToolCallItem — flat timeline line', () => {
     expect(w.findComponent(Check).exists()).toBe(true)
     expect(w.findComponent(Loader2).exists()).toBe(false)
   })
+
+  // 问题四: while running, the label follows the LATEST event so a tool that emits
+  // progress updates shows the newest activity (not the frozen first 'use' line), and
+  // flowing dots render beside the label as an extra liveness signal.
+  it('progress: label follows the latest progress event + shows flowing dots while active', () => {
+    const w = mount(AgentToolCallItem, {
+      props: {
+        group: grp(
+          'progress',
+          [
+            ev('use', '正在生成网页...', 'create_html'),
+            ev('progress', '已写入 3 个区块', 'create_html')
+          ],
+          'create_html'
+        )
+      }
+    })
+    expect(w.find('.tl-txt').text()).toBe('已写入 3 个区块')
+    expect(w.find('.tl-dots').exists()).toBe(true)
+  })
+
+  it('done: no flowing dots (only active states show them)', () => {
+    const w = mount(AgentToolCallItem, {
+      props: { group: grp('result', [ev('use', '正在生成网页...'), ev('result', '网页已生成')]) }
+    })
+    expect(w.find('.tl-dots').exists()).toBe(false)
+  })
 })

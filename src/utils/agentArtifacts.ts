@@ -73,11 +73,15 @@ const MIME_BY_EXT: Record<string, string> = {
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   ppt: 'application/vnd.ms-powerpoint',
   pdf: 'application/pdf',
-  csv: 'text/csv'
+  csv: 'text/csv',
+  // HTML artifacts (create_html) render as cards with a sandboxed iframe preview
+  // + download (问题五). Backend signs these inline so the iframe can render them.
+  html: 'text/html',
+  htm: 'text/html'
 }
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
-const DOC_EXTS = new Set(['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'csv'])
+const DOC_EXTS = new Set(['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'csv', 'html', 'htm'])
 
 /**
  * Pull the path (no query/fragment) from a URL. Works without a base for

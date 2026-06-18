@@ -136,6 +136,13 @@ function streamingToolUseLabel(
       const u = field('url')
       return u ? `正在抓取：${clip(u, 50)}` : fallback
     }
+    case 'load_skill': {
+      // 问题一: show the skill name being loaded ("加载技能：docx-author") instead of
+      // the generic "正在调用工具 load_skill...". The name lives in input_preview.name
+      // (load_skill's required input param — tool_load_skill.go InputSchema).
+      const n = field('name')
+      return n ? `加载技能：${n}` : fallback
+    }
     default:
       return fallback
   }
@@ -1127,6 +1134,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             remember: '正在写入记忆...',
             file_read: '正在读取文件...',
             file_write: '正在写入文件...',
+            load_skill: '正在加载技能...',
             // File-generation tools — these run for tens of seconds in the
             // sandbox and previously fell through to the generic "正在调用工具"
             // label, which (plus zero progress events) made the UI look frozen.
@@ -1162,12 +1170,21 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             message = streamingToolUseLabel(payload.tool_name, payload.input_preview, base)
           }
 
+          // 问题一: capture the load_skill skill name now (input_preview.name) so the
+          // result-state label can show "已加载技能：<name>" — tool_call_result carries
+          // no input field.
+          const skillName =
+            payload.tool_name === 'load_skill' && typeof payload.input_preview?.name === 'string'
+              ? (payload.input_preview.name as string).trim()
+              : ''
+
           group.tool_calls = [
             ...group.tool_calls,
             {
               tool_call_id: payload.tool_call_id,
               tool_name: payload.tool_name,
               current_state: 'use',
+              skill_name: skillName || undefined,
               events: [
                 {
                   run_id: e.run_id,
@@ -1222,7 +1239,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             tool_call_id: payload.tool_call_id,
             tool_name: tc.tool_name,
             state: 'result',
-            message: toolResultLabel(tc.tool_name),
+            // 问题一: load_skill result keeps the skill name ("已加载技能：docx-author");
+            // tool_call_result has no input, so reuse skill_name captured at start.
+            message:
+              tc.tool_name === 'load_skill' && tc.skill_name
+                ? `已加载技能：${tc.skill_name}`
+                : toolResultLabel(tc.tool_name),
             timestamp: e.ts
           })
         })

@@ -18,6 +18,9 @@ const COS_IMG =
 // A presigned COS docx download URL.
 const COS_DOCX =
   'https://numind-1234.cos.ap-guangzhou.myqcloud.com/agent-outputs/run42/report.docx?q-sign-algorithm=sha1&q-signature=def'
+// A presigned COS HTML URL (问题五 — must extract to a text/html artifact → card).
+const COS_HTML =
+  'https://numind-1234.cos.ap-guangzhou.myqcloud.com/agent-outputs/run42/page.html?q-sign-algorithm=sha1&q-signature=ghi'
 
 describe('extractArtifacts — COS images & downloads', () => {
   it('① extracts a signed COS image and a signed COS docx with correct mime', () => {
@@ -43,6 +46,19 @@ describe('extractArtifacts — COS images & downloads', () => {
     expect(prose).not.toContain(COS_DOCX)
     expect(prose).not.toContain('chart.png')
     expect(prose).not.toContain('report.docx')
+  })
+
+  it('问题五: extracts a standalone COS HTML link as a text/html artifact (card)', () => {
+    const md = `页面做好了：\n\n[查看页面](${COS_HTML})`
+    const { prose, artifacts } = extractArtifacts(md)
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0]).toEqual({ filename: '查看页面', url: COS_HTML, mime: 'text/html' })
+    expect(prose).not.toContain(COS_HTML)
+    expect(prose).toContain('页面做好了：')
+
+    // Also via splitIntoSegments — the path AgentFinalAnswer actually renders.
+    const seg = splitIntoSegments(md).find((s) => s.type === 'artifact')
+    expect(seg && seg.type === 'artifact' && seg.ref.mime).toBe('text/html')
   })
 })
 
@@ -74,6 +90,13 @@ describe('extractArtifacts — third-party nodes are NOT extracted', () => {
   it('an agent-outputs/ path on a non-COS host is NOT extracted', () => {
     const url = 'https://cdn.example.com/agent-outputs/x.png'
     const md = `![x](${url})`
+    const { prose, artifacts } = extractArtifacts(md)
+    expect(artifacts).toHaveLength(0)
+    expect(prose).toBe(md)
+  })
+
+  it('问题五: a third-party .html link is NOT extracted (only COS agent-outputs become cards)', () => {
+    const md = '参考 [页面](https://example.com/agent-outputs/page.html) 的排版。'
     const { prose, artifacts } = extractArtifacts(md)
     expect(artifacts).toHaveLength(0)
     expect(prose).toBe(md)
@@ -138,7 +161,9 @@ describe('extractArtifacts — mime inference per extension', () => {
     ],
     ['a.ppt', false, 'application/vnd.ms-powerpoint', 'ppt'],
     ['a.pdf', false, 'application/pdf', 'pdf'],
-    ['a.csv', false, 'text/csv', 'csv']
+    ['a.csv', false, 'text/csv', 'csv'],
+    ['a.html', false, 'text/html', 'html'],
+    ['a.htm', false, 'text/html', 'htm']
   ]
 
   // Empty alt/link-text → filename falls back to the URL filename (#2 fallback path).

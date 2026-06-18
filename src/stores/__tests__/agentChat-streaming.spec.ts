@@ -276,6 +276,47 @@ describe('applyStreamEvent', () => {
     expect(ev?.message).toBe('正在搜索网络...')
   })
 
+  // 问题一: load_skill must surface the skill name in BOTH the use-state label
+  // ("加载技能：<name>") and the result-state label ("已加载技能：<name>") — the latter
+  // reuses skill_name captured at start since tool_call_result carries no input.
+  it('tool_call_start + result: load_skill surfaces the skill name', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('tool_call_start', {
+        tool_call_id: 'tc-skill',
+        tool_name: 'load_skill',
+        input_preview: { name: 'docx-author' }
+      })
+    )
+    let group = store.messages.find((m) => m.type === 'tool_group')
+    let tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    expect(tc?.events[0].message).toBe('加载技能：docx-author')
+    expect(tc?.skill_name).toBe('docx-author')
+
+    store.applyStreamEvent(
+      makeEvent('tool_call_result', { tool_call_id: 'tc-skill', preview: '{"ok":true}' })
+    )
+    group = store.messages.find((m) => m.type === 'tool_group')
+    tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    const last = tc ? tc.events[tc.events.length - 1] : null
+    expect(last?.message).toBe('已加载技能：docx-author')
+  })
+
+  it('tool_call_start: load_skill without a name falls back to the generic label', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('tool_call_start', {
+        tool_call_id: 'tc-skill-noname',
+        tool_name: 'load_skill',
+        input_preview: {}
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    expect(tc?.events[0].message).toBe('正在加载技能...')
+    expect(tc?.skill_name).toBeUndefined()
+  })
+
   it('tool_call_start: kb_search surfaces the query from input_preview', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(
