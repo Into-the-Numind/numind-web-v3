@@ -133,8 +133,9 @@ onUnmounted(() => {
       <p class="filename">{{ artifact.filename }}</p>
     </div>
 
-    <!-- A1 file card: ONE download button; click the card to preview (HTML rendered) /
-         edit (editable docs) / else flash "暂不支持预览". -->
+    <!-- A1 file card: ONE download button; click the card to edit (editable docs:
+         docx/md/txt) or flash "暂不支持预览" for all other formats (incl. HTML —
+         followup3 cut HTML iframe preview, HTML is download-only now). -->
     <div
       v-else
       class="file-row file-row--clickable"

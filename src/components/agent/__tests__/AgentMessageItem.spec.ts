@@ -321,6 +321,48 @@ describe('AgentMessageItem', () => {
       expect(wrapper.find('.code-stream-toggle').exists()).toBe(true)
     })
 
+    it('keeps the "正在生成…" indicator visible alongside the code box (FE-3 review P1)', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-p1',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      // spinner indicator and code box must co-exist while a tool streams its code —
+      // they used to be mutually exclusive (isGenerating suppressed by active tool).
+      expect(wrapper.find('.generation-stall').exists()).toBe(true)
+      expect(wrapper.find('.code-stream-body').exists()).toBe(true)
+    })
+
+    it('toggles the code box via the arrow button (collapse hides body, expand shows it)', async () => {
+      const store = useAgentChatStore()
+      seedActiveCodeTool(store)
+      const msg: AgentMessage = {
+        id: 'cb-toggle',
+        type: 'assistant',
+        markdown: '',
+        isStreaming: true,
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+      const toggle = wrapper.find('.code-stream-toggle')
+      // aria-expanded mirrors codeBoxExpanded — definitive signal for the toggle
+      // logic (more robust than isVisible() against jsdom v-show display:none).
+      expect(toggle.attributes('aria-expanded')).toBe('true') // default expanded
+      await toggle.trigger('click')
+      expect(wrapper.find('.code-stream-toggle').attributes('aria-expanded')).toBe('false')
+      // body is hidden (v-show → inline display:none) when collapsed
+      expect(wrapper.find('.code-stream-body').attributes('style')).toContain('display: none')
+      await wrapper.find('.code-stream-toggle').trigger('click')
+      expect(wrapper.find('.code-stream-toggle').attributes('aria-expanded')).toBe('true')
+    })
+
     it('hides the code box once the tool finishes (result state)', async () => {
       const store = useAgentChatStore()
       seedActiveCodeTool(store)

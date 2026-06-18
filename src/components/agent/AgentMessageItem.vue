@@ -146,7 +146,11 @@ const codeScrollEl = ref<HTMLElement | null>(null)
 const toggleCodeBox = (): void => {
   codeBoxExpanded.value = !codeBoxExpanded.value
 }
-watch(codeStream, async (val) => {
+watch(codeStream, async (val, old) => {
+  // followup3 FE-3 review (P2): default-expanded must hold for EVERY new tool run,
+  // not just the first — reset on each empty→non-empty transition so a box the user
+  // collapsed during tool-1 doesn't start collapsed for tool-2.
+  if (val && !old) codeBoxExpanded.value = true
   if (!val || !codeBoxExpanded.value) return
   await nextTick()
   const el = codeScrollEl.value
@@ -236,7 +240,11 @@ const systemText = computed<string>(() => {
           <!-- 问题三: token-silent stretch → upgrade the bare caret to an explicit
                "正在生成…" indicator so a long file-generation wait doesn't look frozen.
                followup3 FE-1: leading spinner + text (replaces the trailing pulse dots). -->
-          <span v-if="isGenerating" class="generation-stall" aria-live="polite">
+          <!-- followup3 FE-3 review (P1): the "正在生成…" indicator must stay visible
+               WHILE a tool streams its code (codeStream non-empty) — isGenerating alone
+               is suppressed once a tool is active, which would otherwise leave the code
+               box with no header label. Show it whenever isGenerating OR codeStream. -->
+          <span v-if="isGenerating || codeStream" class="generation-stall" aria-live="polite">
             <LoaderCircle :size="14" class="gen-spinner" aria-hidden="true" />
             <span>正在生成…</span>
           </span>
