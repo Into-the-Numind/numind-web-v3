@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { EstimateResponse, UploadResponse } from '@/types/agent'
-import { Paperclip, ArrowUp, X, FileText } from 'lucide-vue-next'
+import { Paperclip, ArrowUp, X, FileText, Square } from 'lucide-vue-next'
 import { getInputBudgetState } from '@/utils/inputBudget'
 
 interface Props {
@@ -10,11 +10,15 @@ interface Props {
   attachments: UploadResponse[]
   sending?: boolean
   disabled?: boolean
+  /** True while the agent run / SSE stream is active. Flips the send button into
+   *  a stop button (issue4: 终止 merged into the send button). */
+  streaming?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   sending: false,
-  disabled: false
+  disabled: false,
+  streaming: false
 })
 
 const emit = defineEmits<{
@@ -23,6 +27,7 @@ const emit = defineEmits<{
   (e: 'upload', file: File): void
   (e: 'remove-attachment', url: string): void
   (e: 'reject', reason: string): void
+  (e: 'stop'): void
 }>()
 
 const text = ref('')
@@ -175,24 +180,15 @@ onUnmounted(() => {
         <template v-if="estimate.is_large_task">
           📊 本次运行属于大型任务，预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分
         </template>
-        <template v-else>
-          预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分
-        </template>
+        <template v-else> 预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分 </template>
       </div>
 
       <!-- Attachment preview strip -->
       <div v-if="attachments.length > 0" class="attachment-strip">
-        <div
-          v-for="att in attachments"
-          :key="att.url"
-          class="attachment-item success"
-        >
+        <div v-for="att in attachments" :key="att.url" class="attachment-item success">
           <FileText :size="14" class="attachment-icon" />
           <span class="attachment-name" :title="att.filename">{{ att.filename }}</span>
-          <button
-            class="attachment-remove"
-            @click="emit('remove-attachment', att.url)"
-          >
+          <button class="attachment-remove" @click="emit('remove-attachment', att.url)">
             <X :size="12" />
           </button>
         </div>
@@ -209,7 +205,7 @@ onUnmounted(() => {
             <Paperclip :size="18" />
           </button>
         </div>
-        
+
         <!-- 字数计数器 -->
         <div
           v-if="text.length > 0"
@@ -227,9 +223,24 @@ onUnmounted(() => {
         </div>
 
         <div class="toolbar-right">
+          <!-- issue4: a single button toggles between send (idle) and stop (running).
+               While streaming it's always clickable so the user can abort; otherwise
+               it sends and is gated by canSend. -->
           <button
+            v-if="streaming"
+            class="send-btn send-btn--stop"
+            type="button"
+            aria-label="终止"
+            title="终止"
+            @click="emit('stop')"
+          >
+            <Square :size="16" />
+          </button>
+          <button
+            v-else
             class="send-btn"
             :disabled="!canSend"
+            aria-label="发送"
             @click="handleSend"
           >
             <ArrowUp :size="20" />
@@ -466,6 +477,17 @@ onUnmounted(() => {
   cursor: not-allowed;
   box-shadow: none;
   opacity: 0.6;
+}
+
+/* issue4: stop variant — distinct (red) so the "terminate" affordance reads
+   clearly apart from the green send state. */
+.send-btn--stop {
+  background: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.22);
+}
+
+.send-btn--stop:hover:not(:disabled) {
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.32);
 }
 
 @media (max-width: 768px) {

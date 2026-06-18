@@ -65,9 +65,11 @@ const label = computed<string>(() => {
   gap: 9px;
   /* No background — a flat, fully transparent timeline. State is carried by the
      leading icon (spinner / green check / red alert) + the dashed connector, not a
-     tinted rectangle. Padding stays for vertical rhythm AND the connector geometry
-     (its left/top offsets are measured off this padding). */
-  padding: 5px 8px;
+     tinted rectangle. Padding stays for vertical rhythm; left padding is 0 so the
+     leading icon's left edge aligns with the answer markdown-body's left edge
+     (issue3: tool timeline + thinking + answer all left-align to the same x).
+     The connector geometry (left/top) is measured off this padding. */
+  padding: 5px 8px 5px 0;
   font-size: 13.5px;
   line-height: 1.55;
   /* anchor for the dashed connector (::after) to the next tool line */
@@ -80,7 +82,7 @@ const label = computed<string>(() => {
 .tl-line:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 16px; /* 图标水平中心：padding-left 8 + .tl-ic 宽 16 的一半 */
+  left: 8px; /* 图标水平中心：padding-left 0 + .tl-ic 宽 16 的一半 = 8（与正文左对齐后重算） */
   /* 图标现在垂直居中（align-items:center）。单行行高 ≈ padding 5 + 文本 21 +
      padding 5 = 31px，图标中心 ≈ 15.5px、底边 ≈ 23.5px；虚线从图标下方 24px
      起，跨过行间 gap 连到下一行图标上方。 */

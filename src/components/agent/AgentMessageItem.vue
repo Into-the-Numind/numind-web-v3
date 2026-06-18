@@ -23,7 +23,7 @@ import AgentImagePreview from './AgentImagePreview.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
 import { useImagePreview } from '@/composables/useImagePreview'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
-import { Copy, Check } from 'lucide-vue-next'
+import { Copy, Check, Paperclip } from 'lucide-vue-next'
 
 interface Props {
   msg: AgentMessage
@@ -174,7 +174,8 @@ const systemText = computed<string>(() => {
         <p v-if="asUser.text" class="text">{{ asUser.text }}</p>
         <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
           <span v-for="a in asUser.attachments ?? []" :key="a.url" class="att">
-            📎 {{ a.filename }}
+            <Paperclip :size="13" class="att-icon" />
+            <span class="att-name">{{ a.filename }}</span>
           </span>
         </div>
       </div>
@@ -477,7 +478,16 @@ const systemText = computed<string>(() => {
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+}
+
+.att-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.att-name {
+  line-height: 1.3;
 }
 
 .msg-assistant,

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { Download, Eye, FileText, X } from 'lucide-vue-next'
+import { Download, FileText, X } from 'lucide-vue-next'
 
 import { isEditable, isDocumentSystemEnabled } from '@/utils/editableArtifact'
 import { useDocumentsStore } from '@/stores/documents'
 
-// document-system：编辑器是页面级右侧面板（AgentChatView 第三栏，由 documentsStore.current 驱动），
-// 不再是本卡片内的弹窗。卡片只负责"点击 → 触发打开"。
+// document-system：编辑器是页面级右侧面板（AgentChatView 第三栏，由 documentsStore.current 驱动）。
+// 卡片交互模型（dev 验收 followup2 第三轮）：卡片只显一个【下载】按钮；【预览/编辑】通过点击
+// 卡片本身进入 —— HTML→渲染预览，可编辑文档→打开编辑器，其余格式→提示"暂不支持预览"。
 const documentsStore = useDocumentsStore()
 
 interface Props {
@@ -24,7 +25,6 @@ const isImage = computed<boolean>(() => props.artifact.mime.startsWith('image/')
 
 // Short uppercase type label for the file card meta (DOCX / PDF / XLSX …). The
 // ArtifactRef carries no byte size, so the meta shows the format, not "KB".
-// Prefer the filename extension; fall back to a coarse mime-derived label.
 const MIME_TYPE_LABEL: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
   'application/msword': 'DOC',
@@ -44,18 +44,17 @@ const fileTypeLabel = computed<string>(() => {
   }
   return MIME_TYPE_LABEL[props.artifact.mime] ?? '文件'
 })
-// HTML artifacts are agent-authored and published RAW (un-escaped) by the backend
-// create_html tool, so we never open them directly — they render inside a fully
-// sandboxed iframe (see the HTML preview modal). startsWith() covers both
-// "text/html" and "text/html; charset=utf-8".
+
+// HTML artifacts are agent-authored; rendered inside a sandboxed iframe preview.
+// startsWith() covers both "text/html" and "text/html; charset=utf-8".
 const isHtml = computed<boolean>(() => props.artifact.mime.startsWith('text/html'))
 
-// document-system：文本类产物（md/txt/html/docx）显示"打开编辑"入口，
+// document-system：文本类产物（md/txt/html/docx）可在右侧编辑器面板打开编辑，
 // 受 feature flag（VITE_ENABLE_DOCUMENT_SYSTEM）+ 可编辑性双重控制。
 const canEdit = computed<boolean>(
   () => isDocumentSystemEnabled() && isEditable(props.artifact.mime, props.artifact.filename)
 )
-// 点击卡片 → 在页面右侧编辑器面板打开（store.current 驱动 AgentChatView 第三栏）。
+
 const openEditor = (): void => {
   void documentsStore.open({
     source_url: props.artifact.url,
@@ -74,28 +73,47 @@ const iframeError = ref(false)
 const openPreview = (): void => {
   showPreview.value = true
 }
-
 const closePreview = (): void => {
   showPreview.value = false
 }
-
 const openHtmlPreview = (): void => {
   iframeLoading.value = true
   iframeError.value = false
   showHtmlPreview.value = true
 }
-
 const closeHtmlPreview = (): void => {
   showHtmlPreview.value = false
 }
-
 const onIframeLoad = (): void => {
   iframeLoading.value = false
 }
-
 const onIframeError = (): void => {
   iframeLoading.value = false
   iframeError.value = true
+}
+
+// Transient hint shown when the user clicks a card whose format we cannot preview/edit.
+const hintText = ref('')
+let hintTimer: ReturnType<typeof setTimeout> | null = null
+const flashHint = (msg: string): void => {
+  hintText.value = msg
+  if (hintTimer) clearTimeout(hintTimer)
+  hintTimer = setTimeout(() => {
+    hintText.value = ''
+  }, 2200)
+}
+
+// 点击卡片 → 预览(可渲染) / 编辑(可编辑) / 否则提示不支持。下载走独立按钮（stop 冒泡）。
+const onCardClick = (): void => {
+  if (isHtml.value) {
+    openHtmlPreview()
+    return
+  }
+  if (canEdit.value) {
+    openEditor()
+    return
+  }
+  flashHint('此格式暂不支持预览')
 }
 
 const handleDownload = (): void => {
@@ -104,8 +122,7 @@ const handleDownload = (): void => {
   a.download = props.artifact.filename
   // The COS URL is cross-origin, so browsers ignore `download` and would otherwise
   // navigate the app tab to the raw file. Open in a new tab with no window.opener
-  // handle instead: the app session is preserved and the opened page (which, for
-  // HTML, is un-sandboxed at the COS origin) cannot reach back into the app.
+  // handle instead: the app session is preserved.
   a.target = '_blank'
   a.rel = 'noopener noreferrer'
   document.body.appendChild(a)
@@ -120,7 +137,10 @@ const onKeydown = (e: KeyboardEvent): void => {
 }
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+  if (hintTimer) clearTimeout(hintTimer)
+})
 </script>
 
 <template>
@@ -131,46 +151,30 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
       <p class="filename">{{ artifact.filename }}</p>
     </div>
 
-    <!-- A1 file card (HTML): 可编辑则整卡点击打开编辑器；预览/下载按钮 stop 冒泡。 -->
-    <div
-      v-else-if="isHtml"
-      class="file-row"
-      :class="{ 'file-row--clickable': canEdit }"
-      :data-testid="canEdit ? 'doc-open-card' : undefined"
-      @click="canEdit && openEditor()"
-    >
-      <span class="doc-badge"><FileText :size="20" /></span>
-      <span class="file-meta">
-        <span class="filename">{{ artifact.filename }}</span>
-        <span class="file-type">{{ fileTypeLabel }}</span>
-      </span>
-      <button
-        class="icon-btn preview-btn"
-        data-testid="html-preview-btn"
-        @click.stop="openHtmlPreview"
-        aria-label="预览页面"
-      >
-        <Eye :size="17" />
-      </button>
-      <button class="icon-btn download-btn" @click.stop="handleDownload" aria-label="下载文件">
-        <Download :size="17" />
-      </button>
-    </div>
-
-    <!-- A1 file card (downloadable doc): 可编辑则整卡点击打开编辑器；下载按钮 stop 冒泡。 -->
+    <!-- A1 file card: ONE download button; click the card to preview (HTML rendered) /
+         edit (editable docs) / else flash "暂不支持预览". -->
     <div
       v-else
-      class="file-row"
-      :class="{ 'file-row--clickable': canEdit }"
-      :data-testid="canEdit ? 'doc-open-card' : undefined"
-      @click="canEdit && openEditor()"
+      class="file-row file-row--clickable"
+      data-testid="artifact-card"
+      role="button"
+      tabindex="0"
+      @click="onCardClick"
+      @keydown.enter="onCardClick"
     >
       <span class="doc-badge"><FileText :size="20" /></span>
       <span class="file-meta">
         <span class="filename">{{ artifact.filename }}</span>
         <span class="file-type">{{ fileTypeLabel }}</span>
       </span>
-      <button class="icon-btn download-btn" @click.stop="handleDownload" aria-label="下载文件">
+      <span v-if="hintText" class="card-hint" aria-live="polite">{{ hintText }}</span>
+      <button
+        class="icon-btn download-btn"
+        data-testid="artifact-download"
+        @click.stop="handleDownload"
+        aria-label="下载文件"
+        title="下载"
+      >
         <Download :size="17" />
       </button>
     </div>
@@ -206,23 +210,26 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           </header>
           <div class="html-preview-body">
             <!--
-              SECURITY (XSS hardening): agent-authored HTML is published RAW (un-escaped)
-              by the backend create_html tool, so a prompt-injected <script> would execute
-              if the document were opened directly. We render it ONLY inside this fully
-              sandboxed iframe:
-                - empty `sandbox` (NO allow-scripts) → injected scripts never run
-                - NO allow-same-origin → opaque origin; cannot reach cookies / localStorage
-                  / the app DOM / window.opener
-                - referrerpolicy="no-referrer" → don't leak the presigned COS URL
-              HTML + inline CSS still render visually. DO NOT add allow-scripts or
-              allow-same-origin without a security review.
+              SECURITY: agent-authored HTML is published RAW (un-escaped) by the backend
+              create_html tool. We render it inside a sandboxed iframe with allow-scripts
+              but WITHOUT allow-same-origin (product-owner approved, dev followup2):
+                - allow-scripts → the report's own JS (Tailwind CDN, charts) runs so the
+                  page renders with its real styling (sandbox="" showed unstyled text).
+                - NO allow-same-origin → OPAQUE origin: the script CANNOT read the app's
+                  cookies / localStorage / DOM / window.opener — it cannot touch the user
+                  session (CodePen-tier isolation). Worst case is confined to the iframe.
+                - NO allow-top-navigation → cannot hijack the app tab.
+                - NO allow-popups → a prompt-injected script cannot spam pop-up tabs.
+                - referrerpolicy="no-referrer" → don't leak the presigned COS URL.
+              The ONLY token is allow-scripts. DO NOT add allow-same-origin /
+              allow-top-navigation / allow-popups without a security review.
               Backend threat model: numind-server biz/agent/tool_create_html.go (renderHTML).
             -->
             <iframe
               :src="artifact.url"
               :title="artifact.filename"
               class="html-preview-frame"
-              sandbox=""
+              sandbox="allow-scripts"
               referrerpolicy="no-referrer"
               loading="lazy"
               @load="onIframeLoad"
@@ -239,13 +246,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         </div>
       </div>
     </Teleport>
-    <!-- document-system：编辑器已上移为页面级右侧面板（AgentChatView 第三栏），由
-         documentsStore.current 驱动；本卡片只触发 openEditor（store.open）。 -->
   </div>
 </template>
 
 <style scoped>
-/* A1 file card — minimal inline card: emerald doc badge + name/type + icon action. */
+/* A1 file card — minimal inline card: emerald doc badge + name/type + download icon. */
 .artifact-item {
   display: inline-flex;
   align-items: center;
@@ -258,9 +263,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   padding: 10px 12px;
 }
 
-/* S2 single image (#3) — no outer frame: drop the card border/padding/background
-   entirely. The image itself carries the rounded corners + a light shadow so it
-   reads as a polished standalone visual, not a thumbnail boxed in a card. */
+/* S2 single image (#3) — no outer frame. */
 .artifact-item--image {
   display: inline-block;
   width: auto;
@@ -275,9 +278,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   cursor: pointer;
 }
 
-/* The image carries the whole S2 treatment: rounded + soft shadow, click to enlarge.
-   max-width/max-height with auto sizing keeps any aspect ratio undistorted and
-   un-cropped (no object-fit needed without a fixed box). */
 .thumb {
   display: block;
   max-width: 360px;
@@ -300,12 +300,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   gap: 12px;
   width: 100%;
 }
-/* 可编辑文本类卡片：整卡可点击打开编辑器 */
+/* 整卡可点击（预览/编辑/提示） */
 .file-row--clickable {
   cursor: pointer;
 }
 
-/* Emerald document badge (playground A1 .doc-badge): soft emerald tint, rounded. */
+/* Emerald document badge: soft emerald tint, rounded. */
 .doc-badge {
   flex-shrink: 0;
   width: 40px;
@@ -342,7 +342,15 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   letter-spacing: 0.02em;
 }
 
-/* Emerald icon action button (playground A1 .dl): soft tint square, deepens on hover. */
+/* Transient "unsupported" hint shown after clicking a non-previewable/editable card. */
+.card-hint {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #8b90a0);
+  white-space: nowrap;
+}
+
+/* Emerald icon action button: soft tint square, deepens on hover. */
 .icon-btn {
   flex-shrink: 0;
   width: 34px;
