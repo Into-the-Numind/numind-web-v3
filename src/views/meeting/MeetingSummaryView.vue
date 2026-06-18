@@ -76,6 +76,12 @@
               重新检查
             </AppButton>
           </div>
+          <div
+            v-else-if="meeting.currentSession.summary_status === 'skipped'"
+            class="block-body block-empty"
+          >
+            <p>本次会议结束时未生成 AI 纪要。下方完整转写仍可查看与复制。</p>
+          </div>
           <div v-else-if="hasSummary" class="block-body">
             <!-- eslint-disable-next-line vue/no-v-html -->
             <div class="markdown-body summary-md" v-html="renderedSummary" />
