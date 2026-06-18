@@ -398,23 +398,30 @@ describe('applyStreamEvent', () => {
       expect(store.activeCodeStream).toBe('')
     })
 
-    it('activeCodeStream clears once the tool finishes (result)', async () => {
+    it('REGRESSION: clears at step_done, NOT tool_call_result (provider id ≠ backend UUID)', async () => {
       const store = useAgentChatStore()
+      // args-delta carries the PROVIDER tool-call id (call_00_…)…
       store.applyStreamEvent(
         makeEvent('tool_call_args_delta', {
-          tool_call_id: 'tc-active',
+          tool_call_id: 'call_00_provider',
           function_name: 'create_html',
           args_delta: '<html>'
         })
       )
       expect(store.activeCodeStream).toBe('<html>')
+      // …but tool_call_result carries a DIFFERENT backend UUID, so a result-keyed clear
+      // never matches the buffered entry → the box hung through the final answer (the
+      // dev bug). The result must therefore NOT clear the box.
       store.applyStreamEvent(
-        makeEvent('tool_call_result', { tool_call_id: 'tc-active', preview: '{"ok":true}' })
+        makeEvent('tool_call_result', { tool_call_id: 'backend-uuid-xyz', preview: '{"ok":true}' })
       )
+      expect(store.activeCodeStream).toBe('<html>')
+      // The step boundary (step_done) collapses the box — id-agnostic, robust.
+      store.applyStreamEvent(makeEvent('step_done', {}))
       expect(store.activeCodeStream).toBe('')
     })
 
-    it('activeCodeStream clears once the tool finishes (error)', async () => {
+    it('clears at step_done even when the step ended in a tool error', async () => {
       const store = useAgentChatStore()
       store.applyStreamEvent(
         makeEvent('tool_call_args_delta', {
@@ -427,6 +434,7 @@ describe('applyStreamEvent', () => {
       store.applyStreamEvent(
         makeEvent('tool_call_error', { tool_call_id: 'tc-err', error: 'boom' })
       )
+      store.applyStreamEvent(makeEvent('step_done', {}))
       expect(store.activeCodeStream).toBe('')
     })
   })
@@ -960,6 +968,65 @@ describe('applyStreamEvent', () => {
     if (bubble.type === 'final_answer') {
       expect(bubble.markdown).toBe('Hello world from streaming')
     }
+  })
+
+  it('REGRESSION: converts to final_answer even when assistant_message already finalized the bubble', async () => {
+    // Real production order (dev SSE run 180): the final-answer turn emits
+    // assistant_message + step_done (→ isStreaming=false) BEFORE terminal/reconcile.
+    // An isStreaming-only match missed the bubble, so it stayed 'assistant' and the
+    // file cards + copy button only appeared after a manual refresh.
+    vi.mocked(api.getRun)
+      .mockResolvedValueOnce({
+        id: 888,
+        session_id: 's',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'running',
+        credits_used: 0,
+        created_at: '',
+        updated_at: ''
+      })
+      .mockResolvedValueOnce({
+        id: 888,
+        session_id: 's',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'completed',
+        final_output: '已生成两份文件：\n\n[报告.docx](https://cos/x.docx)',
+        credits_used: 5,
+        created_at: '',
+        updated_at: ''
+      })
+
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'gen')
+    store.applyStreamEvent(
+      makeEvent('token_delta', { message_id: 'msg-f', text: '已生成' }, { run_id: 888 })
+    )
+    // assistant_message finalizes the bubble (isStreaming=false) BEFORE terminal.
+    store.applyStreamEvent(
+      makeEvent(
+        'assistant_message',
+        { message_id: 'msg-f', content: '已生成两份文件', has_tool_calls: false },
+        { run_id: 888 }
+      )
+    )
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'done', duration_ms: 1000, step_count: 1 }, { run_id: 888 })
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    // The finalized bubble must STILL be converted to final_answer (cards + copy live).
+    const finals = store.messages.filter(
+      (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === 888
+    )
+    expect(finals.length).toBe(1)
+    expect(finals[0].type === 'final_answer' && finals[0].markdown).toContain('[报告.docx]')
+    // No lingering assistant bubble for this run — it was converted, not duplicated.
+    const assists = store.messages.filter(
+      (m) => m.type === 'assistant' && (m as StreamingAssistantMessage)._run_id === 888
+    )
+    expect(assists.length).toBe(0)
   })
 
   it('terminal: reconcileFromDB is idempotent — does not push duplicate final_answer', async () => {
