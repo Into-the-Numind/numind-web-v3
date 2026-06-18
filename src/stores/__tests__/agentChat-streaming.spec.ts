@@ -9,7 +9,7 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAgentChatStore, type StreamingAssistantMessage } from '../agentChat'
-import type { AgentRun, AssistantMessage } from '@/types/agent'
+import type { AgentRun } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 
 // ---------------------------------------------------------------------------
@@ -360,11 +360,15 @@ describe('applyStreamEvent', () => {
     expect(store.messages.length).toBe(0)
   })
 
-  // followup3 FE-3 — tool_call_args_delta accumulates code/document content
+  // followup3 FE-3 — tool_call_args_delta drives the live code box via a buffer
+  // DECOUPLED from the tool_call aggregate. The args-delta SSE arrives BEFORE
+  // tool_call_start creates the aggregate (model streams the function args while
+  // composing; the assembled tool call + start fire after — dev run 180), so the
+  // old "write into the aggregate" path was a silent no-op and the box never showed.
   describe('tool_call_args_delta (FE-3 live code box)', () => {
-    it('accumulates args_delta into the tool call argsStream by tool_call_id', async () => {
+    it('REGRESSION: shows args-delta that arrives BEFORE tool_call_start (no aggregate yet)', async () => {
       const store = useAgentChatStore()
-      await seedToolCall(store, 'tc-code', 0)
+      // NO seedToolCall — the aggregate does not exist yet, exactly as in production.
       store.applyStreamEvent(
         makeEvent('tool_call_args_delta', {
           tool_call_id: 'tc-code',
@@ -379,23 +383,11 @@ describe('applyStreamEvent', () => {
           args_delta: ' as pd\n'
         })
       )
-      const group = store.messages.find((m) => m.type === 'tool_group')
-      const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
-      expect(tc?.argsStream).toBe('import pandas as pd\n')
+      expect(store.activeCodeStream).toBe('import pandas as pd\n')
     })
 
-    it('no-op when tool_call_id not found or args_delta empty', async () => {
+    it('no-op when args_delta is empty', async () => {
       const store = useAgentChatStore()
-      await seedToolCall(store, 'tc-x', 0)
-      // unknown id → no change anywhere
-      store.applyStreamEvent(
-        makeEvent('tool_call_args_delta', {
-          tool_call_id: 'ghost',
-          function_name: 'run_python',
-          args_delta: 'x'
-        })
-      )
-      // empty delta → no accumulation onto tc-x
       store.applyStreamEvent(
         makeEvent('tool_call_args_delta', {
           tool_call_id: 'tc-x',
@@ -403,14 +395,11 @@ describe('applyStreamEvent', () => {
           args_delta: ''
         })
       )
-      const group = store.messages.find((m) => m.type === 'tool_group')
-      const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
-      expect(tc?.argsStream).toBeUndefined()
+      expect(store.activeCodeStream).toBe('')
     })
 
-    it('activeCodeStream exposes the active tool argsStream and clears once it finishes', async () => {
+    it('activeCodeStream clears once the tool finishes (result)', async () => {
       const store = useAgentChatStore()
-      await seedToolCall(store, 'tc-active', 0)
       store.applyStreamEvent(
         makeEvent('tool_call_args_delta', {
           tool_call_id: 'tc-active',
@@ -418,12 +407,25 @@ describe('applyStreamEvent', () => {
           args_delta: '<html>'
         })
       )
-      // While the tool is still in 'use' state, the live box reads its content.
       expect(store.activeCodeStream).toBe('<html>')
-      // Once the tool completes, the box collapses (activeCodeStream empties) even
-      // though argsStream is still retained on the (now-finished) aggregate.
       store.applyStreamEvent(
         makeEvent('tool_call_result', { tool_call_id: 'tc-active', preview: '{"ok":true}' })
+      )
+      expect(store.activeCodeStream).toBe('')
+    })
+
+    it('activeCodeStream clears once the tool finishes (error)', async () => {
+      const store = useAgentChatStore()
+      store.applyStreamEvent(
+        makeEvent('tool_call_args_delta', {
+          tool_call_id: 'tc-err',
+          function_name: 'create_docx',
+          args_delta: '# Title'
+        })
+      )
+      expect(store.activeCodeStream).toBe('# Title')
+      store.applyStreamEvent(
+        makeEvent('tool_call_error', { tool_call_id: 'tc-err', error: 'boom' })
       )
       expect(store.activeCodeStream).toBe('')
     })
@@ -950,12 +952,13 @@ describe('applyStreamEvent', () => {
     )
     expect(assistantLike.length).toBe(1)
 
-    // The bubble carries the authoritative content + is no longer streaming.
+    // followup3: the single bubble is converted IN PLACE to a final_answer (so
+    // AgentFinalAnswer renders artifact cards + copy live, matching reload) — NOT
+    // duplicated. It carries the authoritative content.
     const bubble = assistantLike[0]
-    expect(bubble.type).toBe('assistant')
-    if (bubble.type === 'assistant') {
+    expect(bubble.type).toBe('final_answer')
+    if (bubble.type === 'final_answer') {
       expect(bubble.markdown).toBe('Hello world from streaming')
-      expect(bubble.isStreaming).toBe(false)
     }
   })
 
@@ -1155,21 +1158,18 @@ describe('reconcileFromDB multi-run isolation (P1#1)', () => {
     )
     await new Promise((r) => setTimeout(r, 10))
 
-    const bubbles = store.messages.filter(
-      (m): m is import('@/types/agent').AssistantMessage => m.type === 'assistant'
+    // followup3: run A's last bubble is converted IN PLACE to a final_answer (so
+    // AgentFinalAnswer renders cards + copy live). Find it by run_id (the converted
+    // final_answer drops _stream_id).
+    const runAFinal = store.messages.find(
+      (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === 100
     )
-    const runABubble = bubbles.find(
-      (m) => (m as StreamingAssistantMessage)._stream_id === 'msg-A'
-    ) as StreamingAssistantMessage | undefined
-    const runBBubble = bubbles.find(
-      (m) => (m as StreamingAssistantMessage)._stream_id === 'msg-B'
-    ) as StreamingAssistantMessage | undefined
+    expect(runAFinal?.type === 'final_answer' && runAFinal.markdown).toBe('Run A FINAL')
 
-    // Run A's bubble is the one that should be finalized.
-    expect(runABubble?.markdown).toBe('Run A FINAL')
-    expect(runABubble?.isStreaming).toBe(false)
-
-    // Run B's bubble must be untouched — still streaming, original content.
+    // Run B's bubble must be untouched — still a streaming assistant, original content.
+    const runBBubble = store.messages.find(
+      (m) => m.type === 'assistant' && (m as StreamingAssistantMessage)._stream_id === 'msg-B'
+    ) as StreamingAssistantMessage | undefined
     expect(runBBubble?.markdown).toBe('Run B response')
     expect(runBBubble?.isStreaming).toBe(true)
   })
@@ -1230,24 +1230,27 @@ describe('reconcileFromDB multi-step finalize (P1#2)', () => {
     )
     await new Promise((r) => setTimeout(r, 10))
 
-    const after = store.messages.filter((m): m is AssistantMessage => m.type === 'assistant')
-    expect(after.length).toBe(2)
+    // followup3: the LAST step's bubble is converted to a final_answer (cards + copy);
+    // earlier steps stay as finalized assistant bubbles. The invariant this guards —
+    // ALL bubbles for the run stop streaming, not just the last — still holds.
+    const step0 = store.messages.find(
+      (m) => m.type === 'assistant' && (m as StreamingAssistantMessage)._stream_id === 'msg-step0'
+    ) as StreamingAssistantMessage | undefined
+    const step1Final = store.messages.find(
+      (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === 999
+    )
 
-    // ALL bubbles for run 999 are no longer streaming.
-    expect(after.every((m) => m.isStreaming === false)).toBe(true)
+    // No bubble for run 999 is left streaming.
+    const stillStreaming = store.messages.filter(
+      (m) => m.type === 'assistant' && (m as StreamingAssistantMessage).isStreaming === true
+    )
+    expect(stillStreaming.length).toBe(0)
 
-    // Address bubbles by their _stream_id (semantic identity) rather than
-    // by array index — guards against future ordering changes if a
-    // tool_group is interleaved between steps.
-    const findByStreamId = (sid: string) =>
-      after.find((m) => (m as StreamingAssistantMessage)._stream_id === sid)
-    const step0 = findByStreamId('msg-step0')
-    const step1 = findByStreamId('msg-step1')
+    // The LAST step's bubble carries the DB-authoritative final_output as final_answer.
+    expect(step1Final?.type === 'final_answer' && step1Final.markdown).toBe('Final step output')
 
-    // The LAST step's bubble carries the DB-authoritative final_output.
-    expect(step1?.markdown).toBe('Final step output')
-
-    // Earlier step's markdown is preserved (not overwritten with final_output).
+    // Earlier step: finalized assistant, original markdown preserved (not overwritten).
+    expect(step0?.isStreaming).toBe(false)
     expect(step0?.markdown).toBe('step 0 thinking')
   })
 
@@ -1317,12 +1320,14 @@ describe('reconcileFromDB edge cases (P2)', () => {
     )
     await new Promise((r) => setTimeout(r, 10))
 
-    const assistants = store.messages.filter((m): m is AssistantMessage => m.type === 'assistant')
+    const assistants = store.messages.filter((m) => m.type === 'assistant')
     const finals = store.messages.filter((m) => m.type === 'final_answer')
-    expect(assistants.length).toBe(1)
-    expect(assistants[0].markdown).toBe('Answer') // NOT 'GHOST-overwrite'
-    expect(assistants[0].isStreaming).toBe(false)
-    expect(finals.length).toBe(0)
+    // followup3: the single bubble is converted to ONE final_answer. Idempotent —
+    // the second terminal neither overwrites it (still 'Answer', NOT 'GHOST-overwrite')
+    // nor pushes a duplicate (fallback dedups by any existing UI for the run).
+    expect(assistants.length).toBe(0)
+    expect(finals.length).toBe(1)
+    expect(finals[0].type === 'final_answer' && finals[0].markdown).toBe('Answer')
   })
 
   it('empty final_output: streaming bubble preserves accumulated markdown, just stops streaming', async () => {
