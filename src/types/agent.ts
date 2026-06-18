@@ -259,6 +259,9 @@ export interface ToolCallAggregate {
   preview?: string
   /** Error message populated by tool_call_error streaming event */
   error_message?: string
+  /** Skill name captured at tool_call_start for load_skill, so the result-state
+   *  label can show "已加载技能：<name>" (tool_call_result carries no input). 问题一. */
+  skill_name?: string
 }
 
 // ─────────────────────────────────────────
