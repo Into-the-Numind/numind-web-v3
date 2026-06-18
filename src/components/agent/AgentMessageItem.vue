@@ -139,7 +139,11 @@ const systemText = computed<string>(() => {
         <Copy v-else :size="14" />
       </button>
       <div class="bubble">
-        <p class="text">{{ asUser.text }}</p>
+        <!-- 问题一: a pure-attachment message (no typed text) must not render an
+             empty <p> — that empty paragraph plus .user-atts' border-top left a
+             stray divider above the chips. Render text only when present; the
+             divider CSS below is then keyed on a preceding .text sibling. -->
+        <p v-if="asUser.text" class="text">{{ asUser.text }}</p>
         <div v-if="(asUser.attachments ?? []).length > 0" class="user-atts">
           <span v-for="a in asUser.attachments ?? []" :key="a.url" class="att">
             📎 {{ a.filename }}
@@ -415,12 +419,18 @@ const systemText = computed<string>(() => {
 }
 
 .user-atts {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* 问题一: the divider + top spacing only make sense when there is text ABOVE the
+   chips. A pure-attachment bubble (no .text sibling) shows just the chips, no
+   stray rule. */
+.text + .user-atts {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .att {

@@ -51,17 +51,17 @@ const label = computed<string>(() => {
       <Check v-else :size="14" />
     </span>
     <span class="tl-txt">{{ label }}</span>
-    <!-- 问题四: flowing dots after the active label — a second, more obvious liveness
-         signal beside the spinner for long-running tools (docx/HTML gen) where the
-         single static line otherwise looks frozen. -->
-    <span v-if="isActive" class="tl-dots" aria-hidden="true"><i></i><i></i><i></i></span>
   </div>
 </template>
 
 <style scoped>
 .tl-line {
   display: flex;
-  align-items: flex-start;
+  /* center the icon against the (first) text line so the top and bottom gaps read
+     as visually even — the 5px symmetric padding then gives equal breathing room
+     above and below a single-line row (问题二). For a wrapped multi-line label the
+     icon centers on the whole block, which still reads balanced. */
+  align-items: center;
   gap: 9px;
   /* No background — a flat, fully transparent timeline. State is carried by the
      leading icon (spinner / green check / red alert) + the dashed connector, not a
@@ -81,8 +81,11 @@ const label = computed<string>(() => {
   content: '';
   position: absolute;
   left: 16px; /* 图标水平中心：padding-left 8 + .tl-ic 宽 16 的一半 */
-  top: 22px; /* 紧接本行图标下方（图标底 ≈ 21px） */
-  bottom: -8px; /* 跨过 .tool-timeline 的 3px gap，连到下一行图标上方 */
+  /* 图标现在垂直居中（align-items:center）。单行行高 ≈ padding 5 + 文本 21 +
+     padding 5 = 31px，图标中心 ≈ 15.5px、底边 ≈ 23.5px；虚线从图标下方 24px
+     起，跨过行间 gap 连到下一行图标上方。 */
+  top: 24px;
+  bottom: -7px; /* 跨过 .tool-timeline 的 3px gap，连到下一行图标上方 */
   border-left: 1px dashed var(--border, #d4d8df);
   pointer-events: none;
 }
@@ -90,7 +93,6 @@ const label = computed<string>(() => {
 .tl-ic {
   flex-shrink: 0;
   width: 16px;
-  margin-top: 2px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -128,50 +130,9 @@ const label = computed<string>(() => {
   }
 }
 
-/* 问题四: flowing in-progress dots beside the active label. */
-.tl-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 5px;
-  /* align to the first text line (matches .tl-ic margin-top) so the dots sit beside
-     the label baseline even when a long label wraps. */
-  margin-top: 9px;
-  flex-shrink: 0;
-}
-.tl-dots i {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--primary, hsl(160, 72%, 40%));
-  opacity: 0.35;
-  animation: tl-dot 1.2s ease-in-out infinite;
-}
-.tl-dots i:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.tl-dots i:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes tl-dot {
-  0%,
-  60%,
-  100% {
-    opacity: 0.35;
-    transform: translateY(0);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-2px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .tl-spin {
     animation: none;
-  }
-  .tl-dots i {
-    animation: none;
-    opacity: 0.55;
   }
 }
 </style>

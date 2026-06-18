@@ -515,6 +515,19 @@ describe('applyStreamEvent', () => {
     expect(failures.length).toBe(0)
   })
 
+  // 问题5a: after a completed terminal, isRunning must drop to false immediately
+  // (synchronously, not only via the async reconcileFromDB) so the "处理中…" pulse
+  // does not linger after the task ends.
+  it('terminal: completed run resets isRunning to false (pulse must not linger)', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 999 }))
+    expect(store.isRunning).toBe(true)
+    store.applyStreamEvent(
+      makeEvent('terminal', { reason: 'completed', duration_ms: 1, step_count: 1 }, { run_id: 999 })
+    )
+    expect(store.isRunning).toBe(false)
+  })
+
   // 9. tool_call_error — sets state to error + error_message
   it('tool_call_error: sets current_state=error + error_message + appends event', async () => {
     const store = useAgentChatStore()
