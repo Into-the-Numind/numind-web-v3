@@ -26,19 +26,19 @@ const isError = computed<boolean>(
 // catch-all so a new state never regresses to a stuck spinner.
 const isDone = computed<boolean>(() => !isActive.value && !isError.value)
 
-// The label transitions with the state: while running, the "use" (first) event's
-// activity ("加载技能：docx-author"); once done/errored, the latest event's message
-// (the result/error text, "已加载技能：docx-author"). A leading presentation emoji
-// (📚/📖/⚠ baked into older templates) and a leading "正在" are stripped — the
-// timeline owns the icon (lucide, in .tl-ic), so a message emoji would duplicate it
-// AND break the no-emoji rule. Falls back across events, then the tool name.
+// The label always reflects the LATEST event's message: while running it shows the
+// newest 'use'/'progress' activity (问题四 — a long tool that emits progress events
+// updates in place instead of freezing on the first line, e.g. "加载技能：docx-author");
+// once done/errored it shows the result/error text ("已加载技能：docx-author"). A
+// leading presentation emoji (📚/📖/⚠ baked into older templates) and a leading "正在"
+// are stripped — the timeline owns the icon (lucide, in .tl-ic), so a message emoji
+// would duplicate it AND break the no-emoji rule. Falls back across events, then the
+// tool name.
 const EMOJI_PREFIX = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}]\s*)+/u
 const label = computed<string>(() => {
   const first = props.group.events[0]
   const latest = props.group.events[props.group.events.length - 1]
-  const base = isActive.value
-    ? first?.message || latest?.message || props.group.tool_name
-    : latest?.message || first?.message || props.group.tool_name
+  const base = latest?.message || first?.message || props.group.tool_name
   return base.replace(EMOJI_PREFIX, '').replace(/^正在\s*/, '')
 })
 </script>
@@ -51,6 +51,10 @@ const label = computed<string>(() => {
       <Check v-else :size="14" />
     </span>
     <span class="tl-txt">{{ label }}</span>
+    <!-- 问题四: flowing dots after the active label — a second, more obvious liveness
+         signal beside the spinner for long-running tools (docx/HTML gen) where the
+         single static line otherwise looks frozen. -->
+    <span v-if="isActive" class="tl-dots" aria-hidden="true"><i></i><i></i><i></i></span>
   </div>
 </template>
 
@@ -123,9 +127,49 @@ const label = computed<string>(() => {
     transform: rotate(360deg);
   }
 }
+
+/* 问题四: flowing in-progress dots beside the active label. */
+.tl-dots {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  margin-left: 5px;
+  padding-bottom: 3px;
+  flex-shrink: 0;
+}
+.tl-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--primary, hsl(160, 72%, 40%));
+  opacity: 0.35;
+  animation: tl-dot 1.2s ease-in-out infinite;
+}
+.tl-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.tl-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes tl-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .tl-spin {
     animation: none;
+  }
+  .tl-dots i {
+    animation: none;
+    opacity: 0.55;
   }
 }
 </style>
