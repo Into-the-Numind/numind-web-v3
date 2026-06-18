@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, watch, ref, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, MoreVertical, Pin, PinOff, Edit3, Trash2, Square } from 'lucide-vue-next'
+import { ArrowLeft, Plus, MoreVertical, Pin, PinOff, Edit3, Trash2 } from 'lucide-vue-next'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useCreditsStore } from '@/stores/credits'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -533,25 +533,21 @@ const handleRetrySnapshot = async (): Promise<void> => {
         </div>
 
         <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">
-          <!-- Abort button — visible only while SSE stream is active -->
-          <div v-if="isStreaming" class="abort-bar">
-            <button class="abort-btn" type="button" aria-label="中止流式响应" @click="stopStream">
-              <Square :size="14" aria-hidden="true" />
-              <span>中止</span>
-            </button>
-          </div>
-
+          <!-- issue4: 终止 merged into the send button (AgentInputArea flips to a
+               stop button while streaming) — no separate abort bar. -->
           <AgentInputArea
             :agent-id="store.currentAgent.id"
             :estimate="store.estimate"
             :attachments="store.attachments"
             :sending="store.sendingMessage"
             :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
+            :streaming="isStreaming"
             @send="handleSend"
             @estimate-request="handleEstimateRequest"
             @upload="handleUpload"
             @remove-attachment="store.removeAttachment"
             @reject="handleReject"
+            @stop="stopStream"
           />
         </div>
       </main>
@@ -1104,35 +1100,5 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-}
-
-.abort-bar {
-  display: flex;
-  justify-content: center;
-  padding: 4px 32px 0;
-}
-
-.abort-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  background: transparent;
-  border: 1px solid var(--border-light, rgba(0, 0, 0, 0.12));
-  border-radius: 20px;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s;
-}
-
-.abort-btn:hover {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
 }
 </style>
