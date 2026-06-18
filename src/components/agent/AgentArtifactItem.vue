@@ -6,8 +6,9 @@ import { isEditable, isDocumentSystemEnabled } from '@/utils/editableArtifact'
 import { useDocumentsStore } from '@/stores/documents'
 
 // document-system：编辑器是页面级右侧面板（AgentChatView 第三栏，由 documentsStore.current 驱动）。
-// 卡片交互模型（dev 验收 followup2 第三轮）：卡片只显一个【下载】按钮；【预览/编辑】通过点击
-// 卡片本身进入 —— HTML→渲染预览，可编辑文档→打开编辑器，其余格式→提示"暂不支持预览"。
+// 卡片交互模型（followup3）：卡片只显一个【下载】按钮；点击卡片本身 —— 可编辑文档
+// (docx/md/txt)→打开右侧编辑器（方案 B），图片→放大 modal，其余格式（含 HTML）→提示
+// "暂不支持预览"。HTML 不再 iframe 预览（followup3 从源头切断，安全 + 体验一致）。
 const documentsStore = useDocumentsStore()
 
 interface Props {
@@ -45,14 +46,19 @@ const fileTypeLabel = computed<string>(() => {
   return MIME_TYPE_LABEL[props.artifact.mime] ?? '文件'
 })
 
-// HTML artifacts are agent-authored; rendered inside a sandboxed iframe preview.
-// startsWith() covers both "text/html" and "text/html; charset=utf-8".
+// HTML 产物从源头只下载（followup3 FE-2）：不预览、不进编辑器。startsWith() 覆盖
+// "text/html" 与 "text/html; charset=utf-8"。注意 isEditable() 仍把 html 算可编（与
+// 后端 IsEditableMime 对齐），所以这里显式把 html 排除在卡片可编辑路径之外。
 const isHtml = computed<boolean>(() => props.artifact.mime.startsWith('text/html'))
 
-// document-system：文本类产物（md/txt/html/docx）可在右侧编辑器面板打开编辑，
-// 受 feature flag（VITE_ENABLE_DOCUMENT_SYSTEM）+ 可编辑性双重控制。
+// document-system：文本类产物（md/txt/docx）可在右侧编辑器面板打开编辑，
+// 受 feature flag（VITE_ENABLE_DOCUMENT_SYSTEM）+ 可编辑性双重控制。HTML 虽 isEditable
+// 为 true 但在 agent 卡片场景只下载，故排除。
 const canEdit = computed<boolean>(
-  () => isDocumentSystemEnabled() && isEditable(props.artifact.mime, props.artifact.filename)
+  () =>
+    !isHtml.value &&
+    isDocumentSystemEnabled() &&
+    isEditable(props.artifact.mime, props.artifact.filename)
 )
 
 const openEditor = (): void => {
@@ -64,32 +70,12 @@ const openEditor = (): void => {
 }
 
 const showPreview = ref(false)
-const showHtmlPreview = ref(false)
-// The sandboxed iframe loads a cross-origin COS object whose presigned URL expires
-// after 24h; track load/error so we never strand the user on a blank frame.
-const iframeLoading = ref(true)
-const iframeError = ref(false)
 
 const openPreview = (): void => {
   showPreview.value = true
 }
 const closePreview = (): void => {
   showPreview.value = false
-}
-const openHtmlPreview = (): void => {
-  iframeLoading.value = true
-  iframeError.value = false
-  showHtmlPreview.value = true
-}
-const closeHtmlPreview = (): void => {
-  showHtmlPreview.value = false
-}
-const onIframeLoad = (): void => {
-  iframeLoading.value = false
-}
-const onIframeError = (): void => {
-  iframeLoading.value = false
-  iframeError.value = true
 }
 
 // Transient hint shown when the user clicks a card whose format we cannot preview/edit.
@@ -103,12 +89,9 @@ const flashHint = (msg: string): void => {
   }, 2200)
 }
 
-// 点击卡片 → 预览(可渲染) / 编辑(可编辑) / 否则提示不支持。下载走独立按钮（stop 冒泡）。
+// 点击卡片 → 编辑(可编辑 docx/md/txt) / 否则提示不支持。HTML 走"不支持预览"分支
+// （followup3：HTML 从源头只下载，不再 iframe 预览）。下载走独立按钮（stop 冒泡）。
 const onCardClick = (): void => {
-  if (isHtml.value) {
-    openHtmlPreview()
-    return
-  }
   if (canEdit.value) {
     openEditor()
     return
@@ -132,8 +115,7 @@ const handleDownload = (): void => {
 
 const onKeydown = (e: KeyboardEvent): void => {
   if (e.key !== 'Escape') return
-  if (showHtmlPreview.value) closeHtmlPreview()
-  else if (showPreview.value) closePreview()
+  if (showPreview.value) closePreview()
 }
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
@@ -186,64 +168,6 @@ onUnmounted(() => {
           <X :size="20" />
         </button>
         <img :src="artifact.url" :alt="artifact.filename" class="preview-img" @click.stop />
-      </div>
-    </Teleport>
-
-    <!-- HTML 沙箱预览 modal -->
-    <Teleport to="body">
-      <div v-if="showHtmlPreview" class="html-preview-overlay" @click="closeHtmlPreview">
-        <div
-          class="html-preview-panel"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="artifact.filename"
-          @click.stop
-        >
-          <header class="html-preview-bar">
-            <span class="html-preview-title">{{ artifact.filename }}</span>
-            <button class="html-preview-action" @click="handleDownload" aria-label="下载文件">
-              <Download :size="18" />
-            </button>
-            <button class="html-preview-close" @click="closeHtmlPreview" aria-label="关闭预览">
-              <X :size="20" />
-            </button>
-          </header>
-          <div class="html-preview-body">
-            <!--
-              SECURITY: agent-authored HTML is published RAW (un-escaped) by the backend
-              create_html tool. We render it inside a sandboxed iframe with allow-scripts
-              but WITHOUT allow-same-origin (product-owner approved, dev followup2):
-                - allow-scripts → the report's own JS (Tailwind CDN, charts) runs so the
-                  page renders with its real styling (sandbox="" showed unstyled text).
-                - NO allow-same-origin → OPAQUE origin: the script CANNOT read the app's
-                  cookies / localStorage / DOM / window.opener — it cannot touch the user
-                  session (CodePen-tier isolation). Worst case is confined to the iframe.
-                - NO allow-top-navigation → cannot hijack the app tab.
-                - NO allow-popups → a prompt-injected script cannot spam pop-up tabs.
-                - referrerpolicy="no-referrer" → don't leak the presigned COS URL.
-              The ONLY token is allow-scripts. DO NOT add allow-same-origin /
-              allow-top-navigation / allow-popups without a security review.
-              Backend threat model: numind-server biz/agent/tool_create_html.go (renderHTML).
-            -->
-            <iframe
-              :src="artifact.url"
-              :title="artifact.filename"
-              class="html-preview-frame"
-              sandbox="allow-scripts"
-              referrerpolicy="no-referrer"
-              loading="lazy"
-              @load="onIframeLoad"
-              @error="onIframeError"
-            ></iframe>
-            <div v-if="iframeLoading || iframeError" class="html-preview-status">
-              <template v-if="iframeError">
-                <span>页面无法显示，链接可能已过期。</span>
-                <button class="html-preview-link" @click="handleDownload">下载查看</button>
-              </template>
-              <span v-else>加载中…</span>
-            </div>
-          </div>
-        </div>
       </div>
     </Teleport>
   </div>
@@ -402,102 +326,5 @@ onUnmounted(() => {
   max-width: 90vw;
   max-height: 90vh;
   border-radius: 8px;
-}
-
-/* HTML sandbox preview modal */
-.html-preview-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.html-preview-panel {
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  width: min(1000px, 92vw);
-  height: min(86vh, 900px);
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-}
-
-.html-preview-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-}
-
-.html-preview-title {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text, #1f2937);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.html-preview-action,
-.html-preview-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-muted, #6b7280);
-  padding: 4px;
-  border-radius: 4px;
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
-.html-preview-action:hover,
-.html-preview-close:hover {
-  background: #f3f4f6;
-  color: var(--color-text, #1f2937);
-}
-
-.html-preview-body {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-}
-
-.html-preview-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: #fff;
-}
-
-.html-preview-status {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  color: var(--color-text-muted, #6b7280);
-  font-size: 13px;
-}
-
-.html-preview-link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-primary, #2563eb);
-  text-decoration: underline;
-  font-size: 13px;
-  padding: 0;
 }
 </style>
