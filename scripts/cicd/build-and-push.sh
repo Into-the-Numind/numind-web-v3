@@ -38,6 +38,10 @@ if [ "$ENV" = "dev" ] || [ "$ENV" = "qa" ]; then VITE_ENABLE_DOCUMENT_SYSTEM="tr
 VITE_ENABLE_MEETING_COPILOT=""
 if [ "$ENV" = "dev" ] || [ "$ENV" = "qa" ]; then VITE_ENABLE_MEETING_COPILOT="true"; fi
 
+# meeting 说话人分离 UI：dev/qa 开，prod 留空(=隐藏，休眠隔离)
+VITE_ENABLE_MEETING_DIARIZATION=""
+if [ "$ENV" = "dev" ] || [ "$ENV" = "qa" ]; then VITE_ENABLE_MEETING_DIARIZATION="true"; fi
+
 SHA_TAG="${ROLLING_TAG}-${GIT_SHA}"
 IMG_ROLLING="${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${ROLLING_TAG}"
 IMG_SHA="${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${SHA_TAG}"
@@ -51,6 +55,7 @@ echo "  VITE_API_BASE_URL  : $VITE_API_BASE_URL"
 echo "  VITE_ENABLE_NOTIFICATIONS : ${VITE_ENABLE_NOTIFICATIONS:-(unset)}"
 echo "  VITE_ENABLE_DOCUMENT_SYSTEM : ${VITE_ENABLE_DOCUMENT_SYSTEM:-(unset)}"
 echo "  VITE_ENABLE_MEETING_COPILOT : ${VITE_ENABLE_MEETING_COPILOT:-(unset)}"
+echo "  VITE_ENABLE_MEETING_DIARIZATION : ${VITE_ENABLE_MEETING_DIARIZATION:-(unset)}"
 echo "  Tags               : $IMG_ROLLING"
 echo "                       $IMG_SHA"
 echo "============================================="
@@ -77,6 +82,7 @@ docker build \
   --build-arg "VITE_ENABLE_NOTIFICATIONS=$VITE_ENABLE_NOTIFICATIONS" \
   --build-arg "VITE_ENABLE_DOCUMENT_SYSTEM=$VITE_ENABLE_DOCUMENT_SYSTEM" \
   --build-arg "VITE_ENABLE_MEETING_COPILOT=$VITE_ENABLE_MEETING_COPILOT" \
+  --build-arg "VITE_ENABLE_MEETING_DIARIZATION=$VITE_ENABLE_MEETING_DIARIZATION" \
   --label "git.commit=$GIT_SHA" \
   --label "build.env=$ENV" \
   --label "build.at=$(date -Iseconds)" \

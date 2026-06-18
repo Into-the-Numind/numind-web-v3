@@ -17,6 +17,8 @@ import * as api from '@/api/meeting'
 import type {
   MeetingSession,
   MeetingSegment,
+  MeetingSpeaker,
+  MeetingDiarizationStatus,
   MeetingFeedback,
   MeetingPreset,
   MeetingSummaryStatus,
@@ -35,6 +37,11 @@ export const useMeetingStore = defineStore('meeting', () => {
   const segments = ref<MeetingSegment[]>([])
   const feedbacks = ref<MeetingFeedback[]>([])
   const presets = ref<MeetingPreset[]>([])
+
+  // Final speaker roster (DIARIZATION_SPEC §6). Populated from the detail
+  // response once the offline pass has run; maps a segment's final_speaker_id →
+  // display label + palette color. Empty before offline diarization completes.
+  const speakers = ref<MeetingSpeaker[]>([])
 
   // History list
   const sessions = ref<MeetingSession[]>([])
@@ -117,6 +124,21 @@ export const useMeetingStore = defineStore('meeting', () => {
   const isPaused = computed(() => paused.value)
   const isActive = computed(() => currentSession.value?.status === 'active')
 
+  // ── Speaker diarization getters (DIARIZATION_SPEC §6) ─────────────────
+  /** Diarization lifecycle of the current session ('none' when absent/off). */
+  const diarizationStatus = computed<MeetingDiarizationStatus>(
+    () => currentSession.value?.diarization_status ?? 'none'
+  )
+  /**
+   * Lookup of final cluster_id → MeetingSpeaker, so a segment's final_speaker_id
+   * resolves to its stable display label + palette color in O(1) at render time.
+   */
+  const speakerByCluster = computed<Record<number, MeetingSpeaker>>(() => {
+    const map: Record<number, MeetingSpeaker> = {}
+    for (const sp of speakers.value) map[sp.cluster_id] = sp
+    return map
+  })
+
   /** Highest segment seq seen so far (-1 when none). */
   const latestSeq = computed(() =>
     segments.value.reduce((max, s) => (s.seq > max ? s.seq : max), -1)
@@ -170,6 +192,7 @@ export const useMeetingStore = defineStore('meeting', () => {
       currentSession.value = session
       segments.value = []
       feedbacks.value = []
+      speakers.value = []
       lastFeedbackSeq.value = -1
       lastTranscribedMs.value = 0
       interimText.value = ''
@@ -192,6 +215,9 @@ export const useMeetingStore = defineStore('meeting', () => {
       feedbacks.value = [...detail.feedbacks].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
+      // Final speaker roster (DIARIZATION_SPEC §6). Absent on a pre-migration /
+      // pre-offline backend → empty list (segments then fall back to A/B/C / grey).
+      speakers.value = detail.speakers ?? []
       // Restore feedback anchor to the highest feedback's anchor so a re-entered
       // active session doesn't immediately re-fire auto feedback. Sentinel -1
       // (no prior feedback) keeps the seq=0 trigger boundary consistent.
@@ -241,7 +267,13 @@ export const useMeetingStore = defineStore('meeting', () => {
       start_ms: seg.start_ms,
       duration_seconds: seg.duration_seconds,
       audio_url: null,
-      created_at: seg.created_at
+      created_at: seg.created_at,
+      // Carry the online speaker label (DIARIZATION_SPEC §6) from the wire frame
+      // so the live transcript can color-code segments as they finalize. Absent
+      // when diarization is OFF / soft-degraded → the view falls back to grey.
+      online_speaker_id: seg.online_speaker_id ?? null,
+      online_provisional: seg.online_provisional ?? false,
+      speaker_confidence: seg.speaker_confidence ?? null
     }
     segments.value = [...segments.value.filter((s) => s.seq !== segment.seq), segment].sort(
       (a, b) => a.seq - b.seq
@@ -424,6 +456,9 @@ export const useMeetingStore = defineStore('meeting', () => {
       feedbacks.value = [...detail.feedbacks].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
+      // Refresh the speaker roster too — a poll while diarization_status flips
+      // refining → done is exactly when the final A/B/C → 1/2/3 labels arrive.
+      speakers.value = detail.speakers ?? []
       return detail.session.summary_status
     } catch (err) {
       error.value = (err as Error).message ?? '加载会议失败'
@@ -570,6 +605,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     currentSession.value = null
     segments.value = []
     feedbacks.value = []
+    speakers.value = []
     sessions.value = []
     sessionsTotal.value = 0
     recording.value = false
@@ -598,6 +634,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     currentSession,
     segments,
     feedbacks,
+    speakers,
     presets,
     sessions,
     sessionsTotal,
@@ -629,6 +666,8 @@ export const useMeetingStore = defineStore('meeting', () => {
     isActive,
     latestSeq,
     canFeedback,
+    diarizationStatus,
+    speakerByCluster,
     // actions
     setRecordingState,
     createSession,

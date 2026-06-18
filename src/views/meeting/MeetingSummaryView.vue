@@ -47,8 +47,61 @@
             <span>时长 {{ formatDuration(meeting.currentSession.duration_seconds) }}</span>
             <span class="meta-dot">·</span>
             <span>{{ spokenSegments.length }} 段转写</span>
+            <template v-if="diarizationEnabled && speakerCount > 0">
+              <span class="meta-dot">·</span>
+              <span>{{ speakerCount }} 位发言人</span>
+            </template>
           </div>
         </header>
+
+        <!-- 会后校正状态 (DIARIZATION_SPEC §6 / §7 T11, flag-gated) ──────────
+             refining: 顶部骨架 + "正在校正说话人…"; final 到达后(done)轻量"已校正"提示,
+             无需用户操作。 -->
+        <div
+          v-if="diarizationEnabled && diarizationStatus === 'refining'"
+          class="diarize-banner diarize-banner--refining"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="diarize-spinner" aria-hidden="true" />
+          <div class="diarize-banner-body">
+            <p class="diarize-banner-title">正在校正说话人…</p>
+            <p class="diarize-banner-sub">
+              会中说话人为初步识别（A/B/C），系统正在自动校正为稳定编号，稍后将自动更新，无需操作。
+            </p>
+          </div>
+        </div>
+        <transition name="diarize-toast">
+          <div
+            v-if="diarizationEnabled && showRefinedToast"
+            class="diarize-banner diarize-banner--done"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle2 :size="16" class="diarize-done-icon" />
+            <div class="diarize-banner-body">
+              <p class="diarize-banner-title">说话人已校正</p>
+              <p class="diarize-banner-sub">标签已从临时的 A/B/C 自动更新为稳定编号。</p>
+            </div>
+          </div>
+        </transition>
+
+        <!-- 校正未完成 (DIARIZATION_SPEC §6: 'failed'): 离线精修未成功,
+             当前展示的是会中初步标签(A/B/C),不会再自动校正。诚实说明,不承诺未来动作。 -->
+        <div
+          v-if="diarizationEnabled && diarizationStatus === 'failed' && hasAnySpeakerLabel"
+          class="diarize-banner diarize-banner--failed"
+          role="status"
+          aria-live="polite"
+        >
+          <AlertCircle :size="16" class="diarize-failed-icon" />
+          <div class="diarize-banner-body">
+            <p class="diarize-banner-title">说话人校正未完成</p>
+            <p class="diarize-banner-sub">
+              当前展示的是会中初步识别的标签（A/B/C），自动校正未成功，标签不会再自动更新。
+            </p>
+          </div>
+        </div>
 
         <!-- AI 纪要 -->
         <section class="block">
@@ -127,6 +180,37 @@
           <div v-if="spokenSegments.length === 0" class="block-body block-empty">
             <p>本次会议没有可显示的转写内容。</p>
           </div>
+
+          <!-- 按发言人归并展示 (DIARIZATION_SPEC §7 T11): 相邻同一说话人的段折叠为一组,
+               读起来像对话而非平铺句子列表。flag OFF / 无说话人标签时退化为平铺列表. -->
+          <div v-else-if="diarizationEnabled && hasAnySpeakerLabel" class="block-body">
+            <p v-if="speakerHint" class="speaker-hint">{{ speakerHint }}</p>
+            <ul class="speaker-groups">
+              <li v-for="group in speakerGroups" :key="group.key" class="speaker-group">
+                <div class="speaker-group-head">
+                  <span
+                    class="seg-speaker"
+                    :class="{
+                      'seg-speaker--weak': group.speaker.weak,
+                      'seg-speaker--unknown': !group.speaker.known
+                    }"
+                    :style="speakerStyleVars(group.speaker)"
+                    :title="speakerTitleText(group.speaker)"
+                  >
+                    {{ speakerBadgeText(group.speaker) }}
+                  </span>
+                  <span class="speaker-group-time">{{ formatMs(group.segments[0].start_ms) }}</span>
+                </div>
+                <ul class="speaker-group-lines">
+                  <li v-for="seg in group.segments" :key="seg.id" class="speaker-group-line">
+                    {{ seg.text }}
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+
+          <!-- flag OFF / 无说话人标签: 原平铺列表 (与现状逐字一致). -->
           <div v-else class="block-body">
             <ul class="transcript-list">
               <li v-for="seg in spokenSegments" :key="seg.id" class="transcript-seg">
@@ -142,14 +226,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Download } from 'lucide-vue-next'
+import { ArrowLeft, Download, CheckCircle2, AlertCircle } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import { useMeetingStore } from '@/stores/meeting'
 import { useNotificationsStore } from '@/stores/notifications'
 import { renderMarkdown, stripCodeFence } from '@/utils/markdown'
+import {
+  groupSegmentsBySpeaker,
+  resolveSpeaker,
+  speakerBadgeText,
+  speakerStyleVars,
+  speakerTitleText
+} from '@/composables/useMeetingSpeakers'
 
 interface Props {
   id: string
@@ -166,6 +257,82 @@ const loadError = ref('')
 const spokenSegments = computed(() =>
   [...meeting.segments].filter((s) => s.text.trim().length > 0).sort((a, b) => a.seq - b.seq)
 )
+
+// ── Speaker diarization (DIARIZATION_SPEC §6 / §7 T11, flag-gated) ──────────
+// VITE_ENABLE_MEETING_DIARIZATION='true' turns on the post-meeting correction
+// experience: a "正在校正说话人…" banner while refining, a "已校正" toast when the
+// final labels arrive, and a speaker-grouped transcript. OFF/unset → the summary
+// renders exactly as before (flat transcript, no speaker UI) — a pure additive,
+// fully-removable overlay.
+const diarizationEnabled = import.meta.env.VITE_ENABLE_MEETING_DIARIZATION === 'true'
+
+const diarizationStatus = computed(() => meeting.diarizationStatus)
+const speakerCount = computed(() => meeting.currentSession?.speaker_count ?? 0)
+
+// Transcript folded into contiguous same-speaker runs (DIARIZATION_SPEC §7 T11
+// "纪要按发言人归并展示"). Display precedence + palette come from the shared
+// composable so a speaker keeps one color/label across the live → summary handoff.
+const speakerGroups = computed(() =>
+  diarizationEnabled ? groupSegmentsBySpeaker(spokenSegments.value, meeting.speakerByCluster) : []
+)
+
+// True when ≥1 segment resolved to a real speaker (online or final) — gates the
+// grouped view (no point switching layout before any label has landed).
+const hasAnySpeakerLabel = computed(() =>
+  diarizationEnabled
+    ? spokenSegments.value.some((s) => resolveSpeaker(s, meeting.speakerByCluster).known)
+    : false
+)
+
+// Whether the displayed labels are the offline-refined (1/2/3) set vs the
+// provisional online (A/B/C) set — drives the in-list hint copy.
+const hasFinalLabels = computed(() =>
+  spokenSegments.value.some(
+    (s) => typeof s.final_speaker_id === 'number' && s.final_speaker_id >= 0
+  )
+)
+
+// Clarify-style honest hint shown above the grouped transcript (DIARIZATION_SPEC
+// §6 / §8: online A/B/C are provisional; done = final labels are authoritative).
+const speakerHint = computed(() => {
+  if (!hasAnySpeakerLabel.value) return ''
+  if (diarizationStatus.value === 'refining') return '正在校正说话人，标签稍后将自动更新…'
+  if (diarizationStatus.value === 'done' || hasFinalLabels.value) return '说话人已校正为稳定编号。'
+  if (diarizationStatus.value === 'failed') return '说话人标签为初步识别（A/B/C），自动校正未完成。'
+  return '说话人为初步识别（A/B/C），会后将自动校正。'
+})
+
+// ── "已校正" toast (DIARIZATION_SPEC §7 T11) ────────────────────────────────
+// When the offline pass settles (refining → done) WHILE the user is on this page,
+// the badges auto-switch A/B/C → 1/2/3 (the roster + segments refresh from the
+// poll). We surface a lightweight, auto-dismissing "已校正" toast to explain the
+// silent relabel — no user action required. We only show it on a live transition
+// observed this session (not for a session that was already 'done' on first load).
+const showRefinedToast = ref(false)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+let sawRefining = false
+
+const dismissRefinedToast = (): void => {
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+    toastTimer = null
+  }
+  showRefinedToast.value = false
+}
+
+watch(diarizationStatus, (status, prev) => {
+  if (!diarizationEnabled) return
+  if (status === 'refining') sawRefining = true
+  // Fire only on an observed refining → done transition this session.
+  if (prev === 'refining' && status === 'done' && sawRefining) {
+    showRefinedToast.value = true
+    if (toastTimer) clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => {
+      showRefinedToast.value = false
+      toastTimer = null
+    }, 5000)
+  }
+})
 
 // Full-session recording URL (SPEC §3). Empty string when no recording was
 // uploaded (e.g. upload failed or a legacy per-segment session); the playback
@@ -258,16 +425,25 @@ const formatDate = (iso: string | null): string => {
   })
 }
 
-// ── Summary polling (FEEDBACK_V2 §3.2) ──────────────────────────────────────
+// ── Background polling (FEEDBACK_V2 §3.2 + DIARIZATION_SPEC §7 T11) ──────────
 // /end is now async (秒回 with summary_status='generating'); the minutes are
-// produced by a backend goroutine. While the status is 'generating' we poll
-// GET /v1/meetings/:id every ~2.5s (refreshSession — no full-page skeleton flash)
-// until it settles to 'done' (render the minutes) or 'failed' (show the failure +
-// a re-check affordance). The poll is torn down on unmount and whenever the status
-// settles, so it never leaks across navigation.
+// produced by a backend goroutine. We poll GET /v1/meetings/:id every ~2.5s
+// (refreshSession — no full-page skeleton flash) while EITHER:
+//   - summary_status === 'generating'  (waiting for the AI minutes), OR
+//   - diarization_status === 'refining' (waiting for the offline speaker pass to
+//     finalize A/B/C → 1/2/3, flag-gated — reuses the SAME poll, not a new one).
+// The poll is torn down on unmount and once both surfaces settle, so it never
+// leaks across navigation and stops as soon as there's nothing left to wait for.
 const POLL_INTERVAL_MS = 2500
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const retrying = ref(false)
+
+// True while there is something to keep polling for (summary OR diarization).
+const needsPolling = computed(
+  () =>
+    meeting.currentSession?.summary_status === 'generating' ||
+    (diarizationEnabled && diarizationStatus.value === 'refining')
+)
 
 const stopPolling = (): void => {
   if (pollTimer) {
@@ -278,14 +454,15 @@ const stopPolling = (): void => {
 
 const startPolling = (): void => {
   stopPolling()
-  if (meeting.currentSession?.summary_status !== 'generating') return
+  if (!needsPolling.value) return
   pollTimer = setInterval(() => {
     void (async () => {
+      // refreshSession refreshes session (summary + diarization status), segments
+      // AND the speaker roster — so a refining → done flip lands the final labels
+      // and the badges auto-relabel without any user action. A null return means
+      // the fetch failed (error surfaced via the store); stop to avoid hammering.
       const status = await meeting.refreshSession(sessionId.value)
-      // Stop once it settles (done/failed) or the fetch failed (null). A null
-      // here surfaced an error via the store; we don't hammer the endpoint on a
-      // persistent failure — the user can re-check manually.
-      if (status === null || status !== 'generating') stopPolling()
+      if (status === null || !needsPolling.value) stopPolling()
     })()
   }, POLL_INTERVAL_MS)
 }
@@ -307,7 +484,7 @@ const retrySummary = async (): Promise<void> => {
   retrying.value = true
   try {
     await meeting.refreshSession(sessionId.value)
-    if (meeting.currentSession?.summary_status === 'generating') startPolling()
+    if (needsPolling.value) startPolling()
   } finally {
     retrying.value = false
   }
@@ -323,7 +500,11 @@ const load = async (): Promise<void> => {
     loadError.value = meeting.error ?? '会议不存在'
     return
   }
-  // Kick off polling if the summary is still being generated.
+  // Seed the toast gate: if the session loads already refining, a later poll-driven
+  // refining → done flip is a genuine in-session transition (the watcher's initial
+  // value is not observed, so record it here).
+  if (diarizationEnabled && diarizationStatus.value === 'refining') sawRefining = true
+  // Kick off polling if the summary is still generating OR diarization is refining.
   startPolling()
 }
 
@@ -333,6 +514,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPolling()
+  dismissRefinedToast()
 })
 </script>
 
@@ -591,6 +773,152 @@ onUnmounted(() => {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* ===== Speaker diarization (DIARIZATION_SPEC §6 / §7 T11, flag-gated) ===== */
+/* Post-meeting correction banner (refining = skeleton/spinner; done = toast). */
+.diarize-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+}
+.diarize-banner--refining {
+  background: var(--accent-ultra-soft);
+  border: 1px solid var(--accent-soft);
+}
+.diarize-banner--done {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-card);
+}
+.diarize-banner--failed {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+}
+.diarize-banner-body {
+  min-width: 0;
+}
+.diarize-banner-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.diarize-banner-sub {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.diarize-spinner {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.diarize-done-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-primary);
+}
+.diarize-failed-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-warning, #d97706);
+}
+/* "已校正" toast enter/leave (auto-dismisses after 5s). */
+.diarize-toast-enter-active,
+.diarize-toast-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.diarize-toast-enter-from,
+.diarize-toast-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* In-list clarify hint. */
+.speaker-hint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Speaker-grouped transcript (相邻同一说话人折叠为一组). */
+.speaker-groups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.speaker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.speaker-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.speaker-group-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.speaker-group-lines {
+  list-style: none;
+  margin: 0;
+  padding-left: 4px;
+  border-left: 2px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.speaker-group-line {
+  padding-left: 8px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Speaker badge (palette via inline --spk-fg / --spk-bg; kept visually
+   consistent with the live view's .seg-speaker, DIARIZATION_SPEC §6). */
+.seg-speaker {
+  flex-shrink: 0;
+  min-width: 20px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--spk-fg, var(--text-secondary));
+  background: var(--spk-bg, var(--surface-tint));
+  white-space: nowrap;
+}
+.seg-speaker--weak {
+  opacity: 0.6;
+  font-weight: 600;
+}
+.seg-speaker--unknown {
+  color: var(--text-muted);
+  background: var(--surface-tint);
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
