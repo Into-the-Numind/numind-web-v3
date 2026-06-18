@@ -302,6 +302,21 @@ describe('applyStreamEvent', () => {
     expect(last?.message).toBe('已加载技能：docx-author')
   })
 
+  it('tool_call_start: load_skill without a name falls back to the generic label', () => {
+    const store = useAgentChatStore()
+    store.applyStreamEvent(
+      makeEvent('tool_call_start', {
+        tool_call_id: 'tc-skill-noname',
+        tool_name: 'load_skill',
+        input_preview: {}
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    expect(tc?.events[0].message).toBe('正在加载技能...')
+    expect(tc?.skill_name).toBeUndefined()
+  })
+
   it('tool_call_start: kb_search surfaces the query from input_preview', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(

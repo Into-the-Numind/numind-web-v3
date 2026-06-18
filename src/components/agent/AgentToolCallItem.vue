@@ -131,10 +131,12 @@ const label = computed<string>(() => {
 /* 问题四: flowing in-progress dots beside the active label. */
 .tl-dots {
   display: inline-flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 3px;
   margin-left: 5px;
-  padding-bottom: 3px;
+  /* align to the first text line (matches .tl-ic margin-top) so the dots sit beside
+     the label baseline even when a long label wraps. */
+  margin-top: 9px;
   flex-shrink: 0;
 }
 .tl-dots i {
