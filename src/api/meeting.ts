@@ -143,6 +143,7 @@ const parseAsrMessage = (raw: string): AsrMessage | null => {
       case 'final':
       case 'error':
       case 'closed':
+      case 'speaker':
         return obj as AsrMessage
       default:
         return null
@@ -227,6 +228,11 @@ export const openAsrStream = (sessionId: number, handlers: AsrStreamHandlers): A
         // browser fires right after) does not invoke onClosed a second time.
         closed = true
         handlers.onClosed?.()
+        break
+      case 'speaker':
+        // Online clustering assigned a temp speaker to an already-finalized segment
+        // (arrives a few seconds after its `final`). The store merges it by segment id.
+        handlers.onSpeaker?.(msg.speaker)
         break
     }
   }

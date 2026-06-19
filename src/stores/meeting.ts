@@ -18,6 +18,7 @@ import type {
   MeetingSession,
   MeetingSegment,
   MeetingSpeaker,
+  SpeakerUpdate,
   MeetingDiarizationStatus,
   MeetingFeedback,
   MeetingPreset,
@@ -286,6 +287,24 @@ export const useMeetingStore = defineStore('meeting', () => {
   }
 
   /**
+   * applySpeakerUpdate — merge a standalone `speaker` ws frame into the matching
+   * segment (by DB id). The online speaker is assigned a few seconds AFTER the
+   * `final` (embed+cluster runs behind), so without handling this frame the live
+   * transcript shows every segment as 「发言人?」 forever — that was the bug.
+   */
+  const applySpeakerUpdate = (u: SpeakerUpdate): void => {
+    const i = segments.value.findIndex((s) => s.id === u.segment_id)
+    if (i === -1) return
+    const updated: MeetingSegment = {
+      ...segments.value[i],
+      online_speaker_id: u.online_speaker_id,
+      online_provisional: u.online_provisional,
+      speaker_confidence: u.speaker_confidence
+    }
+    segments.value = [...segments.value.slice(0, i), updated, ...segments.value.slice(i + 1)]
+  }
+
+  /**
    * startAsrStream — open the realtime ASR ws for the active session and wire
    * its frames into store state (SPEC §2). Returns the handle so the view can
    * push PCM frames (from useMeetingRecorder.onPcmFrame) and finish/close.
@@ -315,6 +334,9 @@ export const useMeetingStore = defineStore('meeting', () => {
       },
       onFinal: (segment) => {
         appendFinalSegment(segment)
+      },
+      onSpeaker: (u) => {
+        applySpeakerUpdate(u)
       },
       onError: (message) => {
         // Non-fatal to the recording; surface to the user (retry = restart stream).
@@ -670,6 +692,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     speakerByCluster,
     // actions
     setRecordingState,
+    applySpeakerUpdate,
     createSession,
     loadSession,
     loadHistory,
