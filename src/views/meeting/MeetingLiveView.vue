@@ -501,7 +501,13 @@ watch(
 watch(
   () => meeting.asrStreaming,
   (streaming, was) => {
-    if (was && !streaming && recorder.state.value !== 'idle' && !teardownInProgress.value) {
+    if (
+      was &&
+      !streaming &&
+      recorder.state.value !== 'idle' &&
+      recorder.state.value !== 'paused' && // 暂停时 ASR 空闲关闭是预期内，不弹"断线"
+      !teardownInProgress.value
+    ) {
       asrError.value = meeting.error ?? '连接已断开'
     }
   }
@@ -560,6 +566,12 @@ const pauseRecording = (): void => {
 }
 const resumeRecording = (): void => {
   recorder.resume()
+  // 暂停期间没有音频，dashscope 会空闲关闭 ASR task → 流断开。恢复时若流已断就重连，
+  // 让恢复后的语音继续被转写（relay 续接 seq）。若流还活着（短暂停）则什么都不做。
+  if (!meeting.asrStreaming) {
+    asrError.value = ''
+    meeting.startAsrStream()
+  }
 }
 
 // Reconnect the ASR ws after a drop (recording is still running locally; we just
@@ -697,7 +709,7 @@ const askEnd = (): void => {
 // If the MediaRecorder/AudioContext teardown hangs, we must NOT wedge the whole
 // end flow — the session still has to be ended + summarized. We lose the upload
 // blob in that case (playback only), but transcript + summary are unaffected.
-const RECORDER_STOP_TIMEOUT_MS = 3000
+const RECORDER_STOP_TIMEOUT_MS = 2000
 
 const doEnd = async (): Promise<void> => {
   teardownInProgress.value = true
@@ -705,13 +717,10 @@ const doEnd = async (): Promise<void> => {
   feedbackAbort?.abort()
   feedbackAbort = null
 
-  // 1) Stop capture → flush trailing PCM + finalize the full-session blob (SPEC §3).
-  // Wrap in a timeout race: a hung stop() must never block reaching endMeeting()
-  // (the root cause of the "session stuck active / no summary" bug). On timeout or
-  // error we proceed with blob=null (recorder cleanup still ran best-effort).
+  // 1) Stop capture → finalize the full-session blob (needed for the recording upload).
+  // Hard cap so a hung stop() can't wedge the end; stop() normally finalizes in well
+  // under 1s. On timeout/error we proceed with blob=null (cleanup still ran best-effort).
   let blob: Blob | null = null
-  // Capture the timeout id so a normal stop() win clears it — otherwise the 3s
-  // timer keeps spinning after we've moved on, only to resolve into the void.
   let stopTimeoutId: ReturnType<typeof setTimeout> | undefined
   try {
     blob = await Promise.race<Blob | null>([
@@ -724,56 +733,47 @@ const doEnd = async (): Promise<void> => {
       })
     ])
   } catch (err) {
-    // recorder.stop() rejected — non-fatal; keep ending the meeting. Clear the
-    // timer too so a reject doesn't leave the 3s fallback running.
     clearTimeout(stopTimeoutId)
     notifications.warning(`停止录音异常：${(err as Error)?.message ?? '未知错误'}`)
   }
 
-  // 2) Drain the ASR relay's trailing finals, then hard-close. Each step is
-  // best-effort — a stuck/erroring ASR teardown must not block the end either.
+  // 2) Signal end-of-audio to the ASR relay and close it — WITHOUT waiting for trailing
+  // finals. A closing handshake must never make the user stare at the live view; losing
+  // the last partial sentence is an acceptable trade for an instant end.
   try {
     meeting.finishAsrStream()
-    await meeting.waitForAsrClosed(5000)
   } catch {
     /* ignore — closeAsrStream below is the unconditional fallback */
   }
   meeting.closeAsrStream()
 
-  // 3) Upload the full-session recording for playback (SPEC §3). Non-fatal: a
-  // failed/absent upload only loses playback; transcript + summary stand. This
-  // runs BEFORE endMeeting but must never gate it (try-catch swallows throws).
-  if (blob) {
-    try {
-      const ok = await meeting.uploadRecording(blob)
-      if (!ok && meeting.error) notifications.warning(`录音上传失败：${meeting.error}`)
-    } catch (err) {
-      notifications.warning(`录音上传失败：${(err as Error)?.message ?? '未知错误'}`)
-    }
-  }
-
-  // 4) END THE MEETING — ALWAYS, no matter what happened above (FEEDBACK_V2 §3.2).
-  // endMeeting is now near-instant (秒回, summary_status=generating); the Summary
-  // page polls for the minutes. We jump to it whenever we have a session id so the
-  // user sees the generating state — even if a transient end error needs a retry.
+  // 3) End the meeting (秒回) + navigate to the summary IMMEDIATELY. The multi-MB recording
+  // upload is moved to the BACKGROUND (step 4): it is a store action that survives this
+  // component unmounting, and recording_url is only needed later for playback (the Summary
+  // page already polls). This is what removes the ~10s "frozen" wait after 结束会议.
   const session = await meeting.endMeeting(generateSummaryOnEnd.value)
   const targetId = session?.id ?? meeting.currentSession?.id ?? sessionId.value
-  if (session) {
-    router.push({ name: 'meeting-summary', params: { id: String(session.id) } })
-  } else if (Number.isFinite(targetId) && targetId > 0) {
-    // End call failed but the session exists — surface the error, still navigate to
-    // the summary so the user isn't stranded on a dead live view (it shows the
-    // failed/none state + a path forward rather than a frozen recording UI).
-    notifications.error(meeting.error ?? '结束会议失败')
+  if (Number.isFinite(targetId) && targetId > 0) {
     router.push({ name: 'meeting-summary', params: { id: String(targetId) } })
   } else {
-    // No valid session id to navigate to — the user is STRANDED on the live view.
-    // Reset teardownInProgress so the ASR-drop watcher can fire again (otherwise a
-    // subsequent stream drop would be silently swallowed and the reconnect bar
-    // would never show). The recorder is already torn down here, so a re-armed
-    // watcher only re-surfaces genuine drops on any retry.
+    // No valid session id — the user would be stranded; re-arm the ASR-drop watcher.
     teardownInProgress.value = false
+  }
+  if (!session) {
     notifications.error(meeting.error ?? '结束会议失败')
+  }
+
+  // 4) Background: upload the full-session recording for playback. Fire-and-forget — runs
+  // after the user has already navigated away. A failed/absent upload only loses playback.
+  if (blob) {
+    void meeting
+      .uploadRecording(blob)
+      .then((ok) => {
+        if (!ok && meeting.error) notifications.warning(`录音上传失败：${meeting.error}`)
+      })
+      .catch((err) => {
+        notifications.warning(`录音上传失败：${(err as Error)?.message ?? '未知错误'}`)
+      })
   }
 }
 
