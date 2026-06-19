@@ -344,6 +344,25 @@ export interface AsrClosedMessage {
   type: 'closed'
 }
 
+/**
+ * Online clustering's temp speaker assignment for one segment, pushed as a
+ * standalone `speaker` frame AFTER the `final` (the embed+cluster runs a few
+ * seconds behind the finalized text). The store applies it to the matching
+ * segment by id — this is what makes the live transcript speaker labels appear.
+ */
+export interface SpeakerUpdate {
+  segment_id: number
+  online_speaker_id: number
+  online_provisional: boolean
+  speaker_confidence: number
+}
+
+/** `{"type":"speaker","speaker":{...}}` — online speaker assigned to a segment. */
+export interface AsrSpeakerMessage {
+  type: 'speaker'
+  speaker: SpeakerUpdate
+}
+
 /** Any backend → frontend ASR WS message (discriminated union on `type`). */
 export type AsrMessage =
   | AsrReadyMessage
@@ -351,6 +370,7 @@ export type AsrMessage =
   | AsrFinalMessage
   | AsrErrorMessage
   | AsrClosedMessage
+  | AsrSpeakerMessage
 
 /**
  * Event handlers for an open ASR stream (see api/meeting.ts:openAsrStream).
@@ -371,6 +391,8 @@ export interface AsrStreamHandlers {
   onError?: (message: string) => void
   /** Protocol `closed`, or the ws transport closed for any reason. */
   onClosed?: () => void
+  /** Protocol `speaker` — online clustering assigned a temp speaker to a segment. */
+  onSpeaker?: (update: SpeakerUpdate) => void
 }
 
 /**
