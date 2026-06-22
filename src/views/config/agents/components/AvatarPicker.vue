@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref } from 'vue'
 import {
   Bot,
   User,
@@ -12,84 +12,84 @@ import {
   Sparkles,
   Heart,
   Star,
-  Coffee,
-} from "lucide-vue-next";
+  Coffee
+} from 'lucide-vue-next'
 
 interface Props {
-  modelValue: string;
-  readonly?: boolean;
+  modelValue: string
+  readonly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: false,
-});
+  readonly: false
+})
 
 const emit = defineEmits<{
-  "update:modelValue": [value: string];
-}>();
+  'update:modelValue': [value: string]
+}>()
 
 const ICON_OPTIONS = [
-  { name: "Bot", component: Bot },
-  { name: "User", component: User },
-  { name: "Briefcase", component: Briefcase },
-  { name: "BookOpen", component: BookOpen },
-  { name: "MessageCircle", component: MessageCircle },
-  { name: "GraduationCap", component: GraduationCap },
-  { name: "BarChart3", component: BarChart3 },
-  { name: "Lightbulb", component: Lightbulb },
-  { name: "Sparkles", component: Sparkles },
-  { name: "Heart", component: Heart },
-  { name: "Star", component: Star },
-  { name: "Coffee", component: Coffee },
-] as const;
+  { name: 'Bot', component: Bot },
+  { name: 'User', component: User },
+  { name: 'Briefcase', component: Briefcase },
+  { name: 'BookOpen', component: BookOpen },
+  { name: 'MessageCircle', component: MessageCircle },
+  { name: 'GraduationCap', component: GraduationCap },
+  { name: 'BarChart3', component: BarChart3 },
+  { name: 'Lightbulb', component: Lightbulb },
+  { name: 'Sparkles', component: Sparkles },
+  { name: 'Heart', component: Heart },
+  { name: 'Star', component: Star },
+  { name: 'Coffee', component: Coffee }
+] as const
 
-type IconName = (typeof ICON_OPTIONS)[number]["name"];
-const ICON_MAP = new Map<IconName, (typeof ICON_OPTIONS)[number]["component"]>(
-  ICON_OPTIONS.map((o) => [o.name, o.component]),
-);
+type IconName = (typeof ICON_OPTIONS)[number]['name']
+const ICON_MAP = new Map<IconName, (typeof ICON_OPTIONS)[number]['component']>(
+  ICON_OPTIONS.map((o) => [o.name, o.component])
+)
 
-const uploadError = ref("");
-const fileInputRef = ref<HTMLInputElement | null>(null);
+const uploadError = ref('')
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
-const isLucide = computed(() => props.modelValue.startsWith("lucide:"));
-const isDataUrl = computed(() => props.modelValue.startsWith("data:"));
+const isLucide = computed(() => props.modelValue.startsWith('lucide:'))
+const isDataUrl = computed(() => props.modelValue.startsWith('data:'))
 
 const currentLucideName = computed(() => {
-  if (!isLucide.value) return null;
-  return props.modelValue.slice("lucide:".length);
-});
+  if (!isLucide.value) return null
+  return props.modelValue.slice('lucide:'.length)
+})
 
 const currentLucideComponent = computed(() => {
-  if (!currentLucideName.value) return null;
-  return ICON_MAP.get(currentLucideName.value as IconName) ?? null;
-});
+  if (!currentLucideName.value) return null
+  return ICON_MAP.get(currentLucideName.value as IconName) ?? null
+})
 
 function selectIcon(name: string): void {
-  if (props.readonly) return;
-  emit("update:modelValue", `lucide:${name}`);
+  if (props.readonly) return
+  emit('update:modelValue', `lucide:${name}`)
 }
 
 function onFileChange(event: Event): void {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
 
-  uploadError.value = "";
+  uploadError.value = ''
 
-  const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+  const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
   if (file.size > MAX_BYTES) {
-    uploadError.value = "图片不能超过 2MB";
-    input.value = "";
-    return;
+    uploadError.value = '图片不能超过 2MB'
+    input.value = ''
+    return
   }
 
-  const reader = new FileReader();
+  const reader = new FileReader()
   reader.onload = () => {
-    const result = reader.result as string;
-    emit("update:modelValue", result);
-    input.value = "";
-  };
-  reader.readAsDataURL(file);
+    const result = reader.result as string
+    emit('update:modelValue', result)
+    input.value = ''
+  }
+  reader.readAsDataURL(file)
 }
 </script>
 
@@ -121,7 +121,7 @@ function onFileChange(event: Event): void {
         type="button"
         class="avatar-picker__tile"
         :class="{
-          'avatar-picker__tile--selected': `lucide:${opt.name}` === modelValue,
+          'avatar-picker__tile--selected': `lucide:${opt.name}` === modelValue
         }"
         :disabled="readonly"
         :aria-checked="`lucide:${opt.name}` === modelValue"
@@ -155,7 +155,7 @@ function onFileChange(event: Event): void {
 .avatar-picker {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .avatar-picker__preview {
@@ -164,27 +164,29 @@ function onFileChange(event: Event): void {
   justify-content: center;
   width: 64px;
   height: 64px;
-  border: 2px solid var(--outline-variant, #a9b4b9);
-  border-radius: 12px;
-  background: var(--surface-low, #f0f4f7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-tint);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
 .avatar-picker__preview-icon {
-  color: var(--on-surface-variant, #566166);
+  color: var(--primary);
 }
 
 .avatar-picker__preview-img {
   width: 48px;
   height: 48px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .avatar-picker__grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  gap: var(--space-sm);
   max-width: 280px;
 }
 
@@ -194,26 +196,26 @@ function onFileChange(event: Event): void {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border: 1px solid var(--outline-variant, #a9b4b9);
-  border-radius: 8px;
-  background: var(--surface-lowest, #ffffff);
-  color: var(--on-surface-variant, #566166);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
   cursor: pointer;
   transition:
-    border-color 0.15s,
-    background 0.15s,
-    color 0.15s;
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .avatar-picker__tile:hover:not(:disabled) {
-  border-color: var(--tertiary, #005eb6);
-  color: var(--tertiary, #005eb6);
+  border-color: var(--accent-light);
+  color: var(--primary);
 }
 
 .avatar-picker__tile--selected {
-  border-color: var(--tertiary, #005eb6);
-  background: var(--info-soft, #eff6ff);
-  color: var(--tertiary, #005eb6);
+  border-color: var(--primary);
+  background: var(--accent-soft);
+  color: var(--primary-hover);
 }
 
 .avatar-picker__tile:disabled {
@@ -224,15 +226,15 @@ function onFileChange(event: Event): void {
 .avatar-picker__upload {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .avatar-picker__upload-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--tertiary, #005eb6);
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  color: var(--accent-link);
   cursor: pointer;
   user-select: none;
 }
@@ -247,7 +249,8 @@ function onFileChange(event: Event): void {
 
 .avatar-picker__upload-error {
   margin: 0;
-  font-size: 12px;
-  color: var(--danger, #9f403d);
+  font-size: var(--text-xs);
+  /* TODO(admin-rebrand): replace with --danger token */
+  color: #ef4444;
 }
 </style>
