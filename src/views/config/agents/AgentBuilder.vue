@@ -16,7 +16,8 @@ function goBack() {
   if (props.mode === 'edit' && props.agentId != null) {
     router.push(`/config/agents/${props.agentId}`)
   } else {
-    router.push('/config/agents/new')
+    // 创建态返回到助手列表（旧实现误指向本页自身）
+    router.push('/config/agents')
   }
 }
 
@@ -312,37 +313,47 @@ onBeforeUnmount(() => {
   <div class="agent-builder">
     <!-- Header -->
     <header class="agent-builder__header">
-      <div class="header-left">
-        <button class="back-btn" @click="goBack" title="返回">
-          <ArrowLeft :size="18" />
-        </button>
-        <h1 class="agent-builder__title">
-          <template v-if="mode === 'edit'">编辑：{{ form.name || '...' }}</template>
-          <template v-else>创建新助手</template>
-        </h1>
+      <div class="agent-builder__header-inner">
+        <div class="header-left">
+          <button class="back-btn" @click="goBack" title="返回">
+            <ArrowLeft :size="18" />
+          </button>
+          <div class="header-titles">
+            <h1 class="agent-builder__title">
+              <template v-if="mode === 'edit'">编辑：{{ form.name || '...' }}</template>
+              <template v-else>创建新助手</template>
+            </h1>
+            <p class="agent-builder__subtitle">
+              <template v-if="mode === 'edit'">调整助手的身份与行为，保存即生效</template>
+              <template v-else>三步搞定：身份 · 行为指引 · 对话引导</template>
+            </p>
+          </div>
+        </div>
+        <AppButton variant="primary" :loading="store.saving" @click="handleSave"> 保存 </AppButton>
       </div>
-      <AppButton variant="primary" :loading="store.saving" @click="handleSave"> 保存 </AppButton>
     </header>
 
-    <!-- Loading state -->
-    <div v-if="loadingInitial" class="agent-builder__feedback">
-      <div class="agent-builder__spinner" />
-      <p>加载中...</p>
-    </div>
+    <div class="agent-builder__main">
+      <!-- Loading state -->
+      <div v-if="loadingInitial" class="agent-builder__feedback">
+        <div class="agent-builder__spinner" />
+        <p>加载中...</p>
+      </div>
 
-    <!-- Error state -->
-    <div v-else-if="initError" class="agent-builder__feedback agent-builder__feedback--error">
-      <p>{{ initError }}</p>
-      <AppButton variant="secondary" @click="initForm">重试</AppButton>
-    </div>
+      <!-- Error state -->
+      <div v-else-if="initError" class="agent-builder__feedback agent-builder__feedback--error">
+        <p>{{ initError }}</p>
+        <AppButton variant="secondary" @click="initForm">重试</AppButton>
+      </div>
 
-    <!-- Form -->
-    <div v-else class="agent-builder__body">
-      <AgentForm
-        :model-value="form"
-        :errors="errors"
-        @update:model-value="Object.assign(form, $event)"
-      />
+      <!-- Form -->
+      <div v-else class="agent-builder__body">
+        <AgentForm
+          :model-value="form"
+          :errors="errors"
+          @update:model-value="Object.assign(form, $event)"
+        />
+      </div>
     </div>
 
     <!-- After-save modal -->
@@ -369,72 +380,99 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .agent-builder {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+  min-height: 100%;
+  background: var(--bg-gradient);
 }
 
+/* ── 顶栏：刊物式 masthead，sticky + 毛玻璃 ─────────────────────────────── */
 .agent-builder__header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  backdrop-filter: saturate(180%) blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-builder__header-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-xl);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--surface-low, #f0f4f7);
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--outline-variant, #a9b4b9);
-  margin-bottom: var(--space-2);
+  gap: var(--space-lg);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-md);
   min-width: 0;
   flex: 1;
+}
+
+.header-titles {
+  min-width: 0;
 }
 
 .back-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--outline-variant, #e5e7eb);
-  background: var(--surface-low, #fff);
-  color: var(--on-surface-variant, #6b7280);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
   flex-shrink: 0;
 }
 
 .back-btn:hover {
-  background: var(--surface-high, #f3f4f6);
-  color: var(--on-surface, #1f2937);
-  border-color: var(--tertiary, #2563eb);
+  background: var(--accent-soft);
+  color: var(--primary-hover);
+  border-color: var(--accent-light);
 }
 
 .agent-builder__title {
-  font-family: var(--font-headline);
+  font-family: var(--font-heading);
   font-size: var(--text-2xl);
   font-weight: 700;
-  color: var(--on-surface);
+  color: var(--text);
   margin: 0;
+  line-height: var(--line-height-tight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.agent-builder__subtitle {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 主体内容区 ────────────────────────────────────────────────────────── */
+.agent-builder__main {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-xl) var(--space-4xl);
+}
+
 .agent-builder__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-xl);
 }
 
 .agent-builder__feedback {
@@ -442,23 +480,24 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-12) var(--space-8);
+  gap: var(--space-lg);
+  padding: var(--space-4xl) var(--space-xl);
   text-align: center;
-  color: var(--on-surface-variant);
+  color: var(--text-secondary);
   font-size: var(--text-sm);
 }
 
 .agent-builder__feedback--error {
-  color: var(--danger);
+  /* TODO(admin-rebrand): replace with --danger token */
+  color: #ef4444;
 }
 
 .agent-builder__spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--outline-variant);
-  border-top-color: var(--tertiary);
-  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: var(--radius-pill);
   animation: spin 0.8s linear infinite;
 }
 
@@ -468,5 +507,17 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Advanced mode link */
+@media (max-width: 560px) {
+  .agent-builder__header-inner {
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .agent-builder__subtitle {
+    display: none;
+  }
+
+  .agent-builder__main {
+    padding: var(--space-xl) var(--space-lg) var(--space-3xl);
+  }
+}
 </style>

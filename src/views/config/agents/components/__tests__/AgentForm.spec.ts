@@ -50,7 +50,7 @@ describe('AgentForm', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm() }
       })
-      expect(wrapper.findAll('.agent-form__question')).toHaveLength(6)
+      expect(wrapper.findAll('[data-question]')).toHaveLength(6)
     })
   })
 
@@ -59,8 +59,9 @@ describe('AgentForm', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm() }
       })
-      const requiredLabels = wrapper.findAll('.agent-form__label--required')
-      expect(requiredLabels.length).toBe(4)
+      // Required fields surface a `*` marker via `.field__req`
+      const requiredMarkers = wrapper.findAll('.field__req')
+      expect(requiredMarkers.length).toBe(4)
     })
 
     it('name label is required', () => {
@@ -68,8 +69,7 @@ describe('AgentForm', () => {
         props: { modelValue: makeForm() }
       })
       const nameBlock = wrapper.find('[data-question="name"]')
-      const label = nameBlock.find('.agent-form__label')
-      expect(label.classes()).toContain('agent-form__label--required')
+      expect(nameBlock.find('.field__req').exists()).toBe(true)
     })
 
     it('icon_url (头像) is optional', () => {
@@ -77,8 +77,7 @@ describe('AgentForm', () => {
         props: { modelValue: makeForm() }
       })
       const iconBlock = wrapper.find('[data-question="icon_url"]')
-      const label = iconBlock.find('.agent-form__label')
-      expect(label.classes()).not.toContain('agent-form__label--required')
+      expect(iconBlock.find('.field__req').exists()).toBe(false)
     })
   })
 
@@ -117,7 +116,7 @@ describe('AgentForm', () => {
         }
       })
       const block = wrapper.find('[data-question="system_prompt"]')
-      const error = block.find('.agent-form__error')
+      const error = block.find('.field__error')
       expect(error.exists()).toBe(true)
       expect(error.text()).toBe('请输入提示词（行为指引）')
     })
@@ -132,7 +131,7 @@ describe('AgentForm', () => {
         }
       })
       const nameBlock = wrapper.find('[data-question="name"]')
-      const error = nameBlock.find('.agent-form__error')
+      const error = nameBlock.find('.field__error')
       expect(error.exists()).toBe(true)
       expect(error.text()).toBe('请输入助手名字')
     })
@@ -141,7 +140,7 @@ describe('AgentForm', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm(), errors: {} }
       })
-      expect(wrapper.findAll('.agent-form__error')).toHaveLength(0)
+      expect(wrapper.findAll('.field__error')).toHaveLength(0)
     })
 
     it('shows error border class on input', () => {
@@ -152,8 +151,8 @@ describe('AgentForm', () => {
         }
       })
       const descBlock = wrapper.find('[data-question="description"]')
-      const input = descBlock.find('.agent-form__input')
-      expect(input.classes()).toContain('agent-form__input--error')
+      const input = descBlock.find('.field__input')
+      expect(input.classes()).toContain('field__input--error')
     })
   })
 
