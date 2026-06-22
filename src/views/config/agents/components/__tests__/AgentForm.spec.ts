@@ -13,14 +13,7 @@ describe('AgentForm', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm() }
       })
-      const expectedAttrs = [
-        'name',
-        'icon_url',
-        'description',
-        'welcome_message',
-        'starters',
-        'system_prompt'
-      ]
+      const expectedAttrs = ['name', 'description', 'welcome_message', 'system_prompt']
       expectedAttrs.forEach((attr) => {
         expect(
           wrapper.find(`[data-question="${attr}"]`).exists(),
@@ -46,22 +39,30 @@ describe('AgentForm', () => {
       expect(wrapper.find('.tool-flags').exists()).toBe(false)
     })
 
-    it('renders exactly 6 question blocks total', () => {
+    it('does not render removed avatar / starters blocks', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm() }
       })
-      expect(wrapper.findAll('[data-question]')).toHaveLength(6)
+      expect(wrapper.find('[data-question="icon_url"]').exists()).toBe(false)
+      expect(wrapper.find('[data-question="starters"]').exists()).toBe(false)
+    })
+
+    it('renders exactly 4 question blocks total', () => {
+      const wrapper = mount(AgentForm, {
+        props: { modelValue: makeForm() }
+      })
+      expect(wrapper.findAll('[data-question]')).toHaveLength(4)
     })
   })
 
-  describe('required labels show *', () => {
-    it('name/description/welcome_message/system_prompt are required (4)', () => {
+  describe('required markers', () => {
+    it('only name + system_prompt are required (2)', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm() }
       })
       // Required fields surface a `*` marker via `.field__req`
       const requiredMarkers = wrapper.findAll('.field__req')
-      expect(requiredMarkers.length).toBe(4)
+      expect(requiredMarkers.length).toBe(2)
     })
 
     it('name label is required', () => {
@@ -72,12 +73,20 @@ describe('AgentForm', () => {
       expect(nameBlock.find('.field__req').exists()).toBe(true)
     })
 
-    it('icon_url (头像) is optional', () => {
+    it('description is optional (no required marker)', () => {
       const wrapper = mount(AgentForm, {
         props: { modelValue: makeForm() }
       })
-      const iconBlock = wrapper.find('[data-question="icon_url"]')
-      expect(iconBlock.find('.field__req').exists()).toBe(false)
+      const descBlock = wrapper.find('[data-question="description"]')
+      expect(descBlock.find('.field__req').exists()).toBe(false)
+    })
+
+    it('welcome_message is optional (no required marker)', () => {
+      const wrapper = mount(AgentForm, {
+        props: { modelValue: makeForm() }
+      })
+      const block = wrapper.find('[data-question="welcome_message"]')
+      expect(block.find('.field__req').exists()).toBe(false)
     })
   })
 

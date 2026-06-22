@@ -65,12 +65,12 @@ async function maybeAutoAttach() {
   const skillId = props.autoAttachSkillId
   if (!skillId) return
   if (items.value.some((s) => s.id === skillId)) {
-    notifications.info('该技能已装载到此 Agent')
+    notifications.info('该 skill 已装载到此助手')
     return
   }
   try {
     await store.attach(props.agentId, skillId)
-    notifications.success('已为此 Agent 自动装载订阅的技能')
+    notifications.success('已为此助手自动装载订阅的 skill')
   } catch (e) {
     notifications.error((e as Error).message || '自动装载失败')
   }
@@ -181,14 +181,13 @@ function goSkillDetail(skill: Skill) {
   <section class="skill-binding-panel">
     <header class="skill-binding-panel__header">
       <div>
-        <h3>装载的 Skill</h3>
+        <h3>装载 skill</h3>
         <p class="skill-binding-panel__hint">
-          Skill 是独立、可复用的能力包，运行时注入到这个
-          Agent，与问卷答案互补——问卷定义助手的基础人设，Skill 补充可跨 Agent
-          复用的专项能力。可装载到多个 Agent，拖拽排序决定调用优先级。
+          skill
+          是独立、可复用的能力包，运行时注入到这个助手。可装载到多个助手，拖拽排序决定调用优先级。
         </p>
       </div>
-      <AppButton variant="primary" size="sm" @click="selectorOpen = true"> + 添加 Skill </AppButton>
+      <AppButton variant="primary" size="sm" @click="selectorOpen = true"> + 添加 skill </AppButton>
     </header>
 
     <div v-if="store.bindingLoading" class="state state--loading">加载中…</div>
@@ -197,7 +196,7 @@ function goSkillDetail(skill: Skill) {
       <AppButton variant="text" size="sm" @click="loadBindings">重试</AppButton>
     </div>
     <div v-else-if="items.length === 0" class="state state--empty">
-      还没有装载任何 Skill。点击右上角"添加 Skill"开始。
+      还没有装载任何 skill。点右上角「添加 skill」开始。
     </div>
 
     <ul v-else class="binding-list">
@@ -234,7 +233,7 @@ function goSkillDetail(skill: Skill) {
     <ConfirmModal
       :model-value="detachVisible"
       :title="`确认卸载「${pendingDetach?.name}」？`"
-      message="卸载后此 Agent 将无法调用该 Skill。Skill 本身保留，可以随时重新装载。"
+      message="卸载后此助手将无法调用该 skill。skill 本身保留，可以随时重新装载。"
       variant="danger"
       confirm-text="确认卸载"
       cancel-text="取消"
@@ -246,44 +245,47 @@ function goSkillDetail(skill: Skill) {
 
 <style scoped>
 .skill-binding-panel {
-  padding: var(--space-4);
+  /* 与 AgentForm 的分区卡片视觉对齐（agent-builder-refine 内嵌本页） */
+  padding: var(--space-xl);
   background: var(--surface);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(169, 180, 185, 0.1);
-  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
 }
 
 .skill-binding-panel__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
 }
 
 .skill-binding-panel__header h3 {
-  margin: 0 0 4px 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text);
 }
 
 .skill-binding-panel__hint {
   margin: 0;
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   max-width: 540px;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .state {
-  padding: var(--space-4);
+  padding: var(--space-lg);
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 .state--error {
-  color: var(--danger, #dc2626);
+  /* TODO(admin-rebrand): replace with --danger token */
+  color: #ef4444;
 }
 
 .binding-list {
@@ -292,17 +294,17 @@ function goSkillDetail(skill: Skill) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-sm);
 }
 
 .binding-card {
   display: grid;
   grid-template-columns: 20px 36px 1fr auto auto;
-  gap: var(--space-3);
+  gap: var(--space-md);
   align-items: center;
-  padding: var(--space-3);
+  padding: var(--space-md);
   background: var(--surface);
-  border: 1px solid rgba(169, 180, 185, 0.1);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: grab;
   transition: background var(--transition-fast);
@@ -322,13 +324,13 @@ function goSkillDetail(skill: Skill) {
 
 .binding-card--drag-over {
   outline: 2px dashed var(--primary);
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--accent-soft);
 }
 
 .binding-card__handle {
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   user-select: none;
 }
 
@@ -349,7 +351,7 @@ function goSkillDetail(skill: Skill) {
 }
 
 .binding-card__name {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
@@ -360,7 +362,7 @@ function goSkillDetail(skill: Skill) {
 }
 
 .binding-card__desc {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   margin-top: 2px;
   white-space: nowrap;
@@ -369,7 +371,7 @@ function goSkillDetail(skill: Skill) {
 }
 
 .binding-card__meta {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 </style>
