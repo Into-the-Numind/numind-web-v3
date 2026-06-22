@@ -13,23 +13,17 @@ export function validateQ1(name: string): ValidationResult {
   return ''
 }
 
+// 一句话描述（选填）：留空放行；填了仅校验上限。
 export function validateQ3(description: string): ValidationResult {
-  if (!description) return '请输入描述'
-  if (description.length < 10 || description.length > 20) return '描述应为 10-20 字'
+  if (!description) return ''
+  if (description.length > 20) return '描述最多 20 字'
   return ''
 }
 
+// 欢迎语（选填）：留空放行；填了仅校验上限。
 export function validateQ4(welcome: string): ValidationResult {
-  if (!welcome) return '请输入欢迎语'
-  if (welcome.length < 20 || welcome.length > 500) return '欢迎语应为 20-500 字'
-  return ''
-}
-
-export function validateQ5(starters: string[]): ValidationResult {
-  if (starters.length > 4) return '最多 4 个快速开始按钮'
-  for (const s of starters) {
-    if (s.length < 5 || s.length > 50) return '每条快速开始按钮应为 5-50 字'
-  }
+  if (!welcome) return ''
+  if (welcome.length > 500) return '欢迎语最多 500 字'
   return ''
 }
 
@@ -44,6 +38,8 @@ export function validateSystemPrompt(prompt: string): ValidationResult {
  *
  * Field keys map to data-question attributes in AgentForm.vue
  * so parent can scroll to the first error via document.querySelector.
+ *
+ * 必填：name + system_prompt。description / welcome_message 为选填（留空放行）。
  */
 export function validateForm(form: AgentFormState): Record<string, string> {
   const errors: Record<string, string> = {}
@@ -56,9 +52,6 @@ export function validateForm(form: AgentFormState): Record<string, string> {
 
   const e4 = validateQ4(form.welcome_message)
   if (e4) errors.welcome_message = e4
-
-  const e5 = validateQ5(form.starters)
-  if (e5) errors.starters = e5
 
   const ePrompt = validateSystemPrompt(form.system_prompt)
   if (ePrompt) errors.system_prompt = ePrompt

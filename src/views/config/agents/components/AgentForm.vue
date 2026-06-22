@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { AgentFormState } from '@/types/agentBuilder'
-import ChipInput from './ChipInput.vue'
-import AvatarPicker from './AvatarPicker.vue'
 
 interface Props {
   modelValue: AgentFormState
@@ -30,11 +28,6 @@ const name = computed({
   set: (v) => patchField('name', v)
 })
 
-const iconUrl = computed({
-  get: () => props.modelValue.icon_url,
-  set: (v) => patchField('icon_url', v)
-})
-
 const description = computed({
   get: () => props.modelValue.description,
   set: (v) => patchField('description', v)
@@ -52,79 +45,63 @@ const systemPrompt = computed({
   get: () => props.modelValue.system_prompt,
   set: (v) => patchField('system_prompt', v)
 })
-
-const starters = computed({
-  get: () => props.modelValue.starters,
-  set: (v) => patchField('starters', v)
-})
 </script>
 
 <template>
   <div class="agent-form" :class="{ 'agent-form--readonly': readonly }">
-    <!-- ── 区块 1：身份 ─────────────────────────────────────────────────── -->
+    <!-- ── 区块 1：基本信息 ─────────────────────────────────────────────── -->
     <section class="card">
       <header class="card__head">
-        <h2 class="card__title">身份</h2>
-        <p class="card__desc">给助手取个名字、选个头像，写下用户进来看到的第一句话。</p>
+        <h2 class="card__title">基本信息</h2>
+        <p class="card__desc">给助手取个名字。描述和欢迎语可留空，之后随时补。</p>
       </header>
 
-      <div class="identity">
-        <!-- 头像 -->
-        <div class="identity__avatar" data-question="icon_url">
-          <span class="field__label">头像</span>
-          <AvatarPicker v-model="iconUrl" :readonly="readonly" />
-        </div>
+      <!-- 助手名字 -->
+      <div class="field" data-question="name">
+        <label class="field__label">助手名字<span class="field__req">*</span></label>
+        <input
+          type="text"
+          class="field__input"
+          :class="{ 'field__input--error': errors['name'] }"
+          :value="name"
+          :disabled="readonly"
+          placeholder="2-20 字，不能全是数字"
+          @input="name = ($event.target as HTMLInputElement).value"
+        />
+        <p v-if="errors['name']" class="field__error">{{ errors['name'] }}</p>
+      </div>
 
-        <!-- 文本字段 -->
-        <div class="identity__fields">
-          <!-- 助手名字 -->
-          <div class="field" data-question="name">
-            <label class="field__label">助手名字<span class="field__req">*</span></label>
-            <input
-              type="text"
-              class="field__input"
-              :class="{ 'field__input--error': errors['name'] }"
-              :value="name"
-              :disabled="readonly"
-              placeholder="2-20 字，不能全是数字"
-              @input="name = ($event.target as HTMLInputElement).value"
-            />
-            <p v-if="errors['name']" class="field__error">{{ errors['name'] }}</p>
-          </div>
+      <!-- 一句话描述（选填） -->
+      <div class="field" data-question="description">
+        <label class="field__label">一句话描述<span class="field__optional">（选填）</span></label>
+        <input
+          type="text"
+          class="field__input"
+          :class="{ 'field__input--error': errors['description'] }"
+          :value="description"
+          :disabled="readonly"
+          maxlength="20"
+          placeholder="最多 20 字，描述助手的核心功能"
+          @input="description = ($event.target as HTMLInputElement).value"
+        />
+        <p v-if="errors['description']" class="field__error">{{ errors['description'] }}</p>
+      </div>
 
-          <!-- 一句话描述 -->
-          <div class="field" data-question="description">
-            <label class="field__label">一句话描述<span class="field__req">*</span></label>
-            <input
-              type="text"
-              class="field__input"
-              :class="{ 'field__input--error': errors['description'] }"
-              :value="description"
-              :disabled="readonly"
-              maxlength="20"
-              placeholder="10-20 字，描述助手的核心功能"
-              @input="description = ($event.target as HTMLInputElement).value"
-            />
-            <p v-if="errors['description']" class="field__error">{{ errors['description'] }}</p>
-          </div>
-
-          <!-- 欢迎语 -->
-          <div class="field" data-question="welcome_message">
-            <label class="field__label">欢迎语<span class="field__req">*</span></label>
-            <textarea
-              class="field__textarea"
-              :class="{ 'field__input--error': errors['welcome_message'] }"
-              :value="welcomeMessage"
-              :disabled="readonly"
-              rows="3"
-              placeholder="20-500 字，用户打开助手时看到的第一句话"
-              @input="welcomeMessage = ($event.target as HTMLTextAreaElement).value"
-            />
-            <p v-if="errors['welcome_message']" class="field__error">
-              {{ errors['welcome_message'] }}
-            </p>
-          </div>
-        </div>
+      <!-- 欢迎语（选填） -->
+      <div class="field" data-question="welcome_message">
+        <label class="field__label">欢迎语<span class="field__optional">（选填）</span></label>
+        <textarea
+          class="field__textarea"
+          :class="{ 'field__input--error': errors['welcome_message'] }"
+          :value="welcomeMessage"
+          :disabled="readonly"
+          rows="3"
+          placeholder="最多 500 字，用户打开助手时看到的第一句话"
+          @input="welcomeMessage = ($event.target as HTMLTextAreaElement).value"
+        />
+        <p v-if="errors['welcome_message']" class="field__error">
+          {{ errors['welcome_message'] }}
+        </p>
       </div>
     </section>
 
@@ -157,17 +134,6 @@ const starters = computed({
         <p v-if="errors['system_prompt']" class="field__error">{{ errors['system_prompt'] }}</p>
         <p class="card__count">{{ (systemPrompt ?? '').length }} / {{ MAX_SYSTEM_PROMPT_LEN }}</p>
       </div>
-    </section>
-
-    <!-- ── 区块 3：对话引导 ─────────────────────────────────────────────── -->
-    <section class="card" data-question="starters">
-      <header class="card__head">
-        <h2 class="card__title">对话引导</h2>
-        <p class="card__desc">用户进入对话时一键发送的引导问题，最多 4 条（每条 5-50 字）。</p>
-      </header>
-
-      <ChipInput v-model="starters" :max="4" :min-len="5" :max-len="50" :readonly="readonly" />
-      <p v-if="errors['starters']" class="field__error">{{ errors['starters'] }}</p>
     </section>
   </div>
 </template>
@@ -210,11 +176,9 @@ const starters = computed({
 
 .card__title {
   margin: 0;
-  font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text);
-  letter-spacing: 0.01em;
 }
 
 .card__badge {
@@ -250,28 +214,6 @@ const starters = computed({
   font-variant-numeric: tabular-nums;
 }
 
-/* ── 身份区块：头像 + 文本字段双栏（窄屏自动堆叠） ───────────────────── */
-.identity {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xl);
-}
-
-.identity__avatar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  flex: 0 1 280px;
-}
-
-.identity__fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-  flex: 1 1 300px;
-  min-width: 0;
-}
-
 /* ── 字段 ─────────────────────────────────────────────────────────────── */
 .field {
   display: flex;
@@ -302,6 +244,13 @@ const starters = computed({
   margin-left: 2px;
   /* TODO(admin-rebrand): replace with --danger token */
   color: #ef4444;
+}
+
+.field__optional {
+  margin-left: var(--space-xs);
+  font-weight: 400;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .field__input,

@@ -8,9 +8,10 @@ import { validateForm } from './components/validation'
 import { initialFormState } from '@/types/agentBuilder'
 import type { AgentFormState, CreateAgentPayload, PatchAgentPayload } from '@/types/agentBuilder'
 import AgentForm from './components/AgentForm.vue'
-import AfterSaveModal from './components/AfterSaveModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
+// 装载 skill 面板内嵌本页：创建态锁定提示，保存后（或编辑态）就地激活。
+import SkillBindingPanel from '@/views/config/skills/components/SkillBindingPanel.vue'
 
 function goBack() {
   if (props.mode === 'edit' && props.agentId != null) {
@@ -50,10 +51,19 @@ const initialFormSnapshot = ref<string>('')
 const loadingInitial = ref(false)
 const initError = ref('')
 
-// ── After-save modal ───────────────────────────────────────────────────────
+// ── Skill 装载 ──────────────────────────────────────────────────────────────
 
-const afterSaveModalVisible = ref(false)
-const afterSavedAgentId = ref<number | null>(null)
+// 已存在的 agent id 才能装载 skill（接口按 :id 操作）。编辑态 = props.agentId；
+// 创建态保存后会 router.replace 到 /:id/edit，由编辑态重新挂载激活面板。
+const effectiveAgentId = computed<number | null>(() =>
+  props.mode === 'edit' && Number.isFinite(props.agentId) ? (props.agentId as number) : null
+)
+
+// Marketplace 装载闭环：/:id/edit?attach_skill=N 进来时自动装载该 skill。
+const autoAttachSkillId = computed<number | null>(() => {
+  const v = Number(route.query.attach_skill)
+  return Number.isFinite(v) && v > 0 ? v : null
+})
 
 // ── Leave-confirm modal ────────────────────────────────────────────────────
 
@@ -211,54 +221,34 @@ async function handleSave() {
   errors.value = {}
 
   try {
-    let saved
     if (props.mode === 'create') {
       const templateId = resolvedFromTemplateId()
       const payload: CreateAgentPayload = {
         ...formToPayload(),
         source_template_id: templateId ?? null
       }
-      saved = await store.create(payload)
+      const saved = await store.create(payload)
+      // Reset dirty snapshot BEFORE navigating so the leave-guard doesn't fire.
+      initialFormSnapshot.value = JSON.stringify(form)
+      notifications.success('助手已创建，下面可以装载 skill 了')
+      // 留在同一形态的页面（编辑态），并就地激活「装载 skill」面板。
+      router.replace(`/config/agents/${saved.id}/edit`)
     } else if (props.mode === 'edit' && props.agentId != null) {
       // Edit mode (defensive: explicit mode check + agentId guard prevents
       // route misconfigs from PATCHing /v1/agent/skills/undefined → 400)
       const payload: PatchAgentPayload = formToPayload()
-      saved = await store.update(props.agentId, payload)
+      await store.update(props.agentId, payload)
+      initialFormSnapshot.value = JSON.stringify(form)
+      notifications.success('已保存')
     } else {
       throw new Error(
         `AgentBuilder misconfigured: mode=${String(props.mode)}, agentId=${String(props.agentId)}; ` +
           `route must pass props { mode: 'create' } or wrap with AgentEdit (which passes mode="edit" + agent-id)`
       )
     }
-
-    // Reset dirty snapshot after successful save
-    initialFormSnapshot.value = JSON.stringify(form)
-
-    // Open after-save modal
-    afterSavedAgentId.value = saved.id
-    afterSaveModalVisible.value = true
   } catch (e) {
     const msg = (e as Error).message || '保存失败，请重试'
     notifications.error(msg)
-  }
-}
-
-// ── After-save modal handlers ──────────────────────────────────────────────
-
-// After saving, send the operator to the agent's edit page where the
-// SkillBindingPanel lives —装载技能 is the real next configuration step (the old
-// "试聊一下" button only fired an "即将上线" toast and went to the detail page).
-function onConfigureSkills() {
-  afterSaveModalVisible.value = false
-  if (afterSavedAgentId.value) {
-    router.push(`/config/agents/${afterSavedAgentId.value}/edit`)
-  }
-}
-
-function onSkip() {
-  afterSaveModalVisible.value = false
-  if (afterSavedAgentId.value) {
-    router.push(`/config/agents/${afterSavedAgentId.value}`)
   }
 }
 
@@ -311,7 +301,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="agent-builder">
-    <!-- Header -->
+    <!-- Header（非 sticky，透明，背景交给 ConfigLayout —— 修复浮动方块接缝） -->
     <header class="agent-builder__header">
       <div class="agent-builder__header-inner">
         <div class="header-left">
@@ -324,8 +314,8 @@ onBeforeUnmount(() => {
               <template v-else>创建新助手</template>
             </h1>
             <p class="agent-builder__subtitle">
-              <template v-if="mode === 'edit'">调整助手的身份与行为，保存即生效</template>
-              <template v-else>三步搞定：身份 · 行为指引 · 对话引导</template>
+              <template v-if="mode === 'edit'">调整助手，保存即生效</template>
+              <template v-else>填好基本信息与行为指引，保存后即可装载 skill</template>
             </p>
           </div>
         </div>
@@ -346,23 +336,32 @@ onBeforeUnmount(() => {
         <AppButton variant="secondary" @click="initForm">重试</AppButton>
       </div>
 
-      <!-- Form -->
+      <!-- Form + 装载 skill -->
       <div v-else class="agent-builder__body">
         <AgentForm
           :model-value="form"
           :errors="errors"
           @update:model-value="Object.assign(form, $event)"
         />
+
+        <!-- 装载 skill：已保存（编辑态）→ 激活面板；未保存（创建态）→ 锁定提示 -->
+        <SkillBindingPanel
+          v-if="effectiveAgentId != null"
+          :agent-id="effectiveAgentId"
+          :auto-attach-skill-id="autoAttachSkillId"
+        />
+        <section v-else class="skill-locked">
+          <div class="skill-locked__head">
+            <h2 class="skill-locked__title">装载 skill</h2>
+            <span class="skill-locked__lock">保存后可用</span>
+          </div>
+          <p class="skill-locked__desc">
+            先保存助手，这里就能装载
+            skill——独立、可复用的能力包，可跨助手复用，拖拽排序决定调用优先级。
+          </p>
+        </section>
       </div>
     </div>
-
-    <!-- After-save modal -->
-    <AfterSaveModal
-      :visible="afterSaveModalVisible"
-      :agent-name="form.name"
-      @configure-skills="onConfigureSkills"
-      @skip="onSkip"
-    />
 
     <!-- Leave confirm modal -->
     <ConfirmModal
@@ -380,25 +379,20 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .agent-builder {
-  min-height: 100%;
-  background: var(--bg-gradient);
+  /* 背景交给 ConfigLayout / MainLayout；本页不再叠加渐变方块（修复接缝） */
+  display: flex;
+  flex-direction: column;
 }
 
-/* ── 顶栏：刊物式 masthead，sticky + 毛玻璃 ─────────────────────────────── */
+/* ── 顶栏：非 sticky、透明、底部分隔线 ─────────────────────────────────── */
 .agent-builder__header {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(10px);
-  backdrop-filter: saturate(180%) blur(10px);
   border-bottom: 1px solid var(--border);
 }
 
 .agent-builder__header-inner {
   max-width: 820px;
   margin: 0 auto;
-  padding: var(--space-lg) var(--space-xl);
+  padding: 0 var(--space-xl) var(--space-lg);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -442,7 +436,6 @@ onBeforeUnmount(() => {
 }
 
 .agent-builder__title {
-  font-family: var(--font-heading);
   font-size: var(--text-2xl);
   font-weight: 700;
   color: var(--text);
@@ -466,6 +459,8 @@ onBeforeUnmount(() => {
 .agent-builder__main {
   max-width: 820px;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
   padding: var(--space-2xl) var(--space-xl) var(--space-4xl);
 }
 
@@ -473,6 +468,48 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
+}
+
+/* ── 装载 skill 锁定态（创建未保存时） ─────────────────────────────────── */
+.skill-locked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  background: var(--surface-tint);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.skill-locked__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.skill-locked__title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.skill-locked__lock {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.skill-locked__desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+  color: var(--text-muted);
 }
 
 .agent-builder__feedback {
@@ -509,7 +546,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 560px) {
   .agent-builder__header-inner {
-    padding: var(--space-md) var(--space-lg);
+    padding: 0 var(--space-lg) var(--space-md);
   }
 
   .agent-builder__subtitle {
