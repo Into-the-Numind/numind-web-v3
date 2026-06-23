@@ -48,9 +48,18 @@ export const useXhsStore = defineStore('xhs', () => {
     }
   }
 
-  /** 删除笔记；成功后从本地列表移除并修正 total */
+  /**
+   * 删除笔记；成功后从本地列表移除并修正 total。
+   * 失败时与其他 action 一致地写入 error.value 并 re-throw，
+   * 让调用方的通知逻辑仍能触发。
+   */
   async function removeNote(id: number): Promise<boolean> {
-    await deleteNote(id)
+    try {
+      await deleteNote(id)
+    } catch (e) {
+      error.value = (e as Error).message || '删除失败'
+      throw e
+    }
     const idx = notes.value.findIndex((n) => n.id === id)
     if (idx !== -1) {
       notes.value.splice(idx, 1)

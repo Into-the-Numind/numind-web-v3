@@ -136,6 +136,9 @@ function buildParams(): ListNotesParams {
 
 async function load() {
   await store.fetchNotes(buildParams())
+  // 分页/筛选 reload 失败时：全页 error 块只覆盖"初始空列表"场景，
+  // 列表已有数据（isEmpty=false）时 error 块不显示，这里补一个 toast 兜底。
+  if (store.error) notifications.error(store.error)
 }
 
 onMounted(load)
