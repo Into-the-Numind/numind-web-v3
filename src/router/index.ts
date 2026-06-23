@@ -302,6 +302,25 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/marketplace/MarketplaceDetail.vue'),
     meta: { title: '技能详情', requiresAuth: true, requiresParent: true }
   },
+  // 小红书选题库 (xhs-collector, T8)
+  {
+    path: '/xhs',
+    name: 'xhs-topic-list',
+    component: () => import('@/views/xhs/XhsTopicList.vue'),
+    meta: { title: '小红书选题库', requiresAuth: true }
+  },
+  {
+    path: '/xhs/install',
+    name: 'xhs-install',
+    component: () => import('@/views/xhs/XhsInstall.vue'),
+    meta: { title: '安装采集插件', requiresAuth: true }
+  },
+  {
+    path: '/connect-extension',
+    name: 'connect-extension',
+    component: () => import('@/views/xhs/ConnectExtension.vue'),
+    meta: { title: '插件授权', requiresAuth: true }
+  },
   // 通知中心入口已改为工作区右上角喇叭下拉 + 弹窗（notif-dropdown），不再有独立路由页。
   // 404 页面
   {

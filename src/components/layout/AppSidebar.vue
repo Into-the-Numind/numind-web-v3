@@ -91,6 +91,19 @@
           <circle cx="12" cy="12" r="3" />
         </svg>
         <svg
+          v-else-if="item.icon === 'xhs'"
+          class="nav-icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 5h18M3 12h18M3 19h12" />
+          <circle cx="19" cy="19" r="2" />
+        </svg>
+        <svg
           v-else-if="item.icon === 'meeting'"
           class="nav-icon-svg"
           viewBox="0 0 24 24"
@@ -245,6 +258,7 @@ const menuItems = computed(() => {
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
+  items.push({ path: '/xhs', title: '小红书选题库', icon: 'xhs' })
   // 竞品监控暂时隐藏（开发中，未对用户开放）
   // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
 
