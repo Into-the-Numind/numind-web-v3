@@ -1,30 +1,27 @@
 <script setup lang="ts" generic="T extends Record<string, any>">
-import { computed, ref } from "vue";
-import {
-  ChevronsLeft,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsRight,
-  Inbox,
-} from "lucide-vue-next";
+import { computed, ref } from 'vue'
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Inbox } from 'lucide-vue-next'
 
 export interface Column {
-  key: string;
-  title: string;
-  width?: string;
-  align?: "left" | "center" | "right";
+  key: string
+  title: string
+  width?: string
+  align?: 'left' | 'center' | 'right'
 }
 
 interface Props {
-  columns: Column[];
-  data: T[];
-  loading?: boolean;
-  total?: number;
-  page?: number;
-  pageSize?: number;
-  rowKey?: string;
-  emptyText?: string;
-  clickable?: boolean;
+  columns: Column[]
+  data: T[]
+  loading?: boolean
+  total?: number
+  page?: number
+  pageSize?: number
+  rowKey?: string
+  emptyText?: string
+  clickable?: boolean
+  // 'card' = 与配置中心其它 tab（AI 助手 / SOP / 知识库）一致的刊物式渐变表格卡片；
+  // 'default' = 原朴素白底表格。新增 opt-in，不影响既有调用方。
+  variant?: 'default' | 'card'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -32,52 +29,51 @@ const props = withDefaults(defineProps<Props>(), {
   total: 0,
   page: 1,
   pageSize: 20,
-  rowKey: "id",
-  emptyText: "暂无数据",
+  rowKey: 'id',
+  emptyText: '暂无数据',
   clickable: false,
-});
+  variant: 'default'
+})
 
 const emit = defineEmits<{
-  "update:page": [page: number];
-  "row-click": [row: T];
-}>();
+  'update:page': [page: number]
+  'row-click': [row: T]
+}>()
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(props.total / props.pageSize)),
-);
+const totalPages = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
 
 const pageNumbers = computed(() => {
-  const pages: number[] = [];
-  const total = totalPages.value;
-  const current = props.page;
-  let start = Math.max(1, current - 2);
-  const end = Math.min(total, start + 4);
-  start = Math.max(1, end - 4);
+  const pages: number[] = []
+  const total = totalPages.value
+  const current = props.page
+  let start = Math.max(1, current - 2)
+  const end = Math.min(total, start + 4)
+  start = Math.max(1, end - 4)
   for (let i = start; i <= end; i++) {
-    pages.push(i);
+    pages.push(i)
   }
-  return pages;
-});
+  return pages
+})
 
-const jumpInput = ref("");
+const jumpInput = ref('')
 
 function goToPage(page: number) {
   if (page >= 1 && page <= totalPages.value && page !== props.page) {
-    emit("update:page", page);
+    emit('update:page', page)
   }
 }
 
 function handleJump() {
-  const p = parseInt(jumpInput.value, 10);
+  const p = parseInt(jumpInput.value, 10)
   if (!isNaN(p)) {
-    goToPage(p);
+    goToPage(p)
   }
-  jumpInput.value = "";
+  jumpInput.value = ''
 }
 </script>
 
 <template>
-  <div class="data-table-wrapper">
+  <div class="data-table-wrapper" :class="{ 'data-table-wrapper--card': variant === 'card' }">
     <div class="data-table-container">
       <table class="data-table">
         <thead>
@@ -118,17 +114,9 @@ function handleJump() {
               :class="{ 'data-row--clickable': clickable }"
               @click="$emit('row-click', row)"
             >
-              <td
-                v-for="col in columns"
-                :key="col.key"
-                :class="`align-${col.align || 'center'}`"
-              >
-                <slot
-                  :name="`cell-${col.key}`"
-                  :row="row"
-                  :value="row[col.key]"
-                >
-                  {{ row[col.key] ?? "-" }}
+              <td v-for="col in columns" :key="col.key" :class="`align-${col.align || 'center'}`">
+                <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
+                  {{ row[col.key] ?? '-' }}
                 </slot>
               </td>
             </tr>
@@ -378,5 +366,49 @@ function handleJump() {
 
 .pagination__jump-input:focus {
   border-color: var(--primary);
+}
+
+/* ── Card variant ─────────────────────────────────────────────────────────
+   与配置中心其它 tab（AI 助手 / SOP / 知识库 的 .table-card / .data-table）一致的
+   刊物式渐变表格卡片。仅 variant="card" 的调用方启用，default 调用方不受影响。 */
+.data-table-wrapper--card {
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: 20px;
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
+}
+
+.data-table-wrapper--card .data-table {
+  font-size: 14px;
+}
+
+.data-table-wrapper--card .data-table th {
+  padding: 14px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.04em;
+  color: hsl(155, 15%, 50%);
+  background: hsla(150, 15%, 98%, 0.5);
+  border-bottom: 1px solid hsl(155, 20%, 93%);
+}
+
+.data-table-wrapper--card .data-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: hsl(155, 15%, 25%);
+  border-bottom: 1px solid hsl(155, 20%, 95%);
+}
+
+.data-table-wrapper--card .data-row:hover {
+  background: hsl(155, 20%, 98%);
+}
+
+.data-table-wrapper--card .pagination {
+  background: hsla(150, 15%, 98%, 0.5);
+  border-top: 1px solid hsl(155, 20%, 93%);
 }
 </style>
