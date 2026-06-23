@@ -4,7 +4,8 @@ require('@rushstack/eslint-patch/modern-module-resolution')
 module.exports = {
   root: true,
   ignorePatterns: [
-    'public/legacy/**'
+    'public/legacy/**',
+    'extension/**'
   ],
   'extends': [
     'plugin:vue/vue3-essential',

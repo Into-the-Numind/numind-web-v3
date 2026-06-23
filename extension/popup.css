@@ -1,0 +1,125 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #fafafa;
+}
+
+.ys-popup {
+  width: 280px;
+  padding: 16px;
+}
+
+.ys-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ys-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #ff2442;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ys-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.ys-status-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.ys-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.ys-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.ys-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.ys-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.ys-badge--pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ys-badge--ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ys-badge--off {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.ys-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.ys-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ys-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+}
+
+.ys-btn--primary {
+  background: #ff2442;
+  color: #fff;
+}
+
+.ys-btn--ghost {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
