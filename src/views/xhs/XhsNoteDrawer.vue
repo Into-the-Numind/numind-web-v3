@@ -11,6 +11,10 @@ import { X, ExternalLink } from 'lucide-vue-next'
 import { formatDateTime } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
 
+function isHttpUrl(u?: string): boolean {
+  return !!u && (u.startsWith('https://') || u.startsWith('http://'))
+}
+
 interface Props {
   modelValue: boolean
   note: NoteItem | null
@@ -87,7 +91,7 @@ const hasNoAi = computed(() => {
                   {{ note.note_type === 'video' ? '视频' : '图文' }}
                 </span>
                 <a
-                  v-if="note.note_url"
+                  v-if="isHttpUrl(note.note_url)"
                   :href="note.note_url"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -145,7 +149,7 @@ const hasNoAi = computed(() => {
               <section v-if="note.note_type === 'video'" class="block">
                 <h4 class="block__title">视频转写</h4>
                 <a
-                  v-if="note.video_url"
+                  v-if="isHttpUrl(note.video_url)"
                   :href="note.video_url"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -164,7 +168,7 @@ const hasNoAi = computed(() => {
                 <h4 class="block__title">作者</h4>
                 <div class="author">
                   <a
-                    v-if="note.author_link"
+                    v-if="isHttpUrl(note.author_link)"
                     :href="note.author_link"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -181,7 +185,7 @@ const hasNoAi = computed(() => {
               <section v-if="note.comments && note.comments.length" class="block">
                 <h4 class="block__title">评论（{{ note.comments.length }}）</h4>
                 <ul class="comments">
-                  <li v-for="(c, i) in note.comments" :key="i" class="comment">
+                  <li v-for="(c, i) in note.comments" :key="`${c.author}-${i}`" class="comment">
                     <div class="comment__head">
                       <span class="comment__author">{{ c.author }}</span>
                       <span class="comment__likes">赞 {{ c.likes }}</span>

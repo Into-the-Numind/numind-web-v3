@@ -269,7 +269,7 @@ function partialTooltip(row: NoteItem): string {
       <!-- 筛选栏 -->
       <div class="filters">
         <div class="filter-search">
-          <AppInput v-model="keyword" placeholder="搜索标题 / 内容关键词" @blur="applyFilters" />
+          <AppInput v-model="keyword" placeholder="搜索标题 / 内容关键词" @blur="applyFilters" @keyup.enter="applyFilters" />
         </div>
         <select v-model="noteType" class="filter-select" @change="applyFilters">
           <option v-for="o in noteTypeOptions" :key="o.value" :value="o.value">
