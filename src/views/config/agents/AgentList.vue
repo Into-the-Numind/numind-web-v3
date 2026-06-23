@@ -163,6 +163,7 @@ function cancelTakedown() {
          不传 :total —— 列表是 client-side filter（searchTerm），page_size=20 已覆盖全部行；
          未来切服务端分页时再补 :total + @update:page。 -->
     <DataTable
+      variant="card"
       :columns="columns"
       :data="filtered"
       :loading="store.loading"

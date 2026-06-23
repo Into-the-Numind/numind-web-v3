@@ -243,6 +243,7 @@ const showEmpty = computed(
     <!-- DataTable 主体（仅在不是首次空状态时显示） -->
     <DataTable
       v-else
+      variant="card"
       :columns="columns"
       :data="store.list"
       :loading="store.loading"
@@ -333,7 +334,9 @@ const showEmpty = computed(
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6);
+  /* 不再额外加 padding —— 与 AI 助手 / SOP / 知识库 / 智能体 一致，
+     由 ConfigLayout 的 .config-content-inner 统一提供内边距，表格才对齐。 */
+  width: 100%;
 }
 
 .skill-list__header {
