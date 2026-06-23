@@ -176,7 +176,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     return false;
   }
 
-  if (message && message.type === 'YOUSHU_SET_TOKEN' && message.token) {
+  if (message && message.type === 'YOUSHU_SET_TOKEN' && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
     setToken(message.token).then(() => {
       // 广播授权成功，已打开的小红书标签页浮标恢复可用
       try {

@@ -410,7 +410,7 @@
       share_count: sf.share_count || 0,
       comments: comments || [],
       author_name: domAuthorName || sf.author_name || '',
-      author_link: domAuthorLink || sf.author_link || '',
+      author_link: (domAuthorLink && /^https?:\/\//i.test(domAuthorLink) ? domAuthorLink : '') || sf.author_link || '',
       author_followers: sf.author_followers != null ? sf.author_followers : 0,
       collected_at: new Date().toISOString()
     };
