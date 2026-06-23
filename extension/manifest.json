@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "有数选题采集",
+  "version": "1.0.0",
+  "description": "在小红书页面一键采集当前笔记，归一化后上送有数选题库（仅采集公开内容）。",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "*://*.xiaohongshu.com/*",
+    "https://YOUSHU_API_DOMAIN_PLACEHOLDER/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "有数选题采集"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.xiaohongshu.com/*"],
+      "js": ["lib/parse.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/*"]
+  }
+}
