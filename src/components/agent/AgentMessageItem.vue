@@ -21,6 +21,7 @@ import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentFinalAnswer from './AgentFinalAnswer.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
+import AgentAuthPrompt from './AgentAuthPrompt.vue'
 import { useImagePreview } from '@/composables/useImagePreview'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import { Copy, Check, Paperclip, LoaderCircle, ChevronDown, ChevronRight } from 'lucide-vue-next'
@@ -102,8 +103,18 @@ const asFinalAnswer = computed<FinalAnswerMessage | null>(() =>
 const asSystem = computed<SystemMessage | null>(() =>
   props.msg.type === 'system' ? props.msg : null
 )
+// feishu-integration (T13): a question_prompt message splits by pause_type.
+// pause_type === 'auth' → AgentAuthPrompt (external authorization card); anything
+// else (default/absent) → QuestionPrompt (the in-app Q&A card, no regression).
 const asQuestionPrompt = computed<QuestionPromptMessage | null>(() =>
-  props.msg.type === 'question_prompt' ? (props.msg as QuestionPromptMessage) : null
+  props.msg.type === 'question_prompt' && (props.msg as QuestionPromptMessage).pause_type !== 'auth'
+    ? (props.msg as QuestionPromptMessage)
+    : null
+)
+const asAuthPrompt = computed<QuestionPromptMessage | null>(() =>
+  props.msg.type === 'question_prompt' && (props.msg as QuestionPromptMessage).pause_type === 'auth'
+    ? (props.msg as QuestionPromptMessage)
+    : null
 )
 
 // 问题三: while the streaming assistant bubble sits token-silent (the LLM is composing
@@ -412,6 +423,36 @@ const systemText = computed<string>(() => {
         @answer-submitted="
           (answers) => $emit('answer-submitted', asQuestionPrompt!.run_id, answers)
         "
+      />
+    </div>
+  </div>
+
+  <!-- Auth prompt (pause_type === 'auth') — feishu-integration T13. Resolved
+       externally (browser authorize → OAuth callback resumes server-side), so
+       it emits nothing; the parent view keeps status polling alive. -->
+  <div v-else-if="asAuthPrompt" class="msg msg-question-prompt">
+    <span class="avatar">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
+    </span>
+    <div class="content-wrap">
+      <AgentAuthPrompt
+        :auth-url="asAuthPrompt.auth_url"
+        :prompt="asAuthPrompt.questions?.[0]?.question"
+        :answered="asAuthPrompt.answer_status === 'answered'"
       />
     </div>
   </div>

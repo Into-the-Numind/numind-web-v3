@@ -275,6 +275,25 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       (currentRun.value?.status === 'running' || currentRun.value?.status === 'pending')
   )
 
+  /** feishu-integration (T13): True when the current run is paused on a
+   *  third-party authorization (pause_type === 'auth'), i.e. there is a pending
+   *  auth question_prompt card for it. Unlike an ask_user_question pause — which
+   *  the user resolves IN-APP via the answer card → startResume — an auth pause
+   *  resumes EXTERNALLY (the user authorizes in their browser; the OAuth callback
+   *  calls biz.Answer server-side). The view watches this to keep status polling
+   *  alive so the resumed leg auto-continues without any in-app submit. */
+  const isWaitingForAuth = computed(
+    () =>
+      isWaitingForUser.value &&
+      messages.value.some(
+        (m) =>
+          m.type === 'question_prompt' &&
+          (m as QuestionPromptMessage).run_id === currentRun.value?.id &&
+          (m as QuestionPromptMessage).answer_status === 'pending' &&
+          (m as QuestionPromptMessage).pause_type === 'auth'
+      )
+  )
+
   const toolGroups = computed<ToolCallAggregate[]>(() => {
     const map = new Map<string, ToolCallAggregate>()
     for (const ev of narrationEvents.value) {
@@ -623,7 +642,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
                 run_id: next.id,
                 questions: qp.questions ?? [],
                 answer_status: 'pending',
-                timestamp: qp.timestamp ?? new Date().toISOString()
+                timestamp: qp.timestamp ?? new Date().toISOString(),
+                // feishu-integration (T13): carry the pause classification from the
+                // synthesized snapshot card so a polled/reloaded auth pause renders
+                // the authorization card, not a plain question card (design §10).
+                pause_type: qp.pause_type,
+                auth_url: qp.auth_url
               })
             }
           } catch {
@@ -1419,7 +1443,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           // structured options {label, description}.
           questions: payload.questions ?? [],
           answer_status: 'pending',
-          timestamp: e.ts
+          timestamp: e.ts,
+          // feishu-integration (T13): carry the pause classification onto the
+          // card so an auth pause renders an authorization card (URL+QR) instead
+          // of the Q&A UI. Absent on ordinary question prompts (omitempty).
+          pause_type: payload.pause_type,
+          auth_url: payload.auth_url
         }
         messages.value.push(promptMsg)
         break
@@ -1582,6 +1611,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     sessionError,
     isRunning,
     isWaitingForUser,
+    isWaitingForAuth,
     hasActiveToolCall,
     activeCodeStream,
     toolGroups,

@@ -152,6 +152,17 @@ export interface QuestionPromptPayload {
     header?: string
     multi_select: boolean
   }>
+  /**
+   * feishu-integration (T13): pause classification — 'question' (default/absent)
+   * or 'auth'. Mirrors backend stream.QuestionPromptPayload.PauseType. Without
+   * this on the SSE path the live stream could never tell an auth pause from a
+   * question pause (only the reloaded pending_question_json would). omitempty on
+   * the backend → absent for ordinary question prompts.
+   */
+  pause_type?: 'question' | 'auth'
+  /** feishu-integration (T13): third-party authorization URL, set only when
+   *  pause_type === 'auth'. Mirrors backend stream.QuestionPromptPayload.AuthURL. */
+  auth_url?: string
 }
 
 /** terminal — stream ended (success or failure) */
