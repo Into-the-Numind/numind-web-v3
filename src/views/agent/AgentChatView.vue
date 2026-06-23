@@ -517,39 +517,74 @@ const handleRetrySnapshot = async (): Promise<void> => {
           @cancel="handleCancel"
         />
 
-        <div class="chat-wrapper">
-          <AgentFirstRun
-            v-if="showFirstRun"
-            :agent="store.currentAgent!"
-            @select-starter="handleSelectStarter"
-          />
+        <!-- 空状态（新会话无消息）：欢迎语 + 居中输入框 + 快捷开始（居中组合） -->
+        <div v-if="showFirstRun" class="welcome-stage">
+          <div class="welcome-stage__inner">
+            <AgentFirstRun :agent="store.currentAgent!" />
 
-          <AgentMessageList
-            v-else
-            :messages="store.messages"
-            :read-only="readOnly"
-            @answer-submitted="handleAnswerSubmitted"
-          />
+            <div v-if="!readOnly" class="welcome-stage__input">
+              <AgentInputArea
+                :agent-id="store.currentAgent!.id"
+                :estimate="store.estimate"
+                :attachments="store.attachments"
+                :sending="store.sendingMessage"
+                :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
+                :streaming="isStreaming"
+                @send="handleSend"
+                @estimate-request="handleEstimateRequest"
+                @upload="handleUpload"
+                @remove-attachment="store.removeAttachment"
+                @reject="handleReject"
+                @stop="stopStream"
+              />
+            </div>
+
+            <div
+              v-if="(store.currentAgent!.conversation_starters?.length ?? 0) > 0"
+              class="welcome-starters"
+              aria-label="快捷开始"
+            >
+              <button
+                v-for="(s, idx) in store.currentAgent!.conversation_starters"
+                :key="idx"
+                class="welcome-starter"
+                @click="handleSelectStarter(s)"
+              >
+                {{ s }}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">
-          <!-- issue4: 终止 merged into the send button (AgentInputArea flips to a
-               stop button while streaming) — no separate abort bar. -->
-          <AgentInputArea
-            :agent-id="store.currentAgent.id"
-            :estimate="store.estimate"
-            :attachments="store.attachments"
-            :sending="store.sendingMessage"
-            :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
-            :streaming="isStreaming"
-            @send="handleSend"
-            @estimate-request="handleEstimateRequest"
-            @upload="handleUpload"
-            @remove-attachment="store.removeAttachment"
-            @reject="handleReject"
-            @stop="stopStream"
-          />
-        </div>
+        <!-- 对话态：消息流 + 底部输入 -->
+        <template v-else>
+          <div class="chat-wrapper">
+            <AgentMessageList
+              :messages="store.messages"
+              :read-only="readOnly"
+              @answer-submitted="handleAnswerSubmitted"
+            />
+          </div>
+
+          <div v-if="!readOnly && store.currentAgent" class="input-area-wrapper">
+            <!-- issue4: 终止 merged into the send button (AgentInputArea flips to a
+                 stop button while streaming) — no separate abort bar. -->
+            <AgentInputArea
+              :agent-id="store.currentAgent.id"
+              :estimate="store.estimate"
+              :attachments="store.attachments"
+              :sending="store.sendingMessage"
+              :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
+              :streaming="isStreaming"
+              @send="handleSend"
+              @estimate-request="handleEstimateRequest"
+              @upload="handleUpload"
+              @remove-attachment="store.removeAttachment"
+              @reject="handleReject"
+              @stop="stopStream"
+            />
+          </div>
+        </template>
       </main>
 
       <!-- 第三栏：文档编辑器面板（点开 agent 文本类产物时展开）。
@@ -935,6 +970,77 @@ body.agent-chat-route .modal-overlay .modal-btn.danger:hover {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+/* ===== 空状态欢迎区（居中：欢迎语 + 输入框 + 快捷开始） ===== */
+.welcome-stage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-lg);
+}
+
+.welcome-stage__inner {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xl);
+  /* 略高于绝对垂直中心，构图更平衡（对齐 Claude 式留白） */
+  margin-bottom: 6vh;
+}
+
+/* 居中态下让输入卡贴合分组间距：清掉 AgentInputArea 自带的外层 padding，
+   由 welcome-stage__inner 的 gap 统一控制间距。 */
+.welcome-stage__input :deep(.input-stage) {
+  padding: 0;
+}
+
+.welcome-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.welcome-starter {
+  padding: 8px var(--space-md);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.welcome-starter:hover {
+  color: var(--primary);
+  border-color: var(--accent-light);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 768px) {
+  .welcome-starters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: var(--space-sm);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .welcome-starter {
+    flex-shrink: 0;
+  }
 }
 
 /* ===== Responsive ===== */
