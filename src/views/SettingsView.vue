@@ -87,6 +87,14 @@
         </div>
       </div>
 
+      <!-- Section: 账号连接（feishu-integration T12）
+           FeishuConnection 自托管异步 4 状态（loading/empty+CTA/error/success+解绑）；
+           解绑走内部 ConfirmModal。状态由 useFeishuStore 在组件 onMounted 自行拉取。 -->
+      <div class="settings-section">
+        <div class="section-label">账号连接</div>
+        <FeishuConnection />
+      </div>
+
       <!-- Section: 账号 -->
       <div class="settings-section">
         <div class="section-label">账号</div>
@@ -231,6 +239,7 @@ import CreditBalanceCard from '@/components/credit/CreditBalanceCard.vue'
 import BoosterPurchaseCard from '@/components/credit/BoosterPurchaseCard.vue'
 import BoosterPurchaseDialog from '@/components/BoosterPurchaseDialog.vue'
 import CreditConsumptionLogModal from '@/components/credit/CreditConsumptionLogModal.vue'
+import FeishuConnection from '@/components/feishu/FeishuConnection.vue'
 
 const router = useRouter()
 const userStore = useUserStore()

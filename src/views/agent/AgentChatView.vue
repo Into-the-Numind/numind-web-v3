@@ -382,6 +382,30 @@ watch(
   }
 )
 
+// feishu-integration (T13): an auth pause resumes EXTERNALLY — the user
+// authorizes in their browser and the OAuth callback calls biz.Answer
+// server-side; there is no in-app submit (unlike an ask_user_question pause,
+// which startResume handles on answer-submitted). So when the run is paused on a
+// pause_type='auth' card we must keep status polling alive: refreshRunStatus
+// detects the run leaving waiting_for_user_choice (the callback resumed it),
+// flips isWaitingForAuth off, and surfaces the resumed leg. Narration runs
+// alongside so the continued tool/prose timeline streams back in.
+// Poll cadence = useAgentRun's 5s interval (no separate timer); the user
+// typically finishes authorizing within a minute, well inside the run's waiting
+// window. Idempotent start/stop guards make the repeated true→true cheap.
+watch(
+  () => store.isWaitingForAuth,
+  (waiting) => {
+    if (waiting) {
+      narration.start()
+      runCtrl.startStatusPolling()
+    }
+    // When it flips false the run either resumed (refreshRunStatus owns the
+    // narration/terminal handling from here) or the view unmounts — no explicit
+    // stop needed; onUnmounted + terminal handling already clear the timers.
+  }
+)
+
 onUnmounted(() => {
   document.body.classList.remove('agent-chat-route')
   narration.stop()
