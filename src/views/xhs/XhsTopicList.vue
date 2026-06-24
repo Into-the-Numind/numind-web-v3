@@ -67,8 +67,9 @@ const sortOptions: { value: NoteSort; label: string }[] = [
 
 const columns: Column[] = [
   { key: 'select', title: '', width: '44px', align: 'center' },
-  { key: 'title', title: '标题', align: 'left' },
-  { key: 'note_type', title: '类型', width: '70px', align: 'center' },
+  { key: 'cover', title: '', width: '72px', align: 'center' },
+  { key: 'title', title: '标题', width: '34%', align: 'left' },
+  { key: 'note_type', title: '类型', width: '84px', align: 'center' },
   { key: 'interaction', title: '互动（赞/藏/评）', width: '150px', align: 'center' },
   { key: 'published_at', title: '发布时间', width: '150px', align: 'center' },
   { key: 'enrich_status', title: '状态', width: '120px', align: 'center' },
@@ -326,6 +327,16 @@ function partialTooltip(row: NoteItem): string {
           />
         </template>
 
+        <template #cell-cover="{ row }">
+          <img
+            v-if="(row as NoteItem).cover_url"
+            :src="(row as NoteItem).cover_url"
+            class="cover-thumb"
+            alt=""
+          />
+          <span v-else class="cover-thumb cover-thumb--empty" />
+        </template>
+
         <template #cell-title="{ row }">
           <span class="title-cell" :title="(row as NoteItem).title">
             {{ (row as NoteItem).title || '（无标题）' }}
@@ -544,10 +555,25 @@ function partialTooltip(row: NoteItem): string {
 }
 
 .type-badge {
+  display: inline-block;
+  white-space: nowrap;
   font-size: 12px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   border-radius: 999px;
   font-weight: 600;
+}
+
+.cover-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.cover-thumb--empty {
+  background: #f0f1f5;
 }
 
 .type-badge--video {
