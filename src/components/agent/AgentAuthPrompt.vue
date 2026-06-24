@@ -6,14 +6,28 @@
  * WHY a separate card (not QuestionPrompt): an ask_user_question pause is
  * resolved IN-APP — the user picks an option / types an answer and the parent
  * (AgentChatView) streams the resumed leg via startResume. An external-link
- * pause is resolved EXTERNALLY: the user opens auth_url in their browser,
- * completes the step there, and the run resumes SERVER-side (the OAuth callback
- * or the next tool re-call calls biz.Answer with the fixed question_text key,
- * design §6). There is therefore NO in-app submit and NO answer payload — this
- * card only PRESENTS the link (copyable URL + QR) and shows a "waiting for you
- * to finish" state. The parent view keeps status polling alive
- * (store.isWaitingForAuth) so the externally-resumed leg auto-continues; when the
- * run leaves waiting_for_user_choice the store flips this card to answered.
+ * pause is resolved EXTERNALLY: the user opens auth_url in their browser and
+ * completes the step there. So this card PRESENTS the link (copyable URL + QR)
+ * rather than collecting an answer.
+ *
+ * WHY we still need an in-app "我已完成，继续" button (feishu-resume-button): the
+ * 飞书 connect flow uses a device-code grant with NO server-side callback — once
+ * the user finishes in their browser, nothing pings the backend to resume the
+ * paused run, so the card would spin forever on "完成后会自动继续". This button
+ * gives the user the trigger: clicking it asks the parent to resume the run via
+ * the SAME channel as an ask_user_question answer (POST /answer → startResume).
+ *
+ * HOW the resume key is matched: the backend's biz.Answer validates the answer
+ * map against the pause's asked question text (answer.go: asked[qText]); a
+ * mismatch fails with "question was not asked". This card therefore emits a
+ * KEY-LESS `continue` event and lets the parent (AgentMessageItem) build the
+ * answers map keyed by THIS pause's question text — the same text the backend
+ * recorded as the asked key (Questions[0].Question, the `prompt` prop here). The
+ * card never constructs or hard-codes the key itself.
+ *
+ * After the click the card locks (submitting) into "已完成，正在继续…" to prevent
+ * double submits; the store's optimistic markQuestionAnswered then flips the
+ * `answered` prop, settling the card into its calm resumed recap.
  *
  * TWO URL FLAVORS, ONE CARD (feishu-agent-connect): the 飞书 connect tool yields
  * pause_type=auth for BOTH legs of the connect flow — the "建应用" (create-app,
@@ -44,12 +58,15 @@
  *              it paused. Optional — falls back to a default copy.
  *   answered — true once the run resumed (store flipped answer_status='answered')
  *
- * This card emits NOTHING: resume is external + server-driven.
+ * Emits:
+ *   continue — the user clicked "我已完成，继续". Key-less: the parent builds the
+ *              answer payload keyed by this pause's question text (the resume key)
+ *              and drives startResume. See the header note on key matching.
  */
 import { ref, computed, watch } from 'vue'
 import QRCode from 'qrcode'
 import { copyText } from '@/utils/clipboard'
-import { ExternalLink, Copy, Check, ShieldCheck, Loader2 } from 'lucide-vue-next'
+import { ExternalLink, Copy, Check, ShieldCheck, ArrowRight } from 'lucide-vue-next'
 
 interface Props {
   authUrl?: string
@@ -62,6 +79,11 @@ const props = withDefaults(defineProps<Props>(), {
   prompt: '',
   answered: false
 })
+
+// Key-less: the parent (AgentMessageItem) owns the resume key (this pause's
+// question text) and builds the answer payload — see the header note. The card
+// only signals "the user says they're done".
+const emit = defineEmits<{ continue: [] }>()
 
 // hasUrl drives the pending(actionable) vs error(no link) branch. An auth pause
 // MUST carry a URL; a missing one means the link generation failed (the run is
@@ -119,6 +141,19 @@ const handleCopy = async (): Promise<void> => {
       copied.value = false
     }, 2000)
   }
+}
+
+// ── "我已完成，继续" ──────────────────────────────────────────────────────────
+// The device-code grant has no server callback, so the user must tell us when
+// they've finished in the browser. submitting locks the button (no double POST)
+// and shows "已完成，正在继续…" until the parent's optimistic markQuestionAnswered
+// flips `answered`, settling the card into its resumed recap. Stays true after
+// the click — the parent owns persistence + resume.
+const submitting = ref(false)
+const handleContinue = (): void => {
+  if (submitting.value) return
+  submitting.value = true
+  emit('continue')
 }
 </script>
 
@@ -190,11 +225,25 @@ const handleCopy = async (): Promise<void> => {
           </div>
         </div>
 
-        <!-- Always-visible "we'll auto-continue" hint (the loading signal that does
-             not block the link). -->
-        <div class="auth-prompt__waiting">
-          <Loader2 :size="13" class="auth-prompt__spin" aria-hidden="true" />
-          <span>完成后会自动继续，无需返回操作。</span>
+        <!-- "我已完成，继续" — the user's resume trigger (device-code has no server
+             callback). Locks into "已完成，正在继续…" after click to block double
+             submits, until the store flips `answered`. -->
+        <div class="auth-prompt__resume">
+          <p class="auth-prompt__resume-hint">在浏览器完成后，点下方「我已完成，继续」。</p>
+          <button
+            type="button"
+            class="auth-prompt__continue"
+            :disabled="submitting"
+            :aria-busy="submitting"
+            aria-label="我已完成，继续"
+            @click="handleContinue"
+          >
+            <span v-if="submitting" class="auth-prompt__continue-spinner" aria-hidden="true"
+              >⏳</span
+            >
+            <ArrowRight v-else :size="15" />
+            <span>{{ submitting ? '已完成，正在继续…' : '我已完成，继续' }}</span>
+          </button>
         </div>
       </template>
     </template>
@@ -383,21 +432,51 @@ const handleCopy = async (): Promise<void> => {
   background: var(--color-primary-hover, hsl(160, 72%, 34%));
 }
 
-.auth-prompt__waiting {
+.auth-prompt__resume {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--color-border, #e5e7eb);
-  font-size: 12px;
-  color: var(--color-text-muted, #6b7280);
 }
 
-.auth-prompt__spin {
+.auth-prompt__resume-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  line-height: 1.5;
+}
+
+.auth-prompt__continue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background: var(--color-primary, hsl(160, 72%, 40%));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-pill, 999px);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.auth-prompt__continue:hover:not(:disabled) {
+  background: var(--color-primary-hover, hsl(160, 72%, 34%));
+}
+
+.auth-prompt__continue:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-prompt__continue-spinner {
+  display: inline-block;
   animation: auth-spin 1s linear infinite;
-  flex-shrink: 0;
-  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 @keyframes auth-spin {
