@@ -1,32 +1,44 @@
 <script setup lang="ts">
 /**
  * AgentAuthPrompt.vue — renders an agent pause whose pause_type === 'auth'
- * (feishu-integration T13).
+ * (feishu-integration T13; generalized in feishu-agent-connect).
  *
  * WHY a separate card (not QuestionPrompt): an ask_user_question pause is
  * resolved IN-APP — the user picks an option / types an answer and the parent
- * (AgentChatView) streams the resumed leg via startResume. A third-party
- * AUTHORIZATION pause is resolved EXTERNALLY: the user opens auth_url in their
- * browser, authorizes (e.g. Feishu OAuth), and the OAuth callback resumes the
- * run SERVER-side (it calls biz.Answer with the fixed question_text key, design
- * §6). There is therefore NO in-app submit and NO answer payload — this card
- * only PRESENTS the link (copyable URL + QR) and shows a "waiting for you to
- * finish authorizing" state. The parent view keeps status polling alive
+ * (AgentChatView) streams the resumed leg via startResume. An external-link
+ * pause is resolved EXTERNALLY: the user opens auth_url in their browser,
+ * completes the step there, and the run resumes SERVER-side (the OAuth callback
+ * or the next tool re-call calls biz.Answer with the fixed question_text key,
+ * design §6). There is therefore NO in-app submit and NO answer payload — this
+ * card only PRESENTS the link (copyable URL + QR) and shows a "waiting for you
+ * to finish" state. The parent view keeps status polling alive
  * (store.isWaitingForAuth) so the externally-resumed leg auto-continues; when the
  * run leaves waiting_for_user_choice the store flips this card to answered.
  *
+ * TWO URL FLAVORS, ONE CARD (feishu-agent-connect): the 飞书 connect tool yields
+ * pause_type=auth for BOTH legs of the connect flow — the "建应用" (create-app,
+ * device-code page) link AND the OAuth "授权" link (tool_feishu_connect.go). They
+ * share the same PauseType + the same neutral prompt text + a single AuthURL, and
+ * the card cannot (and need not) tell them apart from auth_url alone. So this
+ * card's own chrome copy is deliberately FLOW-NEUTRAL ("打开链接完成"/"扫码打开"/
+ * "完成后会自动继续") — it reads correctly whether the link creates an app or
+ * authorizes scopes. The backend-supplied `prompt` carries any flow-specific
+ * lead-in; the card never hard-codes "授权"-only wording that would mis-describe
+ * the create-app leg.
+ *
  * Async-4-states mapping (ui-ux.md rule 2) for the pause's own lifecycle:
- *   - success/empty → pending: show URL + QR + "去授权" CTA (the actionable state)
- *   - loading       → answered=false + polling: the small "授权完成后会自动继续" hint
+ *   - success/empty → pending: URL + QR + "打开链接" CTA (the actionable state)
+ *   - loading       → answered=false + polling: the small "完成后会自动继续" hint
  *                     is always shown beneath the CTA while pending (no spinner that
- *                     blocks the link — the user must still be able to authorize)
+ *                     blocks the link — the user must still be able to open it)
  *   - error         → auth_url missing: a quiet "链接生成失败，请重新发起连接" note
  *                     with no dead CTA (the run stays waiting; re-trigger makes a
  *                     fresh link)
- *   - answered      → the run resumed: a calm "已授权，正在继续…" recap (locked)
+ *   - answered      → the run resumed: a calm "已完成，正在继续…" recap (locked)
  *
  * Props:
- *   authUrl  — third-party authorization URL (QuestionPromptMessage.auth_url)
+ *   authUrl  — external link (QuestionPromptMessage.auth_url): a create-app page
+ *              URL or an OAuth authorize URL — both handled identically here.
  *   prompt   — the fixed prompt text (Questions[0].Question, design §6); shown as
  *              the card's lead-in so the card reads like the agent explaining why
  *              it paused. Optional — falls back to a default copy.
@@ -56,13 +68,17 @@ const props = withDefaults(defineProps<Props>(), {
 // still waiting) → render the error note, never a dead "去授权" button.
 const hasUrl = computed(() => !!props.authUrl)
 
+// Flow-neutral lead-in: works for both the create-app and authorize legs. The
+// backend `prompt` (feishuConnectPromptText) normally overrides this with the
+// per-flow copy; the fallback must not assume "授权"-only (it could be a
+// create-app link).
 const leadText = computed(
-  () => props.prompt?.trim() || '需要你授权后才能继续 — 完成授权后会自动继续。'
+  () => props.prompt?.trim() || '请打开下面的链接完成操作 — 完成后会自动继续。'
 )
 
 // ── QR code ─────────────────────────────────────────────────────────────────
-// Render auth_url to a QR data URL so the user can scan it on a phone to
-// authorize there. Race guard (BoosterPurchaseDialog pattern): a fast prop
+// Render auth_url to a QR data URL so the user can scan it on a phone to open
+// the link there. Race guard (BoosterPurchaseDialog pattern): a fast prop
 // change could resolve an older toDataURL after a newer one; only the latest
 // qrGenId writes back.
 const qrDataUrl = ref('')
@@ -111,7 +127,7 @@ const handleCopy = async (): Promise<void> => {
     class="auth-prompt"
     :class="{ 'auth-prompt--answered': answered }"
     role="group"
-    aria-label="飞书授权"
+    aria-label="飞书连接"
   >
     <!-- Answered (resumed) recap — calm, locked, no controls. -->
     <template v-if="answered">
@@ -119,7 +135,7 @@ const handleCopy = async (): Promise<void> => {
         <span class="auth-prompt__avatar auth-prompt__avatar--done" aria-hidden="true">
           <Check :size="15" />
         </span>
-        <span class="auth-prompt__done-text">已授权，正在继续…</span>
+        <span class="auth-prompt__done-text">已完成，正在继续…</span>
       </div>
     </template>
 
@@ -135,31 +151,32 @@ const handleCopy = async (): Promise<void> => {
 
       <!-- Error: link generation failed → no dead CTA, just a re-trigger hint. -->
       <p v-if="!hasUrl" class="auth-prompt__error">
-        授权链接生成失败，请在「设置 · 账号连接」重新发起连接。
+        连接链接生成失败，请在「设置 · 账号连接」重新发起连接。
       </p>
 
       <template v-else>
-        <!-- QR + URL side by side; the user scans on a phone OR opens/copies the link. -->
+        <!-- QR + URL side by side; the user scans on a phone OR opens/copies the
+             link. Copy is flow-neutral — the link may create an app or authorize. -->
         <div class="auth-prompt__body">
           <div class="auth-prompt__qr">
             <img
               v-if="qrDataUrl"
               :src="qrDataUrl"
-              alt="飞书授权二维码"
+              alt="飞书连接二维码"
               class="auth-prompt__qr-img"
             />
             <div v-else class="auth-prompt__qr-skeleton" aria-hidden="true" />
-            <span class="auth-prompt__qr-hint">扫码授权</span>
+            <span class="auth-prompt__qr-hint">扫码打开</span>
           </div>
 
           <div class="auth-prompt__link-col">
-            <p class="auth-prompt__link-label">或在浏览器打开授权链接</p>
+            <p class="auth-prompt__link-label">或在浏览器打开链接</p>
             <div class="auth-prompt__url-row">
               <code class="auth-prompt__url" :title="authUrl">{{ authUrl }}</code>
               <button
                 type="button"
                 class="auth-prompt__copy"
-                :aria-label="copied ? '已复制' : '复制授权链接'"
+                :aria-label="copied ? '已复制' : '复制链接'"
                 @click="handleCopy"
               >
                 <component :is="copied ? Check : Copy" :size="14" />
@@ -168,7 +185,7 @@ const handleCopy = async (): Promise<void> => {
             </div>
             <a :href="authUrl" target="_blank" rel="noopener noreferrer" class="auth-prompt__cta">
               <ExternalLink :size="15" />
-              <span>去授权</span>
+              <span>打开链接</span>
             </a>
           </div>
         </div>
@@ -177,7 +194,7 @@ const handleCopy = async (): Promise<void> => {
              not block the link). -->
         <div class="auth-prompt__waiting">
           <Loader2 :size="13" class="auth-prompt__spin" aria-hidden="true" />
-          <span>授权完成后会自动继续，无需返回操作。</span>
+          <span>完成后会自动继续，无需返回操作。</span>
         </div>
       </template>
     </template>
