@@ -1,24 +1,33 @@
 <!--
   FeishuConnection — 飞书 (Lark) 账号连接卡片（设置页「账号连接」区）。
 
-  契约：numind-server design.md §10（前端契约）。
-  状态来自 useFeishuStore（Pinia setup store，src/stores/feishu.ts），HTTP 全走
-  src/api/feishu.ts → request.ts（.claude/rules/frontend-state.md §2）。
+  契约：numind-server biz/feishu/service.go（device-code 两步流，G2-authorize
+  2026-06-24 重设计）。状态来自 useFeishuStore（Pinia setup store，
+  src/stores/feishu.ts），HTTP 全走 src/api/feishu.ts → request.ts
+  （.claude/rules/frontend-state.md §2）。
+
+  ───────────────────────────────────────────────────────────────────────────
+  连接现在是「两步」（device-code，无 redirect-OAuth）：
+    1. create_app — 打开建应用页（lark-cli config init），用户在飞书侧建自建应用。
+    2. authorize  — 应用建好后打开授权页（device-code），用户授权 scopes。
+  两步均由 POST /v1/feishu/connect 幂等推进：每次调用返回当前 next_step + url，
+  next_step 依次 create_app → authorize → done。
+
+  主推路径 = AI 助手对话：在对话里说「连接飞书」，由 agent 用 AgentAuthPrompt
+  卡片逐步引导（两步均走 pause_type=auth + URL，已泛化），体验最完整。本设置页
+  把这条作为首选 CTA。
+
+  设置页也保留「直接连接」：点「连接飞书」后由本组件驱动两步——
+    开 create_app url → 轮询 connect() 推进；待 next_step 变 authorize →
+    开 authorize url → 轮询 connect() 推进；待 next_step=done → fetchStatus 确认已连。
 
   异步 4 状态（ui-ux.md 硬规则 2，所有异步视图必须处理）：
     - loading：首屏 / 刷新连接状态时的 skeleton 占位。
-    - empty：未连接（status=none）→ 文案 + CTA「连接飞书」。
+    - empty：未连接（status=none）→ 文案 + 主推「去 AI 助手连接」+ 次选「直接连接」。
     - error：fetchStatus 失败 → 错误文案 + 「重试」。
-    - success：已连接（active）展示已授权应用/scope + 「解绑」；
-              过期（expired）展示需重连提示 + 「重新连接」。
+    - success：已连接（connected）展示已建应用 ID + 「解绑」。
 
   销毁性操作「解绑」走 ConfirmModal（ui-ux.md 硬规则 4），禁止裸 confirm()。
-
-  连接流程：connect() 返回 next_step（create_app / authorize）+ url。
-  本组件不内嵌 OAuth 回调；点击 CTA 后在新标签页打开 url（建应用 / 授权），
-  同时本地进入「等待完成」轮询态，由 store.fetchStatus 周期性刷新，
-  一旦后端 status 变为 active 即自动停止轮询并切到 success 渲染
-  （design.md §10「用户完成后前端轮询 run 状态自动续显」的连接版）。
 -->
 <template>
   <div class="feishu-connection">
@@ -58,7 +67,7 @@
       </button>
     </div>
 
-    <!-- ============ success / expired / empty 共用卡片骨架 ============ -->
+    <!-- ============ success / empty 共用卡片骨架 ============ -->
     <div v-else class="fc-card">
       <div class="fc-icon" :class="iconStateClass">
         <!-- 飞书 logo 占位（避免引外部资源，用内联几何标识）。 -->
@@ -86,30 +95,23 @@
         <template v-if="store.connected">
           <div class="fc-desc">已连接你的飞书账号，agent 可代你执行飞书操作（不计费）。</div>
           <div v-if="store.appId" class="fc-meta">应用 ID：{{ store.appId }}</div>
-          <div v-if="store.scopes.length" class="fc-scopes">
-            <span v-for="s in store.scopes" :key="s" class="fc-scope-tag">{{ s }}</span>
-          </div>
         </template>
 
-        <!-- expired：过期需重连 -->
-        <template v-else-if="store.expired">
-          <div class="fc-desc">
-            授权已过期，飞书相关操作暂不可用。请重新连接以恢复 agent 的飞书能力。
-          </div>
-        </template>
-
-        <!-- empty：未连接 + CTA -->
+        <!-- empty：未连接 + 主推「去 AI 助手连接」 -->
         <template v-else>
           <div class="fc-desc">
             连接飞书后，agent 可代你查询/发送飞书消息、读写文档等（不计费、无功能门）。
           </div>
-          <div class="fc-hint">也可直接在 AI 助手对话里说「连接飞书」，由 agent 引导你完成。</div>
+          <div class="fc-hint">
+            连接分两步：先在飞书侧创建一个自建应用，再扫码/打开链接授权。推荐在 AI
+            助手对话里说「连接飞书」，由助手逐步引导你完成（体验最顺）。
+          </div>
         </template>
 
-        <!-- 等待外部授权完成时的轮询提示（点 CTA 在新标签打开授权页后显示） -->
+        <!-- 直接连接进行中：两步驱动的进度提示（点「直接连接」后显示） -->
         <div v-if="awaitingAuth" class="fc-awaiting">
           <span class="fc-spinner" aria-hidden="true" />
-          <span>已在新标签页打开{{ awaitingStepLabel }}，完成后将自动刷新…</span>
+          <span>已在新标签页打开{{ awaitingStepLabel }}，{{ awaitingHint }}</span>
           <button type="button" class="fc-link" @click="reload">手动刷新</button>
         </div>
       </div>
@@ -127,27 +129,20 @@
           {{ store.disconnecting ? '解绑中…' : '解绑' }}
         </button>
 
-        <!-- expired：重新连接 -->
-        <button
-          v-else-if="store.expired"
-          type="button"
-          class="fc-btn fc-btn--primary"
-          :disabled="store.connecting"
-          @click="startConnect"
-        >
-          {{ store.connecting ? '处理中…' : '重新连接' }}
-        </button>
-
-        <!-- empty：连接飞书 CTA -->
-        <button
-          v-else
-          type="button"
-          class="fc-btn fc-btn--primary"
-          :disabled="store.connecting"
-          @click="startConnect"
-        >
-          {{ store.connecting ? '处理中…' : '连接飞书' }}
-        </button>
+        <!-- empty：主推「去 AI 助手连接」+ 次选「直接连接」 -->
+        <template v-else>
+          <button type="button" class="fc-btn fc-btn--primary" @click="goToAssistant">
+            去 AI 助手连接
+          </button>
+          <button
+            type="button"
+            class="fc-btn fc-btn--ghost"
+            :disabled="store.connecting || awaitingAuth"
+            @click="startConnect"
+          >
+            {{ store.connecting || awaitingAuth ? '连接中…' : '直接连接' }}
+          </button>
+        </template>
       </div>
     </div>
 
@@ -165,6 +160,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useFeishuStore } from '@/stores/feishu'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -172,20 +168,28 @@ import type { FeishuNextStep } from '@/api/feishu'
 
 const store = useFeishuStore()
 const notifications = useNotificationsStore()
+const router = useRouter()
 
 // 解绑确认弹窗开关。
 const confirmVisible = ref(false)
 
-// ============ 等待外部授权完成的轮询态 ============
-// 点 CTA 在新标签打开授权/建应用页后置位；后端 status 变 active 时清除。
+// ============ 直接连接（device-code 两步驱动）的进行态 ============
+// 「直接连接」点击后置位；连接完成 / 失败 / 组件卸载时清除。awaitingStep 记录
+// 当前正在等待用户完成哪一步（create_app=建应用 / authorize=授权）。
 const awaitingAuth = ref(false)
 const awaitingStep = ref<FeishuNextStep | null>(null)
-// setInterval 句柄；组件卸载 / 连接成功时清理，避免泄漏。
+// setInterval 句柄；连接完成 / 失败 / 组件卸载时清理，避免泄漏。
 let pollTimer: ReturnType<typeof setInterval> | null = null
+// 已在本次直接连接里打开过的 URL（去重：同一步反复轮询不重复弹新标签）。
+let openedUrl = ''
 const POLL_INTERVAL_MS = 4000
 
 const awaitingStepLabel = computed(() =>
   awaitingStep.value === 'create_app' ? '飞书建应用页' : '飞书授权页'
+)
+// 两步的进度文案：建应用阶段提示「建好后会自动进入授权」，授权阶段提示「完成后自动连接」。
+const awaitingHint = computed(() =>
+  awaitingStep.value === 'create_app' ? '应用建好后会自动进入授权这一步…' : '授权完成后将自动连接…'
 )
 
 // ============ 4 状态判定 ============
@@ -196,14 +200,9 @@ const showLoading = computed(() => store.loading && !initialized.value)
 const showError = computed(() => !!store.error && !store.loading)
 
 // ============ 展示派生 ============
-const statusLabel = computed(() => {
-  if (store.connected) return '已连接'
-  if (store.expired) return '已过期'
-  return '未连接'
-})
+const statusLabel = computed(() => (store.connected ? '已连接' : '未连接'))
 const statusPillClass = computed(() => ({
   'fc-status-pill--active': store.connected,
-  'fc-status-pill--expired': store.expired,
   'fc-status-pill--none': store.notConnected
 }))
 const iconStateClass = computed(() => ({
@@ -211,7 +210,8 @@ const iconStateClass = computed(() => ({
   'fc-icon--muted': !store.connected
 }))
 
-// ============ 轮询控制 ============
+// ============ 直接连接驱动 ============
+/** 停止轮询并复位所有「直接连接」进行态。 */
 function stopPolling(): void {
   if (pollTimer !== null) {
     clearInterval(pollTimer)
@@ -219,19 +219,56 @@ function stopPolling(): void {
   }
   awaitingAuth.value = false
   awaitingStep.value = null
+  openedUrl = ''
 }
 
-function startPolling(step: FeishuNextStep): void {
-  awaitingAuth.value = true
-  awaitingStep.value = step
+/**
+ * 在新标签打开连接 URL（去重）。device-code 流里 connect() 幂等返回当前步骤的
+ * 同一 URL，轮询时会反复拿到——只在 URL 变化（进入新一步）时弹新标签，避免刷屏。
+ */
+function openStepUrl(url: string): void {
+  if (!url || url === openedUrl) return
+  openedUrl = url
+  // noopener 防止被打开页反向操控当前页。
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+/**
+ * 处理一次 connect() 返回：按 next_step 推进 device-code 两步流。
+ * 返回 true 表示连接已完成（done），调用方应停止轮询。
+ */
+function advance(res: { next_step: FeishuNextStep; url: string }): boolean {
+  if (res.next_step === 'done') return true
+  // create_app / authorize：记录当前步并（按需）打开对应 URL。
+  awaitingStep.value = res.next_step
+  if (res.url) openStepUrl(res.url)
+  return false
+}
+
+/** 连接成功收尾：拉一次状态确认、复位进行态、toast。 */
+async function finishConnected(): Promise<void> {
+  stopPolling()
+  await store.fetchStatus()
+  notifications.success('飞书连接成功')
+}
+
+/**
+ * 轮询推进：每隔 POLL_INTERVAL_MS 调用幂等的 connect() 推进一步。
+ * - 仍 create_app/authorize：保持等待（用户尚未完成当前步）。
+ * - 一旦 next_step 进到下一步（建应用→授权），URL 变化 → openStepUrl 自动弹授权页。
+ * - next_step=done：连接完成，收尾。
+ * connect() 报错时（store 已落 error）停止轮询并 toast，避免静默空转。
+ */
+function startPolling(): void {
   if (pollTimer !== null) clearInterval(pollTimer)
   pollTimer = setInterval(() => {
     void (async () => {
-      await store.fetchStatus()
-      // 连接成功即停止轮询并提示。
-      if (store.connected) {
+      try {
+        const res = await store.connect()
+        if (advance(res)) await finishConnected()
+      } catch {
         stopPolling()
-        notifications.success('飞书连接成功')
+        notifications.error(store.error || '飞书连接中断，请重试')
       }
     })()
   }, POLL_INTERVAL_MS)
@@ -245,21 +282,36 @@ async function reload(): Promise<void> {
   if (store.connected) stopPolling()
 }
 
+/** 主推：跳转到 AI 助手工作台，引导用户在对话里说「连接飞书」。 */
+function goToAssistant(): void {
+  notifications.info('在 AI 助手对话里说「连接飞书」，助手会一步步引导你完成')
+  void router.push({ name: 'home' })
+}
+
 /**
- * 发起连接 / 重新连接：拿到 url 后在新标签打开（建应用 / 授权），进入轮询等待态。
- * connect 失败时 store 已落 error 并 rethrow，这里给 toast 提示。
+ * 次选「直接连接」：在设置页直接驱动 device-code 两步流。
+ * connect() 幂等：首次返回 create_app（或已建过应用则直接 authorize）+ url；
+ * 打开 url 后开始轮询，由 startPolling 推进到 authorize、最终 done。
+ * connect 失败时 store 已落 error 并 rethrow，这里 toast 提示。
  */
 async function startConnect(): Promise<void> {
+  if (awaitingAuth.value) return
+  awaitingAuth.value = true
+  openedUrl = ''
   try {
     const res = await store.connect()
-    if (!res?.url) {
+    if (advance(res)) {
+      await finishConnected()
+      return
+    }
+    if (!res.url) {
+      stopPolling()
       notifications.error('未能获取飞书连接链接，请稍后重试')
       return
     }
-    // 新标签打开（noopener 防止被打开页反向操控当前页）。
-    window.open(res.url, '_blank', 'noopener,noreferrer')
-    startPolling(res.next_step)
+    startPolling()
   } catch {
+    stopPolling()
     notifications.error(store.error || '发起飞书连接失败')
   }
 }
@@ -378,23 +430,6 @@ onBeforeUnmount(() => {
   word-break: break-all;
 }
 
-/* ===== scope 标签 ===== */
-.fc-scopes {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.fc-scope-tag {
-  font-size: 11px;
-  line-height: 1.4;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill, 999px);
-  background: var(--color-surface-hover, #f3f4f7);
-  color: var(--color-text-secondary, #6b7085);
-}
-
 /* ===== 状态徽标 ===== */
 .fc-status-pill {
   font-size: 11px;
@@ -407,11 +442,6 @@ onBeforeUnmount(() => {
 .fc-status-pill--active {
   background: var(--color-primary-soft, #e9f9f1);
   color: var(--color-primary, #10b981);
-}
-
-.fc-status-pill--expired {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--color-warning, #d97706);
 }
 
 .fc-status-pill--none {
@@ -462,10 +492,14 @@ onBeforeUnmount(() => {
 }
 
 /* ===== 动作区 ===== */
+/* 列向堆叠：未连接时有「去 AI 助手连接」(主) + 「直接连接」(次) 两个按钮；
+   已连接时只有「解绑」。stretch 让两按钮等宽对齐。 */
 .fc-actions {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2, 8px);
 }
 
 .fc-btn {

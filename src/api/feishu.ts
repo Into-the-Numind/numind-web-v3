@@ -17,37 +17,47 @@
 import request from './request'
 
 // ==================== Types ====================
+//
+// 形状严格对齐后端 device-code 契约（G2-authorize 重设计，2026-06-24，
+// biz/feishu/service.go 的 StatusResult / ConnectResult）。
+//
+// ⚠️ 与旧 redirect-OAuth 契约的差异（本次适配的核心）：
+//   - status 只有 'none' | 'connected'（不再有 active/expired）；可靠判定连接与否
+//     看 `connected` 布尔字段。
+//   - StatusResult 不再返回 scopes（device-code 不在前端展示 scope 列表）。
+//   - ConnectResult 不再有 state（device-code 无 OAuth state）；next_step 多了 'done'。
 
-/** 连接状态枚举（后端 StatusResult.status）。 */
-export type FeishuConnectionStatus = 'none' | 'active' | 'expired'
+/** 连接状态枚举（后端 StatusResult.status）：none（未连）/ connected（已连）。 */
+export type FeishuConnectionStatus = 'none' | 'connected'
 
-/** 连接下一步枚举（后端 ConnectResult.next_step）。 */
-export type FeishuNextStep = 'create_app' | 'authorize'
+/**
+ * 连接下一步枚举（后端 ConnectResult.next_step，device-code 两步流）。
+ * - create_app: 尚无自建应用 → 打开建应用页（lark-cli config init）。
+ * - authorize:  应用已建 → 打开授权验证页（device-code 授权 scopes）。
+ * - done:       已连接完成。
+ */
+export type FeishuNextStep = 'create_app' | 'authorize' | 'done'
 
 /**
  * GET /v1/feishu/status 响应。
- * - connected: 是否已连接（active 时为 true）。
- * - status: none（未连）/ active（已连）/ expired（已过期需重连）。
- * - scopes: 已授权 scope 列表（未连时为空/可能为 null，调用方需兜底）。
- * - app_id: 已建飞书自建应用 ID（未连时为空串）。
+ * - connected: 是否已连接（device-code 授权完成且 DB connected 标志为真）。
+ * - status: none（未连）/ connected（已连）。
+ * - app_id: 已建飞书自建应用 ID（未连/未建时为空串）。
  */
 export interface FeishuStatus {
   connected: boolean
   status: FeishuConnectionStatus
-  scopes: string[]
   app_id: string
 }
 
 /**
- * POST /v1/feishu/connect 响应。
- * - next_step: create_app（需先建应用）/ authorize（直接授权）。
- * - url: 建应用页 URL（device-code）或飞书授权 URL。
- * - state: 签名后的 OAuth state（create_app 时为空串）。
+ * POST /v1/feishu/connect 响应（幂等：每次调用推进 device-code 流一步）。
+ * - next_step: create_app（先建应用）/ authorize（授权）/ done（已完成）。
+ * - url: 建应用页 URL 或授权验证页 URL；next_step=done 时为空串。
  */
 export interface FeishuConnectResult {
   next_step: FeishuNextStep
   url: string
-  state: string
 }
 
 // ==================== API Functions ====================
