@@ -7,12 +7,17 @@
 -->
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
-import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle, Play } from 'lucide-vue-next'
+import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle } from 'lucide-vue-next'
 import { formatDateTime } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
 
 function isHttpUrl(u?: string): boolean {
   return !!u && (u.startsWith('https://') || u.startsWith('http://'))
+}
+
+// 小红书视频直链多为 http://，prod(https) 内嵌播放会被混合内容拦 → 统一升 https(CDN 同时支持)。
+function httpsUrl(u?: string): string {
+  return (u || '').replace(/^http:\/\//i, 'https://')
 }
 
 interface Props {
@@ -113,8 +118,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 
             <!-- success 态 -->
             <div v-else class="modal__body">
-              <!-- ① 图片：左右滑动 + 点击看大图 -->
-              <div v-if="galleryImages.length" class="gallery">
+              <!-- ① 视频笔记：banner 内嵌播放器(全屏/进度/音量由原生 controls 提供) -->
+              <div v-if="note.note_type === 'video' && isHttpUrl(note.video_url)" class="gallery">
+                <video
+                  class="gallery__video"
+                  :src="httpsUrl(note.video_url)"
+                  controls
+                  playsinline
+                  preload="metadata"
+                  referrerpolicy="no-referrer"
+                ></video>
+              </div>
+
+              <!-- 图文笔记：图片左右滑动 + 点击看大图 -->
+              <div v-else-if="galleryImages.length" class="gallery">
                 <button
                   v-if="galleryImages.length > 1"
                   class="gallery__nav gallery__nav--prev"
@@ -145,18 +162,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
                 <span v-if="galleryImages.length > 1" class="gallery__counter">
                   {{ currentPage + 1 }} / {{ galleryImages.length }}
                 </span>
-                <a
-                  v-if="note.note_type === 'video' && isHttpUrl(note.video_url)"
-                  :href="note.video_url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="gallery__play"
-                  title="在新标签播放视频"
-                  @click.stop
-                >
-                  <Play :size="30" fill="#fff" />
-                  <span>查看视频</span>
-                </a>
               </div>
 
               <!-- 数据（赞/藏/评，带图标，靠右；图片与标题之间）-->
@@ -369,6 +374,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
   margin-bottom: 18px;
 }
 
+.gallery__video {
+  width: 100%;
+  max-height: 60vh;
+  border-radius: 12px;
+  background: #000;
+  display: block;
+}
+
 .gallery__strip {
   display: flex;
   gap: 8px;
@@ -415,29 +428,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 
 .gallery__nav:hover {
   background: rgba(0, 0, 0, 0.65);
-}
-
-.gallery__play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 999px;
-  text-decoration: none;
-  z-index: 3;
-  transition: background 0.15s;
-}
-
-.gallery__play:hover {
-  background: rgba(0, 0, 0, 0.78);
 }
 
 .gallery__nav--prev { left: 8px; }
