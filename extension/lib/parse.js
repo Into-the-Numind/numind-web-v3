@@ -286,28 +286,46 @@
   /**
    * 从详情容器解析评论。移植 .comment-item，作者/正文/点赞分开取，最多 maxComments 条。
    */
+  /** 解析单条 .comment-item 的作者/正文/点赞（取其自身首个匹配，不含嵌套回复）。 */
+  function parseOneComment(item) {
+    const text =
+      txt(item.querySelector('.content .note-text')) ||
+      txt(item.querySelector('.content')) ||
+      txt(item.querySelector('.note-text'));
+    const author =
+      txt(item.querySelector('.author .name')) ||
+      txt(item.querySelector('.name')) ||
+      txt(item.querySelector('.user-name'));
+    const likes = parseCount(
+      txt(item.querySelector('.like .count')) ||
+        txt(item.querySelector('.like-wrapper .count')) ||
+        txt(item.querySelector('.count'))
+    );
+    return { author: author || '', text: text || '', likes };
+  }
+
   function parseComments(container, maxComments) {
-    const limit = typeof maxComments === 'number' ? maxComments : 10;
+    const limit = typeof maxComments === 'number' ? maxComments : 100;
+    const maxReplies = 30;
     const out = [];
     if (!container || !container.querySelectorAll) return out;
-    const items = container.querySelectorAll('.comment-item');
-    for (const item of items) {
+    const all = container.querySelectorAll('.comment-item');
+    for (const item of all) {
       if (out.length >= limit) break;
-      const text =
-        txt(item.querySelector('.content .note-text')) ||
-        txt(item.querySelector('.content')) ||
-        txt(item.querySelector('.note-text'));
-      if (!text) continue;
-      const author =
-        txt(item.querySelector('.author .name')) ||
-        txt(item.querySelector('.name')) ||
-        txt(item.querySelector('.user-name'));
-      const likes = parseCount(
-        txt(item.querySelector('.like .count')) ||
-          txt(item.querySelector('.like-wrapper .count')) ||
-          txt(item.querySelector('.count'))
-      );
-      out.push({ author: author || '', text, likes });
+      // 回复项（祖先里还有 .comment-item）跳过——它会作为父评论的 replies 收集。
+      if (item.parentElement && item.parentElement.closest('.comment-item')) continue;
+      const c = parseOneComment(item);
+      if (!c.text) continue;
+      // 该顶层评论下嵌套的回复 .comment-item。
+      const replies = [];
+      const replyEls = item.querySelectorAll('.comment-item');
+      for (const r of replyEls) {
+        if (replies.length >= maxReplies) break;
+        const rc = parseOneComment(r);
+        if (rc.text) replies.push(rc);
+      }
+      c.replies = replies;
+      out.push(c);
     }
     return out;
   }
@@ -379,7 +397,7 @@
       domComments = parseCount(txt(container.querySelector('.chat-wrapper .count')));
       domPublishedAt = parseDateText(txt(container.querySelector('.date')), now);
 
-      comments = parseComments(container, 10);
+      comments = parseComments(container, 100);
       videoDom = isVideoNote(container);
     }
 
@@ -459,6 +477,7 @@
     parseDateText,
     resolveImgUrl,
     isVideoNote,
+    parseOneComment,
     parseComments,
     parseNoteDetail,
     parseNoteFromHtml

@@ -294,17 +294,48 @@
     document.body.appendChild(floatingButton);
   }
 
+  // 滚动加载更多评论：小红书评论懒加载，需滚动评论容器 .note-scroller 到底（对齐 plugin3.2.1 手法）。
+  // 安全上限 40 轮 / 连续 3 次无新增即停，避免无限滚 + 风控。
+  async function loadMoreComments() {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const scroller = document.querySelector('.note-scroller');
+    if (!scroller) {
+      // 兜底：没找到评论容器就滚窗口几次
+      for (let i = 0; i < 8; i++) {
+        window.scrollTo(0, document.body.scrollHeight);
+        await sleep(600);
+      }
+      return;
+    }
+    let lastH = -1;
+    let noChange = 0;
+    for (let i = 0; i < 40; i++) {
+      try { scroller.scrollBy({ top: 800, behavior: 'auto' }); } catch (_) { /* ignore */ }
+      await sleep(500);
+      const atBottom = scroller.scrollHeight - scroller.scrollTop <= scroller.clientHeight + 5;
+      if (scroller.scrollHeight === lastH) { noChange++; } else { noChange = 0; lastH = scroller.scrollHeight; }
+      if (atBottom || noChange >= 3) break;
+    }
+  }
+
   async function onCollectClick() {
     if (dragMoved) {
       dragMoved = false;
+      return;
+    }
+    // 插件被重载（开发者模式 ↻）后，旧 content script 上下文失效 → chrome.runtime.id 为空。
+    if (!chrome.runtime || !chrome.runtime.id) {
+      showToast('插件已更新，请刷新本页后再采集');
       return;
     }
     if (unauthorized) {
       showToast('请打开插件弹窗重新授权有数账号');
       return;
     }
-    const toast = showToast('正在采集当前笔记…', 0);
+    const toast = showToast('正在加载评论…', 0);
     try {
+      await loadMoreComments();
+      toast.textContent = '正在采集当前笔记…';
       const result = await collectCurrentNote();
       if (!result.success) {
         toast.remove();

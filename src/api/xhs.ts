@@ -28,6 +28,8 @@ export interface NoteComment {
   author: string
   text: string
   likes: number
+  /** 嵌套回复（评论回复评论），仅一层 */
+  replies?: NoteComment[]
 }
 
 /** 选题库笔记项（列表 + 详情共用，详情字段更全） */

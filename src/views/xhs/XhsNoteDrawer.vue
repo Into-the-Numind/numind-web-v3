@@ -144,7 +144,6 @@ function close() {
                     {{ note.author_name || '未知作者' }}
                   </a>
                   <span v-else class="author__name">{{ note.author_name || '未知作者' }}</span>
-                  <span class="author__followers">粉丝 {{ note.author_followers }}</span>
                 </div>
               </section>
 
@@ -158,6 +157,15 @@ function close() {
                       <span class="comment__likes">赞 {{ c.likes }}</span>
                     </div>
                     <p class="comment__text">{{ c.text }}</p>
+                    <ul v-if="c.replies && c.replies.length" class="comment-replies">
+                      <li v-for="(r, j) in c.replies" :key="`r-${i}-${j}`" class="comment comment--reply">
+                        <div class="comment__head">
+                          <span class="comment__author">{{ r.author }}</span>
+                          <span class="comment__likes">赞 {{ r.likes }}</span>
+                        </div>
+                        <p class="comment__text">{{ r.text }}</p>
+                      </li>
+                    </ul>
                   </li>
                 </ul>
               </section>
@@ -452,6 +460,18 @@ function close() {
   color: var(--text-muted, #9ea1b1);
 }
 
+.comment-replies {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--border, #eee);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.comment--reply {
+  opacity: 0.92;
+}
 .comment__text {
   margin: 0;
   font-size: 13px;
