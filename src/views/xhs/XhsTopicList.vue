@@ -70,8 +70,6 @@ const columns: Column[] = [
   { key: 'title', title: '标题', align: 'left' },
   { key: 'note_type', title: '类型', width: '70px', align: 'center' },
   { key: 'interaction', title: '互动（赞/藏/评）', width: '150px', align: 'center' },
-  { key: 'ai_topic_angle', title: '选题角度', width: '160px', align: 'left' },
-  { key: 'ai_one_line', title: '一句话', width: '180px', align: 'left' },
   { key: 'published_at', title: '发布时间', width: '150px', align: 'center' },
   { key: 'enrich_status', title: '状态', width: '120px', align: 'center' },
   { key: 'actions', title: '操作', width: '80px', align: 'center' }
@@ -344,18 +342,6 @@ function partialTooltip(row: NoteItem): string {
           <span class="interaction">
             {{ (row as NoteItem).like_count }} / {{ (row as NoteItem).collect_count }} /
             {{ (row as NoteItem).comment_count }}
-          </span>
-        </template>
-
-        <template #cell-ai_topic_angle="{ row }">
-          <span class="clamp-2" :title="(row as NoteItem).ai_topic_angle">
-            {{ (row as NoteItem).ai_topic_angle || '—' }}
-          </span>
-        </template>
-
-        <template #cell-ai_one_line="{ row }">
-          <span class="clamp-2" :title="(row as NoteItem).ai_one_line">
-            {{ (row as NoteItem).ai_one_line || '—' }}
           </span>
         </template>
 

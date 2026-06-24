@@ -198,7 +198,7 @@
       return { success: false, error: '未找到笔记详情，请先点开一条笔记' };
     }
 
-    const url = window.location.origin + window.location.pathname;
+    const url = window.location.href; // 完整 URL（含 xsec_token），否则原帖打不开
     const noteId = Parse.getNoteIdFromUrl(url);
 
     // 主世界读取 __INITIAL_STATE__ 的 note 子树（视频直链 + 结构化字段兜底）

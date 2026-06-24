@@ -6,7 +6,6 @@
   loading 态由 :loading 控制（拉详情期间显示骨架）。
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
 import { X, ExternalLink } from 'lucide-vue-next'
 import { formatDateTime } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
@@ -33,21 +32,6 @@ function close() {
   emit('update:modelValue', false)
 }
 
-const aiFields: { key: keyof NoteItem; label: string }[] = [
-  { key: 'ai_one_line', label: '一句话点评' },
-  { key: 'ai_topic_angle', label: '选题角度' },
-  { key: 'ai_viral_reason', label: '爆款原因' },
-  { key: 'ai_borrowable', label: '可借鉴点' },
-  { key: 'ai_target_audience', label: '目标人群' },
-  { key: 'ai_title_formula', label: '标题公式' }
-]
-
-/** 是否完全没有 AI 分析结果（用于显示空态提示） */
-const hasNoAi = computed(() => {
-  const n = props.note
-  if (!n) return true
-  return aiFields.every((f) => !n[f.key])
-})
 </script>
 
 <template>
@@ -112,24 +96,7 @@ const hasNoAi = computed(() => {
                 <div class="stat">
                   <span>评</span><strong>{{ note.comment_count }}</strong>
                 </div>
-                <div class="stat">
-                  <span>分享</span><strong>{{ note.share_count }}</strong>
-                </div>
               </div>
-
-              <!-- AI 分析 -->
-              <section class="block">
-                <h4 class="block__title">AI 分析</h4>
-                <dl class="ai-list">
-                  <template v-for="f in aiFields" :key="f.key">
-                    <div v-if="note[f.key]" class="ai-item">
-                      <dt>{{ f.label }}</dt>
-                      <dd>{{ note[f.key] }}</dd>
-                    </div>
-                  </template>
-                  <p v-if="hasNoAi" class="ai-empty">暂无 AI 分析结果</p>
-                </dl>
-              </section>
 
               <!-- 正文 -->
               <section v-if="note.content" class="block">
