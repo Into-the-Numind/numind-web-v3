@@ -252,3 +252,21 @@ describe('lib/parse.js — 评论回复嵌套（.parent-comment 分组）', () =
     expect(comments[1].replies.length).toBe(0)
   })
 })
+
+describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () => {
+  const html = `
+    <html><body>
+    <script>window.__INITIAL_STATE__={"note":{"noteDetailMap":{"vid123":{"note":{"video":{"media":{"stream":{"h264":[{"master_url":"https:\\u002F\\u002Fsns-video.xhscdn.com\\u002Fvid123_master.mp4?sign=x"}]}}}}}}}}}</script>
+    </body></html>`
+  it('从 script 文本正则抓 master_url（h264）+ 转义解码', () => {
+    const u = Parse.extractVideoUrlFromHtmlText(html, 'vid123')
+    expect(u).toBe('https://sns-video.xhscdn.com/vid123_master.mp4?sign=x')
+  })
+  it('无视频信息时返回空串', () => {
+    expect(Parse.extractVideoUrlFromHtmlText('<html><body>纯图文</body></html>', 'x')).toBe('')
+  })
+  it('不返回 blob: 本地地址', () => {
+    const blobHtml = '<script>{"h264":[{"master_url":"blob:https://www.xiaohongshu.com/abc"}]}</script>'
+    expect(Parse.extractVideoUrlFromHtmlText(blobHtml, '')).toBe('')
+  })
+})

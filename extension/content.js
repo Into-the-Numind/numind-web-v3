@@ -57,123 +57,6 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 登录态检测：读 __INITIAL_STATE__.user.userInfo / 页面登录态
-  // ---------------------------------------------------------------------------
-  /** 通过注入 main world 读取登录态（content script 隔离世界拿不到 SPA 内存）。 */
-  function readLoginState() {
-    return new Promise((resolve) => {
-      const eventName = `youshu-login-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      let done = false;
-      const finish = (loggedIn) => {
-        if (done) return;
-        done = true;
-        document.removeEventListener(eventName, onEvt);
-        resolve(!!loggedIn);
-      };
-      const onEvt = (e) => finish(e && e.detail && e.detail.loggedIn);
-      document.addEventListener(eventName, onEvt);
-      const script = document.createElement('script');
-      script.textContent = `(function(){
-        var loggedIn = false;
-        try {
-          var st = window.__INITIAL_STATE__ || null;
-          if (st && st.user) {
-            var u = st.user;
-            var info = u.userInfo || (u.loginUser) || null;
-            // userInfo 通常是 promise/atom 包装，取常见字段
-            var resolved = info && (info._value !== undefined ? info._value : info);
-            if (resolved && (resolved.userId || resolved.user_id || resolved.guest === false)) loggedIn = true;
-            if (u.isLogged === true || u.loggedIn === true) loggedIn = true;
-          }
-          // DOM 兜底：登录后右上角有用户头像/侧栏入口
-          if (!loggedIn) {
-            if (document.querySelector('.user.side-bar-component .channel') ||
-                document.querySelector('.reds-avatar') ||
-                document.cookie.indexOf('web_session=') > -1) {
-              // web_session 存在通常代表已登录
-              if (document.cookie.indexOf('web_session=') > -1) loggedIn = true;
-            }
-          }
-        } catch (e) {}
-        document.dispatchEvent(new CustomEvent(${JSON.stringify(eventName)}, { detail: { loggedIn: loggedIn } }));
-      })();`;
-      try {
-        (document.head || document.documentElement).appendChild(script);
-        script.remove();
-      } catch (_) {
-        finish(false);
-        return;
-      }
-      setTimeout(() => finish(false), 800);
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // 视频直链：注入 main world 读 __INITIAL_STATE__.note.noteDetailMap[noteId]
-  // （移植 plugin3.2.1 readVideoUrlFromPageInitialState，但解析逻辑交给 parse.js）
-  // ---------------------------------------------------------------------------
-  function readInitialStateForNote(noteId) {
-    return new Promise((resolve) => {
-      const eventName = `youshu-state-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      let done = false;
-      const finish = (data) => {
-        if (done) return;
-        done = true;
-        document.removeEventListener(eventName, onEvt);
-        resolve(data || null);
-      };
-      const onEvt = (e) => {
-        let parsed = null;
-        try {
-          parsed = e && e.detail && e.detail.json ? JSON.parse(e.detail.json) : null;
-        } catch (_) {
-          parsed = null;
-        }
-        finish(parsed);
-      };
-      document.addEventListener(eventName, onEvt);
-      const script = document.createElement('script');
-      // 只抽取与该 noteId 相关的最小 note 子树，避免 JSON.stringify 整个巨大的 state。
-      script.textContent = `(function(){
-        var noteId = ${JSON.stringify(noteId || '')};
-        var slim = null;
-        try {
-          var st = window.__INITIAL_STATE__ || null;
-          if (st && st.note) {
-            var n = st.note;
-            var note = null;
-            if (noteId && n.noteDetailMap && n.noteDetailMap[noteId] && n.noteDetailMap[noteId].note) {
-              note = n.noteDetailMap[noteId].note;
-            } else if (n.noteDetailMap) {
-              var keys = Object.keys(n.noteDetailMap);
-              if (!noteId && keys.length === 1 && n.noteDetailMap[keys[0]]) note = n.noteDetailMap[keys[0]].note;
-              else if (n.currentNoteId && n.note) note = n.note;
-            } else if (n.note) {
-              note = n.note;
-            }
-            if (note) {
-              slim = { note: { noteDetailMap: {} }, _noteId: noteId || n.currentNoteId || '' };
-              slim.note.currentNoteId = noteId || n.currentNoteId || '';
-              slim.note.noteDetailMap[slim.note.currentNoteId] = { note: note };
-            }
-          }
-        } catch (e) {}
-        var json = '';
-        try { json = slim ? JSON.stringify(slim) : ''; } catch (e2) { json = ''; }
-        document.dispatchEvent(new CustomEvent(${JSON.stringify(eventName)}, { detail: { json: json } }));
-      })();`;
-      try {
-        (document.head || document.documentElement).appendChild(script);
-        script.remove();
-      } catch (_) {
-        finish(null);
-        return;
-      }
-      setTimeout(() => finish(null), 1200);
-    });
-  }
-
-  // ---------------------------------------------------------------------------
   // 采集
   // ---------------------------------------------------------------------------
   function waitForElement(selector, timeout = 8000) {
@@ -201,9 +84,10 @@
     const url = window.location.href; // 完整 URL（含 xsec_token），否则原帖打不开
     const noteId = Parse.getNoteIdFromUrl(url);
 
-    // 主世界读取 __INITIAL_STATE__ 的 note 子树（视频直链 + 结构化字段兜底）
-    const state = await readInitialStateForNote(noteId);
-    const videoUrl = Parse.extractVideoUrlFromState(state, noteId);
+    // CSP 安全：从页面已有 script/HTML 文本扫视频直链（移植 plugin3.2.1，不注入脚本，避免被小红书 CSP 拦）。
+    const htmlText = document.documentElement ? document.documentElement.innerHTML : '';
+    const videoUrl = Parse.extractVideoUrlFromHtmlText(htmlText, noteId);
+    const state = null;
 
     const payload = Parse.parseNoteDetail({
       container,

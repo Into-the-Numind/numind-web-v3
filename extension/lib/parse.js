@@ -355,6 +355,60 @@
    * @param {Date}    [opts.now]    用于相对日期解析（测试可注入）
    * @returns {Object} NotePayload
    */
+  /** 从一段 script/HTML 文本里正则抓视频直链 master_url（h264/h265 附近），CSP 安全（读文本不注入）。 */
+  function extractVideoStreamUrlFromText(text) {
+    if (!text) return '';
+    if (text.indexOf('master_url') < 0 && text.indexOf('masterUrl') < 0) return '';
+    const pickMaster = (seg) => {
+      const m =
+        seg.match(/"master_url"\s*:\s*"([^"]+)"/) ||
+        seg.match(/"masterUrl"\s*:\s*"([^"]+)"/);
+      return m ? decodeJsonUrlEscapes(m[1]) : '';
+    };
+    const i264 = text.indexOf('"h264"');
+    const i265 = text.indexOf('"h265"');
+    if (i264 >= 0) {
+      const end = i265 > i264 ? i265 : text.length;
+      const u = pickMaster(text.slice(i264, end));
+      if (u) return u;
+    }
+    if (i265 >= 0) {
+      const u = pickMaster(text.slice(i265));
+      if (u) return u;
+    }
+    return pickMaster(text);
+  }
+
+  /**
+   * 从页面 HTML 文本扫视频直链（移植 plugin3.2.1：读 SSR __INITIAL_STATE__ 文本，CSP 安全）。
+   * 优先按 noteId 锚点切片避免命中 feed 里其它笔记，兜底取整页第一条 h264。只返回 https mp4。
+   */
+  function extractVideoUrlFromHtmlText(html, noteId) {
+    if (!html || typeof html !== 'string') return '';
+    const id = (noteId || '').trim();
+    if (id) {
+      const anchors = [
+        'video_feed/' + id,
+        '/explore/' + id,
+        '/discovery/item/' + id,
+        '"noteId":"' + id + '"',
+        '"id":"' + id + '"'
+      ];
+      for (const anchor of anchors) {
+        let pos = 0;
+        while (pos < html.length) {
+          const idx = html.indexOf(anchor, pos);
+          if (idx < 0) break;
+          const u = extractVideoStreamUrlFromText(html.slice(idx, idx + 25000));
+          if (u && /^https?:\/\//i.test(u)) return u;
+          pos = idx + anchor.length;
+        }
+      }
+    }
+    const u = extractVideoStreamUrlFromText(html);
+    return u && /^https?:\/\//i.test(u) ? u : '';
+  }
+
   /** 相对链接转绝对（小红书域）。 */
   function absUrl(href) {
     if (!href) return '';
@@ -515,6 +569,8 @@
     pickVideoUrlFromNote,
     findNoteInState,
     extractVideoUrlFromState,
+    extractVideoStreamUrlFromText,
+    extractVideoUrlFromHtmlText,
     extractFieldsFromState,
     formatPublishedAt,
     parseDateText,
