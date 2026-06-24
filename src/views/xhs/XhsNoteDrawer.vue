@@ -147,6 +147,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
                 </span>
               </div>
 
+              <!-- 数据（赞/藏/评，带图标，靠右；图片与标题之间）-->
+              <div class="stats-bar">
+                <span class="stat-icon"><Heart :size="19" class="ic ic--like" /> {{ note.like_count }}</span>
+                <span class="stat-icon"><Star :size="19" class="ic ic--collect" /> {{ note.collect_count }}</span>
+                <span class="stat-icon"><MessageCircle :size="19" class="ic ic--comment" /> {{ note.comment_count }}</span>
+              </div>
+
               <!-- ② 标题（可点击跳原帖）-->
               <a
                 v-if="isHttpUrl(note.note_url)"
@@ -195,13 +202,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
                 <p v-else class="muted">暂无转写文本</p>
               </section>
 
-              <!-- ⑤ 数据（赞/藏/评，带图标，靠右）-->
-              <div class="stats-bar">
-                <span class="stat-icon"><Heart :size="16" class="ic ic--like" /> {{ note.like_count }}</span>
-                <span class="stat-icon"><Star :size="16" class="ic ic--collect" /> {{ note.collect_count }}</span>
-                <span class="stat-icon"><MessageCircle :size="16" class="ic ic--comment" /> {{ note.comment_count }}</span>
-              </div>
-
               <!-- ⑥ 标签 -->
               <div v-if="note.tags && note.tags.length" class="tags">
                 <span v-for="t in note.tags" :key="t" class="tag">#{{ t }}</span>
@@ -246,21 +246,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
     <Transition name="modal-fade">
       <div v-if="zoomOpen" class="zoom-overlay" @click.self="closeZoom">
         <button class="zoom-close" aria-label="关闭" @click="closeZoom"><X :size="24" /></button>
-        <button
-          v-if="galleryImages.length > 1"
-          class="zoom-nav zoom-nav--prev"
-          :disabled="zoomIndex === 0"
-          aria-label="上一张"
-          @click="zoomPrev"
-        ><ChevronLeft :size="30" /></button>
-        <img :src="galleryImages[zoomIndex]" alt="" class="zoom-img" referrerpolicy="no-referrer" />
-        <button
-          v-if="galleryImages.length > 1"
-          class="zoom-nav zoom-nav--next"
-          :disabled="zoomIndex === galleryImages.length - 1"
-          aria-label="下一张"
-          @click="zoomNext"
-        ><ChevronRight :size="30" /></button>
+        <div class="zoom-stage" @click.self="closeZoom">
+          <button
+            v-if="galleryImages.length > 1"
+            class="zoom-nav"
+            :disabled="zoomIndex === 0"
+            aria-label="上一张"
+            @click="zoomPrev"
+          ><ChevronLeft :size="28" /></button>
+          <img :src="galleryImages[zoomIndex]" alt="" class="zoom-img" referrerpolicy="no-referrer" />
+          <button
+            v-if="galleryImages.length > 1"
+            class="zoom-nav"
+            :disabled="zoomIndex === galleryImages.length - 1"
+            aria-label="下一张"
+            @click="zoomNext"
+          ><ChevronRight :size="28" /></button>
+        </div>
         <div v-if="galleryImages.length > 1" class="zoom-counter">{{ zoomIndex + 1 }} / {{ galleryImages.length }}</div>
       </div>
     </Transition>
@@ -393,7 +395,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
   justify-content: center;
   cursor: pointer;
   z-index: 2;
-  transition: background 0.15s;
+  opacity: 0;
+  transition: opacity 0.18s, background 0.15s;
+}
+
+.gallery:hover .gallery__nav {
+  opacity: 1;
 }
 
 .gallery__nav:hover {
@@ -415,13 +422,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 }
 
 .note-title--link {
+  color: var(--primary, #10b981);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: opacity 0.15s;
 }
 
 .note-title--link:hover {
-  color: var(--primary, #10b981);
   text-decoration: underline;
+  opacity: 0.85;
 }
 
 /* ③ 作者 */
@@ -493,17 +501,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 20px;
-  margin: 4px 0 20px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(169, 180, 185, 0.18);
+  gap: 24px;
+  margin: 0 0 14px;
 }
 
 .stat-icon {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text, #1a1d26);
 }
@@ -633,8 +639,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
   justify-content: center;
 }
 
+.zoom-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  max-width: 94vw;
+}
+
 .zoom-img {
-  max-width: 86vw;
+  max-width: 76vw;
   max-height: 86vh;
   object-fit: contain;
   border-radius: 8px;
@@ -663,11 +677,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 }
 
 .zoom-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 52px;
-  height: 52px;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
   background: rgba(255, 255, 255, 0.18);
@@ -687,9 +699,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
   opacity: 0.35;
   cursor: not-allowed;
 }
-
-.zoom-nav--prev { left: 24px; }
-.zoom-nav--next { right: 24px; }
 
 .zoom-counter {
   position: absolute;
