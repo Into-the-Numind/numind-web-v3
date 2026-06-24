@@ -103,6 +103,7 @@
           <div class="fc-desc">
             连接飞书后，agent 可代你查询/发送飞书消息、读写文档等（不计费、无功能门）。
           </div>
+          <div class="fc-hint">也可直接在 AI 助手对话里说「连接飞书」，由 agent 引导你完成。</div>
         </template>
 
         <!-- 等待外部授权完成时的轮询提示（点 CTA 在新标签打开授权页后显示） -->
@@ -360,6 +361,13 @@ onBeforeUnmount(() => {
   font-size: var(--text-xs, 13px);
   line-height: 1.6;
   color: var(--color-text-secondary, #6b7085);
+}
+
+.fc-hint {
+  margin-top: 6px;
+  font-size: var(--text-xs, 12px);
+  line-height: 1.5;
+  color: var(--color-text-muted, #9ca0ad);
 }
 
 .fc-meta {
