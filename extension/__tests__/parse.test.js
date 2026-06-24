@@ -217,3 +217,38 @@ describe('lib/parse.js — 工具函数', () => {
     expect(p.title).toBe('图文标题')
   })
 })
+
+describe('lib/parse.js — 评论回复嵌套（.parent-comment 分组）', () => {
+  it('每个 .parent-comment 首条为顶层、其余为回复', () => {
+    const box = document.createElement('div')
+    box.innerHTML = `
+      <div class="parent-comment">
+        <div class="comment-item">
+          <div class="author"><span class="name">楼主A</span></div>
+          <div class="content"><span class="note-text">顶层评论A</span></div>
+        </div>
+        <div class="comment-item">
+          <div class="author"><span class="name">回复者X</span></div>
+          <div class="content"><span class="note-text">回复A-1</span></div>
+        </div>
+        <div class="comment-item">
+          <div class="author"><span class="name">回复者Y</span></div>
+          <div class="content"><span class="note-text">回复A-2</span></div>
+        </div>
+      </div>
+      <div class="parent-comment">
+        <div class="comment-item">
+          <div class="author"><span class="name">楼主B</span></div>
+          <div class="content"><span class="note-text">顶层评论B</span></div>
+        </div>
+      </div>
+    `
+    const comments = Parse.parseComments(box, 100)
+    expect(comments.length).toBe(2)
+    expect(comments[0]).toMatchObject({ author: '楼主A', text: '顶层评论A' })
+    expect(comments[0].replies.length).toBe(2)
+    expect(comments[0].replies[0]).toMatchObject({ author: '回复者X', text: '回复A-1' })
+    expect(comments[1].author).toBe('楼主B')
+    expect(comments[1].replies.length).toBe(0)
+  })
+})

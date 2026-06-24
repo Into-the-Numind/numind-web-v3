@@ -309,22 +309,36 @@
     const maxReplies = 30;
     const out = [];
     if (!container || !container.querySelectorAll) return out;
+
+    // 小红书结构：每个回复线程是一个 .parent-comment 容器，内第 1 个 .comment-item 是顶层评论，
+    // 其余 .comment-item 是该评论默认展开的回复。
+    const threads = container.querySelectorAll('.parent-comment');
+    if (threads.length) {
+      for (const thread of threads) {
+        if (out.length >= limit) break;
+        const items = thread.querySelectorAll('.comment-item');
+        if (!items.length) continue;
+        const c = parseOneComment(items[0]);
+        if (!c.text) continue;
+        const replies = [];
+        for (let k = 1; k < items.length; k++) {
+          if (replies.length >= maxReplies) break;
+          const rc = parseOneComment(items[k]);
+          if (rc.text) replies.push(rc);
+        }
+        c.replies = replies;
+        out.push(c);
+      }
+      return out;
+    }
+
+    // 兜底：无 .parent-comment（老结构）时平铺 .comment-item，不再尝试嵌套。
     const all = container.querySelectorAll('.comment-item');
     for (const item of all) {
       if (out.length >= limit) break;
-      // 回复项（祖先里还有 .comment-item）跳过——它会作为父评论的 replies 收集。
-      if (item.parentElement && item.parentElement.closest('.comment-item')) continue;
       const c = parseOneComment(item);
       if (!c.text) continue;
-      // 该顶层评论下嵌套的回复 .comment-item。
-      const replies = [];
-      const replyEls = item.querySelectorAll('.comment-item');
-      for (const r of replyEls) {
-        if (replies.length >= maxReplies) break;
-        const rc = parseOneComment(r);
-        if (rc.text) replies.push(rc);
-      }
-      c.replies = replies;
+      c.replies = [];
       out.push(c);
     }
     return out;
