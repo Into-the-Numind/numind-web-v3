@@ -199,6 +199,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
                   查看视频 <ExternalLink :size="13" />
                 </a>
                 <p v-if="note.video_transcript" class="note-content">{{ note.video_transcript }}</p>
+                <p v-else-if="note.enrich_status === 'enriching'" class="muted">
+                  逐字稿转写中，请稍候…（视频越长越久，可稍后刷新查看）
+                </p>
+                <p v-else-if="note.enrich_status === 'insufficient_credits'" class="muted">积分不足，未转写</p>
+                <p v-else-if="note.enrich_status === 'partial'" class="muted">转写未完成（视频直链可能已失效）</p>
+                <p v-else-if="note.enrich_status === 'failed'" class="muted">转写失败</p>
+                <p v-else-if="!isHttpUrl(note.video_url)" class="muted">未采到视频直链，无法转写</p>
                 <p v-else class="muted">暂无转写文本</p>
               </section>
 
