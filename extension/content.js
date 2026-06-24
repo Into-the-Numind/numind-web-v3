@@ -380,13 +380,9 @@
   // ---------------------------------------------------------------------------
   async function init() {
     createFloatingButton();
-    const loggedIn = await readLoginState();
-    if (!loggedIn) {
-      setButtonState('disabled');
-      showToast('请先登录小红书后再采集', 4000);
-    } else {
-      setButtonState('enabled');
-    }
+    // 默认启用：小红书 CSP 会拦截注入的主世界脚本，登录预检不可靠（会把已登录用户误判为未登录）。
+    // 故不再用登录态硬门控浮标；真采不到内容时在点击采集时给明确提示（见 collectCurrentNote）。
+    setButtonState('enabled');
   }
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -401,7 +397,7 @@
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       if (floatingButton && !unauthorized) {
-        readLoginState().then((ok) => setButtonState(ok ? 'enabled' : 'disabled'));
+        setButtonState('enabled');
       }
     }
   }).observe(document, { subtree: true, childList: true });
