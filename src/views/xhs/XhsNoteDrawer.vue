@@ -1,13 +1,13 @@
 <!--
   XhsNoteDrawer — 选题库笔记详情（居中弹窗）
 
-  居中模态展示一条笔记：数据置顶 → 作者 → 图片(左右滑动+点击看大图) → 标题正文 → 标签
-  → 视频转写 → 评论(含回复) → 时间。顺序对齐小红书原版阅读习惯。
+  顺序对齐小红书阅读习惯：图片 → 标题(可点击跳原帖) → 作者(可点击跳主页) → 正文
+  → 视频转写 → 数据(赞/藏/评，带图标，靠右) → 标签 → 评论(含回复) → 时间。
   数据由父组件通过 :note 传入；loading 态由 :loading 控制。
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle } from 'lucide-vue-next'
 import { formatDateTime } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
 import ImagePreviewModal from '@/components/sales/ImagePreviewModal.vue'
@@ -83,43 +83,7 @@ function openZoom(url: string) {
 
             <!-- success 态 -->
             <div v-else class="modal__body">
-              <!-- ① 数据置顶 -->
-              <div class="stats">
-                <div class="stat"><span>赞</span><strong>{{ note.like_count }}</strong></div>
-                <div class="stat"><span>藏</span><strong>{{ note.collect_count }}</strong></div>
-                <div class="stat"><span>评</span><strong>{{ note.comment_count }}</strong></div>
-                <span class="type-badge" :class="`type-badge--${note.note_type}`">
-                  {{ note.note_type === 'video' ? '视频' : '图文' }}
-                </span>
-                <a
-                  v-if="isHttpUrl(note.note_url)"
-                  :href="note.note_url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="meta-link"
-                >
-                  查看原帖 <ExternalLink :size="13" />
-                </a>
-              </div>
-
-              <!-- ② 作者 -->
-              <div class="author-row">
-                <a
-                  v-if="isHttpUrl(note.author_link)"
-                  :href="note.author_link"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="author-row__name"
-                >
-                  {{ note.author_name || '未知作者' }}
-                  <ExternalLink :size="13" />
-                </a>
-                <span v-else class="author-row__name author-row__name--plain">
-                  {{ note.author_name || '未知作者' }}
-                </span>
-              </div>
-
-              <!-- ③ 图片：左右滑动 + 点击看大图 -->
+              <!-- ① 图片：左右滑动 + 点击看大图 -->
               <div v-if="galleryImages.length" class="gallery">
                 <button
                   v-if="galleryImages.length > 1"
@@ -150,8 +114,36 @@ function openZoom(url: string) {
                 </button>
               </div>
 
-              <!-- ④ 标题 + 正文 -->
-              <h3 class="note-title">{{ note.title || '（无标题）' }}</h3>
+              <!-- ② 标题（可点击跳原帖）-->
+              <a
+                v-if="isHttpUrl(note.note_url)"
+                :href="note.note_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="note-title note-title--link"
+              >
+                {{ note.title || '（无标题）' }}
+              </a>
+              <h3 v-else class="note-title">{{ note.title || '（无标题）' }}</h3>
+
+              <!-- ③ 作者（可点击跳主页）-->
+              <div class="author-row">
+                <a
+                  v-if="isHttpUrl(note.author_link)"
+                  :href="note.author_link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="author-row__name"
+                >
+                  {{ note.author_name || '未知作者' }}
+                  <ExternalLink :size="13" />
+                </a>
+                <span v-else class="author-row__name author-row__name--plain">
+                  {{ note.author_name || '未知作者' }}
+                </span>
+              </div>
+
+              <!-- ④ 正文 -->
               <p v-if="note.content" class="note-content">{{ note.content }}</p>
 
               <!-- 视频转写（视频笔记）-->
@@ -170,12 +162,19 @@ function openZoom(url: string) {
                 <p v-else class="muted">暂无转写文本</p>
               </section>
 
-              <!-- ⑤ 标签 -->
+              <!-- ⑤ 数据（赞/藏/评，带图标，靠右）-->
+              <div class="stats-bar">
+                <span class="stat-icon"><Heart :size="16" class="ic ic--like" /> {{ note.like_count }}</span>
+                <span class="stat-icon"><Star :size="16" class="ic ic--collect" /> {{ note.collect_count }}</span>
+                <span class="stat-icon"><MessageCircle :size="16" class="ic ic--comment" /> {{ note.comment_count }}</span>
+              </div>
+
+              <!-- ⑥ 标签 -->
               <div v-if="note.tags && note.tags.length" class="tags">
                 <span v-for="t in note.tags" :key="t" class="tag">#{{ t }}</span>
               </div>
 
-              <!-- ⑥ 评论（含回复）-->
+              <!-- ⑦ 评论（含回复）-->
               <section v-if="note.comments && note.comments.length" class="block">
                 <h4 class="block__title">评论（{{ note.comments.length }}）</h4>
                 <ul class="comments">
@@ -200,7 +199,7 @@ function openZoom(url: string) {
                 </ul>
               </section>
 
-              <!-- ⑦ 时间 -->
+              <!-- ⑧ 时间 -->
               <div class="timestamps">
                 <div><span>发布时间</span>{{ formatDateTime(note.published_at) }}</div>
                 <div><span>采集时间</span>{{ formatDateTime(note.collected_at) }}</div>
@@ -299,95 +298,10 @@ function openZoom(url: string) {
   100% { background-position: -200% 0; }
 }
 
-/* ① 数据置顶 */
-.stats {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.stat {
-  background: #f6f7f9;
-  border-radius: 10px;
-  padding: 8px 16px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 64px;
-}
-
-.stat span {
-  font-size: 12px;
-  color: var(--text-muted, #6b7085);
-}
-
-.stat strong {
-  font-size: 17px;
-  color: var(--text, #1a1d26);
-}
-
-.type-badge {
-  display: inline-block;
-  white-space: nowrap;
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-}
-
-.type-badge--video {
-  background: #ede9fe;
-  color: #6d28d9;
-}
-
-.type-badge--normal {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.meta-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--primary, #10b981);
-  text-decoration: none;
-}
-
-.meta-link:hover {
-  text-decoration: underline;
-}
-
-/* ② 作者 */
-.author-row {
-  margin-bottom: 16px;
-}
-
-.author-row__name {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--primary, #10b981);
-  text-decoration: none;
-}
-
-.author-row__name:hover {
-  text-decoration: underline;
-}
-
-.author-row__name--plain {
-  color: var(--text, #1a1d26);
-}
-
-/* ③ 图片轮播 */
+/* ① 图片轮播 */
 .gallery {
   position: relative;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .gallery__strip {
@@ -436,17 +350,53 @@ function openZoom(url: string) {
 .gallery__nav--prev { left: 8px; }
 .gallery__nav--next { right: 8px; }
 
-/* ④ 标题正文 */
+/* ② 标题 */
 .note-title {
-  margin: 0 0 10px;
+  display: block;
+  margin: 0 0 8px;
   font-size: 18px;
   font-weight: 700;
   line-height: 1.4;
   color: var(--text, #1a1d26);
+  text-decoration: none;
 }
 
+.note-title--link {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.note-title--link:hover {
+  color: var(--primary, #10b981);
+  text-decoration: underline;
+}
+
+/* ③ 作者 */
+.author-row {
+  margin-bottom: 14px;
+}
+
+.author-row__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary, #10b981);
+  text-decoration: none;
+}
+
+.author-row__name:hover {
+  text-decoration: underline;
+}
+
+.author-row__name--plain {
+  color: var(--text, #1a1d26);
+}
+
+/* ④ 正文 */
 .note-content {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   font-size: 14px;
   line-height: 1.7;
   color: var(--text, #1a1d26);
@@ -466,13 +416,64 @@ function openZoom(url: string) {
   letter-spacing: 0.05em;
 }
 
+.meta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--primary, #10b981);
+  text-decoration: none;
+}
+
+.meta-link:hover {
+  text-decoration: underline;
+}
+
 .muted {
   font-size: 13px;
   color: var(--text-muted, #9ea1b1);
   margin: 0;
 }
 
-/* ⑤ 标签 */
+/* ⑤ 数据条（图标 + 数字，靠右）*/
+.stats-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 20px;
+  margin: 4px 0 20px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(169, 180, 185, 0.18);
+}
+
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #1a1d26);
+}
+
+.ic {
+  flex-shrink: 0;
+}
+
+.ic--like {
+  color: #ff2442;
+  fill: #ff2442;
+}
+
+.ic--collect {
+  color: #f5a623;
+  fill: #f5a623;
+}
+
+.ic--comment {
+  color: #8b93a7;
+}
+
+/* ⑥ 标签 */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -488,7 +489,7 @@ function openZoom(url: string) {
   color: #4b5563;
 }
 
-/* ⑥ 评论 */
+/* ⑦ 评论 */
 .comments {
   list-style: none;
   margin: 0;
@@ -538,7 +539,7 @@ function openZoom(url: string) {
   color: var(--text-secondary, #4b5563);
 }
 
-/* ⑦ 时间 */
+/* ⑧ 时间 */
 .timestamps {
   display: flex;
   flex-direction: column;
