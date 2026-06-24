@@ -6,11 +6,10 @@
   数据由父组件通过 :note 传入；loading 态由 :loading 控制。
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle } from 'lucide-vue-next'
 import { formatDateTime } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
-import ImagePreviewModal from '@/components/sales/ImagePreviewModal.vue'
 
 function isHttpUrl(u?: string): boolean {
   return !!u && (u.startsWith('https://') || u.startsWith('http://'))
@@ -42,20 +41,51 @@ const galleryImages = computed<string[]>(() => {
   return n.cover_url ? [n.cover_url] : []
 })
 
-// 左右滑动
+// 左右滑动 + 当前页指示
 const strip = ref<HTMLElement | null>(null)
+const currentPage = ref(0)
 function scrollStrip(dir: number) {
   const el = strip.value
-  if (el) el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.85, 240), behavior: 'smooth' })
+  if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: 'smooth' })
+}
+function onStripScroll() {
+  const el = strip.value
+  if (el && el.clientWidth) currentPage.value = Math.round(el.scrollLeft / el.clientWidth)
 }
 
-// 点击看大图
+// 看大图：支持左右翻页 + 键盘 ←/→/Esc
 const zoomOpen = ref(false)
-const zoomUrl = ref('')
-function openZoom(url: string) {
-  zoomUrl.value = url
+const zoomIndex = ref(0)
+function openZoom(i: number) {
+  zoomIndex.value = i
   zoomOpen.value = true
 }
+function closeZoom() {
+  zoomOpen.value = false
+}
+function zoomPrev() {
+  if (zoomIndex.value > 0) zoomIndex.value--
+}
+function zoomNext() {
+  if (zoomIndex.value < galleryImages.value.length - 1) zoomIndex.value++
+}
+function onZoomKey(e: KeyboardEvent) {
+  if (!zoomOpen.value) return
+  if (e.key === 'ArrowLeft') zoomPrev()
+  else if (e.key === 'ArrowRight') zoomNext()
+  else if (e.key === 'Escape') closeZoom()
+}
+watch(zoomOpen, (open) => {
+  if (open) window.addEventListener('keydown', onZoomKey)
+  else window.removeEventListener('keydown', onZoomKey)
+})
+watch(
+  () => props.note,
+  () => {
+    currentPage.value = 0
+  }
+)
+onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 </script>
 
 <template>
@@ -93,7 +123,7 @@ function openZoom(url: string) {
                 >
                   <ChevronLeft :size="20" />
                 </button>
-                <div ref="strip" class="gallery__strip">
+                <div ref="strip" class="gallery__strip" @scroll="onStripScroll">
                   <img
                     v-for="(img, gi) in galleryImages"
                     :key="gi"
@@ -101,7 +131,7 @@ function openZoom(url: string) {
                     :alt="note.title"
                     class="gallery__img"
                     referrerpolicy="no-referrer"
-                    @click="openZoom(img)"
+                    @click="openZoom(gi)"
                   />
                 </div>
                 <button
@@ -112,6 +142,9 @@ function openZoom(url: string) {
                 >
                   <ChevronRight :size="20" />
                 </button>
+                <span v-if="galleryImages.length > 1" class="gallery__counter">
+                  {{ currentPage + 1 }} / {{ galleryImages.length }}
+                </span>
               </div>
 
               <!-- ② 标题（可点击跳原帖）-->
@@ -210,7 +243,27 @@ function openZoom(url: string) {
       </div>
     </Transition>
 
-    <ImagePreviewModal :open="zoomOpen" :image-url="zoomUrl" @close="zoomOpen = false" />
+    <Transition name="modal-fade">
+      <div v-if="zoomOpen" class="zoom-overlay" @click.self="closeZoom">
+        <button class="zoom-close" aria-label="关闭" @click="closeZoom"><X :size="24" /></button>
+        <button
+          v-if="galleryImages.length > 1"
+          class="zoom-nav zoom-nav--prev"
+          :disabled="zoomIndex === 0"
+          aria-label="上一张"
+          @click="zoomPrev"
+        ><ChevronLeft :size="30" /></button>
+        <img :src="galleryImages[zoomIndex]" alt="" class="zoom-img" referrerpolicy="no-referrer" />
+        <button
+          v-if="galleryImages.length > 1"
+          class="zoom-nav zoom-nav--next"
+          :disabled="zoomIndex === galleryImages.length - 1"
+          aria-label="下一张"
+          @click="zoomNext"
+        ><ChevronRight :size="30" /></button>
+        <div v-if="galleryImages.length > 1" class="zoom-counter">{{ zoomIndex + 1 }} / {{ galleryImages.length }}</div>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -552,6 +605,103 @@ function openZoom(url: string) {
   display: inline-block;
   width: 80px;
   color: var(--text-muted, #6b7085);
+}
+
+
+.gallery__counter {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  z-index: 2;
+}
+
+/* 看大图浮层（支持翻页）*/
+.zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zoom-img {
+  max-width: 86vw;
+  max-height: 86vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.zoom-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.zoom-close:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.zoom-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.zoom-nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.zoom-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.zoom-nav--prev { left: 24px; }
+.zoom-nav--next { right: 24px; }
+
+.zoom-counter {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 999px;
 }
 
 /* transitions */
