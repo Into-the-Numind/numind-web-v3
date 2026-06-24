@@ -7,7 +7,7 @@
 -->
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
-import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle } from 'lucide-vue-next'
+import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle, Play } from 'lucide-vue-next'
 import { formatDateTime } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
 
@@ -145,6 +145,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
                 <span v-if="galleryImages.length > 1" class="gallery__counter">
                   {{ currentPage + 1 }} / {{ galleryImages.length }}
                 </span>
+                <a
+                  v-if="note.note_type === 'video' && isHttpUrl(note.video_url)"
+                  :href="note.video_url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="gallery__play"
+                  title="在新标签播放视频"
+                  @click.stop
+                >
+                  <Play :size="30" fill="#fff" />
+                  <span>查看视频</span>
+                </a>
               </div>
 
               <!-- 数据（赞/藏/评，带图标，靠右；图片与标题之间）-->
@@ -189,15 +201,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
               <!-- 视频转写（视频笔记）-->
               <section v-if="note.note_type === 'video'" class="block">
                 <h4 class="block__title">视频转写</h4>
-                <a
-                  v-if="isHttpUrl(note.video_url)"
-                  :href="note.video_url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="meta-link"
-                >
-                  查看视频 <ExternalLink :size="13" />
-                </a>
                 <p v-if="note.video_transcript" class="note-content">{{ note.video_transcript }}</p>
                 <p v-else-if="note.enrich_status === 'enriching'" class="muted">
                   逐字稿转写中，请稍候…（视频越长越久，可稍后刷新查看）
@@ -412,6 +415,29 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 
 .gallery__nav:hover {
   background: rgba(0, 0, 0, 0.65);
+}
+
+.gallery__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  z-index: 3;
+  transition: background 0.15s;
+}
+
+.gallery__play:hover {
+  background: rgba(0, 0, 0, 0.78);
 }
 
 .gallery__nav--prev { left: 8px; }
