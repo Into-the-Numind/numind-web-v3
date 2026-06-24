@@ -41,6 +41,7 @@ export interface NoteItem {
   content: string
   tags: string[]
   cover_url: string
+  images?: string[]
   note_url: string
   published_at: string
   // 视频专属

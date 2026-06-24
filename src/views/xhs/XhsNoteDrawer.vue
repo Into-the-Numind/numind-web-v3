@@ -59,13 +59,19 @@ function close() {
 
             <!-- success 态 -->
             <div v-else class="drawer__body">
-              <!-- 封面 -->
-              <img
-                v-if="note.cover_url"
-                :src="note.cover_url"
-                :alt="note.title"
-                class="drawer__cover"
-              />
+              <!-- 图片（全部，非仅封面）-->
+              <div
+                v-if="(note.images && note.images.length) || note.cover_url"
+                class="drawer__gallery"
+              >
+                <img
+                  v-for="(img, gi) in (note.images && note.images.length ? note.images : [note.cover_url])"
+                  :key="gi"
+                  :src="img"
+                  :alt="note.title"
+                  class="drawer__cover"
+                />
+              </div>
 
               <h3 class="note-title">{{ note.title || '（无标题）' }}</h3>
 
@@ -154,14 +160,12 @@ function close() {
                   <li v-for="(c, i) in note.comments" :key="`${c.author}-${i}`" class="comment">
                     <div class="comment__head">
                       <span class="comment__author">{{ c.author }}</span>
-                      <span class="comment__likes">赞 {{ c.likes }}</span>
                     </div>
                     <p class="comment__text">{{ c.text }}</p>
                     <ul v-if="c.replies && c.replies.length" class="comment-replies">
                       <li v-for="(r, j) in c.replies" :key="`r-${i}-${j}`" class="comment comment--reply">
                         <div class="comment__head">
                           <span class="comment__author">{{ r.author }}</span>
-                          <span class="comment__likes">赞 {{ r.likes }}</span>
                         </div>
                         <p class="comment__text">{{ r.text }}</p>
                       </li>
@@ -174,7 +178,6 @@ function close() {
               <section class="block timestamps">
                 <div><span>发布时间</span>{{ formatDateTime(note.published_at) }}</div>
                 <div><span>采集时间</span>{{ formatDateTime(note.collected_at) }}</div>
-                <div><span>抓取时间</span>{{ formatDateTime(note.crawled_at) }}</div>
               </section>
             </div>
           </aside>
@@ -268,6 +271,11 @@ function close() {
   }
 }
 
+.drawer__gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .drawer__cover {
   width: 100%;
   max-height: 280px;

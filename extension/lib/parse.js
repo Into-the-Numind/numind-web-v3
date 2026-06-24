@@ -341,6 +341,14 @@
    * @param {Date}    [opts.now]    用于相对日期解析（测试可注入）
    * @returns {Object} NotePayload
    */
+  /** 相对链接转绝对（小红书域）。 */
+  function absUrl(href) {
+    if (!href) return '';
+    if (href.indexOf('//') === 0) return 'https:' + href;
+    if (href.indexOf('/') === 0) return 'https://www.xiaohongshu.com' + href;
+    return href;
+  }
+
   function parseNoteDetail(opts) {
     const o = opts || {};
     const container = o.container || null;
@@ -356,6 +364,7 @@
     let domAuthorName = '';
     let domAuthorLink = '';
     let domCover = '';
+    let domImages = [];
     let domLikes = 0;
     let domCollects = 0;
     let domComments = 0;
@@ -380,9 +389,13 @@
         txt(container.querySelector('.author-wrapper .username')) ||
         txt(container.querySelector('.username')) ||
         txt(container.querySelector('.user-nickname'));
-      domAuthorLink =
-        attr(container.querySelector('.author-wrapper .name'), 'href') ||
-        attr(container.querySelector('a.name'), 'href');
+      domAuthorLink = absUrl(
+        attr(container.querySelector('.author-wrapper a.author'), 'href') ||
+          attr(container.querySelector('.author-container a'), 'href') ||
+          attr(container.querySelector('.author-wrapper a'), 'href') ||
+          attr(container.querySelector('.author-wrapper .name'), 'href') ||
+          attr(container.querySelector('a.name'), 'href')
+      );
 
       domCover = resolveImgUrl(
         container.querySelector('.swiper-slide[data-index="0"] img') ||
@@ -391,6 +404,21 @@
           container.querySelector('.cover img') ||
           container.querySelector('img')
       );
+
+      // 采集全部图片（不止封面）：去重保序。
+      {
+        const imgEls = container.querySelectorAll(
+          '.swiper-slide img, .swiper-wrapper img, .note-slider-img img, .media-container img'
+        );
+        const seen = {};
+        for (const im of imgEls) {
+          const u = resolveImgUrl(im);
+          if (u && !seen[u]) {
+            seen[u] = 1;
+            domImages.push(u);
+          }
+        }
+      }
 
       domLikes = parseCount(txt(container.querySelector('.interact-container .like-wrapper .count')));
       domCollects = parseCount(txt(container.querySelector('.collect-wrapper .count')));
@@ -419,6 +447,7 @@
       content: domContent || sf.content || '',
       tags: domTags && domTags.length ? domTags : (sf.tags || []),
       cover_url: domCover || sf.cover_url || '',
+      images: domImages.length ? domImages : (domCover ? [domCover] : []),
       note_url: url || '',
       published_at: domPublishedAt || sf.published_at || '',
       video_url: videoUrl || '',
