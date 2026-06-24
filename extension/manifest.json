@@ -20,6 +20,11 @@
       "matches": ["*://*.xiaohongshu.com/*"],
       "js": ["lib/parse.js", "content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/*"],
+      "js": ["connect-bridge.js"],
+      "run_at": "document_idle"
     }
   ],
   "externally_connectable": {

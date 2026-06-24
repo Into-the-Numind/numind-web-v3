@@ -6,7 +6,7 @@
  */
 
 // 上线前替换为真实有数选题库地址。
-const YOUSHU_LIBRARY_URL = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/topics';
+const YOUSHU_LIBRARY_URL = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/xhs';
 
 const els = {
   authStatus: document.getElementById('auth-status'),

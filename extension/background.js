@@ -161,6 +161,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // 授权页桥接(connect-bridge.js content script)转发来的 token。
+  if (message.type === 'YOUSHU_SET_TOKEN' && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
+    setToken(message.token).then(() => sendResponse({ success: true }));
+    return true;
+  }
+
   return false;
 });
 
