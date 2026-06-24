@@ -22,17 +22,20 @@ import {
 
 export const useFeishuStore = defineStore('feishu', () => {
   // ==================== State ====================
-  /** 连接状态：none（未连）/ active（已连）/ expired（过期需重连）。 */
+  /**
+   * 连接状态：none（未连）/ connected（已连）。device-code 契约下不再有
+   * active/expired —— 可靠判定看 `isConnected` 布尔字段（getter `connected`）。
+   */
   const status = ref<FeishuConnectionStatus>('none')
-  /** 已授权 scope 列表（未连时为空）。 */
-  const scopes = ref<string[]>([])
-  /** 已建飞书自建应用 ID（未连时为空串）。 */
+  /** 后端 connected 布尔（已连且授权有效时为 true）—— 连接与否的可靠来源。 */
+  const isConnected = ref(false)
+  /** 已建飞书自建应用 ID（未连/未建时为空串）。 */
   const appId = ref('')
 
   /** 加载状态标志（每个 async surface 一个）。 */
   // fetchStatus 进行中（首屏 / 刷新连接状态）。
   const loading = ref(false)
-  // connect 进行中（发起连接，取授权/建应用 URL）。
+  // connect 进行中（发起/推进连接，取建应用/授权 URL）。
   const connecting = ref(false)
   // disconnect 进行中（解绑）。
   const disconnecting = ref(false)
@@ -41,12 +44,10 @@ export const useFeishuStore = defineStore('feishu', () => {
   const error = ref('')
 
   // ==================== Getters ====================
-  /** 是否已连接（active）。 */
-  const connected = computed(() => status.value === 'active')
-  /** 是否过期（需重连）。 */
-  const expired = computed(() => status.value === 'expired')
+  /** 是否已连接（看后端 connected 布尔，device-code 下不再依赖 status 字符串）。 */
+  const connected = computed(() => isConnected.value)
   /** 是否未连接（empty 状态 + CTA「连接飞书」）。 */
-  const notConnected = computed(() => status.value === 'none')
+  const notConnected = computed(() => !isConnected.value)
 
   // ==================== Actions ====================
 
@@ -60,8 +61,7 @@ export const useFeishuStore = defineStore('feishu', () => {
     try {
       const res = await getFeishuStatus()
       status.value = res.status
-      // 后端 scopes 可能为 null（未连），兜底为空数组保持类型稳定。
-      scopes.value = res.scopes ?? []
+      isConnected.value = !!res.connected
       appId.value = res.app_id ?? ''
     } catch (e) {
       error.value = e instanceof Error ? e.message : '获取飞书连接状态失败'
@@ -100,7 +100,7 @@ export const useFeishuStore = defineStore('feishu', () => {
       await disconnectFeishu()
       // 本地立即复位为未连接（避免解绑后短暂仍显示已连）。
       status.value = 'none'
-      scopes.value = []
+      isConnected.value = false
       appId.value = ''
     } catch (e) {
       error.value = e instanceof Error ? e.message : '解绑飞书失败'
@@ -114,7 +114,7 @@ export const useFeishuStore = defineStore('feishu', () => {
   return {
     // State
     status,
-    scopes,
+    isConnected,
     appId,
     loading,
     connecting,
@@ -123,7 +123,6 @@ export const useFeishuStore = defineStore('feishu', () => {
 
     // Getters
     connected,
-    expired,
     notConnected,
 
     // Actions
