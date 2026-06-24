@@ -21,7 +21,7 @@ function onOverlayClick(e: MouseEvent) {
   <Teleport to="body">
     <div v-if="props.open" class="image-preview-modal open" @click="onOverlayClick">
       <div class="image-preview-content">
-        <img :src="props.imageUrl" alt="图片预览" />
+        <img :src="props.imageUrl" alt="图片预览" referrerpolicy="no-referrer" />
         <button class="image-preview-close" aria-label="关闭预览" @click="emit('close')">
           <X :size="22" />
         </button>

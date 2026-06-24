@@ -333,6 +333,7 @@ function partialTooltip(row: NoteItem): string {
             :src="(row as NoteItem).cover_url"
             class="cover-thumb"
             alt=""
+            referrerpolicy="no-referrer"
           />
           <span v-else class="cover-thumb cover-thumb--empty" />
         </template>

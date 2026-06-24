@@ -136,6 +136,7 @@ function openZoom(url: string) {
                     :src="img"
                     :alt="note.title"
                     class="gallery__img"
+                    referrerpolicy="no-referrer"
                     @click="openZoom(img)"
                   />
                 </div>
