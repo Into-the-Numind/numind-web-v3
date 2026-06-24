@@ -39,7 +39,9 @@ const props = withDefaults(defineProps<Props>(), { readOnly: false, continued: f
 // Bubble QuestionPrompt's answer-submitted up to AgentChatView (via
 // AgentMessageList) so it can resume the run. Carries the answered question's
 // run_id + the answers map so the view can stream the resumed leg (issue4).
-defineEmits<{ 'answer-submitted': [runId: number, answers: Record<string, AnswerItemPayload>] }>()
+const emit = defineEmits<{
+  'answer-submitted': [runId: number, answers: Record<string, AnswerItemPayload>]
+}>()
 
 const copied = ref(false)
 
@@ -116,6 +118,25 @@ const asAuthPrompt = computed<QuestionPromptMessage | null>(() =>
     ? (props.msg as QuestionPromptMessage)
     : null
 )
+
+// feishu-resume-button: the auth card's "我已完成，继续" resumes the run through
+// the SAME pipeline as an ask_user_question answer. The backend's biz.Answer
+// validates the answer map's key against this pause's recorded question text
+// (answer.go: asked[qText]); a mismatch fails with "question was not asked". So
+// the key MUST be the auth pause's own question text — Questions[0].Question,
+// the same value the card shows as its `prompt` lead-in. We build it HERE (the
+// only place that holds both the run_id and the question) and reuse the existing
+// answer-submitted channel → AgentChatView.handleAnswerSubmitted → startResume.
+const handleAuthContinue = (): void => {
+  const auth = asAuthPrompt.value
+  if (!auth) return
+  const questionText = auth.questions?.[0]?.question
+  if (!questionText) return // no recorded key → cannot match backend; do nothing
+  const answers: Record<string, AnswerItemPayload> = {
+    [questionText]: { selected: [], free_text: '已完成' }
+  }
+  emit('answer-submitted', auth.run_id, answers)
+}
 
 // 问题三: while the streaming assistant bubble sits token-silent (the LLM is composing
 // a tool call's args / file content), the bare blinking caret reads as frozen. A 1s
@@ -427,9 +448,11 @@ const systemText = computed<string>(() => {
     </div>
   </div>
 
-  <!-- Auth prompt (pause_type === 'auth') — feishu-integration T13. Resolved
-       externally (browser authorize → OAuth callback resumes server-side), so
-       it emits nothing; the parent view keeps status polling alive. -->
+  <!-- Auth prompt (pause_type === 'auth') — feishu-integration T13. The user
+       completes the step in their browser, then clicks "我已完成，继续"; the
+       device-code grant has no server callback, so that click (feishu-resume-button)
+       resumes the run via handleAuthContinue → answer-submitted → startResume,
+       keyed by this pause's question text. -->
   <div v-else-if="asAuthPrompt" class="msg msg-question-prompt">
     <span class="avatar">
       <svg
@@ -453,6 +476,7 @@ const systemText = computed<string>(() => {
         :auth-url="asAuthPrompt.auth_url"
         :prompt="asAuthPrompt.questions?.[0]?.question"
         :answered="asAuthPrompt.answer_status === 'answered'"
+        @continue="handleAuthContinue"
       />
     </div>
   </div>

@@ -1,14 +1,15 @@
 /**
- * AgentAuthPrompt.spec.ts — unit tests for the auth-pause card (feishu-integration T13).
+ * AgentAuthPrompt.spec.ts — unit tests for the auth-pause card (feishu-integration
+ * T13; feishu-resume-button adds the in-app resume trigger).
  *
- * Covers the card's own 4-state lifecycle + the load-bearing contract that an
- * auth pause is resolved EXTERNALLY (the card emits nothing — resume is the
- * server-side OAuth callback, not an in-app submit):
- *   - pending (has url) → renders QR + copyable URL + 去授权 CTA + auto-continue hint
+ * Covers the card's own lifecycle + the load-bearing contract that the device-code
+ * flow has NO server callback, so the user resumes the run by clicking "我已完成，
+ * 继续" (the card emits a key-less `continue`; the parent builds the resume key):
+ *   - pending (has url) → renders QR + copyable URL + 打开链接 CTA + 我已完成，继续
  *   - copy → copyText util called with the auth_url; ✓ feedback flips
  *   - error (no url)    → quiet re-trigger note, NO dead CTA
- *   - answered          → calm "已授权，正在继续…" recap, no controls
- *   - emits nothing ever (no answer-submitted) — distinguishes it from QuestionPrompt
+ *   - answered          → calm "已完成，正在继续…" recap, no controls
+ *   - continue          → emits `continue` once; locks the button (no double submit)
  *
  * qrcode is mocked (async toDataURL otherwise races jsdom microtasks).
  * copyText is mocked to assert the call + isolate clipboard/secure-context.
@@ -64,8 +65,11 @@ describe('AgentAuthPrompt — pending (has url)', () => {
     expect(qr.exists()).toBe(true)
     expect(qr.attributes('src')).toBe('data:image/png;base64,stub')
 
-    // "auto-continue, no need to come back" hint (the loading signal)
-    expect(wrapper.text()).toContain('完成后会自动继续')
+    // "我已完成，继续" resume trigger + its lead-in hint (device-code has no callback)
+    const cont = wrapper.find('.auth-prompt__continue')
+    expect(cont.exists()).toBe(true)
+    expect(cont.text()).toContain('我已完成，继续')
+    expect(wrapper.text()).toContain('在浏览器完成后')
   })
 
   it('shows the prompt lead-in text when provided', async () => {
@@ -150,16 +154,45 @@ describe('AgentAuthPrompt — answered (resumed)', () => {
     // no actionable controls in the answered state
     expect(wrapper.find('.auth-prompt__cta').exists()).toBe(false)
     expect(wrapper.find('.auth-prompt__copy').exists()).toBe(false)
+    expect(wrapper.find('.auth-prompt__continue').exists()).toBe(false)
   })
 })
 
-describe('AgentAuthPrompt — contract', () => {
-  it('never emits answer-submitted (resume is external/server-driven, not in-app)', async () => {
+describe('AgentAuthPrompt — continue (resume trigger)', () => {
+  it('emits a key-less `continue` when the user clicks 我已完成，继续', async () => {
+    const wrapper = mountCard()
+    await flushPromises()
+
+    await wrapper.find('.auth-prompt__continue').trigger('click')
+    await flushPromises()
+
+    // key-less event — the parent owns the resume key (this pause's question text)
+    expect(wrapper.emitted('continue')).toHaveLength(1)
+    expect(wrapper.emitted('continue')![0]).toEqual([])
+  })
+
+  it('locks the button after one click (no double submit) and shows "正在继续…"', async () => {
+    const wrapper = mountCard()
+    await flushPromises()
+
+    const btn = wrapper.find('.auth-prompt__continue')
+    await btn.trigger('click')
+    await flushPromises()
+
+    // disabled + recap copy, and a second click does not re-emit
+    expect(btn.attributes('disabled')).toBeDefined()
+    expect(btn.text()).toContain('已完成，正在继续')
+    await btn.trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('continue')).toHaveLength(1)
+  })
+
+  it('does not emit `continue` from copy or open-link (only the explicit button)', async () => {
     const wrapper = mountCard()
     await flushPromises()
     await wrapper.find('.auth-prompt__copy').trigger('click')
     await wrapper.find('.auth-prompt__cta').trigger('click')
     await flushPromises()
-    expect(wrapper.emitted('answer-submitted')).toBeUndefined()
+    expect(wrapper.emitted('continue')).toBeUndefined()
   })
 })
