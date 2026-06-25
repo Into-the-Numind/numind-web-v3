@@ -328,7 +328,7 @@ describe('lib/parse.js — parseDateText 相对时间', () => {
   it('仍支持 昨天 / N天前 / MM-DD / 全日期', () => {
     expect(Parse.parseDateText('昨天 21:13', now)).toBe('2026-06-24 21:13:00')
     expect(Parse.parseDateText('编辑于 06-08', now)).toBe('2026-06-08')
-    expect(Parse.parseDateText('2026-06-19 08:00', now)).toBe('2026-06-19')
+    expect(Parse.parseDateText('2026-06-19 08:00', now)).toBe('2026-06-19 08:00:00')
   })
 })
 
