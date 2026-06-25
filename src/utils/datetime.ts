@@ -75,3 +75,30 @@ export function formatDateTime(iso: string | null | undefined): string {
   if (isNaN(d.getTime())) return '—'
   return toDateTimeString(d)
 }
+
+/**
+ * 小红书发布时间显示:固定按上海时区(内容来源地)格式化,避免按浏览器时区转换出现时差。
+ * 上海午夜(00:00:00)视为"仅日期粒度"(小红书纯日期笔记),只显示日期不显示误导性时间。
+ */
+export function formatXhsPublishAt(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(d)
+  const get = (t: string) => parts.find((x) => x.type === t)?.value || ''
+  const date = `${get('year')}-${get('month')}-${get('day')}`
+  const hh = get('hour')
+  const mm = get('minute')
+  const ss = get('second')
+  if (hh === '00' && mm === '00' && ss === '00') return date
+  return `${date} ${hh}:${mm}`
+}

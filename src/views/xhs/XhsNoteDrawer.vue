@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { X, ExternalLink, ChevronLeft, ChevronRight, Heart, Star, MessageCircle } from 'lucide-vue-next'
-import { formatDateTime } from '@/utils/datetime'
+import { formatDateTime, formatXhsPublishAt } from '@/utils/datetime'
 import type { NoteItem } from '@/api/xhs'
 
 function isHttpUrl(u?: string): boolean {
@@ -249,7 +249,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
 
               <!-- ⑧ 时间 -->
               <div class="timestamps">
-                <div><span>发布时间</span>{{ formatDateTime(note.published_at) }}</div>
+                <div><span>发布时间</span>{{ formatXhsPublishAt(note.published_at) }}</div>
                 <div><span>采集时间</span>{{ formatDateTime(note.collected_at) }}</div>
               </div>
             </div>

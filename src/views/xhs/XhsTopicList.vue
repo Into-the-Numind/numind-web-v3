@@ -22,7 +22,7 @@ import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import XhsNoteDrawer from './XhsNoteDrawer.vue'
-import { formatDateTime } from '@/utils/datetime'
+import { formatDateTime, formatXhsPublishAt } from '@/utils/datetime'
 import type { NoteItem, NoteType, EnrichStatus, NoteSort, ListNotesParams } from '@/api/xhs'
 
 const router = useRouter()
@@ -358,7 +358,7 @@ function partialTooltip(row: NoteItem): string {
         </template>
 
         <template #cell-published_at="{ row }">
-          {{ formatDateTime((row as NoteItem).published_at) }}
+          {{ formatXhsPublishAt((row as NoteItem).published_at) }}
         </template>
 
         <!-- enrich_status 行级 UI -->
