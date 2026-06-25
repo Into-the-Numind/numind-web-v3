@@ -270,3 +270,25 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
     expect(Parse.extractVideoUrlFromHtmlText(blobHtml, '')).toBe('')
   })
 })
+
+describe('lib/parse.js — 图文笔记不被误判为视频(回归)', () => {
+  it('无 video DOM + 传入杂散 master_url → 仍判 normal、不塞 video_url', () => {
+    const wrap = document.createElement('div')
+    wrap.innerHTML = `
+      <div class="note-detail-container">
+        <div class="title">图文笔记标题</div>
+        <div class="note-content"><span class="note-text"><span>正文</span></span></div>
+        <div class="swiper-slide" data-index="0"><img src="https://x.com/cover.jpg"></div>
+      </div>`
+    const container = wrap.querySelector('.note-detail-container')
+    // 模拟 content.js 因页面混入其它笔记/推荐视频而扫到的杂散直链
+    const payload = Parse.parseNoteDetail({
+      container,
+      state: null,
+      url: 'https://www.xiaohongshu.com/explore/imgnote123?xsec_token=t',
+      videoUrl: 'https://sns-video.xhscdn.com/stream/other_note_master.mp4?sign=stray'
+    })
+    expect(payload.note_type).toBe('normal')
+    expect(payload.video_url).toBe('')
+  })
+})

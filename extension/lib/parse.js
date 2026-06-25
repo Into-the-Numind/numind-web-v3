@@ -388,6 +388,7 @@
     const id = (noteId || '').trim();
     if (id) {
       const anchors = [
+        '"' + id + '":', // noteDetailMap 以 noteId 为 key —— 最精准锚点
         'video_feed/' + id,
         '/explore/' + id,
         '/discovery/item/' + id,
@@ -404,6 +405,7 @@
           pos = idx + anchor.length;
         }
       }
+      return ''; // 有 noteId 但其片段内无视频 → 图文笔记，绝不回落整页(否则抓到别的笔记的视频)
     }
     const u = extractVideoStreamUrlFromText(html);
     return u && /^https?:\/\//i.test(u) ? u : '';
@@ -501,12 +503,16 @@
     const sf = extractFieldsFromState(state, noteId);
 
     const stateVideo = extractVideoUrlFromState(state, noteId);
+    // note_type 由 DOM(<video>/xgplayer)或 state 决定，绝不由"扫到的 master_url"决定——
+    // 图文笔记页面里常混着其它笔记/推荐视频的 master_url，否则会把图文误判成视频。
+    const isVideo = videoDom || sf.note_type === 'video';
+    const noteType = isVideo ? 'video' : 'normal';
+    // 视频直链只在确认是视频笔记时才采用（图文笔记一律不塞 video_url）。
     let videoUrl = '';
-    if (isDirectStreamUrl(o.videoUrl)) videoUrl = o.videoUrl;
-    else if (isDirectStreamUrl(stateVideo)) videoUrl = stateVideo;
-
-    const noteType =
-      (videoUrl || videoDom || sf.note_type === 'video') ? 'video' : (sf.note_type || 'normal');
+    if (isVideo) {
+      if (isDirectStreamUrl(o.videoUrl)) videoUrl = o.videoUrl;
+      else if (isDirectStreamUrl(stateVideo)) videoUrl = stateVideo;
+    }
 
     const payload = {
       xhs_note_id: noteId || '',
