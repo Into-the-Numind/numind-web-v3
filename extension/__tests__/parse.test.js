@@ -331,3 +331,16 @@ describe('lib/parse.js — parseDateText 相对时间', () => {
     expect(Parse.parseDateText('2026-06-19 08:00', now)).toBe('2026-06-19')
   })
 })
+
+describe('lib/parse.js — parseDateText 捕获时间', () => {
+  const now = new Date('2026-06-26T10:00:00Z')
+  it('"编辑于 昨天 19:49 上海" → 2026-06-25 19:49:00', () => {
+    expect(Parse.parseDateText('编辑于 昨天 19:49 上海', now)).toBe('2026-06-25 19:49:00')
+  })
+  it('"今天 09:05" → 今天 09:05:00', () => {
+    expect(Parse.parseDateText('今天 09:05', now)).toBe('2026-06-26 09:05:00')
+  })
+  it('纯日期无时间 → 不加时间', () => {
+    expect(Parse.parseDateText('编辑于 06-08', now)).toBe('2026-06-08')
+  })
+})

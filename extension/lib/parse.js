@@ -205,30 +205,33 @@
     const currentYear = ref.getFullYear();
     const pad = (n) => String(n).padStart(2, '0');
     const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    // 捕获文本里的 HH:MM(如"昨天 19:49"),有则拼到日期后(上海时间,后端按 +08:00 解析)。
+    const tm = text.match(/(\d{1,2}):(\d{2})/);
+    const ts = tm ? ` ${pad(parseInt(tm[1], 10))}:${tm[2]}:00` : '';
 
     const full = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-    if (full) return `${full[1]}-${full[2]}-${full[3]}`;
+    if (full) return `${full[1]}-${full[2]}-${full[3]}${ts}`;
 
     // 刚发布的笔记常显示相对时间(刚刚 / X分钟前 / X小时前 / 今天)→ 归为今天。
     if (text.includes('今天') || text.includes('刚刚') || /\d+\s*分钟前/.test(text) || /\d+\s*小时前/.test(text)) {
-      return iso(ref);
+      return iso(ref) + ts;
     }
     if (text.includes('昨天')) {
       const d = new Date(ref);
       d.setDate(ref.getDate() - 1);
-      return iso(d);
+      return iso(d) + ts;
     }
     const daysAgo = text.match(/(\d+)\s*天前/);
     if (daysAgo) {
       const d = new Date(ref);
       d.setDate(ref.getDate() - parseInt(daysAgo[1], 10));
-      return iso(d);
+      return iso(d) + ts;
     }
     const md = text.match(/(\d{1,2})-(\d{1,2})/);
     if (md) {
       const month = parseInt(md[1], 10);
       const year = month > ref.getMonth() + 1 ? currentYear - 1 : currentYear;
-      return `${year}-${pad(month)}-${pad(parseInt(md[2], 10))}`;
+      return `${year}-${pad(month)}-${pad(parseInt(md[2], 10))}${ts}`;
     }
     return '';
   }
