@@ -292,3 +292,26 @@ describe('lib/parse.js — 图文笔记不被误判为视频(回归)', () => {
     expect(payload.video_url).toBe('')
   })
 })
+
+describe('lib/parse.js — 图片按 swiper 真实索引排序(修复克隆乱序)', () => {
+  it('最后一张被克隆到最前时,按 data-swiper-slide-index 复原正确顺序', () => {
+    const wrap = document.createElement('div')
+    // 模拟 swiper：克隆的"最后一张"在 DOM 最前(duplicate),真实顺序由 data-swiper-slide-index 决定
+    wrap.innerHTML = `
+      <div class="note-detail-container">
+        <div class="swiper-wrapper">
+          <div class="swiper-slide swiper-slide-duplicate" data-swiper-slide-index="2"><img src="https://x.com/img2.jpg"></div>
+          <div class="swiper-slide" data-swiper-slide-index="0"><img src="https://x.com/img0.jpg"></div>
+          <div class="swiper-slide" data-swiper-slide-index="1"><img src="https://x.com/img1.jpg"></div>
+          <div class="swiper-slide" data-swiper-slide-index="2"><img src="https://x.com/img2.jpg"></div>
+        </div>
+      </div>`
+    const container = wrap.querySelector('.note-detail-container')
+    const payload = Parse.parseNoteDetail({ container, state: null, url: 'https://www.xiaohongshu.com/explore/imgord' })
+    expect(payload.images).toEqual([
+      'https://x.com/img0.jpg',
+      'https://x.com/img1.jpg',
+      'https://x.com/img2.jpg'
+    ])
+  })
+})

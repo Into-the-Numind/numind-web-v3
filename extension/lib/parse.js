@@ -475,17 +475,37 @@
           container.querySelector('img')
       );
 
-      // 采集全部图片（不止封面）：去重保序。
+      // 采集全部图片（不止封面）。小红书 swiper 为无限循环会克隆 slide，DOM 顺序≠显示顺序
+      // （常把最后一张克隆到最前）→ 必须按 data-index/data-swiper-slide-index 真实索引排序 + 跳克隆 + 去重。
       {
-        const imgEls = container.querySelectorAll(
-          '.swiper-slide img, .swiper-wrapper img, .note-slider-img img, .media-container img'
-        );
-        const seen = {};
-        for (const im of imgEls) {
-          const u = resolveImgUrl(im);
-          if (u && !seen[u]) {
+        const slides = container.querySelectorAll('.swiper-slide');
+        if (slides.length) {
+          const seen = {};
+          const indexed = [];
+          let order = 0;
+          for (const slide of slides) {
+            if (slide.classList && slide.classList.contains('swiper-slide-duplicate')) continue;
+            const img = slide.querySelector('img');
+            if (!img) continue;
+            const u = resolveImgUrl(img);
+            if (!u || seen[u]) continue;
             seen[u] = 1;
-            domImages.push(u);
+            let raw = slide.getAttribute('data-index');
+            if (raw === null || raw === '') raw = slide.getAttribute('data-swiper-slide-index');
+            const idx = raw === null || raw === '' ? null : parseInt(raw, 10);
+            indexed.push({ idx: Number.isNaN(idx) ? null : idx, order: order++, u });
+          }
+          indexed.sort((a, b) => (a.idx === null || b.idx === null ? a.order - b.order : a.idx - b.idx));
+          for (const it of indexed) domImages.push(it.u);
+        } else {
+          const seen = {};
+          const imgEls = container.querySelectorAll('.note-slider-img img, .media-container img, img');
+          for (const im of imgEls) {
+            const u = resolveImgUrl(im);
+            if (u && !seen[u]) {
+              seen[u] = 1;
+              domImages.push(u);
+            }
           }
         }
       }
