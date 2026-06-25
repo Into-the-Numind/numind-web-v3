@@ -209,7 +209,10 @@
     const full = text.match(/(\d{4})-(\d{2})-(\d{2})/);
     if (full) return `${full[1]}-${full[2]}-${full[3]}`;
 
-    if (text.includes('今天')) return iso(ref);
+    // 刚发布的笔记常显示相对时间(刚刚 / X分钟前 / X小时前 / 今天)→ 归为今天。
+    if (text.includes('今天') || text.includes('刚刚') || /\d+\s*分钟前/.test(text) || /\d+\s*小时前/.test(text)) {
+      return iso(ref);
+    }
     if (text.includes('昨天')) {
       const d = new Date(ref);
       d.setDate(ref.getDate() - 1);

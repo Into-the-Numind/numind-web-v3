@@ -601,6 +601,7 @@ function partialTooltip(row: NoteItem): string {
   border-radius: 999px;
   font-weight: 600;
   border: none;
+  white-space: nowrap;
 }
 
 .status--enriching {

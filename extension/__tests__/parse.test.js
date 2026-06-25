@@ -315,3 +315,19 @@ describe('lib/parse.js — 图片按 swiper 真实索引排序(修复克隆乱�
     ])
   })
 })
+
+describe('lib/parse.js — parseDateText 相对时间', () => {
+  const now = new Date('2026-06-25T10:00:00Z')
+  const today = '2026-06-25'
+  it('刚刚 / X分钟前 / X小时前 / 今天 → 今天', () => {
+    expect(Parse.parseDateText('刚刚', now)).toBe(today)
+    expect(Parse.parseDateText('30分钟前', now)).toBe(today)
+    expect(Parse.parseDateText('编辑于 3小时前', now)).toBe(today)
+    expect(Parse.parseDateText('今天 21:13', now)).toBe(today)
+  })
+  it('仍支持 昨天 / N天前 / MM-DD / 全日期', () => {
+    expect(Parse.parseDateText('昨天 21:13', now)).toBe('2026-06-24')
+    expect(Parse.parseDateText('编辑于 06-08', now)).toBe('2026-06-08')
+    expect(Parse.parseDateText('2026-06-19 08:00', now)).toBe('2026-06-19')
+  })
+})
