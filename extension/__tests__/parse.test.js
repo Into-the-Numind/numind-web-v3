@@ -24,11 +24,11 @@ const DETAIL_HTML = `
       </div>
     </div>
     <div class="note-content">
-      <div class="title">五分钟搞定爆款选题</div>
+      <div class="title">五分钟写出口播稿开头</div>
       <div class="note-text">
-        <span>今天分享一个我屡试不爽的选题方法</span>
+        <span>今天分享一个我屡试不爽的口播稿方法</span>
         <span>第一步先看评论区</span>
-        <a class="tag">#选题技巧</a>
+        <a class="tag">#口播稿技巧</a>
         <a class="tag">#自媒体</a>
       </div>
       <div class="date">编辑于 2026-06-01</div>
@@ -63,8 +63,8 @@ const INITIAL_STATE = {
         note: {
           noteId: NOTE_ID,
           type: 'video',
-          title: '五分钟搞定爆款选题',
-          desc: '今天分享一个我屡试不爽的选题方法',
+          title: '五分钟写出口播稿开头',
+          desc: '今天分享一个我屡试不爽的口播稿方法',
           time: 1748736000000, // 2025-06-01 (ms)
           interactInfo: {
             likedCount: '12000',
@@ -72,7 +72,7 @@ const INITIAL_STATE = {
             commentCount: '789',
             shareCount: '45'
           },
-          tagList: [{ name: '选题技巧' }, { name: '自媒体' }],
+          tagList: [{ name: '口播稿技巧' }, { name: '自媒体' }],
           user: { userId: 'u_777', nickname: '小红薯创作者' },
           cover: { urlPre: 'https://sns-img.xhscdn.com/cover_0.jpg' },
           video: {
@@ -114,13 +114,13 @@ describe('lib/parse.js — NotePayload 解析', () => {
   })
 
   it('提取标题与正文', () => {
-    expect(payload.title).toBe('五分钟搞定爆款选题')
+    expect(payload.title).toBe('五分钟写出口播稿开头')
     expect(payload.content).toContain('屡试不爽')
     expect(payload.content).toContain('评论区')
   })
 
   it('提取标签数组（去 # 去"作者"）', () => {
-    expect(payload.tags).toEqual(expect.arrayContaining(['选题技巧', '自媒体']))
+    expect(payload.tags).toEqual(expect.arrayContaining(['口播稿技巧', '自媒体']))
     expect(payload.tags).not.toContain('作者')
   })
 

@@ -1,21 +1,26 @@
 /**
- * 有数选题采集 — content script
+ * 有数口播稿视频采集 — content script
  *
  * 职责：
  *  1. 小红书登录态检测（未登录 → 浮标禁用 + 提示）。
  *  2. 可拖动浮标「采集」按钮。
- *  3. 采集当前笔记详情 → 归一化为 NotePayload（调用 lib/parse.js）。
+ *  3. 采集当前视频笔记详情 → 归一化为 NotePayload（调用 lib/parse.js）。
  *  4. 视频直链通过注入 main world 读取 window.__INITIAL_STATE__（移植 plugin3.2.1 手法）。
  *  5. 消息发 background.js 完成上送；接收 background 的「未授权」通知切换浮标态。
  *
- * 仅采集公开内容；不触碰飞书 / 卖家后端 / 抖音 / 识别码（原插件业务全部剔除）。
+ * 仅采集公开视频内容；不做 OCR，不触碰飞书 / 卖家后端 / 抖音 / 识别码（原插件业务全部剔除）。
  */
 (function () {
   'use strict';
 
   const Parse = window.YouShuXhsParse;
   if (!Parse) {
-    console.error('[有数采集] lib/parse.js 未加载');
+    console.error('[有数口播稿采集] lib/parse.js 未加载');
+    return;
+  }
+  const ScriptPayload = window.YouShuXhsScriptPayload;
+  if (!ScriptPayload) {
+    console.error('[有数口播稿采集] lib/script-payload.js 未加载');
     return;
   }
 
@@ -118,10 +123,10 @@
       floatingButton.disabled = true;
     } else {
       unauthorized = false;
-      floatingButton.textContent = '采集';
+      floatingButton.textContent = '采集视频';
       floatingButton.style.backgroundColor = '#ff2442';
       floatingButton.disabled = false;
-      floatingButton.title = '采集当前笔记到有数选题库';
+      floatingButton.title = '采集当前视频笔记到口播稿工作台';
     }
   }
 
@@ -170,7 +175,7 @@
       fontSize: '14px',
       fontWeight: '600'
     });
-    floatingButton.textContent = '采集';
+    floatingButton.textContent = '采集视频';
     floatingButton.addEventListener('mousedown', onDragStart);
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragEnd);
@@ -219,18 +224,24 @@
     const toast = showToast('正在加载评论…', 0);
     try {
       await loadMoreComments();
-      toast.textContent = '正在采集当前笔记…';
+      toast.textContent = '正在采集当前视频笔记…';
       const result = await collectCurrentNote();
       if (!result.success) {
         toast.remove();
         showToast(result.error || '采集失败');
         return;
       }
+      const gate = ScriptPayload.validateForScriptUpload(result.payload);
+      if (!gate.ok) {
+        toast.remove();
+        showToast(gate.error || '当前只支持视频笔记');
+        return;
+      }
       toast.textContent = '采集完成，正在上送…';
       const resp = await sendToBackground(result.payload);
       toast.remove();
       if (resp && resp.success) {
-        showToast('已上送到选题库');
+        showToast('已上送到口播稿工作台');
       } else if (resp && resp.unauthorized) {
         setButtonState('unauthorized');
         showToast('授权已失效，请打开插件弹窗重新授权');
