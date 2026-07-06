@@ -262,6 +262,13 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
     const u = Parse.extractVideoUrlFromHtmlText(html, 'vid123')
     expect(u).toBe('https://sns-video.xhscdn.com/vid123_master.mp4?sign=x')
   })
+  it('从 script 文本解析 __INITIAL_STATE__ 对象', () => {
+    const state = Parse.extractInitialStateFromHtmlText(html)
+    expect(state.note.noteDetailMap.vid123.note.video.media.stream.h264[0].master_url).toBe(
+      'https://sns-video.xhscdn.com/vid123_master.mp4?sign=x'
+    )
+    expect(Parse.extractVideoUrlFromState(state, 'vid123')).toBe('https://sns-video.xhscdn.com/vid123_master.mp4?sign=x')
+  })
   it('无视频信息时返回空串', () => {
     expect(Parse.extractVideoUrlFromHtmlText('<html><body>纯图文</body></html>', 'x')).toBe('')
   })

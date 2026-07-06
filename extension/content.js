@@ -5,7 +5,7 @@
  *  1. 小红书登录态检测（未登录 → 浮标禁用 + 提示）。
  *  2. 可拖动浮标「采集」按钮。
  *  3. 采集当前视频笔记详情 → 归一化为 NotePayload（调用 lib/parse.js）。
- *  4. 视频直链通过注入 main world 读取 window.__INITIAL_STATE__（移植 plugin3.2.1 手法）。
+ *  4. 视频直链优先从页面 HTML 中的 window.__INITIAL_STATE__ 解析，HTML 扫描兜底。
  *  5. 消息发 background.js 完成上送；接收 background 的「未授权」通知切换浮标态。
  *
  * 仅采集公开视频内容；不做 OCR，不触碰飞书 / 卖家后端 / 抖音 / 识别码（原插件业务全部剔除）。
@@ -89,10 +89,11 @@
     const url = window.location.href; // 完整 URL（含 xsec_token），否则原帖打不开
     const noteId = Parse.getNoteIdFromUrl(url);
 
-    // CSP 安全：从页面已有 script/HTML 文本扫视频直链（移植 plugin3.2.1，不注入脚本，避免被小红书 CSP 拦）。
+    // CSP 安全：只读页面已有 script/HTML 文本，不注入脚本，避免被小红书 CSP 拦。
     const htmlText = document.documentElement ? document.documentElement.innerHTML : '';
-    const videoUrl = Parse.extractVideoUrlFromHtmlText(htmlText, noteId);
-    const state = null;
+    const state = Parse.extractInitialStateFromHtmlText(htmlText);
+    const stateVideoUrl = Parse.extractVideoUrlFromState(state, noteId);
+    const videoUrl = stateVideoUrl || Parse.extractVideoUrlFromHtmlText(htmlText, noteId);
 
     const payload = Parse.parseNoteDetail({
       container,

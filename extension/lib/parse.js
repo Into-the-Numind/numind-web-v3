@@ -417,6 +417,64 @@
     return u && /^https?:\/\//i.test(u) ? u : '';
   }
 
+  function extractBalancedJSONObject(text, startAt) {
+    let start = -1;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = Math.max(0, startAt || 0); i < text.length; i++) {
+      const ch = text[i];
+      if (start < 0) {
+        if (ch === '{') {
+          start = i;
+          depth = 1;
+        }
+        continue;
+      }
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0) return text.slice(start, i + 1);
+      }
+    }
+    return '';
+  }
+
+  function extractInitialStateFromHtmlText(html) {
+    if (!html || typeof html !== 'string') return null;
+    const marker = 'window.__INITIAL_STATE__';
+    let pos = 0;
+    while (pos < html.length) {
+      const idx = html.indexOf(marker, pos);
+      if (idx < 0) return null;
+      const eq = html.indexOf('=', idx + marker.length);
+      if (eq < 0) return null;
+      const objectText = extractBalancedJSONObject(html, eq + 1);
+      if (objectText) {
+        try {
+          return JSON.parse(objectText);
+        } catch (_) {
+          // Continue scanning; some pages keep non-JSON assignments before SSR state.
+        }
+      }
+      pos = idx + marker.length;
+    }
+    return null;
+  }
+
   /** 相对链接转绝对（小红书域）。 */
   function absUrl(href) {
     if (!href) return '';
@@ -603,6 +661,7 @@
     extractVideoUrlFromState,
     extractVideoStreamUrlFromText,
     extractVideoUrlFromHtmlText,
+    extractInitialStateFromHtmlText,
     extractFieldsFromState,
     formatPublishedAt,
     parseDateText,
