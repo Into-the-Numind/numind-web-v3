@@ -5,8 +5,7 @@
  * 授权 token 由有数 web 页通过 onMessageExternal 写入，popup 只读状态。
  */
 
-// 上线前替换为真实有数口播稿工作台地址。
-const YOUSHU_SCRIPT_WORKSPACE_URL = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/script/';
+const YOUSHU_SCRIPT_WORKSPACE_URL = 'https://youshulab.com/script/';
 
 const els = {
   authStatus: document.getElementById('auth-status'),

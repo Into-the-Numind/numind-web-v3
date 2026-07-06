@@ -6,7 +6,7 @@
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "*://*.xiaohongshu.com/*",
-    "https://YOUSHU_API_DOMAIN_PLACEHOLDER/*"
+    "https://youshulab.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -22,12 +22,12 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/*"],
+      "matches": ["https://youshulab.com/*"],
       "js": ["connect-bridge.js"],
       "run_at": "document_idle"
     }
   ],
   "externally_connectable": {
-    "matches": ["https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/*"]
+    "matches": ["https://youshulab.com/*"]
   }
 }

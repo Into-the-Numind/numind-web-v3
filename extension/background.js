@@ -3,7 +3,7 @@
  *
  * 职责：
  *  1. chrome.storage 存 / 取有数 ext-token。
- *  2. 收到 content.js 的采集消息 → POST {有数API}/v1/xhs-script/notes（Header: Authorization: Bearer <ext-token>）。
+ *  2. 收到 content.js 的采集消息 → POST https://youshulab.com/api/v1/xhs-script/notes（Header: Authorization: Bearer <ext-token>）。
  *  3. 401 三步：清 token + 通知 content.js 浮标切「未授权」+ 提示打开 popup 重新授权。
  *  4. onMessageExternal 接收有数授权页发来的 token，落 storage 前校验 sender.origin 为精确有数域名。
  *
@@ -14,11 +14,10 @@ try {
   importScripts('lib/script-payload.js');
 } catch (_) {}
 
-// 上线前替换为真实有数配置。
-const YOUSHU_API_BASE = 'https://YOUSHU_API_DOMAIN_PLACEHOLDER';
+const YOUSHU_API_BASE = 'https://youshulab.com/api';
 const YOUSHU_SCRIPT_NOTES_ENDPOINT = `${YOUSHU_API_BASE}/v1/xhs-script/notes`;
 // onMessageExternal 仅信任此精确 origin（与 manifest.externally_connectable 对齐）。
-const YOUSHU_WEB_ORIGIN = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER';
+const YOUSHU_WEB_ORIGIN = 'https://youshulab.com';
 
 const TOKEN_KEY = 'youshu_xhs_script_ext_token';
 const COLLECTED_COUNT_KEY = 'youshu_xhs_script_collected_count';
