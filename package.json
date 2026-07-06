@@ -15,7 +15,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test:unit:watch": "vitest",
+    "check:xhs-extension": "bash scripts/check_xhs_extension_package.sh"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
