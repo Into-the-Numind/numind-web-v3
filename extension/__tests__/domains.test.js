@@ -11,6 +11,8 @@ const popup = readFileSync(resolve(extensionRoot, 'popup.js'), 'utf8')
 const manifest = JSON.parse(readFileSync(resolve(extensionRoot, 'manifest.json'), 'utf8'))
 const apiDomainPlaceholder = ['YOUSHU_API', 'DOMAIN', 'PLACEHOLDER'].join('_')
 const webDomainPlaceholder = ['YOUSHU_WEB', 'DOMAIN', 'PLACEHOLDER'].join('_')
+const xhsMatches = ['*://*.xiaohongshu.com/*']
+const youshuMatches = ['https://youshulab.com/*']
 
 describe('extension production domains', () => {
   it('points background and popup URLs at youshulab.com', () => {
@@ -30,14 +32,18 @@ describe('extension production domains', () => {
     expect(`${background}\n${popup}`).not.toContain(webDomainPlaceholder)
   })
 
-  it('allows only the youshulab.com web origin in manifest integration points', () => {
+  it('limits manifest host permissions and content script matches to required origins', () => {
+    const xhsContentScript = manifest.content_scripts.find((script) =>
+      script.js.includes('content.js')
+    )
     const webBridge = manifest.content_scripts.find((script) =>
       script.js.includes('connect-bridge.js')
     )
 
-    expect(manifest.host_permissions).toContain('https://youshulab.com/*')
-    expect(webBridge.matches).toEqual(['https://youshulab.com/*'])
-    expect(manifest.externally_connectable.matches).toEqual(['https://youshulab.com/*'])
+    expect(manifest.host_permissions).toEqual([...xhsMatches, ...youshuMatches])
+    expect(xhsContentScript.matches).toEqual(xhsMatches)
+    expect(webBridge.matches).toEqual(youshuMatches)
+    expect(manifest.externally_connectable.matches).toEqual(youshuMatches)
     expect(JSON.stringify(manifest)).not.toContain(apiDomainPlaceholder)
     expect(JSON.stringify(manifest)).not.toContain(webDomainPlaceholder)
   })
