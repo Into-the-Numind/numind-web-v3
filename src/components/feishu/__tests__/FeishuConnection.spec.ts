@@ -125,14 +125,17 @@ describe('FeishuConnection', () => {
   })
 
   it.each([
-    ['waiting_user_auth', '继续连接', 'feishu-continue-connection'],
-    ['reauth_required', '重新授权', 'feishu-reauthorize']
-  ] as const)('uses the Agent entry for %s without directly creating another connection', async (stateName, label, testId) => {
-    vi.mocked(api.getFeishuStatus).mockResolvedValue(status({ state: stateName, connected: false }))
+    ['waiting_user_auth', '继续连接', 'feishu-continue-connection', undefined],
+    ['reauth_required', '重新授权', 'feishu-reauthorize', 'cli_****recover']
+  ] as const)('uses the Agent entry for %s without directly creating another connection', async (stateName, label, testId, appIdMasked) => {
+    vi.mocked(api.getFeishuStatus).mockResolvedValue(
+      status({ state: stateName, connected: false, app_id_masked: appIdMasked })
+    )
     const wrapper = mountConnection()
     await flushPromises()
 
     expect(wrapper.get(`[data-testid="${testId}"]`).text()).toContain(label)
+    if (appIdMasked) expect(wrapper.text()).toContain(appIdMasked)
     await wrapper.get(`[data-testid="${testId}"]`).trigger('click')
     expect(push).toHaveBeenCalledWith({ name: 'home' })
     expect(api.connectFeishu).not.toHaveBeenCalled()

@@ -59,7 +59,6 @@
 
         <template v-if="store.connected">
           <p class="fc-desc">已连接你的个人飞书工作空间。文档、多维表格和知识库将在首次使用时按需授权，不包含消息发送。</p>
-          <p v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</p>
         </template>
 
         <template v-else>
@@ -68,6 +67,8 @@
             直接在 AI 助手中提出飞书任务即可开始；首次使用时按需授权，不包含消息发送。
           </p>
         </template>
+
+        <p v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</p>
 
         <ul v-if="showCapabilities" class="fc-capabilities" aria-label="飞书能力状态">
           <li
