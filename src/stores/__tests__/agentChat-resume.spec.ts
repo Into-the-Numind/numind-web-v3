@@ -128,6 +128,9 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           operation_id: 'op-1',
           session_id: 'session-1',
           phase: 'user_auth',
+          // Snapshot payloads are never permitted to rehydrate a transient
+          // authorization URL, even if an old/malformed server payload leaks one.
+          url: 'https://safe.example/anomalous-snapshot-url',
           expires_at: expiresAt,
           provider: 'feishu'
         }
@@ -148,6 +151,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       })
     ])
     expect(store.messages[0]).not.toHaveProperty('provider')
+    expect(store.messages[0]).not.toHaveProperty('url')
     store.reset()
   })
 
@@ -194,6 +198,11 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       expect(action).toMatchObject({ action_status: 'completed' })
       expect(action).not.toHaveProperty('url')
       expect(store.isWaitingForExternalAction).toBe(false)
+      expect(store.currentRun).toMatchObject({
+        id: 148,
+        status: 'running',
+        state_reason: stateReason
+      })
       expect(vi.getTimerCount()).toBe(0)
       await vi.advanceTimersByTimeAsync(10_000)
       expect(api.getRun).not.toHaveBeenCalled()
@@ -378,6 +387,53 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       action_status: 'completed'
     })
     expect(api.postAgentAnswer).not.toHaveBeenCalled()
+  })
+
+  it('replaces an old authorization URL with a URL-less successor action and rejects the old operation', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-old',
+        session_id: 'session-old',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/old-authorize',
+        expires_at: new Date(now.getTime() + 60_000).toISOString()
+      }
+    })
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-old',
+      state: 'waiting_user_auth',
+      action: {
+        operation_id: 'op-successor',
+        session_id: 'session-successor',
+        phase: 'app_scope',
+        expires_at: new Date(now.getTime() + 120_000).toISOString()
+      }
+    })
+
+    await store.resumeFeishuOperation('op-old')
+
+    const action = store.messages.find((message) => message.type === 'external_action')
+    expect(action).toMatchObject({
+      operation_id: 'op-successor',
+      session_id: 'session-successor',
+      phase: 'app_scope',
+      action_status: 'pending'
+    })
+    expect(action).not.toHaveProperty('url')
+    await expect(store.resumeFeishuOperation('op-old')).rejects.toThrow('飞书授权步骤已更新')
+    expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledTimes(1)
+    store.reset()
   })
 
   it('does not poll an external action while the page is hidden, then settles and stops on terminal', async () => {

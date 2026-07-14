@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { flushPromises, shallowMount } from '@vue/test-utils'
 import { useAgentChatStore } from '@/stores/agentChat'
+import AgentChatView from '../AgentChatView.vue'
+import * as api from '@/api/agent'
 
 // ─── vue-router mock ───────────────────────────────────────────────────────
 // AgentChatView calls useRouter() at the top level — must be mocked before
@@ -55,6 +58,7 @@ vi.mock('@/api/agent', () => ({
   })),
   fetchNarrationEvents: vi.fn(async () => []),
   cancelRun: vi.fn(),
+  postAgentAnswer: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 1,
@@ -99,6 +103,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks()
+  vi.useRealTimers()
 })
 
 describe('AgentChatView 6 状态分支', () => {
@@ -247,4 +252,138 @@ describe('T14 — streaming path wiring', () => {
   it.todo(
     'onUnmounted calls stop() — covered by e2e/agent-streaming.spec.ts navigate-away scenario'
   )
+})
+
+describe('Feishu queued continuation reload', () => {
+  it.each(['external_resume_ready', 'ext_resume:lease-token'])(
+    'observes a reloaded %s continuation and renders its final response without a user retry',
+    async (stateReason) => {
+      vi.useFakeTimers()
+      const now = new Date('2026-07-14T10:00:00Z')
+      vi.setSystemTime(now)
+      vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+        session_id: 'sess-queued',
+        agent_skill_id: 1,
+        agent_run_ids: [148],
+        last_active_at: '',
+        status: 'running',
+        run: {
+          id: 148,
+          session_id: 'sess-queued',
+          status: 'running',
+          state_reason: stateReason,
+          created_at: '',
+          updated_at: now.toISOString()
+        },
+        messages: [
+          {
+            id: 'external-action-148',
+            type: 'external_action',
+            run_id: 148,
+            operation_id: 'op-queued',
+            session_id: 'session-queued',
+            phase: 'user_auth',
+            // Defense-in-depth: snapshots must not restore a one-time URL.
+            url: 'https://safe.example/anomalous-snapshot-url',
+            expires_at: new Date(now.getTime() + 60_000).toISOString(),
+            provider: 'feishu'
+          }
+        ]
+      } as never)
+      vi.mocked(api.getRun).mockResolvedValueOnce({
+        id: 148,
+        session_id: 'sess-queued',
+        status: 'completed',
+        state_reason: 'completed',
+        final_output: '飞书文档已经创建完成。',
+        created_at: '',
+        updated_at: new Date(now.getTime() + 5_000).toISOString()
+      } as never)
+
+      const wrapper = shallowMount(AgentChatView, {
+        props: { sessionId: 'sess-queued', agentId: null, readOnly: false }
+      })
+      await flushPromises()
+
+      const store = useAgentChatStore()
+      const action = store.messages.find((message) => message.type === 'external_action')
+      expect(action).toMatchObject({ action_status: 'completed' })
+      expect(action).not.toHaveProperty('url')
+      expect(store.currentRun).toMatchObject({
+        id: 148,
+        status: 'running',
+        state_reason: stateReason
+      })
+
+      await vi.advanceTimersByTimeAsync(5_000)
+      await flushPromises()
+
+      expect(api.getRun).toHaveBeenCalledWith(148)
+      expect(api.getRun).toHaveBeenCalledTimes(1)
+      expect(store.currentRun).toMatchObject({ id: 148, status: 'completed' })
+      expect(store.messages).toContainEqual(
+        expect.objectContaining({ type: 'final_answer', markdown: '飞书文档已经创建完成。' })
+      )
+      expect(mockStreamStartResume).not.toHaveBeenCalled()
+      expect(api.postAgentAnswer).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(api.getRun).toHaveBeenCalledTimes(1)
+      wrapper.unmount()
+    }
+  )
+
+  it('stops the queued-continuation observer when the user switches to another history session', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-queued',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: '',
+      status: 'running',
+      run: {
+        id: 148,
+        session_id: 'sess-queued',
+        status: 'running',
+        state_reason: 'external_resume_ready',
+        created_at: '',
+        updated_at: now.toISOString()
+      },
+      messages: [
+        {
+          id: 'external-action-148',
+          type: 'external_action',
+          run_id: 148,
+          operation_id: 'op-queued',
+          session_id: 'session-queued',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 60_000).toISOString(),
+          provider: 'feishu'
+        }
+      ]
+    } as never)
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-history',
+      agent_skill_id: 1,
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'completed',
+      messages: []
+    } as never)
+
+    const wrapper = shallowMount(AgentChatView, {
+      props: { sessionId: 'sess-queued', agentId: null, readOnly: false }
+    })
+    await flushPromises()
+    expect(useAgentChatStore().currentRun).toMatchObject({ id: 148, status: 'running' })
+
+    await wrapper.setProps({ sessionId: 'sess-history' })
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    expect(useAgentChatStore().currentRun).toBeNull()
+    expect(api.getRun).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
 })

@@ -141,7 +141,8 @@ function externalActionMessage(
   payload: unknown,
   runID: number,
   timestamp: string,
-  id = uuid()
+  id = uuid(),
+  allowLiveURL = true
 ): ExternalActionMessage | null {
   const action = toFeishuExternalAction(payload)
   if (!action || !Number.isSafeInteger(runID) || runID <= 0) return null
@@ -153,7 +154,7 @@ function externalActionMessage(
     session_id: action.session_id,
     phase: action.phase,
     expires_at: action.expires_at,
-    ...(action.url ? { url: action.url } : {}),
+    ...(allowLiveURL && action.url ? { url: action.url } : {}),
     action_status: 'pending',
     timestamp
   }
@@ -458,6 +459,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       )
   )
 
+  /**
+   * A reloaded Task 11 continuation is still active even though its external
+   * action card is already settled. The view owns normal narration/status
+   * observation; expose only the two exact durable states so unrelated replay
+   * states do not start a background observer.
+   */
+  const isQueuedExternalContinuationActive = computed(
+    () =>
+      isQueuedExternalContinuation(currentRun.value?.state_reason) &&
+      (currentRun.value?.status === 'running' || currentRun.value?.status === 'pending')
+  )
+
   const toolGroups = computed<ToolCallAggregate[]>(() => {
     const map = new Map<string, ToolCallAggregate>()
     for (const ev of narrationEvents.value) {
@@ -619,13 +632,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       ) {
         continue
       }
-      messages.value[index] = {
+      const replacement: ExternalActionMessage = {
         ...message,
         operation_id: action.operation_id,
         session_id: action.session_id,
         phase: action.phase,
         expires_at: action.expires_at
       }
+      // A resume response is deliberately URL-less. Never carry a superseded
+      // one-time authorization URL into a new server-owned action/session.
+      delete replacement.url
+      messages.value[index] = replacement
     }
   }
 
@@ -1061,10 +1078,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       (message): message is ExternalActionMessage =>
         message.type === 'external_action' && message.operation_id === operationID
     )
-    if (existing?.action_status === 'expired' ||
-      (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at))) {
+    if (
+      existing?.action_status === 'expired' ||
+      (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at))
+    ) {
       settleExternalAction(operationID, 'expired')
       throw new Error('飞书授权已过期，请刷新链接后重试')
+    }
+    if (!existing || existing.action_status !== 'pending') {
+      throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
     const result = await resumeFeishuLifecycleOperation(operationID, action)
     switch (result.state) {
@@ -1162,6 +1184,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
     loadingSnapshot.value = true
     sessionError.value = null
+    // Snapshot loads are also the session-switch boundary for historical routes.
+    // Without clearing this first, a queued continuation from the previous
+    // session keeps its normal observer alive while the new snapshot has no run.
+    // A waiting/queued run in the requested snapshot is restored below.
+    currentRun.value = null
     try {
       const snap = await api.getSessionSnapshot(sessionId)
       // Defensive: backend may omit timestamp on restored messages; fill with
@@ -1175,7 +1202,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           // Rebuild rather than spread the server object. Snapshot payloads are
           // flat and include provider routing metadata at runtime; only the card
           // allowlist may enter browser state, and snapshots never restore URLs.
-          const externalAction = externalActionMessage(message, message.run_id, timestamp, message.id)
+          const externalAction = externalActionMessage(
+            message,
+            message.run_id,
+            timestamp,
+            message.id,
+            false
+          )
           if (externalAction) snapMsgs.push(externalAction)
           continue
         }
@@ -1191,8 +1224,22 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // with a synthesized question_prompt card. Set currentRun from the
       // snapshot so answer submission can poll the run to completion — without
       // it, refreshRunStatus's null guard silently stalls the resume.
-      if (snap.run && snap.run.state_reason === 'waiting_for_user_choice') {
-        currentRun.value = snap.run
+      const restoredQueuedExternalContinuation = Boolean(
+        snap.run && isQueuedExternalContinuation(snap.run.state_reason)
+      )
+      if (
+        snap.run &&
+        (snap.run.state_reason === 'waiting_for_user_choice' || restoredQueuedExternalContinuation)
+      ) {
+        // Task 11 can retain a legacy terminal DB status while the durable
+        // continuation is queued/claimed. Treat only its two exact states as
+        // active locally until normal polling reads the real terminal result.
+        currentRun.value =
+          restoredQueuedExternalContinuation &&
+          snap.run.status !== 'running' &&
+          snap.run.status !== 'pending'
+            ? { ...snap.run, status: 'running' }
+            : snap.run
         // The snapshot already rebuilt the pre-answer tool cards from
         // agent_run.messages. Seed the narration cursor to the run's last update
         // (the pause point) so that when the user answers, the resume poll fetches
@@ -1205,7 +1252,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // original continuation, that history must be settled immediately: the
       // authorization URL is already consumed and the server (not /answer or a
       // browser-side CLI) owns the next step.
-      if (snap.run && isQueuedExternalContinuation(snap.run.state_reason)) {
+      if (snap.run && restoredQueuedExternalContinuation) {
         settlePendingExternalActionsForRun(snap.run.id, 'completed')
       }
       if (snap.compact_summary) {
@@ -2107,6 +2154,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isRunning,
     isWaitingForUser,
     isWaitingForAuth,
+    isQueuedExternalContinuationActive,
     isWaitingForExternalAction,
     hasActiveToolCall,
     activeCodeStream,
