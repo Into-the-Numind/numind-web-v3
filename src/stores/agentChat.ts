@@ -75,6 +75,33 @@ function safeActionString(record: Record<string, unknown>, field: string): strin
   return typeof value === 'string' && value.trim() ? value : null
 }
 
+const OFFICIAL_FEISHU_ACTION_HOSTS = new Set(['open.feishu.cn', 'open.larksuite.com'])
+
+/**
+ * URLs in external-action frames are untrusted transport data. Keep an exact
+ * server-issued value only when it is an official Feishu/Lark HTTPS endpoint;
+ * otherwise the card receives no URL and takes the server-owned refresh path.
+ *
+ * This mirrors the backend's parseOfficialLarkURL host/scheme constraints. Do
+ * not normalize or rebuild it: the opaque query bytes must remain untouched.
+ */
+function isOfficialFeishuActionURL(value: unknown): value is string {
+  if (typeof value !== 'string' || !value || value.trim() !== value) return false
+  try {
+    const parsed = new URL(value)
+    return (
+      parsed.protocol === 'https:' &&
+      OFFICIAL_FEISHU_ACTION_HOSTS.has(parsed.hostname) &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.hash &&
+      (!parsed.port || parsed.port === '443')
+    )
+  } catch {
+    return false
+  }
+}
+
 // The server currently creates RFC 4122 UUID session ids. Keep the browser
 // parser compatible with its stable legacy/session test ids too, while refusing
 // route placeholders, whitespace, paths, and any structurally unsafe value.
@@ -160,7 +187,7 @@ function toFeishuExternalAction(payload: unknown): FeishuExternalAction | null {
     session_id: sessionID,
     phase,
     expires_at: expiresAt,
-    ...(typeof url === 'string' && url ? { url } : {})
+    ...(isOfficialFeishuActionURL(url) ? { url } : {})
   }
 }
 

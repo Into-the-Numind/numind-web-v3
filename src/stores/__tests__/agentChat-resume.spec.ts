@@ -85,7 +85,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-1',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/authorize',
+        url: 'https://open.feishu.cn/authorize',
         expires_at: expiresAt,
         scopes: ['forbidden']
       }
@@ -98,7 +98,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       operation_id: 'op-1',
       session_id: 'session-1',
       phase: 'user_auth',
-      url: 'https://safe.example/authorize',
+      url: 'https://open.feishu.cn/authorize',
       expires_at: expiresAt,
       action_status: 'pending'
     })
@@ -130,7 +130,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           phase: 'user_auth',
           // Snapshot payloads are never permitted to rehydrate a transient
           // authorization URL, even if an old/malformed server payload leaks one.
-          url: 'https://safe.example/anomalous-snapshot-url',
+          url: 'https://open.feishu.cn/anomalous-snapshot-url',
           expires_at: expiresAt,
           provider: 'feishu'
         }
@@ -151,6 +151,59 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       })
     ])
     expect(store.messages[0]).not.toHaveProperty('provider')
+    expect(store.messages[0]).not.toHaveProperty('url')
+    store.reset()
+  })
+
+  it('keeps an official Lark authorization URL without transforming its opaque bytes', () => {
+    const store = useAgentChatStore()
+    const url = 'https://open.larksuite.com/suite/passport/oauth/device?user_code=opaque-value'
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'lark',
+        operation_id: 'op-lark-url',
+        session_id: 'session-lark-url',
+        phase: 'user_auth',
+        url,
+        expires_at: new Date(Date.now() + 60_000).toISOString()
+      }
+    })
+
+    expect(store.messages[0]).toMatchObject({ url, action_status: 'pending' })
+    store.reset()
+  })
+
+  it.each([
+    ['non-HTTPS scheme', 'http://open.feishu.cn/suite/passport/oauth/device?user_code=opaque'],
+    ['untrusted host', 'https://evil.example/authorize?next=open.feishu.cn'],
+    ['lookalike host', 'https://open.feishu.cn.evil.example/authorize'],
+    ['embedded credentials', 'https://user@open.feishu.cn/authorize'],
+    ['fragment', 'https://open.feishu.cn/authorize#opaque'],
+    ['non-default port', 'https://open.feishu.cn:8443/authorize']
+  ])('fails closed for a %s external-action URL', (_name, url) => {
+    const store = useAgentChatStore()
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: `op-unsafe-${_name}`,
+        session_id: `session-unsafe-${_name}`,
+        phase: 'user_auth',
+        url,
+        expires_at: new Date(Date.now() + 60_000).toISOString()
+      }
+    })
+
+    expect(store.messages[0]).toMatchObject({ action_status: 'pending' })
     expect(store.messages[0]).not.toHaveProperty('url')
     store.reset()
   })
@@ -251,7 +304,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           session_id: 'session-live-queued',
           tool_call_id: 'tool-call-1',
           phase: 'user_auth',
-          url: 'https://safe.example/authorize',
+          url: 'https://open.feishu.cn/authorize',
           expires_at: new Date(now.getTime() + 60_000).toISOString()
         }
       })
@@ -302,7 +355,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           session_id: 'session-non-continuation',
           tool_call_id: 'tool-call-1',
           phase: 'user_auth',
-          url: 'https://safe.example/authorize',
+          url: 'https://open.feishu.cn/authorize',
           expires_at: new Date(now.getTime() + 60_000).toISOString()
         }
       })
@@ -310,7 +363,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       await store.refreshRunStatus()
 
       const action = store.messages.find((message) => message.type === 'external_action')
-      expect(action).toMatchObject({ action_status: 'pending', url: 'https://safe.example/authorize' })
+      expect(action).toMatchObject({ action_status: 'pending', url: 'https://open.feishu.cn/authorize' })
       expect(store.isWaitingForExternalAction).toBe(true)
       expect(vi.getTimerCount()).toBe(1)
       store.reset()
@@ -343,7 +396,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-still-waiting',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/authorize',
+        url: 'https://open.feishu.cn/authorize',
         expires_at: new Date(now.getTime() + 60_000).toISOString()
       }
     })
@@ -352,7 +405,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
 
     expect(store.messages.find((message) => message.type === 'external_action')).toMatchObject({
       action_status: 'pending',
-      url: 'https://safe.example/authorize'
+      url: 'https://open.feishu.cn/authorize'
     })
     expect(store.isWaitingForExternalAction).toBe(true)
     expect(vi.getTimerCount()).toBe(1)
@@ -406,7 +459,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-old',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/old-authorize',
+        url: 'https://open.feishu.cn/old-authorize',
         expires_at: new Date(now.getTime() + 60_000).toISOString()
       }
     })
@@ -538,7 +591,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-terminal-success',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/authorize',
+        url: 'https://open.feishu.cn/authorize',
         expires_at: new Date(now.getTime() + 60_000).toISOString()
       }
     })
@@ -604,7 +657,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           session_id: `session-${reason}`,
           tool_call_id: 'tool-call-1',
           phase: 'user_auth',
-          url: 'https://safe.example/authorize',
+          url: 'https://open.feishu.cn/authorize',
           expires_at: new Date(now.getTime() + 60_000).toISOString()
         }
       })
@@ -672,7 +725,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-other-run',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/authorize',
+        url: 'https://open.feishu.cn/authorize',
         expires_at: new Date(now.getTime() + 60_000).toISOString()
       }
     })
@@ -685,7 +738,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     } as TerminalEvent)
 
     const action = store.messages.find((message) => message.type === 'external_action')
-    expect(action).toMatchObject({ action_status: 'pending', url: 'https://safe.example/authorize' })
+    expect(action).toMatchObject({ action_status: 'pending', url: 'https://open.feishu.cn/authorize' })
     expect(store.isWaitingForExternalAction).toBe(true)
     store.reset()
   })
@@ -775,7 +828,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-expired',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/expired-authorize',
+        url: 'https://open.feishu.cn/expired-authorize',
         expires_at: new Date(now.getTime() - 1_000).toISOString()
       }
     })
@@ -812,7 +865,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-1',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        url: 'https://safe.example/live-authorize',
+        url: 'https://open.feishu.cn/live-authorize',
         expires_at: new Date(now.getTime() + 60_000).toISOString()
       }
     })

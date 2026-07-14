@@ -72,7 +72,10 @@ const confirmation = computed<boolean>(() => props.action.phase === 'confirmatio
 const url = computed<string>(() => props.action.url ?? '')
 const showsCurrentURL = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const missingLink = computed<boolean>(() => current.value && !confirmation.value && !url.value)
-const showRefresh = computed<boolean>(() => expired.value || missingLink.value)
+// Only authorization phases own a FeishuAuthSession and can request a fresh
+// authorization URL. A confirmation carries an operation id instead: once it
+// expires the user must initiate the original task again, never hit /refresh.
+const showRefresh = computed<boolean>(() => !confirmation.value && (expired.value || missingLink.value))
 const canResume = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const phase = computed(() => phaseContent[props.action.phase])
 const copied = ref(false)
@@ -80,6 +83,7 @@ const qrDataUrl = ref('')
 let qrGeneration = 0
 
 const statusText = computed<string>(() => {
+  if (confirmation.value && expired.value) return '确认已过期，请重新发起。'
   if (expired.value) return '链接已过期，请重新生成后继续。'
   if (props.action.action_status === 'completed') return '授权步骤已完成，正在继续原任务。'
   if (props.action.action_status === 'terminal') return '此操作已结束，请根据对话中的最新提示继续。'
@@ -94,6 +98,7 @@ function scheduleExpiry(): void {
     clearTimeout(expiryTimer)
     expiryTimer = null
   }
+  if (props.action.action_status !== 'pending') return
   const expiresAt = deadline.value
   if (expiresAt === null || expiresAt <= Date.now()) {
     now.value = Date.now()
@@ -106,7 +111,7 @@ function scheduleExpiry(): void {
 }
 
 watch(
-  () => props.action.expires_at,
+  () => [props.action.action_status, props.action.expires_at],
   () => scheduleExpiry(),
   { immediate: true }
 )

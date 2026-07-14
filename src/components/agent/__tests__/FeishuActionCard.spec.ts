@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import type { ExternalActionMessage } from '@/types/agent'
 
@@ -40,6 +40,10 @@ const mountCard = (props: Record<string, unknown> = {}): VueWrapper =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('FeishuActionCard', () => {
@@ -130,6 +134,34 @@ describe('FeishuActionCard', () => {
     expect(wrapper.text()).toContain('此操作已结束')
     expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
+  })
+
+  it('treats an expired confirmation as terminal and never refreshes its operation id', () => {
+    const wrapper = mountCard({
+      action: createAction({
+        phase: 'confirmation',
+        expires_at: new Date(Date.now() - 1_000).toISOString()
+      })
+    })
+
+    expect(wrapper.text()).toContain('确认已过期，请重新发起')
+    expect(wrapper.find('[data-testid="feishu-confirm"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-cancel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
+    expect(wrapper.emitted('refresh')).toBeUndefined()
+  })
+
+  it('clears the authorization expiry timer once the action is no longer pending', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountCard({
+      action: createAction({ expires_at: new Date(Date.now() + 60_000).toISOString() })
+    })
+
+    expect(vi.getTimerCount()).toBe(1)
+
+    await wrapper.setProps({ action: createAction({ action_status: 'completed' }) })
+
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('emits distinct confirmation and cancellation lifecycle actions', async () => {

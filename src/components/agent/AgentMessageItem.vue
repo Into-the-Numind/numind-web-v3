@@ -107,12 +107,18 @@ const asFinalAnswer = computed<FinalAnswerMessage | null>(() =>
 const asSystem = computed<SystemMessage | null>(() =>
   props.msg.type === 'system' ? props.msg : null
 )
-// `external_action` is the sole external authorization/confirmation path. A
-// question_prompt remains a genuine in-app question. We intentionally leave a
-// legacy `pause_type=auth` inert rather than translating it into an ordinary
-// Agent answer, because that path could regenerate the original tool call.
+// `external_action` is the sole interactive external
+// authorization/confirmation path. A question_prompt remains a genuine in-app
+// question. Legacy auth prompts stay visible as a non-interactive notice: an
+// ordinary Agent answer could regenerate their original tool call, and their
+// old URL must never become actionable again.
 const asQuestionPrompt = computed<QuestionPromptMessage | null>(() =>
   props.msg.type === 'question_prompt' && (props.msg as QuestionPromptMessage).pause_type !== 'auth'
+    ? (props.msg as QuestionPromptMessage)
+    : null
+)
+const asLegacyAuthPrompt = computed<QuestionPromptMessage | null>(() =>
+  props.msg.type === 'question_prompt' && (props.msg as QuestionPromptMessage).pause_type === 'auth'
     ? (props.msg as QuestionPromptMessage)
     : null
 )
@@ -161,23 +167,40 @@ async function handleExternalResume(
 async function handleExternalRefresh(sessionID: string): Promise<void> {
   const externalAction = asExternalAction.value
   if (!externalAction || props.readOnly || feishuActionBusy.value) return
+  const sessionEpoch = store.currentSessionEpoch()
+  const operationID = externalAction.operation_id
+  const actionSessionID = externalAction.session_id
+  const runID = externalAction.run_id
   feishuActionBusy.value = true
   feishuActionError.value = ''
   try {
     const refreshed = await feishuStore.refreshAction(sessionID)
+    const currentAction = asExternalAction.value
+    // The request can return after navigation, reset, or a server-issued
+    // replacement card. Its one-time URL must only update the exact action
+    // that initiated it within the same route/session epoch.
+    if (
+      !store.isCurrentSessionEpoch(sessionEpoch) ||
+      !currentAction ||
+      currentAction.operation_id !== operationID ||
+      currentAction.session_id !== actionSessionID ||
+      currentAction.run_id !== runID
+    ) {
+      return
+    }
     // Refresh replaces a URL for this same durable operation. Route the result
     // through the existing allowlisted stream reducer so the original message is
     // updated in place and no user bubble or ordinary answer is ever created.
-    if (refreshed.operation_id !== externalAction.operation_id) {
+    if (refreshed.operation_id !== operationID) {
       throw new Error('飞书操作已更新，请使用对话中的最新步骤。')
     }
     store.applyStreamEvent({
       type: 'external_action',
       seq: externalAction.seq ?? 0,
       ts: new Date().toISOString(),
-      run_id: externalAction.run_id,
+      run_id: runID,
       data: { provider: 'lark', ...refreshed }
-    })
+    }, sessionEpoch)
   } catch (error) {
     feishuActionError.value = externalActionErrorMessage(error, '暂时无法刷新飞书链接，请稍后重试。')
   } finally {
@@ -494,6 +517,12 @@ const systemText = computed<string>(() => {
         @cancelled="(operationID) => handleExternalResume(operationID, 'cancelled')"
       />
     </div>
+  </div>
+
+  <!-- A persisted pre-external-action auth prompt has no safe continuation.
+       Keep its history visible without exposing its expired URL or answer API. -->
+  <div v-else-if="asLegacyAuthPrompt" class="msg msg-system" data-testid="legacy-feishu-auth-notice">
+    <p class="system-text">旧的飞书授权步骤已失效，请重新发起操作，或前往设置更新连接。</p>
   </div>
 
   <!-- Question prompt (ask_user_question yield) -->
