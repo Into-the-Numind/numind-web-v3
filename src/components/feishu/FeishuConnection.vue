@@ -86,7 +86,18 @@
       </div>
 
       <div class="fc-actions">
-        <template v-if="store.connected">
+        <AppButton
+          v-if="store.state === 'disconnecting'"
+          variant="secondary"
+          size="sm"
+          data-testid="feishu-refresh-disconnecting"
+          :loading="store.loading"
+          @click="reload"
+        >
+          刷新状态
+        </AppButton>
+
+        <template v-else-if="store.connected">
           <AppButton
             variant="secondary"
             size="sm"

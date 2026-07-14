@@ -141,6 +141,22 @@ describe('FeishuConnection', () => {
     expect(api.connectFeishu).not.toHaveBeenCalled()
   })
 
+  it('keeps a disconnecting workspace out of the Agent connection path until cleanup finishes', async () => {
+    vi.mocked(api.getFeishuStatus).mockResolvedValue(status({ state: 'disconnecting', connected: false }))
+    const wrapper = mountConnection()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('正在安全删除')
+    expect(wrapper.find('[data-testid="feishu-connect"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-continue-connection"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-reauthorize"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="feishu-refresh-disconnecting"]').trigger('click')
+    await flushPromises()
+    expect(api.connectFeishu).not.toHaveBeenCalled()
+    expect(api.getFeishuStatus).toHaveBeenCalledTimes(2)
+  })
+
   it('uses ConfirmModal before unbinding and clarifies that the remote app remains', async () => {
     vi.mocked(api.getFeishuStatus).mockResolvedValue(status({ state: 'connected', connected: true }))
     vi.mocked(api.unbindFeishuConnection).mockResolvedValue({
