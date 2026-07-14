@@ -1,38 +1,12 @@
-<!--
-  FeishuConnection — 飞书 (Lark) 账号连接卡片（设置页「账号连接」区）。
-
-  契约：numind-server biz/feishu/service.go（device-code 两步流，G2-authorize
-  2026-06-24 重设计）。状态来自 useFeishuStore（Pinia setup store，
-  src/stores/feishu.ts），HTTP 全走 src/api/feishu.ts → request.ts
-  （.claude/rules/frontend-state.md §2）。
-
-  ───────────────────────────────────────────────────────────────────────────
-  连接现在是「两步」（device-code，无 redirect-OAuth）：
-    1. create_app — 打开建应用页（lark-cli config init），用户在飞书侧建自建应用。
-    2. authorize  — 应用建好后打开授权页（device-code），用户授权 scopes。
-  两步均由 POST /v1/feishu/connect 幂等推进：每次调用返回当前 next_step + url，
-  next_step 依次 create_app → authorize → done。
-
-  主推路径 = AI 助手对话：在对话里说「连接飞书」，由 agent 用 AgentAuthPrompt
-  卡片逐步引导（两步均走 pause_type=auth + URL，已泛化），体验最完整。本设置页
-  把这条作为首选 CTA。
-
-  设置页也保留「直接连接」：点「连接飞书」后由本组件驱动两步——
-    开 create_app url → 轮询 connect() 推进；待 next_step 变 authorize →
-    开 authorize url → 轮询 connect() 推进；待 next_step=done → fetchStatus 确认已连。
-
-  异步 4 状态（ui-ux.md 硬规则 2，所有异步视图必须处理）：
-    - loading：首屏 / 刷新连接状态时的 skeleton 占位。
-    - empty：未连接（status=none）→ 文案 + 主推「去 AI 助手连接」+ 次选「直接连接」。
-    - error：fetchStatus 失败 → 错误文案 + 「重试」。
-    - success：已连接（connected）展示已建应用 ID + 「解绑」。
-
-  销毁性操作「解绑」走 ConfirmModal（ui-ux.md 硬规则 4），禁止裸 confirm()。
--->
 <template>
-  <div class="feishu-connection">
-    <!-- ============ loading：首屏 skeleton ============ -->
-    <div v-if="showLoading" class="fc-card fc-card--loading" aria-busy="true">
+  <section class="feishu-connection" aria-label="飞书个人工作空间">
+    <div
+      v-if="showLoading"
+      class="fc-card fc-card--loading"
+      data-testid="feishu-connection-loading"
+      aria-busy="true"
+      aria-label="正在获取飞书连接状态"
+    >
       <div class="fc-skeleton fc-skeleton--icon" />
       <div class="fc-skeleton-lines">
         <div class="fc-skeleton fc-skeleton--title" />
@@ -40,302 +14,224 @@
       </div>
     </div>
 
-    <!-- ============ error：fetchStatus 失败 + 重试 ============ -->
-    <div v-else-if="showError" class="fc-card fc-card--error" role="alert">
-      <div class="fc-icon fc-icon--error">
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      </div>
+    <div
+      v-else-if="showError"
+      class="fc-card fc-card--error"
+      data-testid="feishu-connection-error"
+      role="alert"
+    >
+      <AlertCircle class="fc-icon fc-icon--error" :size="20" aria-hidden="true" />
       <div class="fc-body">
-        <div class="fc-title">无法获取飞书连接状态</div>
-        <div class="fc-desc">{{ store.error || '网络异常，请稍后重试' }}</div>
+        <h3 class="fc-title">无法获取飞书连接状态</h3>
+        <p class="fc-desc">{{ store.error || '网络异常，请稍后重试。' }}</p>
       </div>
-      <button type="button" class="fc-btn fc-btn--ghost" :disabled="store.loading" @click="reload">
-        {{ store.loading ? '重试中…' : '重试' }}
-      </button>
+      <AppButton
+        variant="secondary"
+        size="sm"
+        data-testid="feishu-status-retry"
+        :loading="store.loading"
+        @click="reload"
+      >
+        重试
+      </AppButton>
     </div>
 
-    <!-- ============ success / empty 共用卡片骨架 ============ -->
-    <div v-else class="fc-card">
-      <div class="fc-icon" :class="iconStateClass">
-        <!-- 飞书 logo 占位（避免引外部资源，用内联几何标识）。 -->
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M4 7h16M4 12h10M4 17h7" />
-        </svg>
-      </div>
+    <div
+      v-else
+      class="fc-card"
+      :class="{ 'fc-card--connected': store.connected }"
+      :data-testid="store.connected ? 'feishu-connection-success' : 'feishu-connection-empty'"
+    >
+      <span class="fc-icon" :class="store.connected ? 'fc-icon--active' : 'fc-icon--muted'" aria-hidden="true">
+        <ShieldCheck :size="20" />
+      </span>
 
       <div class="fc-body">
         <div class="fc-title-row">
-          <span class="fc-title">飞书</span>
-          <span class="fc-status-pill" :class="statusPillClass">{{ statusLabel }}</span>
+          <div>
+            <p class="fc-eyebrow">个人工作空间</p>
+            <h3 class="fc-title">飞书</h3>
+          </div>
+          <span class="fc-status-pill" :class="`fc-status-pill--${statusTone}`">
+            {{ statusLabel }}
+          </span>
         </div>
 
-        <!-- success：已连接 -->
         <template v-if="store.connected">
-          <div class="fc-desc">已连接你的飞书账号，agent 可代你执行飞书操作（不计费）。</div>
-          <div v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</div>
+          <p class="fc-desc">已连接你的个人飞书工作空间。文档、多维表格和知识库将在首次使用时按需授权，不包含消息发送。</p>
+          <p v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</p>
         </template>
 
-        <!-- empty：未连接 + 主推「去 AI 助手连接」 -->
         <template v-else>
-          <div class="fc-desc">
-            连接飞书后，agent 可代你查询/发送飞书消息、读写文档等（不计费、无功能门）。
-          </div>
-          <div class="fc-hint">
-            连接分两步：先在飞书侧创建一个自建应用，再扫码/打开链接授权。推荐在 AI
-            助手对话里说「连接飞书」，由助手逐步引导你完成（体验最顺）。
-          </div>
+          <p class="fc-desc">{{ stateDescription }}</p>
+          <p class="fc-hint">
+            直接在 AI 助手中提出飞书任务即可开始；首次使用时按需授权，不包含消息发送。
+          </p>
         </template>
 
-        <!-- 直接连接进行中：两步驱动的进度提示（点「直接连接」后显示） -->
-        <div v-if="awaitingAuth" class="fc-awaiting">
-          <span class="fc-spinner" aria-hidden="true" />
-          <span>已在新标签页打开{{ awaitingStepLabel }}，{{ awaitingHint }}</span>
-          <button type="button" class="fc-link" @click="reload">手动刷新</button>
-        </div>
+        <ul v-if="showCapabilities" class="fc-capabilities" aria-label="飞书能力状态">
+          <li
+            v-for="domain in capabilityDomains"
+            :key="domain.key"
+            class="fc-capability"
+            :data-testid="`feishu-capability-${domain.key}`"
+          >
+            <span>{{ domain.label }}</span>
+            <span class="fc-capability-state" :class="`fc-capability-state--${capabilityState(domain.key)}`">
+              {{ capabilityLabel(domain.key) }}
+            </span>
+          </li>
+        </ul>
       </div>
 
-      <!-- 右侧动作区 -->
       <div class="fc-actions">
-        <!-- success：解绑（销毁性，走 ConfirmModal） -->
-        <button
-          v-if="store.connected"
-          type="button"
-          class="fc-btn fc-btn--danger-ghost"
-          :disabled="store.disconnecting"
-          @click="confirmVisible = true"
-        >
-          {{ store.disconnecting ? '解绑中…' : '解绑' }}
-        </button>
-
-        <!-- empty：主推「去 AI 助手连接」+ 次选「直接连接」 -->
-        <template v-else>
-          <button type="button" class="fc-btn fc-btn--primary" @click="goToAssistant">
-            去 AI 助手连接
-          </button>
-          <button
-            type="button"
-            class="fc-btn fc-btn--ghost"
-            :disabled="store.connecting || awaitingAuth"
-            @click="startConnect"
+        <template v-if="store.connected">
+          <AppButton
+            variant="secondary"
+            size="sm"
+            data-testid="feishu-reauthorize"
+            @click="openAgent('重新授权')"
           >
-            {{ store.connecting || awaitingAuth ? '连接中…' : '直接连接' }}
-          </button>
+            重新授权
+          </AppButton>
+          <AppButton
+            variant="text"
+            size="sm"
+            data-testid="feishu-unbind"
+            :loading="store.disconnecting"
+            @click="confirmVisible = true"
+          >
+            解绑
+          </AppButton>
         </template>
+
+        <AppButton
+          v-else
+          variant="primary"
+          size="sm"
+          :data-testid="actionTestId"
+          @click="openAgent(actionLabel)"
+        >
+          {{ actionLabel }}
+        </AppButton>
       </div>
     </div>
 
-    <!-- 解绑确认弹窗（ui-ux.md 硬规则 4：销毁性操作必须确认） -->
     <ConfirmModal
       v-model="confirmVisible"
       title="解绑飞书"
-      message="解绑后 agent 将无法再代你执行飞书操作。飞书侧已创建的应用会保留，可随时重新连接。确定解绑？"
+      message="解绑只删除有数保存的连接与授权资料；飞书侧的远端应用会保留，已有资源不受影响。确定解绑？"
       variant="danger"
       confirm-text="解绑"
       @confirm="handleDisconnect"
     />
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { AlertCircle, ShieldCheck } from 'lucide-vue-next'
+import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useFeishuStore } from '@/stores/feishu'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { FeishuActionPhase, FeishuConnectResult } from '@/api/feishu'
+import type { FeishuCapabilityDomain, FeishuCapabilityState, FeishuConnectionState } from '@/api/feishu'
 
 const store = useFeishuStore()
-const notifications = useNotificationsStore()
 const router = useRouter()
-
-// 解绑确认弹窗开关。
+const notifications = useNotificationsStore()
 const confirmVisible = ref(false)
-
-// ============ 直接连接（device-code 两步驱动）的进行态 ============
-// 「直接连接」点击后置位；连接完成 / 失败 / 组件卸载时清除。awaitingStep 记录
-// 当前正在等待用户完成哪一步（create_app=建应用 / authorize=授权）。
-const awaitingAuth = ref(false)
-const awaitingStep = ref<FeishuActionPhase | null>(null)
-// setInterval 句柄；连接完成 / 失败 / 组件卸载时清理，避免泄漏。
-let pollTimer: ReturnType<typeof setInterval> | null = null
-// 已在本次直接连接里打开过的 URL（去重：同一步反复轮询不重复弹新标签）。
-let openedUrl = ''
-const POLL_INTERVAL_MS = 4000
-
-const awaitingStepLabel = computed(() => {
-  if (awaitingStep.value === 'create_app') return '飞书建应用页'
-  if (awaitingStep.value === 'app_scope') return '飞书管理员审批页'
-  if (awaitingStep.value === 'confirmation') return '飞书操作确认页'
-  return '飞书授权页'
-})
-// 两步的进度文案：建应用阶段提示「建好后会自动进入授权」，授权阶段提示「完成后自动连接」。
-const awaitingHint = computed(() =>
-  awaitingStep.value === 'create_app' ? '应用建好后会自动进入授权这一步…' : '授权完成后将自动连接…'
-)
-
-// ============ 4 状态判定 ============
-// loading 仅在「尚无任何已知状态」的首屏 fetch 时显示 skeleton（避免连接/解绑时
-// 的二次 fetch 把整卡闪成骨架）。store 初始 status='none'，故用首屏标志位区分。
 const initialized = ref(false)
+
+const capabilityDomains: { key: FeishuCapabilityDomain; label: string }[] = [
+  { key: 'docs', label: '文档' },
+  { key: 'base', label: '多维表格' },
+  { key: 'wiki', label: '知识库' }
+]
+
+const statusLabels: Record<FeishuConnectionState, string> = {
+  none: '未连接',
+  creating_app: '正在创建应用',
+  app_ready: '等待继续',
+  waiting_app_approval: '等待管理员批准',
+  waiting_user_auth: '等待授权',
+  connected: '已连接',
+  reauth_required: '需要重新授权',
+  error: '连接异常',
+  disconnecting: '正在解绑'
+}
+
+const stateDescriptions: Partial<Record<FeishuConnectionState, string>> = {
+  creating_app: '个人飞书应用正在创建。请回到 AI 助手继续完成这一步。',
+  app_ready: '个人飞书应用已准备好。请回到 AI 助手继续完成授权。',
+  waiting_app_approval: '应用正在等待飞书管理员批准。批准后，请回到 AI 助手继续原任务。',
+  waiting_user_auth: '正在等待你的飞书授权。请回到 AI 助手继续完成这一步。',
+  reauth_required: '此前的飞书授权已失效。请在 AI 助手中重新授权后继续原任务。',
+  error: '连接状态暂时异常。请在 AI 助手中重新发起飞书任务。',
+  disconnecting: '正在安全删除有数保存的飞书连接资料。'
+}
+
 const showLoading = computed(() => store.loading && !initialized.value)
-const showError = computed(() => !!store.error && !store.loading)
-
-// ============ 展示派生 ============
-const statusLabel = computed(() => (store.connected ? '已连接' : '未连接'))
-const statusPillClass = computed(() => ({
-  'fc-status-pill--active': store.connected,
-  'fc-status-pill--none': store.notConnected
-}))
-const iconStateClass = computed(() => ({
-  'fc-icon--active': store.connected,
-  'fc-icon--muted': !store.connected
-}))
-
-// ============ 直接连接驱动 ============
-/** 停止轮询并复位所有「直接连接」进行态。 */
-function stopPolling(): void {
-  if (pollTimer !== null) {
-    clearInterval(pollTimer)
-    pollTimer = null
+const showError = computed(() => Boolean(store.error) && !store.loading)
+const showCapabilities = computed(() => store.connected || store.state !== 'none')
+const statusLabel = computed(() => statusLabels[store.state])
+const statusTone = computed(() => (store.connected ? 'active' : store.state === 'error' ? 'error' : 'muted'))
+const stateDescription = computed(
+  () => stateDescriptions[store.state] ?? '让 AI 帮你创建个人飞书应用并完成需要的授权。'
+)
+const actionLabel = computed(() => {
+  if (store.state === 'reauth_required') return '重新授权'
+  if (['creating_app', 'app_ready', 'waiting_app_approval', 'waiting_user_auth'].includes(store.state)) {
+    return '继续连接'
   }
-  awaitingAuth.value = false
-  awaitingStep.value = null
-  openedUrl = ''
+  return '连接飞书'
+})
+const actionTestId = computed(() => {
+  if (store.state === 'reauth_required') return 'feishu-reauthorize'
+  if (['creating_app', 'app_ready', 'waiting_app_approval', 'waiting_user_auth'].includes(store.state)) {
+    return 'feishu-continue-connection'
+  }
+  return 'feishu-connect'
+})
+
+function capabilityState(domain: FeishuCapabilityDomain): FeishuCapabilityState {
+  return store.capabilities[domain].state
 }
 
-/**
- * 在新标签打开连接 URL（去重）。device-code 流里 connect() 幂等返回当前步骤的
- * 同一 URL，轮询时会反复拿到——只在 URL 变化（进入新一步）时弹新标签，避免刷屏。
- */
-function openStepUrl(url: string): void {
-  if (!url || url === openedUrl) return
-  openedUrl = url
-  // noopener 防止被打开页反向操控当前页。
-  window.open(url, '_blank', 'noopener,noreferrer')
+function capabilityLabel(domain: FeishuCapabilityDomain): string {
+  const labels: Record<FeishuCapabilityState, string> = {
+    unknown: '尚未验证',
+    available: '可用',
+    needs_app_scope: '等待应用权限',
+    needs_user_scope: '需要授权',
+    revoked: '已撤销',
+    resource_denied: '资源未授权'
+  }
+  return labels[capabilityState(domain)]
 }
 
-/**
- * 处理一次 connect() 返回：按 next_step 推进 device-code 两步流。
- * 返回 true 表示连接已完成（done），调用方应停止轮询。
- */
-function advance(res: FeishuConnectResult): boolean {
-  if (res.state === 'connected') return true
-  if (!res.action) return false
-  awaitingStep.value = res.action.phase
-  if (res.action.url) openStepUrl(res.action.url)
-  return false
-}
-
-/** 连接成功收尾：拉一次状态确认、复位进行态、toast。 */
-async function finishConnected(): Promise<void> {
-  stopPolling()
-  await store.fetchStatus()
-  notifications.success('飞书连接成功')
-}
-
-/**
- * 轮询推进：每隔 POLL_INTERVAL_MS 调用幂等的 connect() 推进一步。
- * - 仍 create_app/authorize：保持等待（用户尚未完成当前步）。
- * - 一旦 next_step 进到下一步（建应用→授权），URL 变化 → openStepUrl 自动弹授权页。
- * - next_step=done：连接完成，收尾。
- * connect() 报错时（store 已落 error）停止轮询并 toast，避免静默空转。
- */
-function startPolling(): void {
-  if (pollTimer !== null) clearInterval(pollTimer)
-  pollTimer = setInterval(() => {
-    void (async () => {
-      try {
-        const res = await store.connect()
-        if (advance(res)) await finishConnected()
-      } catch {
-        stopPolling()
-        notifications.error(store.error || '飞书连接中断，请重试')
-      }
-    })()
-  }, POLL_INTERVAL_MS)
-}
-
-// ============ 动作 ============
-/** 重新拉取状态（error 重试 / 等待态手动刷新）。 */
 async function reload(): Promise<void> {
   await store.fetchStatus()
   initialized.value = true
-  if (store.connected) stopPolling()
 }
 
-/** 主推：跳转到 AI 助手工作台，引导用户在对话里说「连接飞书」。 */
-function goToAssistant(): void {
-  notifications.info('在 AI 助手对话里说「连接飞书」，助手会一步步引导你完成')
+function openAgent(action: string): void {
+  notifications.info(`请在 AI 助手中${action}；完成飞书官方页面操作后，原任务会自动继续。`)
   void router.push({ name: 'home' })
 }
 
-/**
- * 次选「直接连接」：在设置页直接驱动 device-code 两步流。
- * connect() 幂等：首次返回 create_app（或已建过应用则直接 authorize）+ url；
- * 打开 url 后开始轮询，由 startPolling 推进到 authorize、最终 done。
- * connect 失败时 store 已落 error 并 rethrow，这里 toast 提示。
- */
-async function startConnect(): Promise<void> {
-  if (awaitingAuth.value) return
-  awaitingAuth.value = true
-  openedUrl = ''
-  try {
-    const res = await store.connect()
-    if (advance(res)) {
-      await finishConnected()
-      return
-    }
-    if (!res.action?.url) {
-      stopPolling()
-      notifications.error('未能获取飞书连接链接，请稍后重试')
-      return
-    }
-    startPolling()
-  } catch {
-    stopPolling()
-    notifications.error(store.error || '发起飞书连接失败')
-  }
-}
-
-/** ConfirmModal 确认后执行解绑；成功 toast，失败 store 已落 error + rethrow → 这里 toast。 */
 async function handleDisconnect(): Promise<void> {
   try {
     await store.disconnect()
-    stopPolling()
-    notifications.success('已解绑飞书')
+    notifications.success('已解绑飞书个人工作空间')
   } catch {
-    notifications.error(store.error || '解绑飞书失败')
+    notifications.error(store.error || '解绑飞书失败，请稍后重试。')
   }
 }
 
 onMounted(() => {
   void reload()
-})
-
-onBeforeUnmount(() => {
-  stopPolling()
 })
 </script>
 
@@ -344,270 +240,232 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-/* ===== 卡片骨架 ===== */
 .fc-card {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3, 12px);
-  padding: var(--space-4, 16px) var(--space-5, 18px);
-  background: var(--color-surface, #ffffff);
-  border: 1px solid var(--color-border, #e8e9ee);
-  border-radius: var(--radius-md, 14px);
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.fc-card--connected {
+  border-color: var(--accent-light);
 }
 
 .fc-card--error {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.03);
+  border-color: rgb(239 68 68 / 34%); /* TODO(admin-rebrand): replace with --danger token */
 }
 
-/* ===== 图标 ===== */
 .fc-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md, 10px);
-  display: flex;
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
 }
 
 .fc-icon--active {
-  background: var(--color-primary-soft, #e9f9f1);
-  color: var(--color-primary, #10b981);
+  color: var(--primary);
+  background: var(--accent-soft);
 }
 
 .fc-icon--muted {
-  background: var(--color-surface-hover, #f6f7fb);
-  color: var(--color-text-secondary, #6b7085);
+  color: var(--text-secondary);
+  background: var(--surface-tint);
 }
 
 .fc-icon--error {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md, 10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-danger, #ef4444);
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  background: rgb(239 68 68 / 10%); /* TODO(admin-rebrand): replace with --danger token */
 }
 
-/* ===== 主体文本 ===== */
 .fc-body {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .fc-title-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-  margin-bottom: 4px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.fc-eyebrow {
+  margin: 0 0 var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-height-tight);
 }
 
 .fc-title {
-  font-size: var(--text-sm, 14px);
-  font-weight: 700;
-  color: var(--color-text, #1a1d26);
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  line-height: var(--line-height-tight);
+}
+
+.fc-desc,
+.fc-hint,
+.fc-meta {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
 }
 
 .fc-desc {
-  font-size: var(--text-xs, 13px);
-  line-height: 1.6;
-  color: var(--color-text-secondary, #6b7085);
+  color: var(--text-secondary);
 }
 
-.fc-hint {
-  margin-top: 6px;
-  font-size: var(--text-xs, 12px);
-  line-height: 1.5;
-  color: var(--color-text-muted, #9ca0ad);
+.fc-hint,
+.fc-meta {
+  margin-top: var(--space-sm);
+  color: var(--text-muted);
 }
 
 .fc-meta {
-  margin-top: 6px;
-  font-size: var(--text-xs, 12px);
-  color: var(--color-text-muted, #9ca0ad);
-  font-family: var(--font-mono, monospace);
-  word-break: break-all;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
-/* ===== 状态徽标 ===== */
-.fc-status-pill {
-  font-size: 11px;
-  font-weight: 600;
+.fc-status-pill,
+.fc-capability-state {
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
   line-height: 1.4;
-  padding: 1px 8px;
-  border-radius: var(--radius-pill, 999px);
-}
-
-.fc-status-pill--active {
-  background: var(--color-primary-soft, #e9f9f1);
-  color: var(--color-primary, #10b981);
-}
-
-.fc-status-pill--none {
-  background: var(--color-surface-hover, #f3f4f7);
-  color: var(--color-text-muted, #9ca0ad);
-}
-
-/* ===== 等待授权完成提示 ===== */
-.fc-awaiting {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: var(--text-xs, 12px);
-  color: var(--color-text-secondary, #6b7085);
-}
-
-.fc-spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border, #e8e9ee);
-  border-top-color: var(--color-primary, #10b981);
-  animation: fc-spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes fc-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.fc-link {
-  appearance: none;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--color-primary, #10b981);
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.fc-link:hover {
-  opacity: 0.85;
-}
-
-/* ===== 动作区 ===== */
-/* 列向堆叠：未连接时有「去 AI 助手连接」(主) + 「直接连接」(次) 两个按钮；
-   已连接时只有「解绑」。stretch 让两按钮等宽对齐。 */
-.fc-actions {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2, 8px);
-}
-
-.fc-btn {
-  appearance: none;
-  font-family: inherit;
-  font-size: var(--text-sm, 13px);
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s;
   white-space: nowrap;
 }
 
-.fc-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.fc-status-pill {
+  padding: 3px var(--space-sm);
 }
 
-.fc-btn--primary {
-  background: var(--color-primary, #10b981);
-  color: var(--color-primary-foreground, #ffffff);
+.fc-status-pill--active,
+.fc-capability-state--available {
+  color: var(--accent-link);
+  background: var(--accent-soft);
 }
 
-.fc-btn--primary:not(:disabled):hover {
-  background: var(--color-primary-hover, #0ea371);
+.fc-status-pill--muted,
+.fc-capability-state--unknown,
+.fc-capability-state--needs_app_scope,
+.fc-capability-state--needs_user_scope,
+.fc-capability-state--resource_denied {
+  color: var(--text-secondary);
+  background: var(--surface-tint);
 }
 
-.fc-btn--ghost {
-  background: var(--color-surface, #ffffff);
-  color: var(--color-text, #1a1d26);
-  border-color: var(--color-border, #e8e9ee);
+.fc-status-pill--error,
+.fc-capability-state--revoked {
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  background: rgb(239 68 68 / 8%); /* TODO(admin-rebrand): replace with --danger token */
 }
 
-.fc-btn--ghost:not(:disabled):hover {
-  background: var(--color-surface-hover, #f6f7fb);
+.fc-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding: 0;
+  margin: var(--space-lg) 0 0;
+  list-style: none;
 }
 
-.fc-btn--danger-ghost {
-  background: var(--color-surface, #ffffff);
-  color: var(--color-danger, #ef4444);
-  border-color: rgba(239, 68, 68, 0.3);
+.fc-capability {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
 }
 
-.fc-btn--danger-ghost:not(:disabled):hover {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: var(--color-danger, #ef4444);
+.fc-capability-state {
+  padding: 2px 6px;
 }
 
-/* ===== loading skeleton ===== */
+.fc-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
 .fc-card--loading {
   align-items: center;
 }
 
 .fc-skeleton {
-  background: linear-gradient(90deg, #eef0f3 25%, #f6f7fa 50%, #eef0f3 75%);
+  background: linear-gradient(90deg, var(--surface-tint) 25%, var(--surface-hover) 50%, var(--surface-tint) 75%);
   background-size: 200% 100%;
+  border-radius: var(--radius-sm);
   animation: fc-shimmer 1.3s ease-in-out infinite;
-  border-radius: var(--radius-sm, 6px);
 }
 
 .fc-skeleton--icon {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-md, 10px);
-  flex-shrink: 0;
 }
 
 .fc-skeleton-lines {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .fc-skeleton--title {
-  width: 30%;
-  height: 14px;
+  width: 28%;
+  height: 16px;
 }
 
 .fc-skeleton--text {
-  width: 70%;
+  width: 68%;
   height: 12px;
 }
 
 @keyframes fc-shimmer {
-  0% {
+  from {
     background-position: 200% 0;
   }
-  100% {
+  to {
     background-position: -200% 0;
   }
 }
 
-/* ===== 窄屏：动作按钮换行到底部 ===== */
-@media (max-width: 560px) {
+@media (max-width: 767px) {
   .fc-card {
     flex-wrap: wrap;
+    padding: var(--space-lg);
   }
 
   .fc-actions {
     width: 100%;
+    flex-direction: row;
     justify-content: flex-end;
-    margin-top: 4px;
+  }
+
+  .fc-capabilities {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-skeleton {
+    animation: none;
   }
 }
 </style>
