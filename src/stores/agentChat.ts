@@ -315,6 +315,28 @@ function externalActionStatusFromTerminal(payload: unknown): ExternalActionStatu
   return status === 'completed' ? 'completed' : 'terminal'
 }
 
+const EXTERNAL_RESUME_READY_STATE = 'external_resume_ready'
+const EXTERNAL_RESUME_STARTING_PREFIX = 'ext_resume:'
+
+/**
+ * Task 11's durable continuation has two non-terminal server states after the
+ * user finishes Feishu authorization: `external_resume_ready` waits for the
+ * reclaimer and `ext_resume:<lease>` has been claimed by a worker. Neither is
+ * a final Agent answer, but both irrevocably release the one-time auth URL.
+ *
+ * Keep this contract deliberately narrow: only the documented exact ready
+ * value or a non-empty `ext_resume:` lease qualifies. In particular, do not
+ * treat a broad `ext_` namespace or malformed `ext_resume` values as released.
+ */
+function isQueuedExternalContinuation(stateReason?: string): boolean {
+  if (stateReason === EXTERNAL_RESUME_READY_STATE) return true
+  return (
+    typeof stateReason === 'string' &&
+    stateReason.startsWith(EXTERNAL_RESUME_STARTING_PREFIX) &&
+    stateReason.length > EXTERNAL_RESUME_STARTING_PREFIX.length
+  )
+}
+
 /**
  * StreamingAssistantMessage — AssistantMessage carrying SSE bookkeeping fields.
  * `_stream_id`: backend-provided message_id used to deduplicate token_delta
@@ -541,6 +563,23 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       messages.value[index] = settled
     }
     if (!hasPendingExternalAction()) stopExternalActionPolling()
+  }
+
+  const settlePendingExternalActionsForRun = (
+    runID: number,
+    status: ExternalActionStatus
+  ): void => {
+    const pendingOperationIDs = messages.value
+      .filter(
+        (message): message is ExternalActionMessage =>
+          message.type === 'external_action' &&
+          message.run_id === runID &&
+          message.action_status === 'pending'
+      )
+      .map((message) => message.operation_id)
+    for (const operationID of pendingOperationIDs) {
+      settleExternalAction(operationID, status, runID)
+    }
   }
 
   /**
@@ -900,33 +939,30 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     try {
       const prevStatus = currentRun.value.status
       const next = await api.getRun(currentRun.value.id)
+      const queuedExternalContinuation = isQueuedExternalContinuation(next.state_reason)
       // answer-resume-lifecycle F3: state_reason==='running' is the resume
       // signature (only AnswerAndClear / the takeover correction write it; real
-      // completions carry 'completed' etc.). An old backend may still advertise
-      // status='terminated' during the resumed leg (dev run 148) — keep the run
-      // alive locally so polling/narration continue until a real terminal.
+      // completions carry 'completed' etc.). Task 11's two durable external
+      // continuation states are also non-terminal: they mean the original tool
+      // call is queued/claimed after the auth URL has been consumed. An old
+      // backend may still advertise status='terminated' during either path, so
+      // keep the run active locally until a real terminal answer arrives.
       const isResuming =
-        next.state_reason === 'running' && next.status !== 'running' && next.status !== 'pending'
+        (next.state_reason === 'running' || queuedExternalContinuation) &&
+        next.status !== 'running' &&
+        next.status !== 'pending'
       currentRun.value = isResuming ? { ...next, status: 'running' } : next
-      // An external wait is over as soon as the original run resumes, or when
-      // it reaches a terminal result. Do not leave an authorization URL/card
-      // actionable after the server has fenced that operation.
-      const externalWaitReleased = next.state_reason === 'running' || isResuming
+      // An external wait is over as soon as the original run resumes, its
+      // durable continuation queues/claims, or it reaches a terminal result.
+      // Queued continuation is not a final textual response; it only completes
+      // the authorization card and revokes its transient URL.
+      const externalWaitReleased =
+        next.state_reason === 'running' || isResuming || queuedExternalContinuation
       const externallyTerminal = next.status !== 'running' && next.status !== 'pending'
       if (externalWaitReleased || externallyTerminal) {
         const actionStatus: ExternalActionStatus =
           externalWaitReleased || next.status === 'completed' ? 'completed' : 'terminal'
-        const pendingOperationIDs = messages.value
-          .filter(
-            (message): message is ExternalActionMessage =>
-              message.type === 'external_action' &&
-              message.run_id === next.id &&
-              message.action_status === 'pending'
-          )
-          .map((message) => message.operation_id)
-        for (const operationID of pendingOperationIDs) {
-          settleExternalAction(operationID, actionStatus)
-        }
+        settlePendingExternalActionsForRun(next.id, actionStatus)
       }
       // When the run transitions from active → terminal and the backend
       // surfaced a final_output (extracted from agent_run.messages), push it
@@ -985,7 +1021,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           }
         }
       }
-      if (wasActive && isTerminal && finalOut && !alreadyHasFinal && !isWaiting && !isResuming) {
+      if (
+        wasActive &&
+        isTerminal &&
+        finalOut &&
+        !alreadyHasFinal &&
+        !isWaiting &&
+        !isResuming &&
+        !queuedExternalContinuation
+      ) {
         messages.value.push({
           id: uuid(),
           type: 'final_answer',
@@ -996,7 +1040,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
       // Run reached terminal (done / failed / cancelled, but not a waiting pause
       // or a resume re-entry) → stop any lingering tool-call timers.
-      if (wasActive && isTerminal && !isWaiting && !isResuming) {
+      if (wasActive && isTerminal && !isWaiting && !isResuming && !queuedExternalContinuation) {
         finalizeToolGroups()
       }
     } catch {
@@ -1155,6 +1199,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // only post-answer narration instead of re-fetching every pre-answer event
         // (which the in-memory buffer may still hold) into a duplicate giant card.
         if (snap.run.updated_at) lastNarrationTs.value = snap.run.updated_at
+      }
+      // The snapshot deliberately re-synthesizes durable external actions so a
+      // reload preserves their history. Once Task 11 has queued or claimed the
+      // original continuation, that history must be settled immediately: the
+      // authorization URL is already consumed and the server (not /answer or a
+      // browser-side CLI) owns the next step.
+      if (snap.run && isQueuedExternalContinuation(snap.run.state_reason)) {
+        settlePendingExternalActionsForRun(snap.run.id, 'completed')
       }
       if (snap.compact_summary) {
         messages.value.unshift({

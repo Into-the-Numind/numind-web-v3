@@ -151,6 +151,205 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
+  it.each(['external_resume_ready', 'ext_resume:lease-token'])(
+    'settles a restored external action when %s has already released it',
+    async (stateReason) => {
+      vi.useFakeTimers()
+      const now = new Date('2026-07-14T10:00:00Z')
+      vi.setSystemTime(now)
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+      const store = useAgentChatStore()
+      const expiresAt = new Date(now.getTime() + 60_000).toISOString()
+      vi.mocked(api.getSessionSnapshot).mockResolvedValue({
+        session_id: 'sess-resume',
+        agent_skill_id: 1,
+        agent_run_ids: [148],
+        last_active_at: '',
+        status: 'running',
+        run: {
+          id: 148,
+          session_id: 'sess-resume',
+          status: 'running',
+          state_reason: stateReason,
+          created_at: '',
+          updated_at: ''
+        },
+        messages: [
+          {
+            id: `external-action-${stateReason}`,
+            type: 'external_action',
+            run_id: 148,
+            operation_id: 'op-queued',
+            session_id: 'session-queued',
+            phase: 'user_auth',
+            expires_at: expiresAt,
+            provider: 'feishu'
+          }
+        ]
+      } as never)
+
+      await store.loadSessionSnapshot('sess-resume', false)
+
+      const action = store.messages.find((message) => message.type === 'external_action')
+      expect(action).toMatchObject({ action_status: 'completed' })
+      expect(action).not.toHaveProperty('url')
+      expect(store.isWaitingForExternalAction).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(api.getRun).not.toHaveBeenCalled()
+      expect(api.postAgentAnswer).not.toHaveBeenCalled()
+      expect(feishuAPI.resumeFeishuOperation).not.toHaveBeenCalled()
+      store.reset()
+    }
+  )
+
+  it.each(['external_resume_ready', 'ext_resume:lease-token'])(
+    'settles a live external action without rendering final prose when reconcile reads %s',
+    async (stateReason) => {
+      vi.useFakeTimers()
+      const now = new Date('2026-07-14T10:00:00Z')
+      vi.setSystemTime(now)
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+      const store = useAgentChatStore()
+      store.currentRun = {
+        id: 148,
+        session_id: 'sess-resume',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as AgentRun
+      vi.mocked(api.getRun).mockResolvedValueOnce({
+        id: 148,
+        session_id: 'sess-resume',
+        status: 'running',
+        state_reason: stateReason,
+        // This is pre-resume content, not an answer to render while the
+        // durable continuation is only queued.
+        final_output: '等待续跑时不能显示为最终回答',
+        created_at: '',
+        updated_at: ''
+      } as AgentRun)
+
+      store.applyStreamEvent({
+        type: 'external_action',
+        seq: 1,
+        ts: now.toISOString(),
+        run_id: 148,
+        data: {
+          provider: 'feishu',
+          operation_id: 'op-live-queued',
+          session_id: 'session-live-queued',
+          tool_call_id: 'tool-call-1',
+          phase: 'user_auth',
+          url: 'https://safe.example/authorize',
+          expires_at: new Date(now.getTime() + 60_000).toISOString()
+        }
+      })
+      expect(vi.getTimerCount()).toBe(1)
+
+      await store.refreshRunStatus()
+
+      const action = store.messages.find((message) => message.type === 'external_action')
+      expect(action).toMatchObject({ action_status: 'completed' })
+      expect(action).not.toHaveProperty('url')
+      expect(store.isWaitingForExternalAction).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      expect(store.messages.filter((message) => message.type === 'final_answer')).toHaveLength(0)
+      expect(api.postAgentAnswer).not.toHaveBeenCalled()
+      expect(feishuAPI.resumeFeishuOperation).not.toHaveBeenCalled()
+      store.reset()
+    }
+  )
+
+  it.each(['ext_resume', 'ext_resume:', 'ext_other:lease-token', 'external_resume_ready_later'])(
+    'does not settle an external action for non-continuation state_reason %s',
+    async (stateReason) => {
+      vi.useFakeTimers()
+      const now = new Date('2026-07-14T10:00:00Z')
+      vi.setSystemTime(now)
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+      const store = useAgentChatStore()
+      store.currentRun = {
+        id: 148,
+        session_id: 'sess-resume',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as AgentRun
+      vi.mocked(api.getRun).mockResolvedValueOnce({
+        ...store.currentRun,
+        state_reason: stateReason
+      })
+      store.applyStreamEvent({
+        type: 'external_action',
+        seq: 1,
+        ts: now.toISOString(),
+        run_id: 148,
+        data: {
+          provider: 'feishu',
+          operation_id: 'op-non-continuation',
+          session_id: 'session-non-continuation',
+          tool_call_id: 'tool-call-1',
+          phase: 'user_auth',
+          url: 'https://safe.example/authorize',
+          expires_at: new Date(now.getTime() + 60_000).toISOString()
+        }
+      })
+
+      await store.refreshRunStatus()
+
+      const action = store.messages.find((message) => message.type === 'external_action')
+      expect(action).toMatchObject({ action_status: 'pending', url: 'https://safe.example/authorize' })
+      expect(store.isWaitingForExternalAction).toBe(true)
+      expect(vi.getTimerCount()).toBe(1)
+      store.reset()
+    }
+  )
+
+  it('keeps a real waiting_for_user_choice external action pending on refresh', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+    vi.mocked(api.getRun).mockResolvedValueOnce({ ...store.currentRun })
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-still-waiting',
+        session_id: 'session-still-waiting',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/authorize',
+        expires_at: new Date(now.getTime() + 60_000).toISOString()
+      }
+    })
+
+    await store.refreshRunStatus()
+
+    expect(store.messages.find((message) => message.type === 'external_action')).toMatchObject({
+      action_status: 'pending',
+      url: 'https://safe.example/authorize'
+    })
+    expect(store.isWaitingForExternalAction).toBe(true)
+    expect(vi.getTimerCount()).toBe(1)
+    store.reset()
+  })
+
   it('resumes a Feishu operation through its lifecycle API, never the normal answer path', async () => {
     const store = useAgentChatStore()
     store.messages = [
