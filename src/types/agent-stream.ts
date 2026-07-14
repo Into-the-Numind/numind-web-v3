@@ -55,6 +55,14 @@ export interface AgentStreamEvent<T = unknown> {
 // Payload interfaces (one per non-ping EventType)
 // ---------------------------------------------------------------------------
 
+/** stream_start — canonical identifiers for the stream the server accepted. */
+export interface StreamStartPayload {
+  /** Stable server-owned session id (normally an RFC 4122 UUID). */
+  session_id: string
+  /** Must match the envelope run_id; protects the route/session ownership bind. */
+  run_id: number
+}
+
 /** token_delta — LLM text increment (highest-frequency event) */
 export interface TokenDeltaPayload {
   /** UUID identifying the assistant message bubble */
@@ -207,6 +215,7 @@ export interface ErrorPayload {
 // ---------------------------------------------------------------------------
 
 export type TokenDeltaEvent = AgentStreamEvent<TokenDeltaPayload>
+export type StreamStartEvent = AgentStreamEvent<StreamStartPayload>
 export type ReasoningDeltaEvent = AgentStreamEvent<ReasoningDeltaPayload>
 export type AssistantMessageEvent = AgentStreamEvent<AssistantMessagePayload>
 export type ToolCallStartEvent = AgentStreamEvent<ToolCallStartPayload>

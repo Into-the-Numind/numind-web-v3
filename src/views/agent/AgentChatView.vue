@@ -10,7 +10,7 @@ import { useAgentRun } from '@/composables/useAgentRun'
 import { useAgentStream } from '@/composables/useAgentStream'
 import * as api from '@/api/agent'
 import type { AnswerItemPayload } from '@/api/agent'
-import { handleSessionIdTransition } from './session-watchers'
+import { handleSessionIdTransition, isOwnedNewSessionTransition } from './session-watchers'
 import AppButton from '@/components/common/AppButton.vue'
 import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
 import AgentFirstRun from '@/components/agent/AgentFirstRun.vue'
@@ -345,10 +345,13 @@ watch(
     // for the same logical session. Every other transition is a real context
     // switch: stop all old observers before the replacement loader advances the
     // store epoch, so neither a stale SSE catch nor a timer can attach to B.
-    const preservesActiveNewSession =
-      oldSessionId === 'new' &&
-      store.currentRun?.session_id === newSessionId &&
-      (isStreaming.value || store.isRunning)
+    const preservesActiveNewSession = isOwnedNewSessionTransition(
+      oldSessionId,
+      newSessionId,
+      store.currentRun?.session_id,
+      isStreaming.value,
+      store.isRunning
+    )
     if (!preservesActiveNewSession) {
       stopStream()
       narration.stop()

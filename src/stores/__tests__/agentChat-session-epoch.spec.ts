@@ -89,6 +89,10 @@ function streamEvent(
   }
 }
 
+function streamStartEvent(runID: number, sessionID: string): AgentStreamEvent {
+  return streamEvent('stream_start', runID, { run_id: runID, session_id: sessionID })
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
@@ -96,6 +100,52 @@ beforeEach(() => {
 })
 
 describe('agentChat session epoch', () => {
+  it('binds the server session to a new route without advancing its stream epoch', () => {
+    const store = useAgentChatStore()
+    store.beginSession('new')
+    const epoch = store.currentSessionEpoch()
+    const sessionID = '42e277c7-6471-4d39-8866-e65bbbd7e016'
+
+    store.applyStreamEvent(streamStartEvent(101, sessionID), epoch)
+
+    expect(store.currentSessionEpoch()).toBe(epoch)
+    expect(store.currentRun).toMatchObject({ id: 101, session_id: sessionID, status: 'running' })
+  })
+
+  it.each([
+    [undefined, 'missing data'],
+    [{ run_id: 102, session_id: '42e277c7-6471-4d39-8866-e65bbbd7e016' }, 'run mismatch'],
+    [
+      {
+        run_id: 101,
+        session_id: '42e277c7-6471-4d39-8866-e65bbbd7e016',
+        unexpected: true
+      },
+      'extra data'
+    ],
+    [{ run_id: 101, session_id: 'new' }, 'unstable placeholder session']
+  ])('fails closed for a malformed stream_start payload: %s', (data) => {
+    const store = useAgentChatStore()
+    store.beginSession('new')
+    const epoch = store.currentSessionEpoch()
+
+    store.applyStreamEvent(streamEvent('stream_start', 101, data), epoch)
+
+    expect(store.currentRun).toBeNull()
+    expect(store.currentSessionEpoch()).toBe(epoch)
+  })
+
+  it('fences a stream_start that claims a different established session', () => {
+    const store = useAgentChatStore()
+    store.beginSession('session-a')
+    const epoch = store.currentSessionEpoch()
+
+    store.applyStreamEvent(streamStartEvent(101, 'session-b'), epoch)
+
+    expect(store.currentRun).toBeNull()
+    expect(store.currentSessionEpoch()).toBe(epoch)
+  })
+
   it('keeps the newer snapshot when an older session request resolves last', async () => {
     const oldSnapshot = deferred<SessionSnapshot>()
     vi.mocked(api.getSessionSnapshot)
@@ -160,11 +210,11 @@ describe('agentChat session epoch', () => {
     const store = useAgentChatStore()
     store.beginSession('session-a')
     const epochA = store.currentSessionEpoch()
-    store.applyStreamEvent(streamEvent('stream_start', 101), epochA)
+    store.applyStreamEvent(streamStartEvent(101, 'session-a'), epochA)
 
     store.beginSession('session-b')
     const epochB = store.currentSessionEpoch()
-    store.applyStreamEvent(streamEvent('stream_start', 202), epochB)
+    store.applyStreamEvent(streamStartEvent(202, 'session-b'), epochB)
 
     store.applyStreamEvent(streamEvent('terminal', 101, { reason: 'completed' }), epochA)
     store.applyStreamEvent(
@@ -235,7 +285,7 @@ describe('agentChat session epoch', () => {
     const store = useAgentChatStore()
     store.beginSession('session-a')
     const epochA = store.currentSessionEpoch()
-    store.applyStreamEvent(streamEvent('stream_start', oldRun.id), epochA)
+    store.applyStreamEvent(streamStartEvent(oldRun.id, 'session-a'), epochA)
 
     const refreshingA = store.refreshRunStatus()
     store.reset() // AgentChatView's unmount cleanup calls this same boundary.

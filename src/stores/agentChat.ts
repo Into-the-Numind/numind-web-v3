@@ -52,6 +52,7 @@ import type {
   ToolCallErrorPayload,
   QuestionPromptPayload,
   ExternalActionPayload,
+  StreamStartPayload,
   ErrorPayload
 } from '@/types/agent-stream'
 
@@ -72,6 +73,44 @@ function isFeishuActionPhase(value: string): value is FeishuActionPhase {
 function safeActionString(record: Record<string, unknown>, field: string): string | null {
   const value = record[field]
   return typeof value === 'string' && value.trim() ? value : null
+}
+
+// The server currently creates RFC 4122 UUID session ids. Keep the browser
+// parser compatible with its stable legacy/session test ids too, while refusing
+// route placeholders, whitespace, paths, and any structurally unsafe value.
+const STABLE_SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
+
+/**
+ * stream_start is the one event allowed to bind the browser's provisional
+ * `new` route to its server-owned session. Treat it as untrusted transport
+ * data: it must carry exactly the server's two identifiers and its run id must
+ * agree with the envelope before it can alter route ownership.
+ */
+function parseStreamStartPayload(payload: unknown, envelopeRunID: number): StreamStartPayload | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  const keys = Object.keys(record)
+  if (
+    keys.length !== 2 ||
+    !keys.includes('session_id') ||
+    !keys.includes('run_id') ||
+    !Number.isSafeInteger(envelopeRunID) ||
+    envelopeRunID <= 0
+  ) {
+    return null
+  }
+  const sessionID = record.session_id
+  const runID = record.run_id
+  if (
+    typeof sessionID !== 'string' ||
+    sessionID === 'new' ||
+    !STABLE_SESSION_ID_PATTERN.test(sessionID) ||
+    !Number.isSafeInteger(runID) ||
+    runID !== envelopeRunID
+  ) {
+    return null
+  }
+  return { session_id: sessionID, run_id: runID }
 }
 
 /**
@@ -742,7 +781,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           stopExternalActionPolling(false)
           return
         }
-        scheduleExternalActionPoll()
+        // Hiding deliberately clears the epoch to fence an old timeout. A
+        // visible page must claim the current epoch again before scheduling,
+        // otherwise scheduleExternalActionPoll correctly rejects it forever.
+        startExternalActionPolling()
       }
       document.addEventListener('visibilitychange', onVisibilityChange)
       removeExternalActionVisibilityListener = () =>
@@ -1738,17 +1780,31 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
     switch (e.type) {
       case 'stream_start': {
+        const payload = parseStreamStartPayload(e.data, e.run_id)
+        if (!payload) break
+        // A live new route is provisional only until its own stream reports the
+        // canonical server session. This is a binding, not a route replacement:
+        // retain the epoch so the open SSE observer and its timers survive the
+        // router's new → UUID URL update. Once an established route exists,
+        // any different session is a stale/cross-route frame and is inert.
+        if (
+          activeSessionID !== null &&
+          activeSessionID !== 'new' &&
+          activeSessionID !== payload.session_id
+        ) {
+          break
+        }
+        if (activeSessionID === 'new') activeSessionID = payload.session_id
         // Optimistically establish currentRun so the chat header status badge,
         // the cancel button, and budget logic work DURING streaming. Before this
         // the streaming path left currentRun null until the terminal event, so
         // those run-scoped features were dead on the default (streaming) path
         // (BLK-5). Mirrors startNewRun's currentRun bootstrap minus the DB round
-        // trip. session_id is intentionally left empty so the new-session route
-        // replace still fires later from reconcileFromDB (URL timing unchanged).
+        // trip, but retains the authoritative stream session for route identity.
         if (!currentRun.value || currentRun.value.id !== e.run_id) {
           currentRun.value = {
             id: e.run_id,
-            session_id: '',
+            session_id: payload.session_id,
             user_id: 0,
             agent_skill_id: currentAgent.value?.id ?? 0,
             status: 'running',
@@ -1757,6 +1813,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }
+        } else if (
+          !currentRun.value.session_id ||
+          currentRun.value.session_id === payload.session_id
+        ) {
+          currentRun.value = { ...currentRun.value, session_id: payload.session_id }
+        } else {
+          // A same-run payload that attempts to rewrite its established session
+          // is just as unsafe as a cross-route start frame.
+          break
         }
         // T3: this run's streamed items start at the current tail; keep them
         // ordered by the backend's monotonic seq from here on.

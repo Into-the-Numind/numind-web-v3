@@ -31,6 +31,25 @@ export interface SessionTransitionDeps {
 }
 
 /**
+ * A `new` route may be replaced only by the exact server session that the live
+ * stream has claimed.  Anything else is a real navigation and must reload its
+ * snapshot after the old observers are stopped.
+ */
+export function isOwnedNewSessionTransition(
+  oldSessionId: string | undefined,
+  newSessionId: string,
+  currentRunSessionId: string | undefined,
+  isStreaming: boolean,
+  isRunning: boolean
+): boolean {
+  return (
+    oldSessionId === 'new' &&
+    currentRunSessionId === newSessionId &&
+    (isStreaming || isRunning)
+  )
+}
+
+/**
  * 处理 AgentChatView 路由参数 props.sessionId 改变时的状态流转。
  *
  * 状态机转换规则：
