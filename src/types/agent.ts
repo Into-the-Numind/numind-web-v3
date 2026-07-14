@@ -1,3 +1,5 @@
+import type { FeishuActionPhase } from '@/api/feishu'
+
 // ============================================================
 // Agent Mode — TypeScript types
 // 1:1 aligned with backend internal/numind/biz/narration/event.go
@@ -142,6 +144,7 @@ export type AgentMessageType =
   | 'final_answer'
   | 'system'
   | 'question_prompt'
+  | 'external_action'
 
 interface BaseMessage {
   /** client-generated uuid */
@@ -255,6 +258,31 @@ export interface QuestionPromptMessage extends BaseMessage {
   auth_url?: string
 }
 
+/**
+ * The lifecycle state of one Feishu action card. It is deliberately UI-local:
+ * the server owns the operation state machine and the original tool-call
+ * continuation. `completed` only means the external wait was released; it
+ * does not claim that an arbitrary Feishu write was successful.
+ */
+export type ExternalActionStatus = 'pending' | 'completed' | 'terminal'
+
+/**
+ * A safe projection of an external Feishu wait. The provider, requested
+ * scopes, tool call ID and all command data are intentionally omitted. The
+ * optional URL exists only in Pinia memory for the live SSE event; restored
+ * snapshots never contain it.
+ */
+export interface ExternalActionMessage extends BaseMessage {
+  type: 'external_action'
+  run_id: number
+  operation_id: string
+  session_id: string
+  phase: FeishuActionPhase
+  expires_at: string
+  url?: string
+  action_status: ExternalActionStatus
+}
+
 export type AgentMessage =
   | UserMessage
   | AssistantMessage
@@ -264,6 +292,7 @@ export type AgentMessage =
   | FinalAnswerMessage
   | SystemMessage
   | QuestionPromptMessage
+  | ExternalActionMessage
 
 export interface ToolCallAggregate {
   tool_call_id: string

@@ -16,7 +16,7 @@
  * Permanent regression protection (NDF Rule 11).
  */
 import { setActivePinia, createPinia } from 'pinia'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useAgentChatStore } from '../agentChat'
 import type { AgentRun } from '@/types/agent'
 import type { TerminalEvent } from '@/types/agent-stream'
@@ -29,6 +29,7 @@ vi.mock('@/api/agent', () => ({
   getRun: vi.fn(),
   fetchNarrationEvents: vi.fn(async () => []),
   cancelRun: vi.fn(),
+  postAgentAnswer: vi.fn(),
   uploadAttachment: vi.fn(),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 'sess-resume',
@@ -40,12 +41,21 @@ vi.mock('@/api/agent', () => ({
   }))
 }))
 
+vi.mock('@/api/feishu', () => ({
+  resumeFeishuOperation: vi.fn()
+}))
+
 import * as api from '@/api/agent'
+import * as feishuAPI from '@/api/feishu'
 
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
   sessionStorage.clear()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 const RESUMING_RUN = {
@@ -59,6 +69,203 @@ const RESUMING_RUN = {
 } as unknown as AgentRun
 
 describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
+  it('maps live and restored external actions into the same safe action message', async () => {
+    const store = useAgentChatStore()
+    const expiresAt = '2026-07-15T00:00:00Z'
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: '2026-07-14T23:00:00Z',
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-1',
+        session_id: 'session-1',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/authorize',
+        expires_at: expiresAt,
+        scopes: ['forbidden']
+      }
+    })
+
+    const live = store.messages.find((message) => message.type === 'external_action')
+    expect(live).toMatchObject({
+      type: 'external_action',
+      run_id: 148,
+      operation_id: 'op-1',
+      session_id: 'session-1',
+      phase: 'user_auth',
+      url: 'https://safe.example/authorize',
+      expires_at: expiresAt,
+      action_status: 'pending'
+    })
+    expect(live).not.toHaveProperty('provider')
+    expect(live).not.toHaveProperty('scopes')
+    expect(live).not.toHaveProperty('tool_call_id')
+
+    vi.mocked(api.getSessionSnapshot).mockResolvedValue({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: '',
+      status: 'running',
+      run: {
+        id: 148,
+        session_id: 'sess-resume',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      },
+      messages: [
+        {
+          id: 'external-action-148',
+          type: 'external_action',
+          run_id: 148,
+          operation_id: 'op-1',
+          session_id: 'session-1',
+          phase: 'user_auth',
+          expires_at: expiresAt,
+          provider: 'feishu'
+        }
+      ]
+    } as never)
+
+    await store.loadSessionSnapshot('sess-resume', false)
+
+    expect(store.messages).toEqual([
+      expect.objectContaining({
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-1',
+        session_id: 'session-1',
+        phase: 'user_auth',
+        expires_at: expiresAt,
+        action_status: 'pending'
+      })
+    ])
+    expect(store.messages[0]).not.toHaveProperty('provider')
+    store.reset()
+  })
+
+  it('resumes a Feishu operation through its lifecycle API, never the normal answer path', async () => {
+    const store = useAgentChatStore()
+    store.messages = [
+      {
+        id: 'external-action-148',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-1',
+        session_id: 'session-1',
+        phase: 'user_auth',
+        expires_at: '2026-07-15T00:00:00Z',
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ] as never
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValue({
+      operation_id: 'op-1',
+      state: 'succeeded'
+    })
+
+    await store.resumeFeishuOperation('op-1')
+
+    expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledWith('op-1', 'user_completed')
+    expect(store.messages[0]).toMatchObject({
+      type: 'external_action',
+      action_status: 'completed'
+    })
+    expect(api.postAgentAnswer).not.toHaveBeenCalled()
+  })
+
+  it('does not poll an external action while the page is hidden, then settles and stops on terminal', async () => {
+    vi.useFakeTimers()
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+    vi.mocked(api.getRun).mockResolvedValue({
+      ...store.currentRun,
+      status: 'completed',
+      state_reason: 'completed'
+    })
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: '2026-07-14T23:00:00Z',
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-1',
+        session_id: 'session-1',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        expires_at: '2026-07-15T00:00:00Z'
+      }
+    })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(api.getRun).not.toHaveBeenCalled()
+
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(api.getRun).toHaveBeenCalledTimes(1)
+    expect(store.messages[0]).toMatchObject({
+      type: 'external_action',
+      action_status: 'completed'
+    })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(api.getRun).toHaveBeenCalledTimes(1)
+    store.reset()
+  })
+
+  it('stops low-frequency action polling at its finite deadline', async () => {
+    vi.useFakeTimers()
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+    vi.mocked(api.getRun).mockResolvedValue({ ...store.currentRun })
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: '2026-07-14T23:00:00Z',
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-1',
+        session_id: 'session-1',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        expires_at: '2026-07-15T00:00:00Z'
+      }
+    })
+    await vi.advanceTimersByTimeAsync(5 * 60_000 + 5_000)
+    const callsAtDeadline = vi.mocked(api.getRun).mock.calls.length
+    await vi.advanceTimersByTimeAsync(20_000)
+
+    expect(callsAtDeadline).toBeGreaterThan(0)
+    expect(api.getRun).toHaveBeenCalledTimes(callsAtDeadline)
+    store.reset()
+  })
+
   it('does NOT push the stale pre-question prose as a final_answer while resuming', async () => {
     const store = useAgentChatStore()
     store.currentRun = { id: 148, status: 'running' } as AgentRun

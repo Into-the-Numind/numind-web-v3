@@ -15,6 +15,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as api from '@/api/agent'
+import {
+  resumeFeishuOperation as resumeFeishuLifecycleOperation,
+  type FeishuActionPhase,
+  type FeishuExternalAction,
+  type FeishuOperationResult,
+  type FeishuResumeAction
+} from '@/api/feishu'
 import type {
   AgentSkill,
   AgentRun,
@@ -29,7 +36,9 @@ import type {
   ToolCallAggregate,
   ToolGroupMessage,
   UploadResponse,
-  QuestionPromptMessage
+  QuestionPromptMessage,
+  ExternalActionMessage,
+  ExternalActionStatus
 } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 import type {
@@ -42,12 +51,87 @@ import type {
   ToolCallResultPayload,
   ToolCallErrorPayload,
   QuestionPromptPayload,
+  ExternalActionPayload,
   TerminalPayload,
   ErrorPayload
 } from '@/types/agent-stream'
 
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+const FEISHU_ACTION_PHASES: FeishuActionPhase[] = [
+  'create_app',
+  'app_scope',
+  'user_auth',
+  'confirmation'
+]
+
+function isFeishuActionPhase(value: string): value is FeishuActionPhase {
+  return FEISHU_ACTION_PHASES.includes(value as FeishuActionPhase)
+}
+
+function safeActionString(record: Record<string, unknown>, field: string): string | null {
+  const value = record[field]
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+/**
+ * Convert one untrusted live/snapshot payload to the browser allowlist. The
+ * backend uses provider/tool-call metadata to route the operation, but this
+ * card neither needs nor retains it. URLs remain in memory only.
+ */
+function toFeishuExternalAction(payload: unknown): FeishuExternalAction | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  const provider = record.provider
+  if (provider !== 'feishu' && provider !== 'lark') return null
+
+  const operationID = safeActionString(record, 'operation_id')
+  const sessionID = safeActionString(record, 'session_id')
+  const phase = safeActionString(record, 'phase')
+  const expiresAt = safeActionString(record, 'expires_at')
+  if (
+    !operationID ||
+    !sessionID ||
+    !phase ||
+    !isFeishuActionPhase(phase) ||
+    !expiresAt ||
+    Number.isNaN(Date.parse(expiresAt))
+  ) {
+    return null
+  }
+
+  const url = record.url
+  return {
+    operation_id: operationID,
+    session_id: sessionID,
+    phase,
+    expires_at: expiresAt,
+    ...(typeof url === 'string' && url ? { url } : {})
+  }
+}
+
+function externalActionMessage(
+  payload: unknown,
+  runID: number,
+  timestamp: string,
+  id = uuid()
+): ExternalActionMessage | null {
+  const action = toFeishuExternalAction(payload)
+  if (!action || !Number.isSafeInteger(runID) || runID <= 0) return null
+  return {
+    id,
+    type: 'external_action',
+    run_id: runID,
+    operation_id: action.operation_id,
+    session_id: action.session_id,
+    phase: action.phase,
+    expires_at: action.expires_at,
+    ...(action.url ? { url: action.url } : {}),
+    action_status: 'pending',
+    timestamp
+  }
+}
 
 /**
  * statusFromTerminalReason — map a backend TerminalReason (SSE terminal payload
@@ -257,6 +341,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const agentsError = ref<string | null>(null)
   const sessionError = ref<string | null>(null)
 
+  // An external authorization may finish without another SSE frame. Poll the
+  // original run for a bounded window, but never while the page is hidden and
+  // never after its card has settled. This is deliberately independent from
+  // normal question-answer polling: external waits must not call /answer.
+  const EXTERNAL_ACTION_POLL_INTERVAL_MS = 5_000
+  const EXTERNAL_ACTION_POLL_WINDOW_MS = 5 * 60_000
+  let externalActionPollTimer: ReturnType<typeof setTimeout> | null = null
+  let externalActionPollDeadline = 0
+  let removeExternalActionVisibilityListener: (() => void) | null = null
+
   // ── Getters ─────────────────────────────────────────────────────────
   const isRunning = computed(
     () => currentRun.value?.status === 'running' || currentRun.value?.status === 'pending'
@@ -341,6 +435,111 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     if (order.length === 0) return ''
     return liveCodeStreams.value[order[order.length - 1]] ?? ''
   })
+
+  const isWaitingForExternalAction = computed(() =>
+    messages.value.some(
+      (message) => message.type === 'external_action' && message.action_status === 'pending'
+    )
+  )
+
+  const hasPendingExternalAction = (): boolean =>
+    messages.value.some(
+      (message) => message.type === 'external_action' && message.action_status === 'pending'
+    )
+
+  const stopExternalActionPolling = (removeVisibilityListener = true): void => {
+    if (externalActionPollTimer !== null) {
+      clearTimeout(externalActionPollTimer)
+      externalActionPollTimer = null
+    }
+    if (removeVisibilityListener && removeExternalActionVisibilityListener) {
+      removeExternalActionVisibilityListener()
+      removeExternalActionVisibilityListener = null
+      externalActionPollDeadline = 0
+    }
+  }
+
+  const settleExternalAction = (operationID: string, status: ExternalActionStatus): void => {
+    for (let index = 0; index < messages.value.length; index += 1) {
+      const message = messages.value[index]
+      if (
+        message.type !== 'external_action' ||
+        message.operation_id !== operationID ||
+        message.action_status !== 'pending'
+      ) {
+        continue
+      }
+      // There is no reason to retain a transient authorization URL after the
+      // wait has ended. The resumed original tool call is the source of truth.
+      const settled: ExternalActionMessage = { ...message, action_status: status }
+      delete settled.url
+      messages.value[index] = settled
+    }
+    if (!hasPendingExternalAction()) stopExternalActionPolling()
+  }
+
+  const updatePendingExternalAction = (
+    operationID: string,
+    action: Omit<FeishuExternalAction, 'url'>
+  ): void => {
+    for (let index = 0; index < messages.value.length; index += 1) {
+      const message = messages.value[index]
+      if (
+        message.type !== 'external_action' ||
+        message.operation_id !== operationID ||
+        message.action_status !== 'pending'
+      ) {
+        continue
+      }
+      messages.value[index] = {
+        ...message,
+        operation_id: action.operation_id,
+        session_id: action.session_id,
+        phase: action.phase,
+        expires_at: action.expires_at
+      }
+    }
+  }
+
+  const scheduleExternalActionPoll = (): void => {
+    if (
+      externalActionPollTimer !== null ||
+      !hasPendingExternalAction() ||
+      externalActionPollDeadline <= Date.now()
+    ) {
+      if (externalActionPollDeadline <= Date.now()) stopExternalActionPolling()
+      return
+    }
+    if (typeof document !== 'undefined' && document.hidden) return
+
+    externalActionPollTimer = setTimeout(() => {
+      externalActionPollTimer = null
+      void (async () => {
+        await refreshRunStatus()
+        if (hasPendingExternalAction()) scheduleExternalActionPoll()
+      })()
+    }, EXTERNAL_ACTION_POLL_INTERVAL_MS)
+  }
+
+  const startExternalActionPolling = (): void => {
+    if (!hasPendingExternalAction()) return
+    if (externalActionPollDeadline === 0) {
+      externalActionPollDeadline = Date.now() + EXTERNAL_ACTION_POLL_WINDOW_MS
+    }
+    if (typeof document !== 'undefined' && !removeExternalActionVisibilityListener) {
+      const onVisibilityChange = (): void => {
+        if (document.hidden) {
+          stopExternalActionPolling(false)
+          return
+        }
+        scheduleExternalActionPoll()
+      }
+      document.addEventListener('visibilitychange', onVisibilityChange)
+      removeExternalActionVisibilityListener = () =>
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+    scheduleExternalActionPoll()
+  }
 
   // ── Actions ──────────────────────────────────────────────────────────
   const fetchAvailableAgents = async (): Promise<void> => {
@@ -601,6 +800,26 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const isResuming =
         next.state_reason === 'running' && next.status !== 'running' && next.status !== 'pending'
       currentRun.value = isResuming ? { ...next, status: 'running' } : next
+      // An external wait is over as soon as the original run resumes, or when
+      // it reaches a terminal result. Do not leave an authorization URL/card
+      // actionable after the server has fenced that operation.
+      const externalWaitReleased = next.state_reason === 'running' || isResuming
+      const externallyTerminal = next.status !== 'running' && next.status !== 'pending'
+      if (externalWaitReleased || externallyTerminal) {
+        const actionStatus: ExternalActionStatus =
+          externalWaitReleased || next.status === 'completed' ? 'completed' : 'terminal'
+        const pendingOperationIDs = messages.value
+          .filter(
+            (message): message is ExternalActionMessage =>
+              message.type === 'external_action' &&
+              message.run_id === next.id &&
+              message.action_status === 'pending'
+          )
+          .map((message) => message.operation_id)
+        for (const operationID of pendingOperationIDs) {
+          settleExternalAction(operationID, actionStatus)
+        }
+      }
       // When the run transitions from active → terminal and the backend
       // surfaced a final_output (extracted from agent_run.messages), push it
       // as a FinalAnswerMessage so the chat UI renders the AI's reply.
@@ -625,9 +844,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (isWaiting) {
         const hasPendingCard = messages.value.some(
           (m) =>
-            m.type === 'question_prompt' &&
-            (m as QuestionPromptMessage).run_id === next.id &&
-            (m as QuestionPromptMessage).answer_status === 'pending'
+            (m.type === 'question_prompt' &&
+              (m as QuestionPromptMessage).run_id === next.id &&
+              (m as QuestionPromptMessage).answer_status === 'pending') ||
+            (m.type === 'external_action' &&
+              m.run_id === next.id &&
+              m.action_status === 'pending')
         )
         if (!hasPendingCard && next.session_id) {
           try {
@@ -672,6 +894,33 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     } catch {
       // 忽略；下次重试
     }
+  }
+
+  /**
+   * Continue a server-owned Feishu operation. This intentionally does not use
+   * the Agent answer endpoint or `startResume`: the original tool call is
+   * resumed by the backend's durable external-action dispatcher.
+   */
+  const resumeFeishuOperation = async (
+    operationID: string,
+    action: FeishuResumeAction = 'user_completed'
+  ): Promise<FeishuOperationResult> => {
+    const result = await resumeFeishuLifecycleOperation(operationID, action)
+    switch (result.state) {
+      case 'succeeded':
+        settleExternalAction(operationID, 'completed')
+        break
+      case 'failed':
+      case 'unknown':
+      case 'cancelled':
+        settleExternalAction(operationID, 'terminal')
+        break
+      default:
+        if (result.action) updatePendingExternalAction(operationID, result.action)
+        if (hasPendingExternalAction()) startExternalActionPolling()
+        break
+    }
+    return result
   }
 
   const cancelCurrent = async (): Promise<void> => {
@@ -758,10 +1007,19 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // a stable fallback so BaseMessage.timestamp is always a valid string.
       const now = new Date().toISOString()
       const localUserMsgs = messages.value.filter((m) => m.type === 'user')
-      const snapMsgs = (snap.messages ?? []).map((m) => ({
-        ...m,
-        timestamp: m.timestamp ?? now
-      }))
+      const snapMsgs: AgentMessage[] = []
+      for (const message of snap.messages ?? []) {
+        const timestamp = message.timestamp ?? now
+        if (message.type === 'external_action') {
+          // Rebuild rather than spread the server object. Snapshot payloads are
+          // flat and include provider routing metadata at runtime; only the card
+          // allowlist may enter browser state, and snapshots never restore URLs.
+          const externalAction = externalActionMessage(message, message.run_id, timestamp, message.id)
+          if (externalAction) snapMsgs.push(externalAction)
+          continue
+        }
+        snapMsgs.push({ ...message, timestamp })
+      }
       // 边界防御：如果后端传回的快照里还没有任何用户消息，而我们本地正好有刚发的用户消息
       if (snapMsgs.filter((m) => m.type === 'user').length === 0 && localUserMsgs.length > 0) {
         snapMsgs.unshift(...localUserMsgs)
@@ -801,6 +1059,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const replayStatus = snap.status ?? snap.run?.status
       if (replayStatus && replayStatus !== 'running' && replayStatus !== 'pending') {
         finalizeToolGroups(replayStatus)
+      }
+      if (hasPendingExternalAction()) {
+        startExternalActionPolling()
+      } else {
+        stopExternalActionPolling()
       }
     } catch (err) {
       sessionError.value = (err as Error).message ?? '会话加载失败'
@@ -1454,6 +1717,30 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         break
       }
 
+      case 'external_action': {
+        const payload = e.data as ExternalActionPayload
+        const existingIndex = messages.value.findIndex(
+          (message) =>
+            message.type === 'external_action' &&
+            message.run_id === e.run_id &&
+            message.operation_id === payload?.operation_id
+        )
+        const actionMessage = externalActionMessage(
+          payload,
+          e.run_id,
+          e.ts || new Date().toISOString(),
+          existingIndex >= 0 ? messages.value[existingIndex].id : undefined
+        )
+        if (!actionMessage) break
+        if (existingIndex >= 0) {
+          messages.value[existingIndex] = actionMessage
+        } else {
+          messages.value.push(actionMessage)
+        }
+        startExternalActionPolling()
+        break
+      }
+
       case 'terminal': {
         const payload = e.data as TerminalPayload
         // Update currentRun status locally so the UI reacts immediately;
@@ -1559,6 +1846,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const reset = (): void => {
+    stopExternalActionPolling()
     availableAgents.value = []
     recentSessions.value = []
     currentAgent.value = null
@@ -1612,6 +1900,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isRunning,
     isWaitingForUser,
     isWaitingForAuth,
+    isWaitingForExternalAction,
     hasActiveToolCall,
     activeCodeStream,
     toolGroups,
@@ -1633,6 +1922,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     appendUserMessage,
     applyStreamEvent,
     applyError,
-    markQuestionAnswered
+    markQuestionAnswered,
+    resumeFeishuOperation
   }
 })

@@ -94,7 +94,7 @@
         <!-- success：已连接 -->
         <template v-if="store.connected">
           <div class="fc-desc">已连接你的飞书账号，agent 可代你执行飞书操作（不计费）。</div>
-          <div v-if="store.appId" class="fc-meta">应用 ID：{{ store.appId }}</div>
+          <div v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</div>
         </template>
 
         <!-- empty：未连接 + 主推「去 AI 助手连接」 -->
@@ -164,7 +164,7 @@ import { useRouter } from 'vue-router'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useFeishuStore } from '@/stores/feishu'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { FeishuNextStep } from '@/api/feishu'
+import type { FeishuActionPhase, FeishuConnectResult } from '@/api/feishu'
 
 const store = useFeishuStore()
 const notifications = useNotificationsStore()
@@ -177,16 +177,19 @@ const confirmVisible = ref(false)
 // 「直接连接」点击后置位；连接完成 / 失败 / 组件卸载时清除。awaitingStep 记录
 // 当前正在等待用户完成哪一步（create_app=建应用 / authorize=授权）。
 const awaitingAuth = ref(false)
-const awaitingStep = ref<FeishuNextStep | null>(null)
+const awaitingStep = ref<FeishuActionPhase | null>(null)
 // setInterval 句柄；连接完成 / 失败 / 组件卸载时清理，避免泄漏。
 let pollTimer: ReturnType<typeof setInterval> | null = null
 // 已在本次直接连接里打开过的 URL（去重：同一步反复轮询不重复弹新标签）。
 let openedUrl = ''
 const POLL_INTERVAL_MS = 4000
 
-const awaitingStepLabel = computed(() =>
-  awaitingStep.value === 'create_app' ? '飞书建应用页' : '飞书授权页'
-)
+const awaitingStepLabel = computed(() => {
+  if (awaitingStep.value === 'create_app') return '飞书建应用页'
+  if (awaitingStep.value === 'app_scope') return '飞书管理员审批页'
+  if (awaitingStep.value === 'confirmation') return '飞书操作确认页'
+  return '飞书授权页'
+})
 // 两步的进度文案：建应用阶段提示「建好后会自动进入授权」，授权阶段提示「完成后自动连接」。
 const awaitingHint = computed(() =>
   awaitingStep.value === 'create_app' ? '应用建好后会自动进入授权这一步…' : '授权完成后将自动连接…'
@@ -237,11 +240,11 @@ function openStepUrl(url: string): void {
  * 处理一次 connect() 返回：按 next_step 推进 device-code 两步流。
  * 返回 true 表示连接已完成（done），调用方应停止轮询。
  */
-function advance(res: { next_step: FeishuNextStep; url: string }): boolean {
-  if (res.next_step === 'done') return true
-  // create_app / authorize：记录当前步并（按需）打开对应 URL。
-  awaitingStep.value = res.next_step
-  if (res.url) openStepUrl(res.url)
+function advance(res: FeishuConnectResult): boolean {
+  if (res.state === 'connected') return true
+  if (!res.action) return false
+  awaitingStep.value = res.action.phase
+  if (res.action.url) openStepUrl(res.action.url)
   return false
 }
 
@@ -304,7 +307,7 @@ async function startConnect(): Promise<void> {
       await finishConnected()
       return
     }
-    if (!res.url) {
+    if (!res.action?.url) {
       stopPolling()
       notifications.error('未能获取飞书连接链接，请稍后重试')
       return
