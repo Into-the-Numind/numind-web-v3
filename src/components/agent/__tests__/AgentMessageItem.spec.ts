@@ -389,6 +389,66 @@ describe('AgentMessageItem', () => {
       expect(agentStore.messages).toEqual([replacement])
     })
 
+    it.each([
+      ['completed', 'completed'],
+      ['terminal', 'error']
+    ] as const)(
+      'does not revive a %s action when an in-flight refresh response returns',
+      async (expectedStatus, terminalReason) => {
+        const agentStore = useAgentChatStore()
+        const feishuStore = useFeishuStore()
+        const msg = externalAction()
+        agentStore.beginSession('route-terminal-race')
+        agentStore.currentRun = {
+          id: msg.run_id,
+          session_id: 'route-terminal-race',
+          status: 'running',
+          state_reason: 'waiting_for_user_choice',
+          created_at: '',
+          updated_at: ''
+        } as never
+        agentStore.messages = [msg]
+        let resolveRefresh!: (action: {
+          operation_id: string
+          session_id: string
+          phase: 'user_auth'
+          expires_at: string
+          url: string
+        }) => void
+        vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
+          new Promise((resolve) => {
+            resolveRefresh = resolve
+          })
+        )
+        const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+        await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+        agentStore.applyStreamEvent({
+          type: 'terminal',
+          seq: 2,
+          ts: new Date().toISOString(),
+          run_id: msg.run_id,
+          data: { reason: terminalReason, duration_ms: 1, step_count: 1 }
+        } as never, agentStore.currentSessionEpoch())
+        const settled = agentStore.messages[0]
+        await wrapper.setProps({ msg: settled })
+        expect(settled).toMatchObject({ action_status: expectedStatus })
+        expect(settled).not.toHaveProperty('url')
+
+        resolveRefresh({
+          operation_id: msg.operation_id,
+          session_id: 'session-fresh',
+          phase: 'user_auth',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/authorize?opaque=stale'
+        })
+        await flushPromises()
+
+        expect(agentStore.messages[0]).toMatchObject({ action_status: expectedStatus })
+        expect(agentStore.messages[0]).not.toHaveProperty('url')
+      }
+    )
+
     it('keeps ordinary questions on the existing answer-submitted path', async () => {
       const msg: AgentMessage = {
         id: 'question-1',

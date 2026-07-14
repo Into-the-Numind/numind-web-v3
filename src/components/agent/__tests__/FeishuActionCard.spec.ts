@@ -151,6 +151,18 @@ describe('FeishuActionCard', () => {
     expect(wrapper.emitted('refresh')).toBeUndefined()
   })
 
+  it.each([
+    ['expired', { expires_at: new Date(Date.now() - 1_000).toISOString() }],
+    ['without a current link', { url: undefined }]
+  ])('treats app-scope authorization %s as terminal instead of refreshing', (_state, overrides) => {
+    const wrapper = mountCard({ action: createAction({ phase: 'app_scope', ...overrides }) })
+
+    expect(wrapper.text()).toContain('管理员批准步骤已失效，请重新发起')
+    expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
+    expect(wrapper.emitted('refresh')).toBeUndefined()
+  })
+
   it('clears the authorization expiry timer once the action is no longer pending', async () => {
     vi.useFakeTimers()
     const wrapper = mountCard({

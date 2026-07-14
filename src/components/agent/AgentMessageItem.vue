@@ -184,7 +184,9 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
       !currentAction ||
       currentAction.operation_id !== operationID ||
       currentAction.session_id !== actionSessionID ||
-      currentAction.run_id !== runID
+      currentAction.run_id !== runID ||
+      currentAction.action_status === 'completed' ||
+      currentAction.action_status === 'terminal'
     ) {
       return
     }

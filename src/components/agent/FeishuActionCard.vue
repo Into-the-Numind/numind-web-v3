@@ -69,13 +69,23 @@ const expired = computed<boolean>(
 const pending = computed<boolean>(() => props.action.action_status === 'pending')
 const current = computed<boolean>(() => pending.value && !expired.value)
 const confirmation = computed<boolean>(() => props.action.phase === 'confirmation')
+const refreshableAuthorizationPhase = computed<boolean>(
+  () => props.action.phase === 'create_app' || props.action.phase === 'user_auth'
+)
 const url = computed<string>(() => props.action.url ?? '')
 const showsCurrentURL = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const missingLink = computed<boolean>(() => current.value && !confirmation.value && !url.value)
-// Only authorization phases own a FeishuAuthSession and can request a fresh
-// authorization URL. A confirmation carries an operation id instead: once it
-// expires the user must initiate the original task again, never hit /refresh.
-const showRefresh = computed<boolean>(() => !confirmation.value && (expired.value || missingLink.value))
+// `app_scope` and `confirmation` cannot mint a replacement link. The backend
+// rejects app-scope recovery because its ConsoleURL is not reconstructable;
+// confirmation carries an operation id rather than an authorization session.
+const restartRequired = computed<boolean>(
+  () =>
+    (confirmation.value && expired.value) ||
+    (props.action.phase === 'app_scope' && (expired.value || missingLink.value))
+)
+const showRefresh = computed<boolean>(
+  () => refreshableAuthorizationPhase.value && (expired.value || missingLink.value)
+)
 const canResume = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const phase = computed(() => phaseContent[props.action.phase])
 const copied = ref(false)
@@ -84,6 +94,7 @@ let qrGeneration = 0
 
 const statusText = computed<string>(() => {
   if (confirmation.value && expired.value) return '确认已过期，请重新发起。'
+  if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
   if (expired.value) return '链接已过期，请重新生成后继续。'
   if (props.action.action_status === 'completed') return '授权步骤已完成，正在继续原任务。'
   if (props.action.action_status === 'terminal') return '此操作已结束，请根据对话中的最新提示继续。'
@@ -263,7 +274,10 @@ function handleCancel(): void {
       </AppButton>
     </div>
 
-    <div v-else-if="!confirmation && (current || expired)" class="feishu-action-card__controls">
+    <div
+      v-else-if="!confirmation && !restartRequired && (current || expired)"
+      class="feishu-action-card__controls"
+    >
       <AppButton
         data-testid="feishu-continue"
         variant="primary"
