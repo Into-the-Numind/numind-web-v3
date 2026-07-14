@@ -264,7 +264,13 @@ export interface QuestionPromptMessage extends BaseMessage {
  * continuation. `completed` only means the external wait was released; it
  * does not claim that an arbitrary Feishu write was successful.
  */
-export type ExternalActionStatus = 'pending' | 'completed' | 'terminal'
+/**
+ * `expired` is a client-side safety terminal: the browser reached (or could
+ * not parse) the server-owned action deadline, so it removes any live URL and
+ * will not acknowledge the stale operation. Task 18 renders this as a refresh
+ * path, rather than pretending that the original operation completed.
+ */
+export type ExternalActionStatus = 'pending' | 'completed' | 'terminal' | 'expired'
 
 /**
  * A safe projection of an external Feishu wait. The provider, requested

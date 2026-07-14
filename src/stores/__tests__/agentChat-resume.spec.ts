@@ -56,6 +56,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  Object.defineProperty(document, 'hidden', { configurable: true, value: false })
 })
 
 const RESUMING_RUN = {
@@ -229,8 +230,10 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
-  it('stops low-frequency action polling at its finite deadline', async () => {
+  it('keeps polling an action until its server expiry, even after the old five-minute window', async () => {
     vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
     const store = useAgentChatStore()
     store.currentRun = {
       id: 148,
@@ -246,7 +249,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.applyStreamEvent({
       type: 'external_action',
       seq: 1,
-      ts: '2026-07-14T23:00:00Z',
+      ts: new Date(now.getTime() - 6 * 60_000).toISOString(),
       run_id: 148,
       data: {
         provider: 'feishu',
@@ -254,16 +257,162 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         session_id: 'session-1',
         tool_call_id: 'tool-call-1',
         phase: 'user_auth',
-        expires_at: '2026-07-15T00:00:00Z'
+        // The action was emitted six minutes after the run started, but its
+        // server-owned authorization lease remains valid for another 12 minutes.
+        // A fixed five-minute client window must not preempt this lease.
+        expires_at: new Date(now.getTime() + 12 * 60_000).toISOString()
       }
     })
-    await vi.advanceTimersByTimeAsync(5 * 60_000 + 5_000)
-    const callsAtDeadline = vi.mocked(api.getRun).mock.calls.length
-    await vi.advanceTimersByTimeAsync(20_000)
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
+    const callsAtOldDeadline = vi.mocked(api.getRun).mock.calls.length
+    await vi.advanceTimersByTimeAsync(5_000)
 
-    expect(callsAtDeadline).toBeGreaterThan(0)
-    expect(api.getRun).toHaveBeenCalledTimes(callsAtDeadline)
+    expect(callsAtOldDeadline).toBeGreaterThan(0)
+    expect(api.getRun).toHaveBeenCalledTimes(callsAtOldDeadline + 1)
+
+    vi.mocked(api.getRun).mockResolvedValueOnce({
+      ...store.currentRun,
+      status: 'completed',
+      state_reason: 'completed'
+    })
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(store.messages[0]).toMatchObject({
+      type: 'external_action',
+      action_status: 'completed'
+    })
+    const callsAfterTerminal = vi.mocked(api.getRun).mock.calls.length
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(api.getRun).toHaveBeenCalledTimes(callsAfterTerminal)
     store.reset()
+  })
+
+  it('fails closed when the browser considers an action expired: it clears the URL and never resumes', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+
+    // A browser clock that is ahead of the server is safer treated as expired:
+    // do not leave an old URL actionable while waiting for a fresh server action.
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: new Date(now.getTime() - 6 * 60_000).toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-expired',
+        session_id: 'session-expired',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/expired-authorize',
+        expires_at: new Date(now.getTime() - 1_000).toISOString()
+      }
+    })
+
+    expect(store.messages[0]).toMatchObject({
+      type: 'external_action',
+      action_status: 'expired'
+    })
+    expect(store.messages[0]).not.toHaveProperty('url')
+    expect(store.isWaitingForExternalAction).toBe(false)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(api.getRun).not.toHaveBeenCalled()
+
+    await expect(store.resumeFeishuOperation('op-expired')).rejects.toThrow('飞书授权已过期')
+    expect(feishuAPI.resumeFeishuOperation).not.toHaveBeenCalled()
+    store.reset()
+  })
+
+  it('fails closed when a malformed expiry replaces a live action', () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-malformed-expiry',
+        session_id: 'session-1',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/live-authorize',
+        expires_at: new Date(now.getTime() + 60_000).toISOString()
+      }
+    })
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 2,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-malformed-expiry',
+        session_id: 'session-2',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        expires_at: 'not-a-timestamp'
+      }
+    })
+
+    expect(store.messages[0]).toMatchObject({
+      type: 'external_action',
+      action_status: 'expired'
+    })
+    expect(store.messages[0]).not.toHaveProperty('url')
+    store.reset()
+  })
+
+  it('cleans its external-action timer when Pinia disposes the store', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+    vi.mocked(api.getRun).mockResolvedValue({ ...store.currentRun })
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-dispose',
+        session_id: 'session-dispose',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() + 60_000).toISOString()
+      }
+    })
+
+    store.$dispose()
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(api.getRun).not.toHaveBeenCalled()
   })
 
   it('does NOT push the stale pre-question prose as a final_answer while resuming', async () => {

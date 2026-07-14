@@ -13,7 +13,7 @@
  * Spec: docs/superpowers/specs/2026-05-27-agent-react-streaming-design.md §5.3
  */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import * as api from '@/api/agent'
 import {
   resumeFeishuOperation as resumeFeishuLifecycleOperation,
@@ -76,6 +76,21 @@ function safeActionString(record: Record<string, unknown>, field: string): strin
 }
 
 /**
+ * Returns a browser-wall-clock deadline only for a parseable
+ * timestamp. The backend owns this value; an absent or malformed value must
+ * fail closed instead of leaving a previously received authorization URL live.
+ */
+function actionExpiryTimestamp(expiresAt: string): number | null {
+  const timestamp = Date.parse(expiresAt)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function actionHasExpired(expiresAt: string, now = Date.now()): boolean {
+  const timestamp = actionExpiryTimestamp(expiresAt)
+  return timestamp === null || timestamp <= now
+}
+
+/**
  * Convert one untrusted live/snapshot payload to the browser allowlist. The
  * backend uses provider/tool-call metadata to route the operation, but this
  * card neither needs nor retains it. URLs remain in memory only.
@@ -96,7 +111,7 @@ function toFeishuExternalAction(payload: unknown): FeishuExternalAction | null {
     !phase ||
     !isFeishuActionPhase(phase) ||
     !expiresAt ||
-    Number.isNaN(Date.parse(expiresAt))
+    actionExpiryTimestamp(expiresAt) === null
   ) {
     return null
   }
@@ -109,6 +124,18 @@ function toFeishuExternalAction(payload: unknown): FeishuExternalAction | null {
     expires_at: expiresAt,
     ...(typeof url === 'string' && url ? { url } : {})
   }
+}
+
+/**
+ * Preserve just enough identity to revoke a formerly-valid action if a later
+ * live SSE update for that same operation is malformed. The provider check
+ * prevents an unrelated event from settling a Feishu card.
+ */
+function externalActionOperationID(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  if (record.provider !== 'feishu' && record.provider !== 'lark') return null
+  return safeActionString(record, 'operation_id')
 }
 
 function externalActionMessage(
@@ -342,11 +369,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const sessionError = ref<string | null>(null)
 
   // An external authorization may finish without another SSE frame. Poll the
-  // original run for a bounded window, but never while the page is hidden and
-  // never after its card has settled. This is deliberately independent from
-  // normal question-answer polling: external waits must not call /answer.
+  // original run only until the server-owned action expiry, never while the
+  // page is hidden and never after its card has settled. This is deliberately
+  // independent from normal question-answer polling: external waits must not
+  // call /answer.
   const EXTERNAL_ACTION_POLL_INTERVAL_MS = 5_000
-  const EXTERNAL_ACTION_POLL_WINDOW_MS = 5 * 60_000
   let externalActionPollTimer: ReturnType<typeof setTimeout> | null = null
   let externalActionPollDeadline = 0
   let removeExternalActionVisibilityListener: (() => void) | null = null
@@ -447,6 +474,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       (message) => message.type === 'external_action' && message.action_status === 'pending'
     )
 
+  const nextPendingExternalActionDeadline = (): number | null => {
+    let deadline: number | null = null
+    for (const message of messages.value) {
+      if (message.type !== 'external_action' || message.action_status !== 'pending') continue
+      const expiresAt = actionExpiryTimestamp(message.expires_at)
+      // A malformed timestamp is never allowed to become an unbounded wait.
+      if (expiresAt === null) return null
+      deadline = deadline === null ? expiresAt : Math.min(deadline, expiresAt)
+    }
+    return deadline
+  }
+
   const stopExternalActionPolling = (removeVisibilityListener = true): void => {
     if (externalActionPollTimer !== null) {
       clearTimeout(externalActionPollTimer)
@@ -478,10 +517,34 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     if (!hasPendingExternalAction()) stopExternalActionPolling()
   }
 
+  /**
+   * Client clocks can be ahead of the server. That is intentionally treated as
+   * an expired action: a stale authorization URL is more harmful than showing a
+   * refresh path a little early. This also closes malformed timestamps should a
+   * runtime response bypass the TypeScript API contract.
+   */
+  const expirePendingExternalActions = (now = Date.now()): void => {
+    const operationIDs = messages.value
+      .filter(
+        (message): message is ExternalActionMessage =>
+          message.type === 'external_action' &&
+          message.action_status === 'pending' &&
+          actionHasExpired(message.expires_at, now)
+      )
+      .map((message) => message.operation_id)
+    for (const operationID of operationIDs) {
+      settleExternalAction(operationID, 'expired')
+    }
+  }
+
   const updatePendingExternalAction = (
     operationID: string,
     action: Omit<FeishuExternalAction, 'url'>
   ): void => {
+    if (actionHasExpired(action.expires_at)) {
+      settleExternalAction(operationID, 'expired')
+      return
+    }
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
       if (
@@ -502,29 +565,48 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const scheduleExternalActionPoll = (): void => {
-    if (
-      externalActionPollTimer !== null ||
-      !hasPendingExternalAction() ||
-      externalActionPollDeadline <= Date.now()
-    ) {
-      if (externalActionPollDeadline <= Date.now()) stopExternalActionPolling()
+    if (externalActionPollTimer !== null) return
+    expirePendingExternalActions()
+    if (!hasPendingExternalAction()) return
+
+    const deadline = nextPendingExternalActionDeadline()
+    const now = Date.now()
+    if (deadline === null || deadline <= now) {
+      expirePendingExternalActions(now)
       return
     }
+    externalActionPollDeadline = deadline
     if (typeof document !== 'undefined' && document.hidden) return
 
     externalActionPollTimer = setTimeout(() => {
       externalActionPollTimer = null
+      expirePendingExternalActions()
+      if (!hasPendingExternalAction()) return
+      if (typeof document !== 'undefined' && document.hidden) return
       void (async () => {
         await refreshRunStatus()
-        if (hasPendingExternalAction()) scheduleExternalActionPoll()
+        if (hasPendingExternalAction()) startExternalActionPolling()
       })()
-    }, EXTERNAL_ACTION_POLL_INTERVAL_MS)
+    }, Math.min(EXTERNAL_ACTION_POLL_INTERVAL_MS, deadline - now))
   }
 
   const startExternalActionPolling = (): void => {
+    expirePendingExternalActions()
     if (!hasPendingExternalAction()) return
-    if (externalActionPollDeadline === 0) {
-      externalActionPollDeadline = Date.now() + EXTERNAL_ACTION_POLL_WINDOW_MS
+
+    const deadline = nextPendingExternalActionDeadline()
+    if (deadline === null || deadline <= Date.now()) {
+      expirePendingExternalActions()
+      return
+    }
+    // A recovery may replace a session with a shorter or longer actual expiry.
+    // Re-arm the timer so the browser never waits for a stale global deadline.
+    if (externalActionPollDeadline !== deadline) {
+      externalActionPollDeadline = deadline
+      if (externalActionPollTimer !== null) {
+        clearTimeout(externalActionPollTimer)
+        externalActionPollTimer = null
+      }
     }
     if (typeof document !== 'undefined' && !removeExternalActionVisibilityListener) {
       const onVisibilityChange = (): void => {
@@ -905,6 +987,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     operationID: string,
     action: FeishuResumeAction = 'user_completed'
   ): Promise<FeishuOperationResult> => {
+    const existing = messages.value.find(
+      (message): message is ExternalActionMessage =>
+        message.type === 'external_action' && message.operation_id === operationID
+    )
+    if (existing?.action_status === 'expired' ||
+      (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at))) {
+      settleExternalAction(operationID, 'expired')
+      throw new Error('飞书授权已过期，请刷新链接后重试')
+    }
     const result = await resumeFeishuLifecycleOperation(operationID, action)
     switch (result.state) {
       case 'succeeded':
@@ -1719,11 +1810,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
       case 'external_action': {
         const payload = e.data as ExternalActionPayload
+        const operationID = externalActionOperationID(payload)
         const existingIndex = messages.value.findIndex(
           (message) =>
             message.type === 'external_action' &&
             message.run_id === e.run_id &&
-            message.operation_id === payload?.operation_id
+            message.operation_id === operationID
         )
         const actionMessage = externalActionMessage(
           payload,
@@ -1731,7 +1823,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           e.ts || new Date().toISOString(),
           existingIndex >= 0 ? messages.value[existingIndex].id : undefined
         )
-        if (!actionMessage) break
+        if (!actionMessage) {
+          // A malformed replacement must not keep the former authorization URL
+          // actionable. There is no safe deadline to poll against, so expose an
+          // expired card for Task 18's refresh path instead.
+          if (operationID && existingIndex >= 0) {
+            settleExternalAction(operationID, 'expired')
+          }
+          break
+        }
         if (existingIndex >= 0) {
           messages.value[existingIndex] = actionMessage
         } else {
@@ -1874,6 +1974,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     sessionStorage.removeItem('agentChat:currentRunId')
     sessionStorage.removeItem('agentChat:currentSessionId')
   }
+
+  // Pinia setup stores run in an effect scope. reset() covers normal chat/view
+  // replacement, while this guard also releases the timer and DOM listener when
+  // Pinia itself disposes the store (logout, test teardown, or app teardown).
+  onScopeDispose(() => {
+    stopExternalActionPolling()
+  })
 
   return {
     ensureCurrentRun,
