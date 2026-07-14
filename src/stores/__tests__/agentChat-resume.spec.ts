@@ -230,6 +230,193 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
+  it('terminal success synchronously settles its external action before a delayed failed reconcile', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const removeListener = vi.spyOn(document, 'removeEventListener')
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+
+    let rejectReconcile: (reason?: unknown) => void = () => undefined
+    vi.mocked(api.getRun).mockImplementationOnce(
+      () =>
+        new Promise<AgentRun>((_resolve, reject) => {
+          rejectReconcile = reject
+        })
+    )
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-terminal-success',
+        session_id: 'session-terminal-success',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/authorize',
+        expires_at: new Date(now.getTime() + 60_000).toISOString()
+      }
+    })
+    expect(vi.getTimerCount()).toBe(1)
+
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 2,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: { reason: 'completed', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+
+    const action = store.messages.find((message) => message.type === 'external_action')
+    expect(action).toMatchObject({
+      operation_id: 'op-terminal-success',
+      action_status: 'completed'
+    })
+    expect(action).not.toHaveProperty('url')
+    expect(store.isWaitingForExternalAction).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(removeListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
+    expect(api.getRun).toHaveBeenCalledTimes(1)
+
+    // A visibility change after the terminal must not re-arm external polling.
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(api.getRun).toHaveBeenCalledTimes(1)
+
+    // Reconciliation is best-effort and may fail after the synchronous card
+    // cleanup. It must never re-expose the original authorization action.
+    rejectReconcile(new Error('delayed reconciliation failure'))
+    await vi.advanceTimersByTimeAsync(0)
+    const actionAfterReconcileFailure = store.messages.find(
+      (message) => message.type === 'external_action'
+    )
+    expect(actionAfterReconcileFailure).toMatchObject({ action_status: 'completed' })
+    expect(actionAfterReconcileFailure).not.toHaveProperty('url')
+    removeListener.mockRestore()
+    store.reset()
+  })
+
+  it.each(['error', 'cancelled', 'unknown'])(
+    'terminal reason %s settles its same-run external action as terminal',
+    (reason) => {
+      vi.useFakeTimers()
+      const now = new Date('2026-07-14T10:00:00Z')
+      vi.setSystemTime(now)
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+      const store = useAgentChatStore()
+      vi.mocked(api.getRun).mockImplementationOnce(
+        () => new Promise<AgentRun>(() => undefined)
+      )
+
+      store.applyStreamEvent({
+        type: 'external_action',
+        seq: 1,
+        ts: now.toISOString(),
+        run_id: 148,
+        data: {
+          provider: 'feishu',
+          operation_id: `op-${reason}`,
+          session_id: `session-${reason}`,
+          tool_call_id: 'tool-call-1',
+          phase: 'user_auth',
+          url: 'https://safe.example/authorize',
+          expires_at: new Date(now.getTime() + 60_000).toISOString()
+        }
+      })
+      store.applyStreamEvent({
+        type: 'terminal',
+        seq: 2,
+        ts: now.toISOString(),
+        run_id: 148,
+        data: { reason, duration_ms: 1, step_count: 1 }
+      } as TerminalEvent)
+
+      const action = store.messages.find((message) => message.type === 'external_action')
+      expect(action).toMatchObject({ action_status: 'terminal' })
+      expect(action).not.toHaveProperty('url')
+      expect(store.isWaitingForExternalAction).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      store.reset()
+    }
+  )
+
+  it('keeps a normal question pause pending instead of treating it as an external terminal', () => {
+    const store = useAgentChatStore()
+    store.currentRun = { id: 148, status: 'running' } as AgentRun
+    store.applyStreamEvent({
+      type: 'question_prompt',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: {
+        questions: [{ question: '请选择下一步', options: [], multi_select: false }]
+      }
+    })
+
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 2,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: { reason: 'waiting_for_user_choice', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+
+    expect(store.currentRun?.status).toBe('running')
+    expect(store.isWaitingForUser).toBe(true)
+    expect(store.messages.find((message) => message.type === 'question_prompt')).toMatchObject({
+      answer_status: 'pending'
+    })
+  })
+
+  it('does not settle an external action belonging to another run', () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+    vi.mocked(api.getRun).mockImplementationOnce(() => new Promise<AgentRun>(() => undefined))
+
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-other-run',
+        session_id: 'session-other-run',
+        tool_call_id: 'tool-call-1',
+        phase: 'user_auth',
+        url: 'https://safe.example/authorize',
+        expires_at: new Date(now.getTime() + 60_000).toISOString()
+      }
+    })
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 2,
+      ts: now.toISOString(),
+      run_id: 149,
+      data: { reason: 'completed', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+
+    const action = store.messages.find((message) => message.type === 'external_action')
+    expect(action).toMatchObject({ action_status: 'pending', url: 'https://safe.example/authorize' })
+    expect(store.isWaitingForExternalAction).toBe(true)
+    store.reset()
+  })
+
   it('keeps polling an action until its server expiry, even after the old five-minute window', async () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-14T10:00:00Z')

@@ -52,7 +52,6 @@ import type {
   ToolCallErrorPayload,
   QuestionPromptPayload,
   ExternalActionPayload,
-  TerminalPayload,
   ErrorPayload
 } from '@/types/agent-stream'
 
@@ -295,6 +294,28 @@ function statusFromTerminalReason(reason?: string): AgentRunStatus {
 }
 
 /**
+ * Terminal SSE data crosses a network boundary. Only a string reason is safe
+ * to use for local lifecycle changes; malformed or unknown data deliberately
+ * maps to a non-success terminal state below.
+ */
+function terminalReason(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return undefined
+  const reason = (payload as Record<string, unknown>).reason
+  return typeof reason === 'string' ? reason : undefined
+}
+
+/**
+ * An external action is completed only by an explicit successful terminal
+ * reason. A question pause is still live, while every other/malformed reason
+ * must revoke the one-time authorization URL as a terminal outcome.
+ */
+function externalActionStatusFromTerminal(payload: unknown): ExternalActionStatus | null {
+  const status = statusFromTerminalReason(terminalReason(payload))
+  if (status === 'running') return null
+  return status === 'completed' ? 'completed' : 'terminal'
+}
+
+/**
  * StreamingAssistantMessage — AssistantMessage carrying SSE bookkeeping fields.
  * `_stream_id`: backend-provided message_id used to deduplicate token_delta
  * accumulation; `_run_id`: agent_run.id this bubble belongs to (used by
@@ -498,12 +519,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
-  const settleExternalAction = (operationID: string, status: ExternalActionStatus): void => {
+  const settleExternalAction = (
+    operationID: string,
+    status: ExternalActionStatus,
+    runID?: number
+  ): void => {
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
       if (
         message.type !== 'external_action' ||
         message.operation_id !== operationID ||
+        (runID !== undefined && message.run_id !== runID) ||
         message.action_status !== 'pending'
       ) {
         continue
@@ -1842,7 +1868,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
 
       case 'terminal': {
-        const payload = e.data as TerminalPayload
+        const reason = terminalReason(e.data)
+        const actionStatus = externalActionStatusFromTerminal(e.data)
         // Update currentRun status locally so the UI reacts immediately;
         // reconcileFromDB (getRun, authoritative) follows. Map the raw backend
         // TerminalReason → frontend AgentRunStatus via statusFromTerminalReason
@@ -1853,8 +1880,25 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         if (currentRun.value) {
           currentRun.value = {
             ...currentRun.value,
-            status: statusFromTerminalReason(payload?.reason),
-            state_reason: payload?.reason
+            status: statusFromTerminalReason(reason),
+            state_reason: reason
+          }
+        }
+        // The SSE terminal frame is sufficient to revoke a live external
+        // authorization action. Do this synchronously, before the detached DB
+        // reconciliation, because that request may be delayed or fail. Scope it
+        // to the terminal's run so an unrelated active run keeps its own card.
+        if (actionStatus !== null) {
+          const pendingOperationIDs = messages.value
+            .filter(
+              (message): message is ExternalActionMessage =>
+                message.type === 'external_action' &&
+                message.run_id === e.run_id &&
+                message.action_status === 'pending'
+            )
+            .map((message) => message.operation_id)
+          for (const operationID of pendingOperationIDs) {
+            settleExternalAction(operationID, actionStatus, e.run_id)
           }
         }
         // issue3: once the run truly ENDS (not a question pause), clear every
@@ -1862,7 +1906,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // timer — so nothing keeps spinning after the task is done. A
         // 'waiting_for_user_choice' terminal is a PAUSE, not an end (skip it:
         // finalizeToolGroups would wrongly paint paused tools as errored).
-        if (payload?.reason !== 'waiting_for_user_choice') {
+        if (reason !== 'waiting_for_user_choice') {
           stuckSince.value = null
           finalizeToolGroups()
         }
@@ -1881,12 +1925,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // Surface a friendly failure message for error terminals that did NOT
         // already emit an 'error' event (e.g. max_turns / budget / aborted).
         // user_message is empty for successful / waiting terminals.
-        if (payload?.user_message && !erroredRuns.has(e.run_id)) {
+        const userMessage =
+          e.data && typeof e.data === 'object' && !Array.isArray(e.data)
+            ? (e.data as Record<string, unknown>).user_message
+            : undefined
+        if (typeof userMessage === 'string' && userMessage && !erroredRuns.has(e.run_id)) {
           messages.value.push({
             id: uuid(),
             type: 'system',
             system_subtype: 'failed',
-            markdown: payload.user_message,
+            markdown: userMessage,
             timestamp: e.ts
           })
         }
