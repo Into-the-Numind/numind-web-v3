@@ -420,7 +420,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const EXTERNAL_ACTION_POLL_INTERVAL_MS = 5_000
   let externalActionPollTimer: ReturnType<typeof setTimeout> | null = null
   let externalActionPollDeadline = 0
+  // A polling timer belongs to the session that created its authorization
+  // action.  Keep that ownership explicit so a late timer continuation cannot
+  // observe whichever run happens to be selected after a route switch.
+  let externalActionPollEpoch: number | null = null
   let removeExternalActionVisibilityListener: (() => void) | null = null
+
+  // Every route/session replacement advances this generation. Async work and
+  // SSE callbacks capture it before crossing an await boundary; a result may
+  // mutate state only while it still names the active session. `null` means the
+  // store has been reset/unmounted and intentionally owns no session.
+  let activeSessionEpoch = 0
+  let activeSessionID: string | null = null
 
   // ── Getters ─────────────────────────────────────────────────────────
   const isRunning = computed(
@@ -552,6 +563,31 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       removeExternalActionVisibilityListener = null
       externalActionPollDeadline = 0
     }
+    externalActionPollEpoch = null
+  }
+
+  const currentSessionEpoch = (): number => activeSessionEpoch
+
+  const isCurrentSessionEpoch = (epoch: number): boolean => epoch === activeSessionEpoch
+
+  /**
+   * Claim the store for a route session. This is deliberately a tiny, sync
+   * boundary: callers can invalidate old async/SSE work before starting their
+   * replacement snapshot or observer.
+   */
+  const beginSession = (sessionID: string): number => {
+    activeSessionEpoch += 1
+    activeSessionID = sessionID
+    stopExternalActionPolling()
+    sendingMessage.value = false
+    cancelling.value = false
+    return activeSessionEpoch
+  }
+
+  const invalidateSession = (): void => {
+    activeSessionEpoch += 1
+    activeSessionID = null
+    stopExternalActionPolling()
   }
 
   const settleExternalAction = (
@@ -648,6 +684,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const scheduleExternalActionPoll = (): void => {
     if (externalActionPollTimer !== null) return
+    const pollEpoch = activeSessionEpoch
+    if (externalActionPollEpoch !== pollEpoch) return
     expirePendingExternalActions()
     if (!hasPendingExternalAction()) return
 
@@ -662,17 +700,25 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
     externalActionPollTimer = setTimeout(() => {
       externalActionPollTimer = null
+      if (!isCurrentSessionEpoch(pollEpoch) || externalActionPollEpoch !== pollEpoch) return
       expirePendingExternalActions()
       if (!hasPendingExternalAction()) return
       if (typeof document !== 'undefined' && document.hidden) return
       void (async () => {
         await refreshRunStatus()
-        if (hasPendingExternalAction()) startExternalActionPolling()
+        if (
+          isCurrentSessionEpoch(pollEpoch) &&
+          externalActionPollEpoch === pollEpoch &&
+          hasPendingExternalAction()
+        ) {
+          startExternalActionPolling()
+        }
       })()
     }, Math.min(EXTERNAL_ACTION_POLL_INTERVAL_MS, deadline - now))
   }
 
   const startExternalActionPolling = (): void => {
+    externalActionPollEpoch = activeSessionEpoch
     expirePendingExternalActions()
     if (!hasPendingExternalAction()) return
 
@@ -789,8 +835,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       estimate.value = null
       return
     }
+    const epoch = activeSessionEpoch
     try {
-      estimate.value = await api.estimateRun({
+      const nextEstimate = await api.estimateRun({
         agent_skill_id: agentId,
         input_text: text,
         attachment_meta: attachments.value.map((a) => ({
@@ -799,12 +846,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           mime_type: a.mime_type
         }))
       })
+      if (isCurrentSessionEpoch(epoch)) estimate.value = nextEstimate
     } catch {
-      estimate.value = null
+      if (isCurrentSessionEpoch(epoch)) estimate.value = null
     }
   }
 
   const startNewRun = async (agentId: number, text: string, sessionId?: string): Promise<void> => {
+    const epoch = activeSessionEpoch
     sendingMessage.value = true
     try {
       const res = await api.createRun({
@@ -815,6 +864,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // The upload endpoint does not return an id, so url IS the identity.
         attachment_urls: attachments.value.map((a) => a.url)
       })
+      if (!isCurrentSessionEpoch(epoch)) return
       const userMsg: AgentMessage = {
         id: uuid(),
         type: 'user',
@@ -827,7 +877,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       lastNarrationTs.value = ''
       stuckSince.value = null
       currentToolGroupId.value = null
-      currentRun.value = await api.getRun(res.run_id)
+      const run = await api.getRun(res.run_id)
+      if (!isCurrentSessionEpoch(epoch)) return
+      currentRun.value = run
       // 边界：罕见情况 run 创建后立即非 running（队列时已 fail）
       const s = currentRun.value.status
       if (s !== 'running' && s !== 'pending') {
@@ -845,12 +897,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       sessionStorage.setItem('agentChat:currentRunId', String(res.run_id))
       sessionStorage.setItem('agentChat:currentSessionId', String(res.session_id))
     } finally {
-      sendingMessage.value = false
+      if (isCurrentSessionEpoch(epoch)) sendingMessage.value = false
     }
   }
 
   const pollNarration = async (): Promise<void> => {
     if (!currentRun.value || !isRunning.value) return
+    const epoch = activeSessionEpoch
+    const runID = currentRun.value.id
     // While paused for an ask_user_question answer the run legitimately produces
     // no narration. Since waiting_for_user_choice now maps to a 'running' status
     // (so the header/cancel stay live — T1/T2), pollNarration would otherwise
@@ -863,7 +917,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       return
     }
     try {
-      const events = await api.fetchNarrationEvents(currentRun.value.id, lastNarrationTs.value)
+      const events = await api.fetchNarrationEvents(runID, lastNarrationTs.value)
+      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
       if (events.length > 0) {
         for (const ev of events) {
           if (ev.event_type === 'tool_call_yield' && ev.yield_payload) {
@@ -953,9 +1008,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
+    const epoch = activeSessionEpoch
+    const runID = currentRun.value.id
     try {
       const prevStatus = currentRun.value.status
-      const next = await api.getRun(currentRun.value.id)
+      const next = await api.getRun(runID)
+      // A session may have changed while the request was in flight. Never let
+      // session A's status/final answer/authorization card alter session B.
+      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
+      if (activeSessionID !== null && activeSessionID !== 'new' && next.session_id !== activeSessionID) {
+        return
+      }
       const queuedExternalContinuation = isQueuedExternalContinuation(next.state_reason)
       // answer-resume-lifecycle F3: state_reason==='running' is the resume
       // signature (only AnswerAndClear / the takeover correction write it; real
@@ -1015,6 +1078,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         if (!hasPendingCard && next.session_id) {
           try {
             const snap = await api.getSessionSnapshot(String(next.session_id))
+            if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
             const qp = snap.messages.find(
               (m) => m.type === 'question_prompt' && (m as QuestionPromptMessage).run_id === next.id
             ) as QuestionPromptMessage | undefined
@@ -1074,6 +1138,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     operationID: string,
     action: FeishuResumeAction = 'user_completed'
   ): Promise<FeishuOperationResult> => {
+    const epoch = activeSessionEpoch
     const existing = messages.value.find(
       (message): message is ExternalActionMessage =>
         message.type === 'external_action' && message.operation_id === operationID
@@ -1089,6 +1154,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
     const result = await resumeFeishuLifecycleOperation(operationID, action)
+    if (!isCurrentSessionEpoch(epoch)) return result
     switch (result.state) {
       case 'succeeded':
         settleExternalAction(operationID, 'completed')
@@ -1108,9 +1174,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const cancelCurrent = async (): Promise<void> => {
     if (!currentRun.value) return
+    const epoch = activeSessionEpoch
+    const runID = currentRun.value.id
     cancelling.value = true
     try {
-      await api.cancelRun(currentRun.value.id)
+      await api.cancelRun(runID)
+      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
       currentRun.value = { ...currentRun.value, status: 'cancelled' }
       messages.value.push({
         id: uuid(),
@@ -1119,13 +1188,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         timestamp: new Date().toISOString()
       })
     } finally {
-      cancelling.value = false
+      if (isCurrentSessionEpoch(epoch)) cancelling.value = false
     }
   }
 
   const uploadAttachment = async (file: File): Promise<void> => {
+    const epoch = activeSessionEpoch
     const res = await api.uploadAttachment(file)
-    attachments.value.push(res)
+    if (isCurrentSessionEpoch(epoch)) attachments.value.push(res)
   }
 
   const removeAttachment = (url: string): void => {
@@ -1182,6 +1252,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
+    const epoch = beginSession(sessionId)
     loadingSnapshot.value = true
     sessionError.value = null
     // Snapshot loads are also the session-switch boundary for historical routes.
@@ -1191,6 +1262,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     currentRun.value = null
     try {
       const snap = await api.getSessionSnapshot(sessionId)
+      if (!isCurrentSessionEpoch(epoch)) return
       // Defensive: backend may omit timestamp on restored messages; fill with
       // a stable fallback so BaseMessage.timestamp is always a valid string.
       const now = new Date().toISOString()
@@ -1282,9 +1354,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         stopExternalActionPolling()
       }
     } catch (err) {
-      sessionError.value = (err as Error).message ?? '会话加载失败'
+      if (isCurrentSessionEpoch(epoch)) {
+        sessionError.value = (err as Error).message ?? '会话加载失败'
+      }
     } finally {
-      loadingSnapshot.value = false
+      if (isCurrentSessionEpoch(epoch)) loadingSnapshot.value = false
     }
   }
 
@@ -1457,8 +1531,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // absent (yield-session-reload).
   const ensureCurrentRun = async (runId: number): Promise<void> => {
     if (currentRun.value && currentRun.value.id === runId) return
+    const epoch = activeSessionEpoch
     try {
-      currentRun.value = await api.getRun(runId)
+      const run = await api.getRun(runId)
+      if (!isCurrentSessionEpoch(epoch)) return
+      if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
+        return
+      }
+      currentRun.value = run
     } catch {
       // Non-fatal: polling will no-op via its null guard; the card stays
       // answerable on a subsequent attempt.
@@ -1491,7 +1571,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *      e.g. tool-only steps), fall back to pushing a stand-alone
    *      final_answer, deduped against re-entrant calls.
    */
-  const reconcileFromDB = async (runId: number): Promise<void> => {
+  const reconcileFromDB = async (runId: number, expectedEpoch = activeSessionEpoch): Promise<void> => {
     // 问题5a: the terminal SSE handler already set currentRun to a terminal status
     // synchronously (before this async getRun resolves). The authoritative DB read
     // can lag the in-memory terminal (the row may not be flushed yet) and return a
@@ -1505,6 +1585,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     const lockedReason = currentRun.value?.state_reason
     try {
       const run = await api.getRun(runId)
+      if (!isCurrentSessionEpoch(expectedEpoch) || currentRun.value?.id !== runId) return
+      if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
+        return
+      }
       currentRun.value =
         wasTerminal && !isTerminalStatus(run.status)
           ? { ...run, status: lockedStatus!, state_reason: lockedReason ?? run.state_reason }
@@ -1606,7 +1690,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    * the `isStreaming` guard runs synchronously beforehand and this action
    * itself clears `attachments.value` at the end.
    */
-  const appendUserMessage = (req: CreateRunRequest): void => {
+  const appendUserMessage = (req: CreateRunRequest, expectedEpoch?: number): void => {
+    if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
     const userMsg: AgentMessage = {
       id: uuid(),
       type: 'user',
@@ -1631,7 +1716,26 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *
    * Covers all 14 EventType values per spec §5.3.
    */
-  const applyStreamEvent = (e: AgentStreamEvent): void => {
+  const applyStreamEvent = (e: AgentStreamEvent, expectedEpoch?: number): void => {
+    // `useAgentStream` always supplies the epoch captured when its request
+    // opened. The optional form preserves the small store-level test seam, but
+    // an active route still requires every non-start frame to belong to the
+    // current run. Only an explicitly epoch-authorized stream_start may replace
+    // a prior run in the same logical session.
+    if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
+    const sessionGuardEnabled = expectedEpoch !== undefined || activeSessionID !== null
+    if (sessionGuardEnabled && e.type !== 'stream_start' && currentRun.value?.id !== e.run_id) {
+      return
+    }
+    if (
+      sessionGuardEnabled &&
+      e.type === 'stream_start' &&
+      expectedEpoch === undefined &&
+      currentRun.value !== null &&
+      currentRun.value.id !== e.run_id
+    ) {
+      return
+    }
     switch (e.type) {
       case 'stream_start': {
         // Optimistically establish currentRun so the chat header status badge,
@@ -2038,7 +2142,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           })
         }
         // R5: pull authoritative messages + status from DB
-        void reconcileFromDB(e.run_id)
+        void reconcileFromDB(e.run_id, expectedEpoch)
         break
       }
 
@@ -2048,7 +2152,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // user_error translation layer). Mark the run so the following terminal
         // event does not show a second failure bubble.
         erroredRuns.add(e.run_id)
-        applyError(new Error(payload?.message ?? '服务暂时不可用，请稍后再试。'))
+        applyError(new Error(payload?.message ?? '服务暂时不可用，请稍后再试。'), expectedEpoch)
         break
       }
 
@@ -2062,7 +2166,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    * applyError — translate a non-409 stream error into a system message visible
    * in the chat UI. Called by useAgentStream composable on catch (T11).
    */
-  const applyError = (err: Error | unknown): void => {
+  const applyError = (err: Error | unknown, expectedEpoch?: number): void => {
+    if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
     const message = err instanceof Error ? err.message : String(err)
     messages.value.push({
       id: uuid(),
@@ -2093,7 +2198,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const reset = (): void => {
-    stopExternalActionPolling()
+    invalidateSession()
     availableAgents.value = []
     recentSessions.value = []
     currentAgent.value = null
@@ -2126,7 +2231,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // replacement, while this guard also releases the timer and DOM listener when
   // Pinia itself disposes the store (logout, test teardown, or app teardown).
   onScopeDispose(() => {
-    stopExternalActionPolling()
+    invalidateSession()
   })
 
   return {
@@ -2174,6 +2279,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     renameSession,
     deleteSession,
     reset,
+    beginSession,
+    currentSessionEpoch,
+    isCurrentSessionEpoch,
     appendUserMessage,
     applyStreamEvent,
     applyError,

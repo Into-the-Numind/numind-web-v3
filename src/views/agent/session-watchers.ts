@@ -22,6 +22,12 @@ export interface SessionTransitionDeps {
   isStreaming: boolean
   /** 当前是否有活跃的 Agent 任务在运行 */
   isRunning: boolean
+  /**
+   * Whether this precise new → UUID route update names the run already owned
+   * by the current stream. Callers that cannot prove this leave it undefined
+   * and retain the legacy conservative check below.
+   */
+  sameLogicalSession?: boolean
 }
 
 /**
@@ -46,7 +52,7 @@ export async function handleSessionIdTransition(
   }
   if (oldSessionId === 'new') {
     // 仅在当前正处于流式输出响应或后台运行任务时，才安全跳过快照加载
-    if (deps.isStreaming || deps.isRunning) {
+    if (deps.sameLogicalSession ?? (deps.isStreaming || deps.isRunning)) {
       return
     }
   }

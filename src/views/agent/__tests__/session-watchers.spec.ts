@@ -52,6 +52,18 @@ describe('handleSessionIdTransition', () => {
     expect(loadSnapshot).not.toHaveBeenCalled()
   })
 
+  it('loads an explicitly selected UUID even if the old new-route stream is still unwinding', async () => {
+    await handleSessionIdTransition('manually-selected-session', 'new', {
+      loadSnapshot,
+      resetLocal,
+      readOnly: false,
+      isStreaming: true,
+      isRunning: true,
+      sameLogicalSession: false
+    })
+    expect(loadSnapshot).toHaveBeenCalledWith('manually-selected-session', false)
+  })
+
   it('new → real-uuid with NO active stream/run (manual switch) loads the snapshot', async () => {
     await handleSessionIdTransition('42e277c7-6471-4d39-8866-e65bbbd7e016', 'new', {
       loadSnapshot,

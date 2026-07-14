@@ -300,6 +300,10 @@ const closeAllMenus = (): void => {
 
 onMounted(async () => {
   document.body.classList.add('agent-chat-route')
+  // A `new` route has no snapshot loader to establish a session boundary. Claim
+  // it before any stream can start so a later route switch invalidates its SSE
+  // callbacks just like a historical snapshot does.
+  if (isNewSession.value) store.beginSession('new')
   await Promise.all([
     creditsStore.fetchBalance(),
     loadCurrentAgent(),
@@ -337,6 +341,20 @@ onMounted(async () => {
 watch(
   () => props.sessionId,
   async (newSessionId, oldSessionId) => {
+    // new → UUID while a stream/run is live is the router's own naming update
+    // for the same logical session. Every other transition is a real context
+    // switch: stop all old observers before the replacement loader advances the
+    // store epoch, so neither a stale SSE catch nor a timer can attach to B.
+    const preservesActiveNewSession =
+      oldSessionId === 'new' &&
+      store.currentRun?.session_id === newSessionId &&
+      (isStreaming.value || store.isRunning)
+    if (!preservesActiveNewSession) {
+      stopStream()
+      narration.stop()
+      runCtrl.stopStatusPolling()
+      if (newSessionId === 'new') store.beginSession('new')
+    }
     await handleSessionIdTransition(newSessionId, oldSessionId, {
       loadSnapshot: (id, ro) => store.loadSessionSnapshot(id, ro),
       resetLocal: () => {
@@ -357,7 +375,8 @@ watch(
       },
       readOnly: props.readOnly,
       isStreaming: isStreaming.value,
-      isRunning: store.isRunning
+      isRunning: store.isRunning,
+      sameLogicalSession: preservesActiveNewSession
     })
   }
 )
