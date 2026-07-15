@@ -38,6 +38,20 @@ function setToken(token) {
   });
 }
 
+function broadcastAuthorizedTabs() {
+  try {
+    chrome.tabs.query({ url: '*://*.xiaohongshu.com/*' }, (tabs) => {
+      (tabs || []).forEach((t) => {
+        if (t.id != null) {
+          try {
+            chrome.tabs.sendMessage(t.id, { action: 'YOUSHU_AUTHORIZED' });
+          } catch (_) {}
+        }
+      });
+    });
+  } catch (_) {}
+}
+
 function clearToken() {
   return new Promise((resolve) => {
     chrome.storage.local.remove([TOKEN_KEY], () => resolve());
@@ -178,7 +192,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // 授权页桥接(connect-bridge.js content script)转发来的 token。
   if (message.type === 'YOUSHU_SET_TOKEN' && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
-    setToken(message.token).then(() => sendResponse({ success: true }));
+    setToken(message.token).then(() => {
+      broadcastAuthorizedTabs();
+      sendResponse({ success: true });
+    });
     return true;
   }
 
@@ -200,17 +217,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   if (message && message.type === 'YOUSHU_SET_TOKEN' && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
     setToken(message.token).then(() => {
       // 广播授权成功，已打开的小红书标签页浮标恢复可用
-      try {
-        chrome.tabs.query({ url: '*://*.xiaohongshu.com/*' }, (tabs) => {
-          (tabs || []).forEach((t) => {
-            if (t.id != null) {
-              try {
-                chrome.tabs.sendMessage(t.id, { action: 'YOUSHU_AUTHORIZED' });
-              } catch (_) {}
-            }
-          });
-        });
-      } catch (_) {}
+      broadcastAuthorizedTabs();
       sendResponse && sendResponse({ success: true });
     });
     return true;

@@ -16,21 +16,7 @@ body {
 .ys-header {
   display: flex;
   align-items: center;
-  gap: 8px;
   margin-bottom: 14px;
-}
-
-.ys-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: #ff2442;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .ys-title {
@@ -57,12 +43,6 @@ body {
 .ys-label {
   font-size: 13px;
   color: #6b7280;
-}
-
-.ys-value {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2937;
 }
 
 .ys-badge {

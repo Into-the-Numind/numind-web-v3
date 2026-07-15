@@ -87,22 +87,67 @@
   // __INITIAL_STATE__ 解析（视频直链 + 结构化字段）
   // ---------------------------------------------------------------------------
 
+  function pickFirstDirectUrl(value, seen) {
+    if (!value) return '';
+    const visited = seen || new Set();
+    if (typeof value === 'string') {
+      const u = normalizeHttpUrl(decodeJsonUrlEscapes(value));
+      return isDirectStreamUrl(u) ? u : '';
+    }
+    if (typeof value !== 'object') return '';
+    if (visited.has(value)) return '';
+    visited.add(value);
+
+    const preferredKeys = [
+      'master_url',
+      'masterUrl',
+      'backup_url',
+      'backupUrl',
+      'backup_urls',
+      'backupUrls',
+      'url',
+      'src',
+      'originUrl',
+      'origin_url',
+      'playUrl',
+      'play_url'
+    ];
+    for (const key of preferredKeys) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        const u = pickFirstDirectUrl(value[key], visited);
+        if (u) return u;
+      }
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const u = pickFirstDirectUrl(item, visited);
+        if (u) return u;
+      }
+      return '';
+    }
+    return '';
+  }
+
   /**
    * 从一条 note 对象里取视频直链。
-   * 路径：note.video.media.stream.h264[0].master_url（或 masterUrl），h265 兜底。
+   * 优先路径：note.video.media.stream.h264/h265/av1[*].master_url；
+   * 兜底兼容小红书页面偶发的 video/media/stream 扁平字段变化。
    */
   function pickVideoUrlFromNote(note) {
     if (!note || typeof note !== 'object' || !note.video) return '';
     const media = note.video.media;
     const stream = media && media.stream;
-    if (!stream) return '';
+    const direct = pickFirstDirectUrl(note.video);
+    if (!stream) return direct;
     const tryCodec = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '';
-      const first = arr[0] || {};
-      const u = first.master_url || first.masterUrl || first.backup_urls?.[0] || '';
-      return u ? decodeJsonUrlEscapes(u) : '';
+      for (const item of arr) {
+        const u = pickFirstDirectUrl(item);
+        if (u) return u;
+      }
+      return '';
     };
-    return tryCodec(stream.h264) || tryCodec(stream.h265) || tryCodec(stream.av1) || '';
+    return tryCodec(stream.h264) || tryCodec(stream.h265) || tryCodec(stream.av1) || direct || pickFirstDirectUrl(stream);
   }
 
   /**
@@ -154,7 +199,19 @@
     const out = {};
     if (!note || typeof note !== 'object') return out;
 
-    if (note.title) out.title = String(note.title).trim();
+    const title = firstNonEmpty(
+      note.title,
+      note.displayTitle,
+      note.display_title,
+      note.shareTitle,
+      note.share_title,
+      note.cardTitle,
+      note.card_title,
+      note.name,
+      note.titleText,
+      note.title_text
+    );
+    if (title) out.title = title;
     if (note.desc) out.content = String(note.desc).trim();
     if (note.type) out.note_type = note.type === 'video' ? 'video' : 'normal';
 
@@ -250,6 +307,14 @@
     return v ? String(v).trim() : '';
   }
 
+  function firstNonEmpty() {
+    for (const value of arguments) {
+      const text = String(value || '').trim();
+      if (text) return text;
+    }
+    return '';
+  }
+
   /** 解析懒加载图片真实 URL（data-src / srcset / src），跳过 data:/blob:。 */
   function resolveImgUrl(img) {
     if (!img || img.nodeName !== 'IMG') return '';
@@ -289,6 +354,40 @@
     );
   }
 
+  /** 从当前详情 DOM 中兜底读取真实视频地址。优先 currentSrc/src，过滤 blob/data。 */
+  function extractVideoUrlFromDom(container) {
+    if (!container) return '';
+    const candidates = [];
+    const visit = (node) => {
+      if (!node) return;
+      if (node.nodeType === 1) {
+        const tag = node.tagName ? node.tagName.toLowerCase() : '';
+        if (tag === 'video') {
+          candidates.push(node.currentSrc || '');
+          candidates.push(node.src || '');
+          candidates.push(attr(node, 'src'));
+          candidates.push(attr(node, 'data-src'));
+          candidates.push(attr(node, 'data-url'));
+          candidates.push(attr(node, 'data-video-url'));
+        } else if (tag === 'source') {
+          candidates.push(node.currentSrc || '');
+          candidates.push(node.src || '');
+          candidates.push(attr(node, 'src'));
+          candidates.push(attr(node, 'data-src'));
+        }
+        if (node.shadowRoot) visit(node.shadowRoot);
+      }
+      const children = node.children || [];
+      for (let i = 0; i < children.length; i++) visit(children[i]);
+    };
+    visit(container);
+    for (const candidate of candidates) {
+      const u = normalizeHttpUrl(decodeJsonUrlEscapes(candidate));
+      if (isDirectStreamUrl(u)) return u;
+    }
+    return '';
+  }
+
   /**
    * 从详情容器解析评论。移植 .comment-item，作者/正文/点赞分开取，最多 maxComments 条。
    */
@@ -307,7 +406,16 @@
         txt(item.querySelector('.like-wrapper .count')) ||
         txt(item.querySelector('.count'))
     );
-    return { author: author || '', text: text || '', likes };
+    const normalizedAuthor = author || '';
+    const normalizedText = text || '';
+    return {
+      author: normalizedAuthor,
+      text: normalizedText,
+      likes,
+      nickname: normalizedAuthor,
+      content: normalizedText,
+      like: likes
+    };
   }
 
   function parseComments(container, maxComments) {
@@ -385,6 +493,110 @@
     return pickMaster(text);
   }
 
+  function escapeRegExp(s) {
+    return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function pickPreferredVideoUrl(urls) {
+    if (!urls || !urls.length) return '';
+    const usable = urls.map((u) => normalizeHttpUrl(decodeJsonUrlEscapes(u))).filter(isDirectStreamUrl);
+    if (!usable.length) return '';
+    const mp4s = usable.filter((u) => /\.mp4(?:[?#]|$)/i.test(u));
+    const pool = mp4s.length ? mp4s : usable;
+    const h264 = pool.find((u) => /\/110\/259\/|_259\.mp4/i.test(u));
+    return h264 || pool[pool.length - 1];
+  }
+
+  function extractVideoUrlsFromText(text) {
+    if (!text || typeof text !== 'string') return [];
+    const urls = [];
+    const scan = (regex) => {
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const u = normalizeHttpUrl(decodeJsonUrlEscapes(match[1]));
+        if (isDirectStreamUrl(u)) urls.push(u);
+      }
+    };
+    scan(/"master_url"\s*:\s*"([^"]+)"/g);
+    scan(/"masterUrl"\s*:\s*"([^"]+)"/g);
+    scan(/"url"\s*:\s*"([^"]+\.mp4[^"]*)"/g);
+    return urls;
+  }
+
+  function extractNoteEmbeddedHtmlSegments(html, noteId, displayTitle) {
+    const segments = [];
+    const id = (noteId || '').trim();
+    if (!html || typeof html !== 'string' || !id) return segments;
+    const idRegex = new RegExp(
+      `(?:\\\\?"id\\\\?"|"id"|"noteId"|"note_id")\\s*:\\s*(?:\\\\?"${escapeRegExp(id)}\\\\?"|"${escapeRegExp(id)}")`,
+      'g'
+    );
+    const hits = Array.from(html.matchAll(idRegex));
+    for (const hit of hits) {
+      const start = hit.index || 0;
+      const rest = html.slice(start + 1);
+      const next = rest.match(/(?:\\?"id\\?"|"id"|"noteId"|"note_id")\s*:/);
+      const end = next ? start + 1 + (next.index || 0) : Math.min(html.length, start + 120000);
+      const segment = html.slice(start, end);
+      const title = (displayTitle || '').trim();
+      const titleHit =
+        !title ||
+        segment.includes(`"displayTitle":"${title}"`) ||
+        segment.includes(`"title":"${title}"`) ||
+        segment.includes(`"displayTitle":"${title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`) ||
+        segment.includes(`"title":"${title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+      const hasVideoHint =
+        segment.includes('"h264"') ||
+        segment.includes('"h265"') ||
+        segment.includes('"av1"') ||
+        segment.includes('master_url') ||
+        segment.includes('masterUrl') ||
+        /"type"\s*:\s*"video"/.test(segment);
+      if (titleHit || hasVideoHint) segments.push(segment);
+    }
+    return segments;
+  }
+
+  function extractVideoUrlFromNoteDetailMapInHtml(html, noteId) {
+    if (!html || !noteId) return '';
+    const marker = `"${noteId}"`;
+    let pos = 0;
+    while (pos < html.length) {
+      const idx = html.indexOf(marker, pos);
+      if (idx < 0) break;
+      if (!/^\s*:/.test(html.slice(idx + marker.length, idx + marker.length + 12))) {
+        pos = idx + marker.length;
+        continue;
+      }
+      const before = html.slice(Math.max(0, idx - 320), idx);
+      if (!/noteDetailMap|noteDetail|currentNoteId|"note"\s*:/.test(before)) {
+        pos = idx + marker.length;
+        continue;
+      }
+      const after = html.slice(idx + marker.length);
+      const nextKey = after.match(/,\s*"[^"]{4,}"\s*:/);
+      const end = nextKey
+        ? idx + marker.length + (nextKey.index || 0)
+        : Math.min(html.length, idx + 90000);
+      const segment = html.slice(idx, end);
+      const u = pickPreferredVideoUrl(extractVideoUrlsFromText(segment));
+      if (u) return u;
+      pos = idx + marker.length;
+    }
+    return '';
+  }
+
+  function extractVideoUrlFromInitialStateScriptTag(html, noteId) {
+    if (!html || !noteId) return '';
+    const re = /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\})\s*<\/script>/gi;
+    let match;
+    while ((match = re.exec(html)) !== null) {
+      const u = extractVideoUrlFromNoteDetailMapInHtml(match[1], noteId);
+      if (u) return u;
+    }
+    return '';
+  }
+
   /**
    * 从页面 HTML 文本扫视频直链（移植 plugin3.2.1：读 SSR __INITIAL_STATE__ 文本，CSP 安全）。
    * 优先按 noteId 锚点切片避免命中 feed 里其它笔记，兜底取整页第一条 h264。只返回 https mp4。
@@ -393,28 +605,86 @@
     if (!html || typeof html !== 'string') return '';
     const id = (noteId || '').trim();
     if (id) {
+      const segments = extractNoteEmbeddedHtmlSegments(html, id, '');
+      for (const segment of segments) {
+        const u = pickPreferredVideoUrl(extractVideoUrlsFromText(segment));
+        if (u) return u;
+      }
+      const fromDetailMap = extractVideoUrlFromNoteDetailMapInHtml(html, id);
+      if (fromDetailMap) return fromDetailMap;
+      const fromStateTag = extractVideoUrlFromInitialStateScriptTag(html, id);
+      if (fromStateTag) return fromStateTag;
+
       const anchors = [
-        '"' + id + '":', // noteDetailMap 以 noteId 为 key —— 最精准锚点
         'video_feed/' + id,
         '/explore/' + id,
-        '/discovery/item/' + id,
-        '"noteId":"' + id + '"',
-        '"id":"' + id + '"'
+        '/discovery/item/' + id
       ];
       for (const anchor of anchors) {
         let pos = 0;
         while (pos < html.length) {
           const idx = html.indexOf(anchor, pos);
           if (idx < 0) break;
-          const u = extractVideoStreamUrlFromText(html.slice(idx, idx + 25000));
+          const segment = html.slice(idx, idx + 25000);
+          const preload = segment.match(/h5VideoPreloadInfo=([^&"'<>\\s]+)/);
+          if (preload) {
+            try {
+              const decoded = decodeURIComponent(preload[1].replace(/\+/g, '%20'));
+              const preloadUrl = pickPreferredVideoUrl(extractVideoUrlsFromText(decoded));
+              if (preloadUrl) return preloadUrl;
+            } catch (_) {}
+          }
+          const u = pickPreferredVideoUrl(extractVideoUrlsFromText(segment)) || extractVideoStreamUrlFromText(segment);
           if (u && /^https?:\/\//i.test(u)) return u;
           pos = idx + anchor.length;
         }
       }
       return ''; // 有 noteId 但其片段内无视频 → 图文笔记，绝不回落整页(否则抓到别的笔记的视频)
     }
-    const u = extractVideoStreamUrlFromText(html);
+    const u = pickPreferredVideoUrl(extractVideoUrlsFromText(html)) || extractVideoStreamUrlFromText(html);
     return u && /^https?:\/\//i.test(u) ? u : '';
+  }
+
+  function isLikelyVideoResourceUrl(u) {
+    if (!isDirectStreamUrl(u)) return false;
+    if (/\.(?:jpg|jpeg|png|webp|gif|avif|svg)(?:[?#].*)?$/i.test(u)) return false;
+    return /(?:sns-video|xhscdn\.com.*(?:video|stream)|\/stream\/|\.mp4(?:[?#]|$)|\.m3u8(?:[?#]|$))/i.test(u);
+  }
+
+  /**
+   * 从 PerformanceResourceTiming 列表里取最近加载的视频资源。
+   * 小红书有时只把真实视频地址交给播放器，HTML/state 里只剩 blob:，
+   * 读取 performance entries 不拦截请求，也不修改页面行为。
+   */
+  function extractVideoUrlFromResourceEntries(entries, noteId, opts) {
+    if (!entries || typeof entries.length !== 'number') return '';
+    const id = (noteId || '').trim();
+    const options = opts || {};
+    const sinceStartTime = Number(options.sinceStartTime || 0);
+    const contextText = String(options.contextText || '');
+    const urls = [];
+    for (const entry of Array.from(entries)) {
+      const raw = typeof entry === 'string' ? entry : (entry && entry.name) || '';
+      const startTime = typeof entry === 'object' && entry ? Number(entry.startTime || 0) : 0;
+      if (sinceStartTime > 0 && startTime > 0 && startTime < sinceStartTime) continue;
+      const u = normalizeHttpUrl(decodeJsonUrlEscapes(raw));
+      if (isLikelyVideoResourceUrl(u)) urls.push(u);
+    }
+    if (!urls.length) return '';
+    if (contextText) {
+      const narrowed = urls.filter((u) => {
+        const base = String(u).split('?')[0];
+        if (contextText.includes(base)) return true;
+        const hexMatches = base.match(/[a-f0-9]{20}/gi) || [];
+        return hexMatches.some((hex) => contextText.includes(hex));
+      });
+      if (narrowed.length) return pickPreferredVideoUrl(narrowed);
+    }
+    if (id) {
+      const matched = urls.find((u) => u.includes(id));
+      if (matched) return matched;
+    }
+    return pickPreferredVideoUrl(urls);
   }
 
   function extractBalancedJSONObject(text, startAt) {
@@ -587,6 +857,7 @@
     const sf = extractFieldsFromState(state, noteId);
 
     const stateVideo = extractVideoUrlFromState(state, noteId);
+    const domVideo = extractVideoUrlFromDom(container);
     // note_type 由 DOM(<video>/xgplayer)或 state 决定，绝不由"扫到的 master_url"决定——
     // 图文笔记页面里常混着其它笔记/推荐视频的 master_url，否则会把图文误判成视频。
     const isVideo = videoDom || sf.note_type === 'video';
@@ -596,6 +867,7 @@
     if (isVideo) {
       if (isDirectStreamUrl(o.videoUrl)) videoUrl = o.videoUrl;
       else if (isDirectStreamUrl(stateVideo)) videoUrl = stateVideo;
+      else if (isDirectStreamUrl(domVideo)) videoUrl = domVideo;
     }
 
     const payload = {
@@ -656,17 +928,25 @@
     isDirectStreamUrl,
     decodeJsonUrlEscapes,
     normalizeHttpUrl,
+    pickFirstDirectUrl,
     pickVideoUrlFromNote,
     findNoteInState,
     extractVideoUrlFromState,
     extractVideoStreamUrlFromText,
+    extractVideoUrlsFromText,
+    extractNoteEmbeddedHtmlSegments,
+    extractVideoUrlFromNoteDetailMapInHtml,
     extractVideoUrlFromHtmlText,
+    pickPreferredVideoUrl,
+    isLikelyVideoResourceUrl,
+    extractVideoUrlFromResourceEntries,
     extractInitialStateFromHtmlText,
     extractFieldsFromState,
     formatPublishedAt,
     parseDateText,
     resolveImgUrl,
     isVideoNote,
+    extractVideoUrlFromDom,
     parseOneComment,
     parseComments,
     parseNoteDetail,

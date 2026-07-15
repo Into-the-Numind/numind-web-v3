@@ -138,7 +138,14 @@ if (hostPermissions.some((value) => /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(val
 }
 
 const contentScripts = arr(manifest.content_scripts);
-const xhsScript = contentScripts.find((script) => arr(script.matches).includes(expectedXhsMatch));
+const xhsScript = contentScripts.find((script) => {
+  const js = arr(script.js);
+  return arr(script.matches).includes(expectedXhsMatch) && js.includes('content.js');
+});
+const xhsMainWorldScript = contentScripts.find((script) => {
+  const js = arr(script.js);
+  return arr(script.matches).includes(expectedXhsMatch) && js.includes('page-state-bridge.js');
+});
 if (!xhsScript) {
   errors.push(`content_scripts missing ${expectedXhsMatch}`);
 } else {
@@ -148,6 +155,11 @@ if (!xhsScript) {
       errors.push(`XHS content script missing ${required}`);
     }
   }
+}
+if (!xhsMainWorldScript) {
+  errors.push('XHS content scripts must include page-state-bridge.js');
+} else if (xhsMainWorldScript.world !== 'MAIN') {
+  errors.push('page-state-bridge.js must run in MAIN world');
 }
 
 const webBridge = contentScripts.find((script) => arr(script.matches).includes(expectedYoushuMatch));
@@ -193,6 +205,7 @@ tmp_dir="$(mktemp -d)"
 
 required_entries=(
   "manifest.json"
+  "page-state-bridge.js"
   "content.js"
   "background.js"
   "connect-bridge.js"
@@ -221,8 +234,12 @@ check_manifest "${REPO_ROOT}/extension/manifest.json" "source"
 contains "${REPO_ROOT}/extension/background.js" "${EXPECTED_API_BASE}" "background targets production API base"
 contains "${REPO_ROOT}/extension/background.js" "${EXPECTED_NOTES_PATH}" "background targets XHS notes endpoint"
 contains "${REPO_ROOT}/extension/content.js" "extractInitialStateFromHtmlText" "content reads XHS initial state"
+contains "${REPO_ROOT}/extension/content.js" "YOUSHU_XHS_READ_PAGE_STATE_REQUEST" "content asks MAIN world bridge for runtime state"
 contains "${REPO_ROOT}/extension/content.js" "extractVideoUrlFromState" "content prefers state video URL"
 contains "${REPO_ROOT}/extension/content.js" "validateForScriptUpload" "content enforces upload gate"
+contains "${REPO_ROOT}/extension/connect-bridge.js" "NUMIND_XHS_SCRIPT_EXT_STATUS_REQUEST" "web bridge accepts extension status requests"
+contains "${REPO_ROOT}/extension/connect-bridge.js" "GET_STATUS" "web bridge asks background for current extension status"
+contains "${REPO_ROOT}/extension/connect-bridge.js" "NUMIND_XHS_SCRIPT_EXT_STATUS_RESPONSE" "web bridge returns extension status to the page"
 contains "${REPO_ROOT}/extension/lib/script-payload.js" "note_type !== 'video'" "payload rejects non-video notes"
 contains "${REPO_ROOT}/extension/lib/script-payload.js" "video_url" "payload requires a video URL"
 absent_in_files "production extension files contain no local dev origins" 'localhost|127\.0\.0\.1|0\.0\.0\.0' "${source_files[@]}"

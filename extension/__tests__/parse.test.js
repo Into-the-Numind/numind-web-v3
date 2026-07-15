@@ -146,7 +146,14 @@ describe('lib/parse.js — NotePayload 解析', () => {
 
   it('提取评论（作者/正文/点赞），≤10 条', () => {
     expect(payload.comments.length).toBe(2)
-    expect(payload.comments[0]).toMatchObject({ author: '评论用户A', text: '学到了，谢谢分享', likes: 88 })
+    expect(payload.comments[0]).toMatchObject({
+      author: '评论用户A',
+      text: '学到了，谢谢分享',
+      likes: 88,
+      nickname: '评论用户A',
+      content: '学到了，谢谢分享',
+      like: 88
+    })
     expect(payload.comments.length).toBeLessThanOrEqual(10)
   })
 
@@ -216,6 +223,43 @@ describe('lib/parse.js — 工具函数', () => {
     expect(p.video_url).toBe('')
     expect(p.title).toBe('图文标题')
   })
+
+  it('DOM 无 .title 时从 state.displayTitle 兜底标题', () => {
+    const displayState = {
+      note: {
+        currentNoteId: NOTE_ID,
+        noteDetailMap: {
+          [NOTE_ID]: {
+            note: {
+              noteId: NOTE_ID,
+              type: 'video',
+              displayTitle: '从 displayTitle 读取的视频标题',
+              desc: '正文描述',
+              video: {
+                media: {
+                  stream: {
+                    h264: [{ master_url: 'https://sns-video.xhscdn.com/display-title.mp4' }]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    const wrap = document.createElement('div')
+    wrap.innerHTML = `
+      <div class="note-detail-container">
+        <div class="media-container"><video src="blob:https://www.xiaohongshu.com/video"></video></div>
+        <div class="note-content"><div class="note-text">正文描述</div></div>
+      </div>`
+    const payload = Parse.parseNoteDetail({
+      container: wrap.querySelector('.note-detail-container'),
+      state: displayState,
+      url: NOTE_URL
+    })
+    expect(payload.title).toBe('从 displayTitle 读取的视频标题')
+  })
 })
 
 describe('lib/parse.js — 评论回复嵌套（.parent-comment 分组）', () => {
@@ -245,10 +289,11 @@ describe('lib/parse.js — 评论回复嵌套（.parent-comment 分组）', () =
     `
     const comments = Parse.parseComments(box, 100)
     expect(comments.length).toBe(2)
-    expect(comments[0]).toMatchObject({ author: '楼主A', text: '顶层评论A' })
+    expect(comments[0]).toMatchObject({ author: '楼主A', text: '顶层评论A', nickname: '楼主A', content: '顶层评论A' })
     expect(comments[0].replies.length).toBe(2)
-    expect(comments[0].replies[0]).toMatchObject({ author: '回复者X', text: '回复A-1' })
+    expect(comments[0].replies[0]).toMatchObject({ author: '回复者X', text: '回复A-1', nickname: '回复者X', content: '回复A-1' })
     expect(comments[1].author).toBe('楼主B')
+    expect(comments[1].nickname).toBe('楼主B')
     expect(comments[1].replies.length).toBe(0)
   })
 })
@@ -272,9 +317,96 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
   it('无视频信息时返回空串', () => {
     expect(Parse.extractVideoUrlFromHtmlText('<html><body>纯图文</body></html>', 'x')).toBe('')
   })
+  it('传入 noteId 时不回落到页面其它笔记的视频', () => {
+    const mixedHtml = `
+      <script>window.__INITIAL_STATE__={"note":{"noteDetailMap":{
+        "target123":{"note":{"noteId":"target123","type":"normal","title":"图文"}},
+        "other456":{"note":{"noteId":"other456","type":"video","video":{"media":{"stream":{"h264":[{"master_url":"https:\\u002F\\u002Fsns-video.xhscdn.com\\u002Fother.mp4"}]}}}}}
+      }}}</script>`
+    expect(Parse.extractVideoUrlFromHtmlText(mixedHtml, 'target123')).toBe('')
+  })
   it('不返回 blob: 本地地址', () => {
     const blobHtml = '<script>{"h264":[{"master_url":"blob:https://www.xiaohongshu.com/abc"}]}</script>'
     expect(Parse.extractVideoUrlFromHtmlText(blobHtml, '')).toBe('')
+  })
+})
+
+describe('lib/parse.js — 视频地址兜底解析', () => {
+  it('state 路径变化时仍可从 video.url 取到直链', () => {
+    const state = {
+      note: {
+        currentNoteId: 'vidfallback',
+        noteDetailMap: {
+          vidfallback: {
+            note: {
+              type: 'video',
+              video: {
+                media: {
+                  stream: {
+                    h264: [{ url: 'https://sns-video.xhscdn.com/vidfallback.mp4?sign=u' }]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(Parse.extractVideoUrlFromState(state, 'vidfallback')).toBe(
+      'https://sns-video.xhscdn.com/vidfallback.mp4?sign=u'
+    )
+  })
+
+  it('state 无直链时从 DOM video/src 兜底获取', () => {
+    const wrap = document.createElement('div')
+    wrap.innerHTML = `
+      <div class="note-detail-container">
+        <div class="media-container">
+          <video src="https://sns-video.xhscdn.com/dom-video.mp4?sign=dom"></video>
+        </div>
+      </div>`
+    const container = wrap.querySelector('.note-detail-container')
+    const payload = Parse.parseNoteDetail({
+      container,
+      state: null,
+      url: 'https://www.xiaohongshu.com/explore/domvideo123'
+    })
+    expect(payload.note_type).toBe('video')
+    expect(payload.video_url).toBe('https://sns-video.xhscdn.com/dom-video.mp4?sign=dom')
+  })
+
+  it('从 shadowRoot 里的 video/currentSrc 兜底获取', () => {
+    const host = document.createElement('div')
+    const shadow = host.attachShadow({ mode: 'open' })
+    shadow.innerHTML = '<video src="https://sns-video.xhscdn.com/shadow-video.mp4?sign=shadow"></video>'
+    const wrap = document.createElement('div')
+    wrap.className = 'note-detail-container'
+    wrap.appendChild(host)
+    expect(Parse.extractVideoUrlFromDom(wrap)).toBe(
+      'https://sns-video.xhscdn.com/shadow-video.mp4?sign=shadow'
+    )
+  })
+
+  it('从 performance resource entries 取最近加载的视频资源并过滤图片', () => {
+    const entries = [
+      { name: 'https://sns-img.xhscdn.com/cover.jpg' },
+      { name: 'https://sns-video.xhscdn.com/stream/old.mp4?sign=old' },
+      { name: 'https://sns-video.xhscdn.com/stream/current.mp4?sign=current' }
+    ]
+    expect(Parse.extractVideoUrlFromResourceEntries(entries, '')).toBe(
+      'https://sns-video.xhscdn.com/stream/current.mp4?sign=current'
+    )
+  })
+
+  it('performance 资源有上下文时优先取当前上下文匹配的视频', () => {
+    const entries = [
+      { name: 'https://sns-video.xhscdn.com/stream/old-video-file-aaaaaaaaaaaaaaaaaaaa.mp4?sign=old', startTime: 10 },
+      { name: 'https://sns-video.xhscdn.com/stream/current-video-file-bbbbbbbbbbbbbbbbbbbb_259.mp4?sign=current', startTime: 20 }
+    ]
+    const contextText = '当前笔记 video current-video-file-bbbbbbbbbbbbbbbbbbbb_259.mp4'
+    expect(Parse.extractVideoUrlFromResourceEntries(entries, '', { contextText })).toBe(
+      'https://sns-video.xhscdn.com/stream/current-video-file-bbbbbbbbbbbbbbbbbbbb_259.mp4?sign=current'
+    )
   })
 })
 

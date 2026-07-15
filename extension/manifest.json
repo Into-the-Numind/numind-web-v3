@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "有数口播稿视频采集",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "在小红书页面一键采集当前视频笔记，归一化后上送口播稿工作台（仅采集公开内容）。",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
@@ -16,6 +16,12 @@
     "service_worker": "background.js"
   },
   "content_scripts": [
+    {
+      "matches": ["*://*.xiaohongshu.com/*"],
+      "js": ["page-state-bridge.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
     {
       "matches": ["*://*.xiaohongshu.com/*"],
       "js": ["lib/parse.js", "lib/script-payload.js", "content.js"],

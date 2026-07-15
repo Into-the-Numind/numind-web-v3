@@ -1,7 +1,7 @@
 /**
  * 有数口播稿视频采集 — popup
  *
- * 展示授权状态 / 已采集数；提供「打开口播稿工作台」「解除授权」。
+ * 展示授权状态；提供「打开口播稿工作台」「解除授权」。
  * 授权 token 由有数 web 页通过 onMessageExternal 写入，popup 只读状态。
  */
 
@@ -9,7 +9,6 @@ const YOUSHU_SCRIPT_WORKSPACE_URL = 'https://youshulab.com/script/';
 
 const els = {
   authStatus: document.getElementById('auth-status'),
-  collectedCount: document.getElementById('collected-count'),
   authHint: document.getElementById('auth-hint'),
   openLibrary: document.getElementById('open-library'),
   clearToken: document.getElementById('clear-token')
@@ -17,8 +16,6 @@ const els = {
 
 function renderStatus(status) {
   const authorized = !!(status && status.authorized);
-  const count = (status && Number(status.collectedCount)) || 0;
-  els.collectedCount.textContent = String(count);
 
   if (authorized) {
     els.authStatus.textContent = '已授权';
@@ -36,13 +33,13 @@ function loadStatus() {
   try {
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (resp) => {
       if (chrome.runtime.lastError) {
-        renderStatus({ authorized: false, collectedCount: 0 });
+        renderStatus({ authorized: false });
         return;
       }
-      renderStatus(resp || { authorized: false, collectedCount: 0 });
+      renderStatus(resp || { authorized: false });
     });
   } catch (_) {
-    renderStatus({ authorized: false, collectedCount: 0 });
+    renderStatus({ authorized: false });
   }
 }
 

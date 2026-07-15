@@ -32,6 +32,8 @@
   let initialLeft = 0;
   let initialTop = 0;
   let unauthorized = false;
+  const PAGE_STATE_REQUEST_EVENT = 'YOUSHU_XHS_READ_PAGE_STATE_REQUEST';
+  const PAGE_STATE_RESPONSE_EVENT = 'YOUSHU_XHS_READ_PAGE_STATE_RESPONSE';
 
   // ---------------------------------------------------------------------------
   // 提示
@@ -77,7 +79,86 @@
     });
   }
 
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function readPageRuntimeState(noteId) {
+    return new Promise((resolve) => {
+      const requestId = `youshu-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        document.removeEventListener(PAGE_STATE_RESPONSE_EVENT, onResponse);
+        resolve(value || { state: null, videoUrl: '' });
+      };
+      const onResponse = (event) => {
+        let message = null;
+        try {
+          message = JSON.parse(String(event.detail || '{}'));
+        } catch (_) {
+          message = null;
+        }
+        if (!message || message.requestId !== requestId) return;
+        let state = null;
+        try {
+          state = message.stateJson ? JSON.parse(message.stateJson) : null;
+        } catch (_) {
+          state = null;
+        }
+        finish({ state, videoUrl: message.videoUrl || '' });
+      };
+      document.addEventListener(PAGE_STATE_RESPONSE_EVENT, onResponse);
+      try {
+        document.dispatchEvent(new CustomEvent(PAGE_STATE_REQUEST_EVENT, {
+          detail: JSON.stringify({ requestId, noteId: noteId || '' })
+        }));
+      } catch (_) {
+        finish({ state: null, videoUrl: '' });
+        return;
+      }
+      setTimeout(() => finish({ state: null, videoUrl: '' }), 1200);
+    });
+  }
+
+  function getResourceVideoUrl(noteId, collectStartMs, contextText) {
+    if (!Parse.extractVideoUrlFromResourceEntries || typeof performance === 'undefined') return '';
+    try {
+      return Parse.extractVideoUrlFromResourceEntries(
+        performance.getEntriesByType('resource'),
+        noteId,
+        {
+          sinceStartTime: collectStartMs || 0,
+          contextText: contextText || ''
+        }
+      );
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async function pollVideoUrlFromLoadedPage(noteId, container, collectStartMs, contextText) {
+    for (let i = 0; i < 12; i++) {
+      const domVideoUrl = Parse.extractVideoUrlFromDom ? Parse.extractVideoUrlFromDom(container) : '';
+      if (domVideoUrl) return domVideoUrl;
+
+      const resourceVideoUrl = getResourceVideoUrl(noteId, collectStartMs, contextText);
+      if (resourceVideoUrl) return resourceVideoUrl;
+
+      const runtime = await readPageRuntimeState(noteId);
+      if (runtime.videoUrl) return runtime.videoUrl;
+      if (runtime.state) {
+        const stateVideoUrl = Parse.extractVideoUrlFromState(runtime.state, noteId);
+        if (stateVideoUrl) return stateVideoUrl;
+      }
+      await sleep(380);
+    }
+    return '';
+  }
+
   async function collectCurrentNote() {
+    const collectStartMs = typeof performance !== 'undefined' && performance.now ? performance.now() : 0;
     const container =
       (await waitForElement('.note-detail-container', 6000)) ||
       document.querySelector('.note-detail-mask') ||
@@ -89,18 +170,33 @@
     const url = window.location.href; // 完整 URL（含 xsec_token），否则原帖打不开
     const noteId = Parse.getNoteIdFromUrl(url);
 
-    // CSP 安全：只读页面已有 script/HTML 文本，不注入脚本，避免被小红书 CSP 拦。
-    const htmlText = document.documentElement ? document.documentElement.innerHTML : '';
-    const state = Parse.extractInitialStateFromHtmlText(htmlText);
-    const stateVideoUrl = Parse.extractVideoUrlFromState(state, noteId);
-    const videoUrl = stateVideoUrl || Parse.extractVideoUrlFromHtmlText(htmlText, noteId);
+    // 先通过 MAIN world bridge 读运行时 __INITIAL_STATE__，这是旧 Numind/plugin3.2.1 最可靠的视频来源。
+    const runtime = await readPageRuntimeState(noteId);
 
-    const payload = Parse.parseNoteDetail({
+    // 再读页面已有 script/HTML 文本兜底，不主动请求、不拦截页面行为。
+    const htmlText = document.documentElement ? document.documentElement.innerHTML : '';
+    const state = runtime.state || Parse.extractInitialStateFromHtmlText(htmlText);
+    const contextText = `${container.innerHTML || ''}\n${htmlText || ''}`;
+    const stateVideoUrl = runtime.videoUrl || Parse.extractVideoUrlFromState(state, noteId);
+    const htmlVideoUrl = Parse.extractVideoUrlFromHtmlText(htmlText, noteId);
+    const domVideoUrl = Parse.extractVideoUrlFromDom ? Parse.extractVideoUrlFromDom(container) : '';
+    const resourceVideoUrl = getResourceVideoUrl(noteId, collectStartMs, contextText);
+    let videoUrl = stateVideoUrl || htmlVideoUrl || domVideoUrl || resourceVideoUrl;
+
+    let payload = Parse.parseNoteDetail({
       container,
       state,
       url,
       videoUrl
     });
+
+    if (payload.note_type === 'video' && !payload.video_url) {
+      const lateVideoUrl = await pollVideoUrlFromLoadedPage(noteId, container, collectStartMs, contextText);
+      if (lateVideoUrl) {
+        videoUrl = lateVideoUrl;
+        payload = Parse.parseNoteDetail({ container, state, url, videoUrl });
+      }
+    }
 
     if (!payload.xhs_note_id) {
       return { success: false, error: '无法识别笔记 ID（请在笔记详情页采集）' };
@@ -124,7 +220,7 @@
       floatingButton.disabled = true;
     } else {
       unauthorized = false;
-      floatingButton.textContent = '采集视频';
+      floatingButton.textContent = '采集';
       floatingButton.style.backgroundColor = '#ff2442';
       floatingButton.disabled = false;
       floatingButton.title = '采集当前视频笔记到口播稿工作台';
@@ -153,7 +249,7 @@
   }
   function onDragEnd() {
     isDragging = false;
-    if (floatingButton) floatingButton.style.cursor = 'move';
+    if (floatingButton) floatingButton.style.cursor = 'default';
   }
 
   function createFloatingButton() {
@@ -170,13 +266,13 @@
       color: '#fff',
       border: 'none',
       borderRadius: '999px',
-      cursor: 'move',
+      cursor: 'default',
       boxShadow: '0 4px 14px rgba(255,36,66,0.35)',
       userSelect: 'none',
       fontSize: '14px',
       fontWeight: '600'
     });
-    floatingButton.textContent = '采集视频';
+    floatingButton.textContent = '采集';
     floatingButton.addEventListener('mousedown', onDragStart);
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragEnd);
