@@ -69,10 +69,13 @@ const RESUMING_RUN = {
   updated_at: ''
 } as unknown as AgentRun
 
+const futureExpiry = (milliseconds = 60_000): string =>
+  new Date(Date.now() + milliseconds).toISOString()
+
 describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
   it('maps live and restored external actions into the same safe action message', async () => {
     const store = useAgentChatStore()
-    const expiresAt = '2026-07-15T00:00:00Z'
+    const expiresAt = futureExpiry()
 
     store.applyStreamEvent({
       type: 'external_action',
@@ -422,7 +425,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         operation_id: 'op-1',
         session_id: 'session-1',
         phase: 'user_auth',
-        expires_at: '2026-07-15T00:00:00Z',
+        expires_at: futureExpiry(),
         action_status: 'pending',
         timestamp: ''
       }
