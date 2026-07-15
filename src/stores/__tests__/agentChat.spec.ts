@@ -234,7 +234,7 @@ describe('agentChat store', () => {
       ts: '2026-05-21T10:00:00Z',
       run_id: 999,
       step: 0,
-      data: undefined
+      data: { run_id: 999, session_id: 'sess-999' }
     }
     store.applyStreamEvent(start)
     const terminal: AgentStreamEvent = {

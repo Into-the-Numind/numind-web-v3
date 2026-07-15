@@ -55,15 +55,17 @@ export function useAgentStream(): UseAgentStreamApi {
     isStreaming.value = true
     fallbackPolling.value = false
     abort.value = new AbortController()
+    const sessionEpoch = store.currentSessionEpoch()
 
     // Optimistically render the user's bubble before the SSE round-trip
     // (T14 wire commit missed this; the streaming path has no DB echo or
     // user_message SSE event, so without this the bubble never appears).
-    store.appendUserMessage(req)
+    store.appendUserMessage(req, sessionEpoch)
 
     try {
-      await streamAgentRun(req, (e) => store.applyStreamEvent(e), abort.value.signal)
+      await streamAgentRun(req, (e) => store.applyStreamEvent(e, sessionEpoch), abort.value.signal)
     } catch (err) {
+      if (!store.isCurrentSessionEpoch(sessionEpoch)) return
       if (err instanceof AgentStreamConflict) {
         // R4: Another subscriber is already attached — fall back to polling
         fallbackPolling.value = true
@@ -71,7 +73,7 @@ export function useAgentStream(): UseAgentStreamApi {
       } else if (err instanceof DOMException && err.name === 'AbortError') {
         // User-initiated stop via stop() — not an error, no UI message
       } else {
-        store.applyError(err)
+        store.applyError(err, sessionEpoch)
       }
     } finally {
       isStreaming.value = false
@@ -88,6 +90,7 @@ export function useAgentStream(): UseAgentStreamApi {
     isStreaming.value = true
     fallbackPolling.value = false
     abort.value = new AbortController()
+    const sessionEpoch = store.currentSessionEpoch()
 
     // No appendUserMessage: the answers are not a user chat bubble — the
     // question_prompt card flips to "answered" in place (markQuestionAnswered).
@@ -95,10 +98,11 @@ export function useAgentStream(): UseAgentStreamApi {
       await answerAndResumeStream(
         opts.runId,
         opts.answers,
-        (e) => store.applyStreamEvent(e),
+        (e) => store.applyStreamEvent(e, sessionEpoch),
         abort.value.signal
       )
     } catch (err) {
+      if (!store.isCurrentSessionEpoch(sessionEpoch)) return
       // User-initiated stop via stop() — not an error, and the run is still
       // resuming server-side; no fallback (re-opening would 409).
       if (err instanceof DOMException && err.name === 'AbortError') return

@@ -2,6 +2,7 @@
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { useAgentChatStore } from '@/stores/agentChat'
+import { useFeishuStore } from '@/stores/feishu'
 import { isGenerationStalled } from '@/utils/agentGeneration'
 import type {
   AgentMessage,
@@ -12,7 +13,8 @@ import type {
   ArtifactMessage,
   FinalAnswerMessage,
   SystemMessage,
-  QuestionPromptMessage
+  QuestionPromptMessage,
+  ExternalActionMessage
 } from '@/types/agent'
 import type { AnswerItemPayload } from '@/api/agent'
 import AgentPlanCard from './AgentPlanCard.vue'
@@ -21,7 +23,7 @@ import AgentArtifactItem from './AgentArtifactItem.vue'
 import AgentFinalAnswer from './AgentFinalAnswer.vue'
 import AgentImagePreview from './AgentImagePreview.vue'
 import QuestionPrompt from './QuestionPrompt.vue'
-import AgentAuthPrompt from './AgentAuthPrompt.vue'
+import FeishuActionCard from './FeishuActionCard.vue'
 import { useImagePreview } from '@/composables/useImagePreview'
 import ThinkingBlock from '@/components/sales/ThinkingBlock.vue'
 import { Copy, Check, Paperclip, LoaderCircle, ChevronDown, ChevronRight } from 'lucide-vue-next'
@@ -105,37 +107,107 @@ const asFinalAnswer = computed<FinalAnswerMessage | null>(() =>
 const asSystem = computed<SystemMessage | null>(() =>
   props.msg.type === 'system' ? props.msg : null
 )
-// feishu-integration (T13): a question_prompt message splits by pause_type.
-// pause_type === 'auth' → AgentAuthPrompt (external authorization card); anything
-// else (default/absent) → QuestionPrompt (the in-app Q&A card, no regression).
+// `external_action` is the sole interactive external
+// authorization/confirmation path. A question_prompt remains a genuine in-app
+// question. Legacy auth prompts stay visible as a non-interactive notice: an
+// ordinary Agent answer could regenerate their original tool call, and their
+// old URL must never become actionable again.
 const asQuestionPrompt = computed<QuestionPromptMessage | null>(() =>
   props.msg.type === 'question_prompt' && (props.msg as QuestionPromptMessage).pause_type !== 'auth'
     ? (props.msg as QuestionPromptMessage)
     : null
 )
-const asAuthPrompt = computed<QuestionPromptMessage | null>(() =>
+const asLegacyAuthPrompt = computed<QuestionPromptMessage | null>(() =>
   props.msg.type === 'question_prompt' && (props.msg as QuestionPromptMessage).pause_type === 'auth'
     ? (props.msg as QuestionPromptMessage)
     : null
 )
+const asExternalAction = computed<ExternalActionMessage | null>(() =>
+  props.msg.type === 'external_action' ? props.msg : null
+)
 
-// feishu-resume-button: the auth card's "我已完成，继续" resumes the run through
-// the SAME pipeline as an ask_user_question answer. The backend's biz.Answer
-// validates the answer map's key against this pause's recorded question text
-// (answer.go: asked[qText]); a mismatch fails with "question was not asked". So
-// the key MUST be the auth pause's own question text — Questions[0].Question,
-// the same value the card shows as its `prompt` lead-in. We build it HERE (the
-// only place that holds both the run_id and the question) and reuse the existing
-// answer-submitted channel → AgentChatView.handleAnswerSubmitted → startResume.
-const handleAuthContinue = (): void => {
-  const auth = asAuthPrompt.value
-  if (!auth) return
-  const questionText = auth.questions?.[0]?.question
-  if (!questionText) return // no recorded key → cannot match backend; do nothing
-  const answers: Record<string, AnswerItemPayload> = {
-    [questionText]: { selected: [], free_text: '已完成' }
+const feishuStore = useFeishuStore()
+const feishuActionBusy = ref(false)
+const feishuActionError = ref('')
+
+// A server-issued replacement action is a fresh recoverable step. Do not leave
+// a prior local transport error attached to its new URL/session.
+watch(
+  () => [asExternalAction.value?.operation_id, asExternalAction.value?.session_id],
+  () => {
+    feishuActionError.value = ''
   }
-  emit('answer-submitted', auth.run_id, answers)
+)
+
+function externalActionErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+async function handleExternalResume(
+  operationID: string,
+  action: 'user_completed' | 'confirmed' | 'cancelled' = 'user_completed'
+): Promise<void> {
+  const externalAction = asExternalAction.value
+  if (!externalAction || props.readOnly || feishuActionBusy.value) return
+  feishuActionBusy.value = true
+  feishuActionError.value = ''
+  try {
+    if (action === 'user_completed') {
+      await store.resumeFeishuOperation(operationID)
+    } else {
+      await store.resumeFeishuOperation(operationID, action)
+    }
+  } catch (error) {
+    feishuActionError.value = externalActionErrorMessage(error, '暂时无法继续飞书操作，请稍后重试。')
+  } finally {
+    feishuActionBusy.value = false
+  }
+}
+
+async function handleExternalRefresh(sessionID: string): Promise<void> {
+  const externalAction = asExternalAction.value
+  if (!externalAction || props.readOnly || feishuActionBusy.value) return
+  const sessionEpoch = store.currentSessionEpoch()
+  const operationID = externalAction.operation_id
+  const actionSessionID = externalAction.session_id
+  const runID = externalAction.run_id
+  feishuActionBusy.value = true
+  feishuActionError.value = ''
+  try {
+    const refreshed = await feishuStore.refreshAction(sessionID)
+    const currentAction = asExternalAction.value
+    // The request can return after navigation, reset, or a server-issued
+    // replacement card. Its one-time URL must only update the exact action
+    // that initiated it within the same route/session epoch.
+    if (
+      !store.isCurrentSessionEpoch(sessionEpoch) ||
+      !currentAction ||
+      currentAction.operation_id !== operationID ||
+      currentAction.session_id !== actionSessionID ||
+      currentAction.run_id !== runID ||
+      currentAction.action_status === 'completed' ||
+      currentAction.action_status === 'terminal'
+    ) {
+      return
+    }
+    // Refresh replaces a URL for this same durable operation. Route the result
+    // through the existing allowlisted stream reducer so the original message is
+    // updated in place and no user bubble or ordinary answer is ever created.
+    if (refreshed.operation_id !== operationID) {
+      throw new Error('飞书操作已更新，请使用对话中的最新步骤。')
+    }
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: externalAction.seq ?? 0,
+      ts: new Date().toISOString(),
+      run_id: runID,
+      data: { provider: 'lark', ...refreshed }
+    }, sessionEpoch)
+  } catch (error) {
+    feishuActionError.value = externalActionErrorMessage(error, '暂时无法刷新飞书链接，请稍后重试。')
+  } finally {
+    feishuActionBusy.value = false
+  }
 }
 
 // 问题三: while the streaming assistant bubble sits token-silent (the LLM is composing
@@ -418,6 +490,44 @@ const systemText = computed<string>(() => {
   </div>
 
   <!-- Question prompt (ask_user_question yield) -->
+  <div v-else-if="asExternalAction" class="msg msg-external-action">
+    <span class="avatar">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="bot-avatar-svg"
+      >
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <line x1="8" y1="16" x2="8" y2="16" />
+        <line x1="16" y1="16" x2="16" y2="16" />
+      </svg>
+    </span>
+    <div class="content-wrap">
+      <FeishuActionCard
+        :action="asExternalAction"
+        :busy="feishuActionBusy || readOnly"
+        :error="feishuActionError"
+        @resume="handleExternalResume"
+        @refresh="handleExternalRefresh"
+        @confirmed="(operationID) => handleExternalResume(operationID, 'confirmed')"
+        @cancelled="(operationID) => handleExternalResume(operationID, 'cancelled')"
+      />
+    </div>
+  </div>
+
+  <!-- A persisted pre-external-action auth prompt has no safe continuation.
+       Keep its history visible without exposing its expired URL or answer API. -->
+  <div v-else-if="asLegacyAuthPrompt" class="msg msg-system" data-testid="legacy-feishu-auth-notice">
+    <p class="system-text">旧的飞书授权步骤已失效，请重新发起操作，或前往设置更新连接。</p>
+  </div>
+
+  <!-- Question prompt (ask_user_question yield) -->
   <div v-else-if="asQuestionPrompt" class="msg msg-question-prompt">
     <span class="avatar">
       <svg
@@ -442,44 +552,12 @@ const systemText = computed<string>(() => {
         :questions="asQuestionPrompt.questions"
         :answered="asQuestionPrompt.answer_status === 'answered'"
         @answer-submitted="
-          (answers) => $emit('answer-submitted', asQuestionPrompt!.run_id, answers)
+          (answers) => emit('answer-submitted', asQuestionPrompt!.run_id, answers)
         "
       />
     </div>
   </div>
 
-  <!-- Auth prompt (pause_type === 'auth') — feishu-integration T13. The user
-       completes the step in their browser, then clicks "我已完成，继续"; the
-       device-code grant has no server callback, so that click (feishu-resume-button)
-       resumes the run via handleAuthContinue → answer-submitted → startResume,
-       keyed by this pause's question text. -->
-  <div v-else-if="asAuthPrompt" class="msg msg-question-prompt">
-    <span class="avatar">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="bot-avatar-svg"
-      >
-        <rect x="3" y="11" width="18" height="10" rx="2" />
-        <circle cx="12" cy="5" r="2" />
-        <path d="M12 7v4" />
-        <line x1="8" y1="16" x2="8" y2="16" />
-        <line x1="16" y1="16" x2="16" y2="16" />
-      </svg>
-    </span>
-    <div class="content-wrap">
-      <AgentAuthPrompt
-        :auth-url="asAuthPrompt.auth_url"
-        :prompt="asAuthPrompt.questions?.[0]?.question"
-        :answered="asAuthPrompt.answer_status === 'answered'"
-        @continue="handleAuthContinue"
-      />
-    </div>
-  </div>
 </template>
 
 <style scoped>
@@ -613,7 +691,8 @@ const systemText = computed<string>(() => {
 .msg-plan,
 .msg-tool-group,
 .msg-artifact,
-.msg-final {
+.msg-final,
+.msg-external-action {
   align-items: flex-start;
 }
 

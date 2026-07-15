@@ -10,7 +10,7 @@ import { useAgentRun } from '@/composables/useAgentRun'
 import { useAgentStream } from '@/composables/useAgentStream'
 import * as api from '@/api/agent'
 import type { AnswerItemPayload } from '@/api/agent'
-import { handleSessionIdTransition } from './session-watchers'
+import { handleSessionIdTransition, isOwnedNewSessionTransition } from './session-watchers'
 import AppButton from '@/components/common/AppButton.vue'
 import AgentChatHeader from '@/components/agent/AgentChatHeader.vue'
 import AgentFirstRun from '@/components/agent/AgentFirstRun.vue'
@@ -300,6 +300,10 @@ const closeAllMenus = (): void => {
 
 onMounted(async () => {
   document.body.classList.add('agent-chat-route')
+  // A `new` route has no snapshot loader to establish a session boundary. Claim
+  // it before any stream can start so a later route switch invalidates its SSE
+  // callbacks just like a historical snapshot does.
+  if (isNewSession.value) store.beginSession('new')
   await Promise.all([
     creditsStore.fetchBalance(),
     loadCurrentAgent(),
@@ -337,6 +341,23 @@ onMounted(async () => {
 watch(
   () => props.sessionId,
   async (newSessionId, oldSessionId) => {
+    // new → UUID while a stream/run is live is the router's own naming update
+    // for the same logical session. Every other transition is a real context
+    // switch: stop all old observers before the replacement loader advances the
+    // store epoch, so neither a stale SSE catch nor a timer can attach to B.
+    const preservesActiveNewSession = isOwnedNewSessionTransition(
+      oldSessionId,
+      newSessionId,
+      store.currentRun?.session_id,
+      isStreaming.value,
+      store.isRunning
+    )
+    if (!preservesActiveNewSession) {
+      stopStream()
+      narration.stop()
+      runCtrl.stopStatusPolling()
+      if (newSessionId === 'new') store.beginSession('new')
+    }
     await handleSessionIdTransition(newSessionId, oldSessionId, {
       loadSnapshot: (id, ro) => store.loadSessionSnapshot(id, ro),
       resetLocal: () => {
@@ -357,7 +378,8 @@ watch(
       },
       readOnly: props.readOnly,
       isStreaming: isStreaming.value,
-      isRunning: store.isRunning
+      isRunning: store.isRunning,
+      sameLogicalSession: preservesActiveNewSession
     })
   }
 )
@@ -385,24 +407,34 @@ watch(
 // feishu-integration (T13): an auth pause resumes EXTERNALLY — the user
 // authorizes in their browser and the OAuth callback calls biz.Answer
 // server-side; there is no in-app submit (unlike an ask_user_question pause,
-// which startResume handles on answer-submitted). So when the run is paused on a
-// pause_type='auth' card we must keep status polling alive: refreshRunStatus
-// detects the run leaving waiting_for_user_choice (the callback resumed it),
-// flips isWaitingForAuth off, and surfaces the resumed leg. Narration runs
-// alongside so the continued tool/prose timeline streams back in.
-// Poll cadence = useAgentRun's 5s interval (no separate timer); the user
-// typically finishes authorizing within a minute, well inside the run's waiting
-// window. Idempotent start/stop guards make the repeated true→true cheap.
+// which startResume handles on answer-submitted). Task 11 adds a second exact
+// observation state after that callback: a reloaded `external_resume_ready` or
+// `ext_resume:<lease>` has already consumed its URL but its original run still
+// needs normal status/narration polling until the final answer arrives.
+//
+// One combined watcher owns both cases. `start` methods are idempotent, so
+// state refreshes cannot create duplicate observers; terminal/session/unmount
+// cleanup below tears down the shared timers.
 watch(
-  () => store.isWaitingForAuth,
-  (waiting) => {
-    if (waiting) {
+  () => store.isWaitingForAuth || store.isQueuedExternalContinuationActive,
+  (shouldObserve) => {
+    if (shouldObserve) {
       narration.start()
       runCtrl.startStatusPolling()
     }
-    // When it flips false the run either resumed (refreshRunStatus owns the
-    // narration/terminal handling from here) or the view unmounts — no explicit
-    // stop needed; onUnmounted + terminal handling already clear the timers.
+  }
+)
+
+// `useAgentRun` owns interval creation but cannot observe the terminal state
+// itself. Stop its shared observer when the tracked run ends; reset during a
+// session switch and onUnmounted run through the same cleanup path.
+watch(
+  () => store.isRunning,
+  (running) => {
+    if (!running) {
+      narration.stop()
+      runCtrl.stopStatusPolling()
+    }
   }
 )
 

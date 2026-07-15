@@ -1,86 +1,147 @@
 /**
- * feishu.ts — HTTP client for the 飞书 (Lark) 账号连接 endpoints
- * (feishu-integration T11).
+ * Personal Feishu workspace lifecycle client.
  *
- * Contract: numind-server design.md §5（端点契约）+ §10（前端契约）。形状严格
- * 对齐后端 biz/feishu DTO（StatusResult / ConnectResult，service.go）的 JSON 标签。
- *
- * All HTTP goes through the shared axios instance (src/api/request.ts) —
- * NEVER import axios directly here (.claude/rules/frontend-state.md §2).
- *
- * request 响应拦截器在 code 0/200 时直接返回 envelope 对象本身
- * （{code,message,data}），不是 AxiosResponse；业务载荷在该 envelope 的 `.data`
- * 字段下。故各 wrapper 取 (res as any)?.data —— 用可选链兜底拦截器 HTML-fallback
- * 路径返回 undefined 的情况（对齐 announcements.ts / sales.ts）。
+ * This module mirrors only the public HTTP contract. User identity, CLI argv,
+ * requested scopes, provider routing and credential material remain server
+ * owned and must never be accepted or retained by the browser.
  */
-
 import request from './request'
 
-// ==================== Types ====================
-//
-// 形状严格对齐后端 device-code 契约（G2-authorize 重设计，2026-06-24，
-// biz/feishu/service.go 的 StatusResult / ConnectResult）。
-//
-// ⚠️ 与旧 redirect-OAuth 契约的差异（本次适配的核心）：
-//   - status 只有 'none' | 'connected'（不再有 active/expired）；可靠判定连接与否
-//     看 `connected` 布尔字段。
-//   - StatusResult 不再返回 scopes（device-code 不在前端展示 scope 列表）。
-//   - ConnectResult 不再有 state（device-code 无 OAuth state）；next_step 多了 'done'。
+export type FeishuConnectionState =
+  | 'none'
+  | 'creating_app'
+  | 'app_ready'
+  | 'waiting_app_approval'
+  | 'waiting_user_auth'
+  | 'connected'
+  | 'reauth_required'
+  | 'error'
+  | 'disconnecting'
 
-/** 连接状态枚举（后端 StatusResult.status）：none（未连）/ connected（已连）。 */
-export type FeishuConnectionStatus = 'none' | 'connected'
+export type FeishuCapabilityDomain = 'docs' | 'base' | 'wiki'
 
-/**
- * 连接下一步枚举（后端 ConnectResult.next_step，device-code 两步流）。
- * - create_app: 尚无自建应用 → 打开建应用页（lark-cli config init）。
- * - authorize:  应用已建 → 打开授权验证页（device-code 授权 scopes）。
- * - done:       已连接完成。
- */
-export type FeishuNextStep = 'create_app' | 'authorize' | 'done'
+export type FeishuCapabilityState =
+  | 'unknown'
+  | 'available'
+  | 'needs_app_scope'
+  | 'needs_user_scope'
+  | 'revoked'
+  | 'resource_denied'
 
-/**
- * GET /v1/feishu/status 响应。
- * - connected: 是否已连接（device-code 授权完成且 DB connected 标志为真）。
- * - status: none（未连）/ connected（已连）。
- * - app_id: 已建飞书自建应用 ID（未连/未建时为空串）。
- */
+export type FeishuActionPhase = 'create_app' | 'app_scope' | 'user_auth' | 'confirmation'
+
+export type FeishuOperationState =
+  | 'not_started'
+  | 'executing'
+  | 'waiting_connection'
+  | 'waiting_app_scope'
+  | 'waiting_user_auth'
+  | 'waiting_confirmation'
+  | 'succeeded'
+  | 'failed'
+  | 'unknown'
+  | 'cancelled'
+
+/** Safe browser fields for a server-owned authorization action. */
+export interface FeishuExternalAction {
+  operation_id: string
+  session_id: string
+  phase: FeishuActionPhase
+  expires_at: string
+  /** Present only in a live connect/refresh/SSE response, never in snapshots. */
+  url?: string
+}
+
+export interface FeishuCapability {
+  state: FeishuCapabilityState
+  last_success_at?: string
+}
+
+export type FeishuCapabilities = Record<FeishuCapabilityDomain, FeishuCapability>
+
+/** A read-only pending action from status; it never contains a live URL. */
+export interface FeishuStatusAction {
+  operation_id?: string
+  session_id: string
+  phase: FeishuActionPhase
+  expires_at: string
+  link_available: boolean
+  url?: never
+}
+
+/** `GET /v1/feishu/status` — strictly read-only and never creates a URL. */
 export interface FeishuStatus {
+  state: FeishuConnectionState
   connected: boolean
-  status: FeishuConnectionStatus
-  app_id: string
+  app_id_masked?: string
+  cli_version?: string
+  capabilities: FeishuCapabilities
+  active_action?: FeishuStatusAction
 }
 
-/**
- * POST /v1/feishu/connect 响应（幂等：每次调用推进 device-code 流一步）。
- * - next_step: create_app（先建应用）/ authorize（授权）/ done（已完成）。
- * - url: 建应用页 URL 或授权验证页 URL；next_step=done 时为空串。
- */
+/** `POST /v1/feishu/connect` — manual lifecycle only, not business scopes. */
 export interface FeishuConnectResult {
-  next_step: FeishuNextStep
-  url: string
+  state: FeishuConnectionState
+  action?: FeishuExternalAction
 }
 
-// ==================== API Functions ====================
+/** `POST /v1/feishu/operations/:id/resume` response. */
+export interface FeishuOperationResult {
+  operation_id: string
+  state: FeishuOperationState
+  /** The server-projected tool result is opaque to the lifecycle client. */
+  data?: unknown
+  /** Resume responses never carry a live URL. */
+  action?: Omit<FeishuExternalAction, 'url'>
+}
+
+export type FeishuResumeAction = 'user_completed' | 'confirmed' | 'cancelled'
+
+export interface FeishuUnbindResult {
+  state: FeishuConnectionState
+  connected: boolean
+  message: string
+}
+
+/** Start only the user-initiated manual connection flow. */
+export async function connectFeishu(): Promise<FeishuConnectResult> {
+  const { data } = await request.post<FeishuConnectResult>('/v1/feishu/connect', {
+    intent: 'manual'
+  })
+  return data
+}
+
+/** Read status without generating an authorization URL or worker. */
+export async function getFeishuStatus(): Promise<FeishuStatus> {
+  const { data } = await request.get<FeishuStatus>('/v1/feishu/status')
+  return data
+}
 
 /**
- * POST /v1/feishu/connect — 发起连接。req 空（userID 从 token）。
- * 返回当前需要的下一步（建应用 URL 或授权 URL）+ state。
+ * Acknowledge one fixed external-action lifecycle transition. The default is
+ * the only action exposed by the ordinary “I have completed this” control.
  */
-export const connectFeishu = async (): Promise<FeishuConnectResult> => {
-  const res = await request.post('/v1/feishu/connect')
-  return (res as any)?.data as FeishuConnectResult
+export async function resumeFeishuOperation(
+  operationId: string,
+  action: FeishuResumeAction = 'user_completed'
+): Promise<FeishuOperationResult> {
+  const { data } = await request.post<FeishuOperationResult>(
+    `/v1/feishu/operations/${encodeURIComponent(operationId)}/resume`,
+    { action }
+  )
+  return data
 }
 
-/** GET /v1/feishu/status — 连接状态（未连/已连/过期 + scopes）。 */
-export const getFeishuStatus = async (): Promise<FeishuStatus> => {
-  const res = await request.get('/v1/feishu/status')
-  return (res as any)?.data as FeishuStatus
+/** Replace a server-owned authorization session. No body is accepted. */
+export async function refreshFeishuAction(sessionId: string): Promise<FeishuExternalAction> {
+  const { data } = await request.post<FeishuExternalAction>(
+    `/v1/feishu/actions/${encodeURIComponent(sessionId)}/refresh`
+  )
+  return data
 }
 
-/**
- * DELETE /v1/feishu/connection — 解绑（删 token 行；飞书侧 app 保留）。
- * 后端 resp data 为 null；本 wrapper 不返回值。
- */
-export const disconnectFeishu = async (): Promise<void> => {
-  await request.delete('/v1/feishu/connection')
+/** Remove the Numind-side workspace connection; the remote app remains owned by the user. */
+export async function unbindFeishuConnection(): Promise<FeishuUnbindResult> {
+  const { data } = await request.delete<FeishuUnbindResult>('/v1/feishu/connection')
+  return data
 }

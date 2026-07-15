@@ -107,14 +107,16 @@ describe('applyStreamEvent', () => {
   // 1. stream_start — establishes optimistic currentRun (T1: BLK-5)
   it('stream_start: sets optimistic running currentRun without adding messages', () => {
     const store = useAgentChatStore()
-    // stream_start reads only e.run_id from the envelope (data is ignored).
-    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 999 }))
+    store.applyStreamEvent(
+      makeEvent('stream_start', { run_id: 999, session_id: 'sess-999' }, { run_id: 999 })
+    )
     // No chat bubble is added by stream_start...
     expect(store.messages.length).toBe(0)
     // ...but currentRun is now live so header status / cancel / budget work
     // during streaming (previously stayed null until terminal — BLK-5).
     expect(store.currentRun).not.toBeNull()
     expect(store.currentRun?.id).toBe(999)
+    expect(store.currentRun?.session_id).toBe('sess-999')
     expect(store.currentRun?.status).toBe('running')
   })
 
@@ -599,7 +601,9 @@ describe('applyStreamEvent', () => {
   // does not linger after the task ends.
   it('terminal: completed run resets isRunning to false (pulse must not linger)', () => {
     const store = useAgentChatStore()
-    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 999 }))
+    store.applyStreamEvent(
+      makeEvent('stream_start', { run_id: 999, session_id: 'sess-999' }, { run_id: 999 })
+    )
     expect(store.isRunning).toBe(true)
     store.applyStreamEvent(
       makeEvent('terminal', { reason: 'completed', duration_ms: 1, step_count: 1 }, { run_id: 999 })
@@ -1436,7 +1440,9 @@ describe('reconcileFromDB edge cases (P2)', () => {
 describe('applyStreamEvent: seq ordering (T3)', () => {
   it('reorders the run tail by seq when items arrive out of order', () => {
     const store = useAgentChatStore()
-    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 7, seq: 1 }))
+    store.applyStreamEvent(
+      makeEvent('stream_start', { run_id: 7, session_id: 'sess-7' }, { run_id: 7, seq: 1 })
+    )
     // tool_call_start arrives FIRST with a higher seq...
     store.applyStreamEvent(
       makeEvent(
@@ -1459,7 +1465,9 @@ describe('applyStreamEvent: seq ordering (T3)', () => {
     const store = useAgentChatStore()
     // A prior user message (no seq) must never be reordered into the run's tail.
     store.messages.push({ id: 'u1', type: 'user', text: 'q', timestamp: '2026-05-27T10:00:00Z' })
-    store.applyStreamEvent(makeEvent('stream_start', undefined, { run_id: 7, seq: 1 }))
+    store.applyStreamEvent(
+      makeEvent('stream_start', { run_id: 7, session_id: 'sess-7' }, { run_id: 7, seq: 1 })
+    )
     store.applyStreamEvent(
       makeEvent('token_delta', { message_id: 'msg-1', text: 'hi' }, { run_id: 7, seq: 2 })
     )

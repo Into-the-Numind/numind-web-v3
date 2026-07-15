@@ -39,11 +39,15 @@ vi.mock('@/api/agent-stream', () => ({
 const mockApplyStreamEvent = vi.fn()
 const mockApplyError = vi.fn()
 const mockAppendUserMessage = vi.fn()
+const mockCurrentSessionEpoch = vi.fn(() => 7)
+const mockIsCurrentSessionEpoch = vi.fn(() => true)
 vi.mock('@/stores/agentChat', () => ({
   useAgentChatStore: () => ({
     applyStreamEvent: mockApplyStreamEvent,
     applyError: mockApplyError,
-    appendUserMessage: mockAppendUserMessage
+    appendUserMessage: mockAppendUserMessage,
+    currentSessionEpoch: mockCurrentSessionEpoch,
+    isCurrentSessionEpoch: mockIsCurrentSessionEpoch
   })
 }))
 
@@ -107,6 +111,7 @@ describe('useAgentStream', () => {
     expect(mockApplyStreamEvent.mock.calls[0][0].type).toBe('stream_start')
     expect(mockApplyStreamEvent.mock.calls[1][0].type).toBe('token_delta')
     expect(mockApplyStreamEvent.mock.calls[2][0].type).toBe('terminal')
+    expect(mockApplyStreamEvent.mock.calls.every(([, epoch]) => epoch === 7)).toBe(true)
   })
 
   // 2. 409 AgentStreamConflict
@@ -129,7 +134,7 @@ describe('useAgentStream', () => {
     const { start, fallbackPolling } = useAgentStream()
     await start(baseReq)
 
-    expect(mockApplyError).toHaveBeenCalledWith(boom)
+    expect(mockApplyError).toHaveBeenCalledWith(boom, 7)
     expect(fallbackPolling.value).toBe(false)
     expect(mockStartStatusPolling).not.toHaveBeenCalled()
   })

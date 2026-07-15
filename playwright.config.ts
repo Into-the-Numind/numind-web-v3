@@ -25,6 +25,13 @@ export default defineConfig({
         storageState: 'e2e/.auth/user.json',
       },
     },
+    // Browser-contract tests that fully route their API traffic must remain
+    // runnable while a local backend is unavailable. They establish an opaque
+    // in-browser test token themselves and therefore deliberately skip auth.setup.
+    {
+      name: 'mocked',
+      testMatch: /feishu-personal-workspace\.spec\.ts/,
+    },
   ],
   webServer: {
     command: 'npm run dev',

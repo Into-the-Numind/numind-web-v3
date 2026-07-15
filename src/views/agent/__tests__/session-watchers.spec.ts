@@ -4,7 +4,7 @@
  * (agent_run 45 / "all bubbles disappear during streaming").
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { handleSessionIdTransition } from '../session-watchers'
+import { handleSessionIdTransition, isOwnedNewSessionTransition } from '../session-watchers'
 
 describe('handleSessionIdTransition', () => {
   let loadSnapshot: ReturnType<typeof vi.fn>
@@ -50,6 +50,49 @@ describe('handleSessionIdTransition', () => {
       isRunning: true
     })
     expect(loadSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('preserves only the exact server session claimed by the live new-route stream', async () => {
+    const receivedSessionID = '42e277c7-6471-4d39-8866-e65bbbd7e016'
+    const sameLogicalSession = isOwnedNewSessionTransition(
+      'new',
+      receivedSessionID,
+      receivedSessionID,
+      true,
+      true
+    )
+
+    await handleSessionIdTransition(receivedSessionID, 'new', {
+      loadSnapshot,
+      resetLocal,
+      readOnly: false,
+      isStreaming: true,
+      isRunning: true,
+      sameLogicalSession
+    })
+
+    expect(sameLogicalSession).toBe(true)
+    expect(loadSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('loads an explicitly selected UUID even if the old new-route stream is still unwinding', async () => {
+    const sameLogicalSession = isOwnedNewSessionTransition(
+      'new',
+      'manually-selected-session',
+      '42e277c7-6471-4d39-8866-e65bbbd7e016',
+      true,
+      true
+    )
+    await handleSessionIdTransition('manually-selected-session', 'new', {
+      loadSnapshot,
+      resetLocal,
+      readOnly: false,
+      isStreaming: true,
+      isRunning: true,
+      sameLogicalSession
+    })
+    expect(sameLogicalSession).toBe(false)
+    expect(loadSnapshot).toHaveBeenCalledWith('manually-selected-session', false)
   })
 
   it('new → real-uuid with NO active stream/run (manual switch) loads the snapshot', async () => {

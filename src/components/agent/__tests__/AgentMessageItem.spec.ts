@@ -1,8 +1,9 @@
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import AgentMessageItem from '../AgentMessageItem.vue'
 import { useAgentChatStore } from '@/stores/agentChat'
+import { useFeishuStore } from '@/stores/feishu'
 import type { AgentMessage } from '@/types/agent'
 
 const ts = '2026-05-21T10:00:00Z'
@@ -30,6 +31,24 @@ const globalStubs = {
   AgentImagePreview: {
     props: ['url'],
     template: '<div class="img-preview-stub" :data-url="url"></div>'
+  },
+  QuestionPrompt: {
+    props: ['runId', 'questions', 'answered'],
+    emits: ['answer-submitted'],
+    template:
+      '<button data-testid="question-answer" @click="$emit(\'answer-submitted\', { q: { selected: [], free_text: \'普通回答\' } })">问题卡</button>'
+  },
+  FeishuActionCard: {
+    props: ['action', 'busy', 'error'],
+    emits: ['resume', 'refresh', 'confirmed', 'cancelled'],
+    template: `
+      <div data-testid="feishu-action-card-stub">
+        <button data-testid="feishu-resume" @click="$emit('resume', action.operation_id)">继续</button>
+        <button data-testid="feishu-refresh" @click="$emit('refresh', action.session_id)">刷新</button>
+        <button data-testid="feishu-confirm" @click="$emit('confirmed', action.operation_id)">确认</button>
+        <button data-testid="feishu-cancel" @click="$emit('cancelled', action.operation_id)">取消</button>
+      </div>
+    `
   }
 }
 
@@ -189,6 +208,286 @@ describe('AgentMessageItem', () => {
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
       expect(wrapper.text().length).toBeGreaterThan(0)
     }
+  })
+
+  describe('Feishu external action', () => {
+    const externalAction = (): Extract<AgentMessage, { type: 'external_action' }> => ({
+      id: 'feishu-action-1',
+      type: 'external_action',
+      run_id: 7,
+      operation_id: 'op-1',
+      session_id: 'session-1',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      url: 'https://open.feishu.cn/authorize?opaque=exact',
+      action_status: 'pending',
+      timestamp: ts
+    })
+
+    it('renders an external action card and resumes its server-owned operation without a user bubble', async () => {
+      const store = useAgentChatStore()
+      const msg = externalAction()
+      store.messages = [msg]
+      const resume = vi.spyOn(store, 'resumeFeishuOperation').mockResolvedValue({
+        operation_id: msg.operation_id,
+        state: 'executing'
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="question-answer"]').exists()).toBe(false)
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      await flushPromises()
+
+      expect(resume).toHaveBeenCalledWith('op-1')
+      expect(wrapper.emitted('answer-submitted')).toBeUndefined()
+      expect(store.messages).toHaveLength(1)
+      expect(store.messages[0].type).toBe('external_action')
+    })
+
+    it('routes confirmation and cancellation through distinct operation actions', async () => {
+      const store = useAgentChatStore()
+      const msg = externalAction()
+      store.messages = [msg]
+      const resume = vi.spyOn(store, 'resumeFeishuOperation').mockResolvedValue({
+        operation_id: msg.operation_id,
+        state: 'executing'
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-confirm"]').trigger('click')
+      await wrapper.get('[data-testid="feishu-cancel"]').trigger('click')
+      await flushPromises()
+
+      expect(resume).toHaveBeenNthCalledWith(1, 'op-1', 'confirmed')
+      expect(resume).toHaveBeenNthCalledWith(2, 'op-1', 'cancelled')
+    })
+
+    it('refreshes a link into the original external-action message', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      agentStore.beginSession('route-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        operation_id: msg.operation_id,
+        session_id: 'session-2',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 120_000).toISOString(),
+        url: 'https://open.feishu.cn/authorize?opaque=fresh'
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(feishuStore.refreshAction).toHaveBeenCalledWith('session-1')
+      expect(agentStore.messages).toHaveLength(1)
+      expect(agentStore.messages[0]).toMatchObject({
+        type: 'external_action',
+        session_id: 'session-2',
+        url: 'https://open.feishu.cn/authorize?opaque=fresh'
+      })
+    })
+
+    it('does not revive a refresh response after the route session epoch changes', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      agentStore.beginSession('route-before-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-before-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      let resolveRefresh!: (action: {
+        operation_id: string
+        session_id: string
+        phase: 'user_auth'
+        expires_at: string
+        url: string
+      }) => void
+      vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
+        new Promise((resolve) => {
+          resolveRefresh = resolve
+        })
+      )
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      agentStore.beginSession('route-after-refresh')
+      resolveRefresh({
+        operation_id: msg.operation_id,
+        session_id: 'session-fresh',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 120_000).toISOString(),
+        url: 'https://open.feishu.cn/authorize?opaque=stale'
+      })
+      await flushPromises()
+
+      expect(agentStore.messages).toEqual([msg])
+    })
+
+    it('does not write a refresh response after the current action identity changes', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      agentStore.beginSession('route-current')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-current',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      let resolveRefresh!: (action: {
+        operation_id: string
+        session_id: string
+        phase: 'user_auth'
+        expires_at: string
+        url: string
+      }) => void
+      vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
+        new Promise((resolve) => {
+          resolveRefresh = resolve
+        })
+      )
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      const replacement = {
+        ...msg,
+        operation_id: 'op-replacement',
+        session_id: 'session-replacement',
+        url: 'https://open.feishu.cn/authorize?opaque=replacement'
+      }
+      agentStore.messages = [replacement]
+      await wrapper.setProps({ msg: replacement })
+      resolveRefresh({
+        operation_id: msg.operation_id,
+        session_id: 'session-fresh',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 120_000).toISOString(),
+        url: 'https://open.feishu.cn/authorize?opaque=stale'
+      })
+      await flushPromises()
+
+      expect(agentStore.messages).toEqual([replacement])
+    })
+
+    it.each([
+      ['completed', 'completed'],
+      ['terminal', 'error']
+    ] as const)(
+      'does not revive a %s action when an in-flight refresh response returns',
+      async (expectedStatus, terminalReason) => {
+        const agentStore = useAgentChatStore()
+        const feishuStore = useFeishuStore()
+        const msg = externalAction()
+        agentStore.beginSession('route-terminal-race')
+        agentStore.currentRun = {
+          id: msg.run_id,
+          session_id: 'route-terminal-race',
+          status: 'running',
+          state_reason: 'waiting_for_user_choice',
+          created_at: '',
+          updated_at: ''
+        } as never
+        agentStore.messages = [msg]
+        let resolveRefresh!: (action: {
+          operation_id: string
+          session_id: string
+          phase: 'user_auth'
+          expires_at: string
+          url: string
+        }) => void
+        vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
+          new Promise((resolve) => {
+            resolveRefresh = resolve
+          })
+        )
+        const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+        await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+        agentStore.applyStreamEvent({
+          type: 'terminal',
+          seq: 2,
+          ts: new Date().toISOString(),
+          run_id: msg.run_id,
+          data: { reason: terminalReason, duration_ms: 1, step_count: 1 }
+        } as never, agentStore.currentSessionEpoch())
+        const settled = agentStore.messages[0]
+        await wrapper.setProps({ msg: settled })
+        expect(settled).toMatchObject({ action_status: expectedStatus })
+        expect(settled).not.toHaveProperty('url')
+
+        resolveRefresh({
+          operation_id: msg.operation_id,
+          session_id: 'session-fresh',
+          phase: 'user_auth',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/authorize?opaque=stale'
+        })
+        await flushPromises()
+
+        expect(agentStore.messages[0]).toMatchObject({ action_status: expectedStatus })
+        expect(agentStore.messages[0]).not.toHaveProperty('url')
+      }
+    )
+
+    it('keeps ordinary questions on the existing answer-submitted path', async () => {
+      const msg: AgentMessage = {
+        id: 'question-1',
+        type: 'question_prompt',
+        run_id: 7,
+        questions: [{ question: '下一步？', options: [], multi_select: false }],
+        answer_status: 'pending',
+        pause_type: 'question',
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="question-answer"]').trigger('click')
+      expect(wrapper.emitted('answer-submitted')).toEqual([
+        [7, { q: { selected: [], free_text: '普通回答' } }]
+      ])
+    })
+
+    it('does not convert legacy auth questions into an ordinary answer submission', () => {
+      const msg: AgentMessage = {
+        id: 'legacy-auth-1',
+        type: 'question_prompt',
+        run_id: 7,
+        questions: [{ question: '请完成飞书授权', options: [], multi_select: false }],
+        answer_status: 'pending',
+        pause_type: 'auth',
+        auth_url: 'https://open.feishu.cn/legacy',
+        timestamp: ts
+      }
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      expect(wrapper.find('[data-testid="question-answer"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="feishu-action-card-stub"]').exists()).toBe(false)
+      expect(wrapper.get('[data-testid="legacy-feishu-auth-notice"]').text()).toContain(
+        '旧的飞书授权步骤已失效'
+      )
+      expect(wrapper.html()).not.toContain('https://open.feishu.cn/legacy')
+      expect(wrapper.emitted('answer-submitted')).toBeUndefined()
+    })
   })
 
   // agent-wait-ux 5a (dev run 150): the long final-report generation has a 1-3

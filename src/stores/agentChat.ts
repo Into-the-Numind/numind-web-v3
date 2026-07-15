@@ -13,8 +13,15 @@
  * Spec: docs/superpowers/specs/2026-05-27-agent-react-streaming-design.md §5.3
  */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import * as api from '@/api/agent'
+import {
+  resumeFeishuOperation as resumeFeishuLifecycleOperation,
+  type FeishuActionPhase,
+  type FeishuExternalAction,
+  type FeishuOperationResult,
+  type FeishuResumeAction
+} from '@/api/feishu'
 import type {
   AgentSkill,
   AgentRun,
@@ -29,7 +36,9 @@ import type {
   ToolCallAggregate,
   ToolGroupMessage,
   UploadResponse,
-  QuestionPromptMessage
+  QuestionPromptMessage,
+  ExternalActionMessage,
+  ExternalActionStatus
 } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 import type {
@@ -42,12 +51,180 @@ import type {
   ToolCallResultPayload,
   ToolCallErrorPayload,
   QuestionPromptPayload,
-  TerminalPayload,
+  ExternalActionPayload,
+  StreamStartPayload,
   ErrorPayload
 } from '@/types/agent-stream'
 
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+const FEISHU_ACTION_PHASES: FeishuActionPhase[] = [
+  'create_app',
+  'app_scope',
+  'user_auth',
+  'confirmation'
+]
+
+function isFeishuActionPhase(value: string): value is FeishuActionPhase {
+  return FEISHU_ACTION_PHASES.includes(value as FeishuActionPhase)
+}
+
+function safeActionString(record: Record<string, unknown>, field: string): string | null {
+  const value = record[field]
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+const OFFICIAL_FEISHU_ACTION_HOSTS = new Set(['open.feishu.cn', 'open.larksuite.com'])
+
+/**
+ * URLs in external-action frames are untrusted transport data. Keep an exact
+ * server-issued value only when it is an official Feishu/Lark HTTPS endpoint;
+ * otherwise the card receives no URL and takes the server-owned refresh path.
+ *
+ * This mirrors the backend's parseOfficialLarkURL host/scheme constraints. Do
+ * not normalize or rebuild it: the opaque query bytes must remain untouched.
+ */
+function isOfficialFeishuActionURL(value: unknown): value is string {
+  if (typeof value !== 'string' || !value || value.trim() !== value) return false
+  try {
+    const parsed = new URL(value)
+    return (
+      parsed.protocol === 'https:' &&
+      OFFICIAL_FEISHU_ACTION_HOSTS.has(parsed.hostname) &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.hash &&
+      (!parsed.port || parsed.port === '443')
+    )
+  } catch {
+    return false
+  }
+}
+
+// The server currently creates RFC 4122 UUID session ids. Keep the browser
+// parser compatible with its stable legacy/session test ids too, while refusing
+// route placeholders, whitespace, paths, and any structurally unsafe value.
+const STABLE_SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
+
+/**
+ * stream_start is the one event allowed to bind the browser's provisional
+ * `new` route to its server-owned session. Treat it as untrusted transport
+ * data: it must carry exactly the server's two identifiers and its run id must
+ * agree with the envelope before it can alter route ownership.
+ */
+function parseStreamStartPayload(payload: unknown, envelopeRunID: number): StreamStartPayload | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  const keys = Object.keys(record)
+  if (
+    keys.length !== 2 ||
+    !keys.includes('session_id') ||
+    !keys.includes('run_id') ||
+    !Number.isSafeInteger(envelopeRunID) ||
+    envelopeRunID <= 0
+  ) {
+    return null
+  }
+  const sessionID = record.session_id
+  const runID = record.run_id
+  if (
+    typeof sessionID !== 'string' ||
+    sessionID === 'new' ||
+    !STABLE_SESSION_ID_PATTERN.test(sessionID) ||
+    !Number.isSafeInteger(runID) ||
+    runID !== envelopeRunID
+  ) {
+    return null
+  }
+  return { session_id: sessionID, run_id: runID }
+}
+
+/**
+ * Returns a browser-wall-clock deadline only for a parseable
+ * timestamp. The backend owns this value; an absent or malformed value must
+ * fail closed instead of leaving a previously received authorization URL live.
+ */
+function actionExpiryTimestamp(expiresAt: string): number | null {
+  const timestamp = Date.parse(expiresAt)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function actionHasExpired(expiresAt: string, now = Date.now()): boolean {
+  const timestamp = actionExpiryTimestamp(expiresAt)
+  return timestamp === null || timestamp <= now
+}
+
+/**
+ * Convert one untrusted live/snapshot payload to the browser allowlist. The
+ * backend uses provider/tool-call metadata to route the operation, but this
+ * card neither needs nor retains it. URLs remain in memory only.
+ */
+function toFeishuExternalAction(payload: unknown): FeishuExternalAction | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  const provider = record.provider
+  if (provider !== 'feishu' && provider !== 'lark') return null
+
+  const operationID = safeActionString(record, 'operation_id')
+  const sessionID = safeActionString(record, 'session_id')
+  const phase = safeActionString(record, 'phase')
+  const expiresAt = safeActionString(record, 'expires_at')
+  if (
+    !operationID ||
+    !sessionID ||
+    !phase ||
+    !isFeishuActionPhase(phase) ||
+    !expiresAt ||
+    actionExpiryTimestamp(expiresAt) === null
+  ) {
+    return null
+  }
+
+  const url = record.url
+  return {
+    operation_id: operationID,
+    session_id: sessionID,
+    phase,
+    expires_at: expiresAt,
+    ...(isOfficialFeishuActionURL(url) ? { url } : {})
+  }
+}
+
+/**
+ * Preserve just enough identity to revoke a formerly-valid action if a later
+ * live SSE update for that same operation is malformed. The provider check
+ * prevents an unrelated event from settling a Feishu card.
+ */
+function externalActionOperationID(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  if (record.provider !== 'feishu' && record.provider !== 'lark') return null
+  return safeActionString(record, 'operation_id')
+}
+
+function externalActionMessage(
+  payload: unknown,
+  runID: number,
+  timestamp: string,
+  id = uuid(),
+  allowLiveURL = true
+): ExternalActionMessage | null {
+  const action = toFeishuExternalAction(payload)
+  if (!action || !Number.isSafeInteger(runID) || runID <= 0) return null
+  return {
+    id,
+    type: 'external_action',
+    run_id: runID,
+    operation_id: action.operation_id,
+    session_id: action.session_id,
+    phase: action.phase,
+    expires_at: action.expires_at,
+    ...(allowLiveURL && action.url ? { url: action.url } : {}),
+    action_status: 'pending',
+    timestamp
+  }
+}
 
 /**
  * statusFromTerminalReason — map a backend TerminalReason (SSE terminal payload
@@ -184,6 +361,50 @@ function statusFromTerminalReason(reason?: string): AgentRunStatus {
 }
 
 /**
+ * Terminal SSE data crosses a network boundary. Only a string reason is safe
+ * to use for local lifecycle changes; malformed or unknown data deliberately
+ * maps to a non-success terminal state below.
+ */
+function terminalReason(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return undefined
+  const reason = (payload as Record<string, unknown>).reason
+  return typeof reason === 'string' ? reason : undefined
+}
+
+/**
+ * An external action is completed only by an explicit successful terminal
+ * reason. A question pause is still live, while every other/malformed reason
+ * must revoke the one-time authorization URL as a terminal outcome.
+ */
+function externalActionStatusFromTerminal(payload: unknown): ExternalActionStatus | null {
+  const status = statusFromTerminalReason(terminalReason(payload))
+  if (status === 'running') return null
+  return status === 'completed' ? 'completed' : 'terminal'
+}
+
+const EXTERNAL_RESUME_READY_STATE = 'external_resume_ready'
+const EXTERNAL_RESUME_STARTING_PREFIX = 'ext_resume:'
+
+/**
+ * Task 11's durable continuation has two non-terminal server states after the
+ * user finishes Feishu authorization: `external_resume_ready` waits for the
+ * reclaimer and `ext_resume:<lease>` has been claimed by a worker. Neither is
+ * a final Agent answer, but both irrevocably release the one-time auth URL.
+ *
+ * Keep this contract deliberately narrow: only the documented exact ready
+ * value or a non-empty `ext_resume:` lease qualifies. In particular, do not
+ * treat a broad `ext_` namespace or malformed `ext_resume` values as released.
+ */
+function isQueuedExternalContinuation(stateReason?: string): boolean {
+  if (stateReason === EXTERNAL_RESUME_READY_STATE) return true
+  return (
+    typeof stateReason === 'string' &&
+    stateReason.startsWith(EXTERNAL_RESUME_STARTING_PREFIX) &&
+    stateReason.length > EXTERNAL_RESUME_STARTING_PREFIX.length
+  )
+}
+
+/**
  * StreamingAssistantMessage — AssistantMessage carrying SSE bookkeeping fields.
  * `_stream_id`: backend-provided message_id used to deduplicate token_delta
  * accumulation; `_run_id`: agent_run.id this bubble belongs to (used by
@@ -257,6 +478,27 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const agentsError = ref<string | null>(null)
   const sessionError = ref<string | null>(null)
 
+  // An external authorization may finish without another SSE frame. Poll the
+  // original run only until the server-owned action expiry, never while the
+  // page is hidden and never after its card has settled. This is deliberately
+  // independent from normal question-answer polling: external waits must not
+  // call /answer.
+  const EXTERNAL_ACTION_POLL_INTERVAL_MS = 5_000
+  let externalActionPollTimer: ReturnType<typeof setTimeout> | null = null
+  let externalActionPollDeadline = 0
+  // A polling timer belongs to the session that created its authorization
+  // action.  Keep that ownership explicit so a late timer continuation cannot
+  // observe whichever run happens to be selected after a route switch.
+  let externalActionPollEpoch: number | null = null
+  let removeExternalActionVisibilityListener: (() => void) | null = null
+
+  // Every route/session replacement advances this generation. Async work and
+  // SSE callbacks capture it before crossing an await boundary; a result may
+  // mutate state only while it still names the active session. `null` means the
+  // store has been reset/unmounted and intentionally owns no session.
+  let activeSessionEpoch = 0
+  let activeSessionID: string | null = null
+
   // ── Getters ─────────────────────────────────────────────────────────
   const isRunning = computed(
     () => currentRun.value?.status === 'running' || currentRun.value?.status === 'pending'
@@ -292,6 +534,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           (m as QuestionPromptMessage).answer_status === 'pending' &&
           (m as QuestionPromptMessage).pause_type === 'auth'
       )
+  )
+
+  /**
+   * A reloaded Task 11 continuation is still active even though its external
+   * action card is already settled. The view owns normal narration/status
+   * observation; expose only the two exact durable states so unrelated replay
+   * states do not start a background observer.
+   */
+  const isQueuedExternalContinuationActive = computed(
+    () =>
+      isQueuedExternalContinuation(currentRun.value?.state_reason) &&
+      (currentRun.value?.status === 'running' || currentRun.value?.status === 'pending')
   )
 
   const toolGroups = computed<ToolCallAggregate[]>(() => {
@@ -341,6 +595,230 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     if (order.length === 0) return ''
     return liveCodeStreams.value[order[order.length - 1]] ?? ''
   })
+
+  const isWaitingForExternalAction = computed(() =>
+    messages.value.some(
+      (message) => message.type === 'external_action' && message.action_status === 'pending'
+    )
+  )
+
+  const hasPendingExternalAction = (): boolean =>
+    messages.value.some(
+      (message) => message.type === 'external_action' && message.action_status === 'pending'
+    )
+
+  const nextPendingExternalActionDeadline = (): number | null => {
+    let deadline: number | null = null
+    for (const message of messages.value) {
+      if (message.type !== 'external_action' || message.action_status !== 'pending') continue
+      const expiresAt = actionExpiryTimestamp(message.expires_at)
+      // A malformed timestamp is never allowed to become an unbounded wait.
+      if (expiresAt === null) return null
+      deadline = deadline === null ? expiresAt : Math.min(deadline, expiresAt)
+    }
+    return deadline
+  }
+
+  const stopExternalActionPolling = (removeVisibilityListener = true): void => {
+    if (externalActionPollTimer !== null) {
+      clearTimeout(externalActionPollTimer)
+      externalActionPollTimer = null
+    }
+    if (removeVisibilityListener && removeExternalActionVisibilityListener) {
+      removeExternalActionVisibilityListener()
+      removeExternalActionVisibilityListener = null
+      externalActionPollDeadline = 0
+    }
+    externalActionPollEpoch = null
+  }
+
+  const currentSessionEpoch = (): number => activeSessionEpoch
+
+  const isCurrentSessionEpoch = (epoch: number): boolean => epoch === activeSessionEpoch
+
+  /**
+   * Claim the store for a route session. This is deliberately a tiny, sync
+   * boundary: callers can invalidate old async/SSE work before starting their
+   * replacement snapshot or observer.
+   */
+  const beginSession = (sessionID: string): number => {
+    activeSessionEpoch += 1
+    activeSessionID = sessionID
+    stopExternalActionPolling()
+    sendingMessage.value = false
+    cancelling.value = false
+    return activeSessionEpoch
+  }
+
+  const invalidateSession = (): void => {
+    activeSessionEpoch += 1
+    activeSessionID = null
+    stopExternalActionPolling()
+  }
+
+  const settleExternalAction = (
+    operationID: string,
+    status: ExternalActionStatus,
+    runID?: number
+  ): void => {
+    for (let index = 0; index < messages.value.length; index += 1) {
+      const message = messages.value[index]
+      if (
+        message.type !== 'external_action' ||
+        message.operation_id !== operationID ||
+        (runID !== undefined && message.run_id !== runID) ||
+        message.action_status !== 'pending'
+      ) {
+        continue
+      }
+      // There is no reason to retain a transient authorization URL after the
+      // wait has ended. The resumed original tool call is the source of truth.
+      const settled: ExternalActionMessage = { ...message, action_status: status }
+      delete settled.url
+      messages.value[index] = settled
+    }
+    if (!hasPendingExternalAction()) stopExternalActionPolling()
+  }
+
+  const settlePendingExternalActionsForRun = (
+    runID: number,
+    status: ExternalActionStatus
+  ): void => {
+    const pendingOperationIDs = messages.value
+      .filter(
+        (message): message is ExternalActionMessage =>
+          message.type === 'external_action' &&
+          message.run_id === runID &&
+          message.action_status === 'pending'
+      )
+      .map((message) => message.operation_id)
+    for (const operationID of pendingOperationIDs) {
+      settleExternalAction(operationID, status, runID)
+    }
+  }
+
+  /**
+   * Client clocks can be ahead of the server. That is intentionally treated as
+   * an expired action: a stale authorization URL is more harmful than showing a
+   * refresh path a little early. This also closes malformed timestamps should a
+   * runtime response bypass the TypeScript API contract.
+   */
+  const expirePendingExternalActions = (now = Date.now()): void => {
+    const operationIDs = messages.value
+      .filter(
+        (message): message is ExternalActionMessage =>
+          message.type === 'external_action' &&
+          message.action_status === 'pending' &&
+          actionHasExpired(message.expires_at, now)
+      )
+      .map((message) => message.operation_id)
+    for (const operationID of operationIDs) {
+      settleExternalAction(operationID, 'expired')
+    }
+  }
+
+  const updatePendingExternalAction = (
+    operationID: string,
+    action: Omit<FeishuExternalAction, 'url'>
+  ): void => {
+    if (actionHasExpired(action.expires_at)) {
+      settleExternalAction(operationID, 'expired')
+      return
+    }
+    for (let index = 0; index < messages.value.length; index += 1) {
+      const message = messages.value[index]
+      if (
+        message.type !== 'external_action' ||
+        message.operation_id !== operationID ||
+        message.action_status !== 'pending'
+      ) {
+        continue
+      }
+      const replacement: ExternalActionMessage = {
+        ...message,
+        operation_id: action.operation_id,
+        session_id: action.session_id,
+        phase: action.phase,
+        expires_at: action.expires_at
+      }
+      // A resume response is deliberately URL-less. Never carry a superseded
+      // one-time authorization URL into a new server-owned action/session.
+      delete replacement.url
+      messages.value[index] = replacement
+    }
+  }
+
+  const scheduleExternalActionPoll = (): void => {
+    if (externalActionPollTimer !== null) return
+    const pollEpoch = activeSessionEpoch
+    if (externalActionPollEpoch !== pollEpoch) return
+    expirePendingExternalActions()
+    if (!hasPendingExternalAction()) return
+
+    const deadline = nextPendingExternalActionDeadline()
+    const now = Date.now()
+    if (deadline === null || deadline <= now) {
+      expirePendingExternalActions(now)
+      return
+    }
+    externalActionPollDeadline = deadline
+    if (typeof document !== 'undefined' && document.hidden) return
+
+    externalActionPollTimer = setTimeout(() => {
+      externalActionPollTimer = null
+      if (!isCurrentSessionEpoch(pollEpoch) || externalActionPollEpoch !== pollEpoch) return
+      expirePendingExternalActions()
+      if (!hasPendingExternalAction()) return
+      if (typeof document !== 'undefined' && document.hidden) return
+      void (async () => {
+        await refreshRunStatus()
+        if (
+          isCurrentSessionEpoch(pollEpoch) &&
+          externalActionPollEpoch === pollEpoch &&
+          hasPendingExternalAction()
+        ) {
+          startExternalActionPolling()
+        }
+      })()
+    }, Math.min(EXTERNAL_ACTION_POLL_INTERVAL_MS, deadline - now))
+  }
+
+  const startExternalActionPolling = (): void => {
+    externalActionPollEpoch = activeSessionEpoch
+    expirePendingExternalActions()
+    if (!hasPendingExternalAction()) return
+
+    const deadline = nextPendingExternalActionDeadline()
+    if (deadline === null || deadline <= Date.now()) {
+      expirePendingExternalActions()
+      return
+    }
+    // A recovery may replace a session with a shorter or longer actual expiry.
+    // Re-arm the timer so the browser never waits for a stale global deadline.
+    if (externalActionPollDeadline !== deadline) {
+      externalActionPollDeadline = deadline
+      if (externalActionPollTimer !== null) {
+        clearTimeout(externalActionPollTimer)
+        externalActionPollTimer = null
+      }
+    }
+    if (typeof document !== 'undefined' && !removeExternalActionVisibilityListener) {
+      const onVisibilityChange = (): void => {
+        if (document.hidden) {
+          stopExternalActionPolling(false)
+          return
+        }
+        // Hiding deliberately clears the epoch to fence an old timeout. A
+        // visible page must claim the current epoch again before scheduling,
+        // otherwise scheduleExternalActionPoll correctly rejects it forever.
+        startExternalActionPolling()
+      }
+      document.addEventListener('visibilitychange', onVisibilityChange)
+      removeExternalActionVisibilityListener = () =>
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+    scheduleExternalActionPoll()
+  }
 
   // ── Actions ──────────────────────────────────────────────────────────
   const fetchAvailableAgents = async (): Promise<void> => {
@@ -426,8 +904,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       estimate.value = null
       return
     }
+    const epoch = activeSessionEpoch
     try {
-      estimate.value = await api.estimateRun({
+      const nextEstimate = await api.estimateRun({
         agent_skill_id: agentId,
         input_text: text,
         attachment_meta: attachments.value.map((a) => ({
@@ -436,12 +915,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           mime_type: a.mime_type
         }))
       })
+      if (isCurrentSessionEpoch(epoch)) estimate.value = nextEstimate
     } catch {
-      estimate.value = null
+      if (isCurrentSessionEpoch(epoch)) estimate.value = null
     }
   }
 
   const startNewRun = async (agentId: number, text: string, sessionId?: string): Promise<void> => {
+    const epoch = activeSessionEpoch
     sendingMessage.value = true
     try {
       const res = await api.createRun({
@@ -452,6 +933,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // The upload endpoint does not return an id, so url IS the identity.
         attachment_urls: attachments.value.map((a) => a.url)
       })
+      if (!isCurrentSessionEpoch(epoch)) return
       const userMsg: AgentMessage = {
         id: uuid(),
         type: 'user',
@@ -464,7 +946,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       lastNarrationTs.value = ''
       stuckSince.value = null
       currentToolGroupId.value = null
-      currentRun.value = await api.getRun(res.run_id)
+      const run = await api.getRun(res.run_id)
+      if (!isCurrentSessionEpoch(epoch)) return
+      currentRun.value = run
       // 边界：罕见情况 run 创建后立即非 running（队列时已 fail）
       const s = currentRun.value.status
       if (s !== 'running' && s !== 'pending') {
@@ -482,12 +966,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       sessionStorage.setItem('agentChat:currentRunId', String(res.run_id))
       sessionStorage.setItem('agentChat:currentSessionId', String(res.session_id))
     } finally {
-      sendingMessage.value = false
+      if (isCurrentSessionEpoch(epoch)) sendingMessage.value = false
     }
   }
 
   const pollNarration = async (): Promise<void> => {
     if (!currentRun.value || !isRunning.value) return
+    const epoch = activeSessionEpoch
+    const runID = currentRun.value.id
     // While paused for an ask_user_question answer the run legitimately produces
     // no narration. Since waiting_for_user_choice now maps to a 'running' status
     // (so the header/cancel stay live — T1/T2), pollNarration would otherwise
@@ -500,7 +986,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       return
     }
     try {
-      const events = await api.fetchNarrationEvents(currentRun.value.id, lastNarrationTs.value)
+      const events = await api.fetchNarrationEvents(runID, lastNarrationTs.value)
+      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
       if (events.length > 0) {
         for (const ev of events) {
           if (ev.event_type === 'tool_call_yield' && ev.yield_payload) {
@@ -590,17 +1077,42 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
+    const epoch = activeSessionEpoch
+    const runID = currentRun.value.id
     try {
       const prevStatus = currentRun.value.status
-      const next = await api.getRun(currentRun.value.id)
+      const next = await api.getRun(runID)
+      // A session may have changed while the request was in flight. Never let
+      // session A's status/final answer/authorization card alter session B.
+      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
+      if (activeSessionID !== null && activeSessionID !== 'new' && next.session_id !== activeSessionID) {
+        return
+      }
+      const queuedExternalContinuation = isQueuedExternalContinuation(next.state_reason)
       // answer-resume-lifecycle F3: state_reason==='running' is the resume
       // signature (only AnswerAndClear / the takeover correction write it; real
-      // completions carry 'completed' etc.). An old backend may still advertise
-      // status='terminated' during the resumed leg (dev run 148) — keep the run
-      // alive locally so polling/narration continue until a real terminal.
+      // completions carry 'completed' etc.). Task 11's two durable external
+      // continuation states are also non-terminal: they mean the original tool
+      // call is queued/claimed after the auth URL has been consumed. An old
+      // backend may still advertise status='terminated' during either path, so
+      // keep the run active locally until a real terminal answer arrives.
       const isResuming =
-        next.state_reason === 'running' && next.status !== 'running' && next.status !== 'pending'
+        (next.state_reason === 'running' || queuedExternalContinuation) &&
+        next.status !== 'running' &&
+        next.status !== 'pending'
       currentRun.value = isResuming ? { ...next, status: 'running' } : next
+      // An external wait is over as soon as the original run resumes, its
+      // durable continuation queues/claims, or it reaches a terminal result.
+      // Queued continuation is not a final textual response; it only completes
+      // the authorization card and revokes its transient URL.
+      const externalWaitReleased =
+        next.state_reason === 'running' || isResuming || queuedExternalContinuation
+      const externallyTerminal = next.status !== 'running' && next.status !== 'pending'
+      if (externalWaitReleased || externallyTerminal) {
+        const actionStatus: ExternalActionStatus =
+          externalWaitReleased || next.status === 'completed' ? 'completed' : 'terminal'
+        settlePendingExternalActionsForRun(next.id, actionStatus)
+      }
       // When the run transitions from active → terminal and the backend
       // surfaced a final_output (extracted from agent_run.messages), push it
       // as a FinalAnswerMessage so the chat UI renders the AI's reply.
@@ -625,13 +1137,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (isWaiting) {
         const hasPendingCard = messages.value.some(
           (m) =>
-            m.type === 'question_prompt' &&
-            (m as QuestionPromptMessage).run_id === next.id &&
-            (m as QuestionPromptMessage).answer_status === 'pending'
+            (m.type === 'question_prompt' &&
+              (m as QuestionPromptMessage).run_id === next.id &&
+              (m as QuestionPromptMessage).answer_status === 'pending') ||
+            (m.type === 'external_action' &&
+              m.run_id === next.id &&
+              m.action_status === 'pending')
         )
         if (!hasPendingCard && next.session_id) {
           try {
             const snap = await api.getSessionSnapshot(String(next.session_id))
+            if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
             const qp = snap.messages.find(
               (m) => m.type === 'question_prompt' && (m as QuestionPromptMessage).run_id === next.id
             ) as QuestionPromptMessage | undefined
@@ -655,7 +1171,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           }
         }
       }
-      if (wasActive && isTerminal && finalOut && !alreadyHasFinal && !isWaiting && !isResuming) {
+      if (
+        wasActive &&
+        isTerminal &&
+        finalOut &&
+        !alreadyHasFinal &&
+        !isWaiting &&
+        !isResuming &&
+        !queuedExternalContinuation
+      ) {
         messages.value.push({
           id: uuid(),
           type: 'final_answer',
@@ -666,7 +1190,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
       // Run reached terminal (done / failed / cancelled, but not a waiting pause
       // or a resume re-entry) → stop any lingering tool-call timers.
-      if (wasActive && isTerminal && !isWaiting && !isResuming) {
+      if (wasActive && isTerminal && !isWaiting && !isResuming && !queuedExternalContinuation) {
         finalizeToolGroups()
       }
     } catch {
@@ -674,11 +1198,57 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
+  /**
+   * Continue a server-owned Feishu operation. This intentionally does not use
+   * the Agent answer endpoint or `startResume`: the original tool call is
+   * resumed by the backend's durable external-action dispatcher.
+   */
+  const resumeFeishuOperation = async (
+    operationID: string,
+    action: FeishuResumeAction = 'user_completed'
+  ): Promise<FeishuOperationResult> => {
+    const epoch = activeSessionEpoch
+    const existing = messages.value.find(
+      (message): message is ExternalActionMessage =>
+        message.type === 'external_action' && message.operation_id === operationID
+    )
+    if (
+      existing?.action_status === 'expired' ||
+      (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at))
+    ) {
+      settleExternalAction(operationID, 'expired')
+      throw new Error('飞书授权已过期，请刷新链接后重试')
+    }
+    if (!existing || existing.action_status !== 'pending') {
+      throw new Error('飞书授权步骤已更新，请使用最新链接')
+    }
+    const result = await resumeFeishuLifecycleOperation(operationID, action)
+    if (!isCurrentSessionEpoch(epoch)) return result
+    switch (result.state) {
+      case 'succeeded':
+        settleExternalAction(operationID, 'completed')
+        break
+      case 'failed':
+      case 'unknown':
+      case 'cancelled':
+        settleExternalAction(operationID, 'terminal')
+        break
+      default:
+        if (result.action) updatePendingExternalAction(operationID, result.action)
+        if (hasPendingExternalAction()) startExternalActionPolling()
+        break
+    }
+    return result
+  }
+
   const cancelCurrent = async (): Promise<void> => {
     if (!currentRun.value) return
+    const epoch = activeSessionEpoch
+    const runID = currentRun.value.id
     cancelling.value = true
     try {
-      await api.cancelRun(currentRun.value.id)
+      await api.cancelRun(runID)
+      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
       currentRun.value = { ...currentRun.value, status: 'cancelled' }
       messages.value.push({
         id: uuid(),
@@ -687,13 +1257,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         timestamp: new Date().toISOString()
       })
     } finally {
-      cancelling.value = false
+      if (isCurrentSessionEpoch(epoch)) cancelling.value = false
     }
   }
 
   const uploadAttachment = async (file: File): Promise<void> => {
+    const epoch = activeSessionEpoch
     const res = await api.uploadAttachment(file)
-    attachments.value.push(res)
+    if (isCurrentSessionEpoch(epoch)) attachments.value.push(res)
   }
 
   const removeAttachment = (url: string): void => {
@@ -750,18 +1321,40 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
+    const epoch = beginSession(sessionId)
     loadingSnapshot.value = true
     sessionError.value = null
+    // Snapshot loads are also the session-switch boundary for historical routes.
+    // Without clearing this first, a queued continuation from the previous
+    // session keeps its normal observer alive while the new snapshot has no run.
+    // A waiting/queued run in the requested snapshot is restored below.
+    currentRun.value = null
     try {
       const snap = await api.getSessionSnapshot(sessionId)
+      if (!isCurrentSessionEpoch(epoch)) return
       // Defensive: backend may omit timestamp on restored messages; fill with
       // a stable fallback so BaseMessage.timestamp is always a valid string.
       const now = new Date().toISOString()
       const localUserMsgs = messages.value.filter((m) => m.type === 'user')
-      const snapMsgs = (snap.messages ?? []).map((m) => ({
-        ...m,
-        timestamp: m.timestamp ?? now
-      }))
+      const snapMsgs: AgentMessage[] = []
+      for (const message of snap.messages ?? []) {
+        const timestamp = message.timestamp ?? now
+        if (message.type === 'external_action') {
+          // Rebuild rather than spread the server object. Snapshot payloads are
+          // flat and include provider routing metadata at runtime; only the card
+          // allowlist may enter browser state, and snapshots never restore URLs.
+          const externalAction = externalActionMessage(
+            message,
+            message.run_id,
+            timestamp,
+            message.id,
+            false
+          )
+          if (externalAction) snapMsgs.push(externalAction)
+          continue
+        }
+        snapMsgs.push({ ...message, timestamp })
+      }
       // 边界防御：如果后端传回的快照里还没有任何用户消息，而我们本地正好有刚发的用户消息
       if (snapMsgs.filter((m) => m.type === 'user').length === 0 && localUserMsgs.length > 0) {
         snapMsgs.unshift(...localUserMsgs)
@@ -772,14 +1365,36 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // with a synthesized question_prompt card. Set currentRun from the
       // snapshot so answer submission can poll the run to completion — without
       // it, refreshRunStatus's null guard silently stalls the resume.
-      if (snap.run && snap.run.state_reason === 'waiting_for_user_choice') {
-        currentRun.value = snap.run
+      const restoredQueuedExternalContinuation = Boolean(
+        snap.run && isQueuedExternalContinuation(snap.run.state_reason)
+      )
+      if (
+        snap.run &&
+        (snap.run.state_reason === 'waiting_for_user_choice' || restoredQueuedExternalContinuation)
+      ) {
+        // Task 11 can retain a legacy terminal DB status while the durable
+        // continuation is queued/claimed. Treat only its two exact states as
+        // active locally until normal polling reads the real terminal result.
+        currentRun.value =
+          restoredQueuedExternalContinuation &&
+          snap.run.status !== 'running' &&
+          snap.run.status !== 'pending'
+            ? { ...snap.run, status: 'running' }
+            : snap.run
         // The snapshot already rebuilt the pre-answer tool cards from
         // agent_run.messages. Seed the narration cursor to the run's last update
         // (the pause point) so that when the user answers, the resume poll fetches
         // only post-answer narration instead of re-fetching every pre-answer event
         // (which the in-memory buffer may still hold) into a duplicate giant card.
         if (snap.run.updated_at) lastNarrationTs.value = snap.run.updated_at
+      }
+      // The snapshot deliberately re-synthesizes durable external actions so a
+      // reload preserves their history. Once Task 11 has queued or claimed the
+      // original continuation, that history must be settled immediately: the
+      // authorization URL is already consumed and the server (not /answer or a
+      // browser-side CLI) owns the next step.
+      if (snap.run && restoredQueuedExternalContinuation) {
+        settlePendingExternalActionsForRun(snap.run.id, 'completed')
       }
       if (snap.compact_summary) {
         messages.value.unshift({
@@ -802,10 +1417,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (replayStatus && replayStatus !== 'running' && replayStatus !== 'pending') {
         finalizeToolGroups(replayStatus)
       }
+      if (hasPendingExternalAction()) {
+        startExternalActionPolling()
+      } else {
+        stopExternalActionPolling()
+      }
     } catch (err) {
-      sessionError.value = (err as Error).message ?? '会话加载失败'
+      if (isCurrentSessionEpoch(epoch)) {
+        sessionError.value = (err as Error).message ?? '会话加载失败'
+      }
     } finally {
-      loadingSnapshot.value = false
+      if (isCurrentSessionEpoch(epoch)) loadingSnapshot.value = false
     }
   }
 
@@ -978,8 +1600,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // absent (yield-session-reload).
   const ensureCurrentRun = async (runId: number): Promise<void> => {
     if (currentRun.value && currentRun.value.id === runId) return
+    const epoch = activeSessionEpoch
     try {
-      currentRun.value = await api.getRun(runId)
+      const run = await api.getRun(runId)
+      if (!isCurrentSessionEpoch(epoch)) return
+      if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
+        return
+      }
+      currentRun.value = run
     } catch {
       // Non-fatal: polling will no-op via its null guard; the card stays
       // answerable on a subsequent attempt.
@@ -1012,7 +1640,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *      e.g. tool-only steps), fall back to pushing a stand-alone
    *      final_answer, deduped against re-entrant calls.
    */
-  const reconcileFromDB = async (runId: number): Promise<void> => {
+  const reconcileFromDB = async (runId: number, expectedEpoch = activeSessionEpoch): Promise<void> => {
     // 问题5a: the terminal SSE handler already set currentRun to a terminal status
     // synchronously (before this async getRun resolves). The authoritative DB read
     // can lag the in-memory terminal (the row may not be flushed yet) and return a
@@ -1026,6 +1654,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     const lockedReason = currentRun.value?.state_reason
     try {
       const run = await api.getRun(runId)
+      if (!isCurrentSessionEpoch(expectedEpoch) || currentRun.value?.id !== runId) return
+      if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
+        return
+      }
       currentRun.value =
         wasTerminal && !isTerminalStatus(run.status)
           ? { ...run, status: lockedStatus!, state_reason: lockedReason ?? run.state_reason }
@@ -1127,7 +1759,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    * the `isStreaming` guard runs synchronously beforehand and this action
    * itself clears `attachments.value` at the end.
    */
-  const appendUserMessage = (req: CreateRunRequest): void => {
+  const appendUserMessage = (req: CreateRunRequest, expectedEpoch?: number): void => {
+    if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
     const userMsg: AgentMessage = {
       id: uuid(),
       type: 'user',
@@ -1152,20 +1785,53 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *
    * Covers all 14 EventType values per spec §5.3.
    */
-  const applyStreamEvent = (e: AgentStreamEvent): void => {
+  const applyStreamEvent = (e: AgentStreamEvent, expectedEpoch?: number): void => {
+    // `useAgentStream` always supplies the epoch captured when its request
+    // opened. The optional form preserves the small store-level test seam, but
+    // an active route still requires every non-start frame to belong to the
+    // current run. Only an explicitly epoch-authorized stream_start may replace
+    // a prior run in the same logical session.
+    if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
+    const sessionGuardEnabled = expectedEpoch !== undefined || activeSessionID !== null
+    if (sessionGuardEnabled && e.type !== 'stream_start' && currentRun.value?.id !== e.run_id) {
+      return
+    }
+    if (
+      sessionGuardEnabled &&
+      e.type === 'stream_start' &&
+      expectedEpoch === undefined &&
+      currentRun.value !== null &&
+      currentRun.value.id !== e.run_id
+    ) {
+      return
+    }
     switch (e.type) {
       case 'stream_start': {
+        const payload = parseStreamStartPayload(e.data, e.run_id)
+        if (!payload) break
+        // A live new route is provisional only until its own stream reports the
+        // canonical server session. This is a binding, not a route replacement:
+        // retain the epoch so the open SSE observer and its timers survive the
+        // router's new → UUID URL update. Once an established route exists,
+        // any different session is a stale/cross-route frame and is inert.
+        if (
+          activeSessionID !== null &&
+          activeSessionID !== 'new' &&
+          activeSessionID !== payload.session_id
+        ) {
+          break
+        }
+        if (activeSessionID === 'new') activeSessionID = payload.session_id
         // Optimistically establish currentRun so the chat header status badge,
         // the cancel button, and budget logic work DURING streaming. Before this
         // the streaming path left currentRun null until the terminal event, so
         // those run-scoped features were dead on the default (streaming) path
         // (BLK-5). Mirrors startNewRun's currentRun bootstrap minus the DB round
-        // trip. session_id is intentionally left empty so the new-session route
-        // replace still fires later from reconcileFromDB (URL timing unchanged).
+        // trip, but retains the authoritative stream session for route identity.
         if (!currentRun.value || currentRun.value.id !== e.run_id) {
           currentRun.value = {
             id: e.run_id,
-            session_id: '',
+            session_id: payload.session_id,
             user_id: 0,
             agent_skill_id: currentAgent.value?.id ?? 0,
             status: 'running',
@@ -1174,6 +1840,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }
+        } else if (
+          !currentRun.value.session_id ||
+          currentRun.value.session_id === payload.session_id
+        ) {
+          currentRun.value = { ...currentRun.value, session_id: payload.session_id }
+        } else {
+          // A same-run payload that attempts to rewrite its established session
+          // is just as unsafe as a cross-route start frame.
+          break
         }
         // T3: this run's streamed items start at the current tail; keep them
         // ordered by the backend's monotonic seq from here on.
@@ -1454,8 +2129,42 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         break
       }
 
+      case 'external_action': {
+        const payload = e.data as ExternalActionPayload
+        const operationID = externalActionOperationID(payload)
+        const existingIndex = messages.value.findIndex(
+          (message) =>
+            message.type === 'external_action' &&
+            message.run_id === e.run_id &&
+            message.operation_id === operationID
+        )
+        const actionMessage = externalActionMessage(
+          payload,
+          e.run_id,
+          e.ts || new Date().toISOString(),
+          existingIndex >= 0 ? messages.value[existingIndex].id : undefined
+        )
+        if (!actionMessage) {
+          // A malformed replacement must not keep the former authorization URL
+          // actionable. There is no safe deadline to poll against, so expose an
+          // expired card for Task 18's refresh path instead.
+          if (operationID && existingIndex >= 0) {
+            settleExternalAction(operationID, 'expired')
+          }
+          break
+        }
+        if (existingIndex >= 0) {
+          messages.value[existingIndex] = actionMessage
+        } else {
+          messages.value.push(actionMessage)
+        }
+        startExternalActionPolling()
+        break
+      }
+
       case 'terminal': {
-        const payload = e.data as TerminalPayload
+        const reason = terminalReason(e.data)
+        const actionStatus = externalActionStatusFromTerminal(e.data)
         // Update currentRun status locally so the UI reacts immediately;
         // reconcileFromDB (getRun, authoritative) follows. Map the raw backend
         // TerminalReason → frontend AgentRunStatus via statusFromTerminalReason
@@ -1466,8 +2175,25 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         if (currentRun.value) {
           currentRun.value = {
             ...currentRun.value,
-            status: statusFromTerminalReason(payload?.reason),
-            state_reason: payload?.reason
+            status: statusFromTerminalReason(reason),
+            state_reason: reason
+          }
+        }
+        // The SSE terminal frame is sufficient to revoke a live external
+        // authorization action. Do this synchronously, before the detached DB
+        // reconciliation, because that request may be delayed or fail. Scope it
+        // to the terminal's run so an unrelated active run keeps its own card.
+        if (actionStatus !== null) {
+          const pendingOperationIDs = messages.value
+            .filter(
+              (message): message is ExternalActionMessage =>
+                message.type === 'external_action' &&
+                message.run_id === e.run_id &&
+                message.action_status === 'pending'
+            )
+            .map((message) => message.operation_id)
+          for (const operationID of pendingOperationIDs) {
+            settleExternalAction(operationID, actionStatus, e.run_id)
           }
         }
         // issue3: once the run truly ENDS (not a question pause), clear every
@@ -1475,7 +2201,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // timer — so nothing keeps spinning after the task is done. A
         // 'waiting_for_user_choice' terminal is a PAUSE, not an end (skip it:
         // finalizeToolGroups would wrongly paint paused tools as errored).
-        if (payload?.reason !== 'waiting_for_user_choice') {
+        if (reason !== 'waiting_for_user_choice') {
           stuckSince.value = null
           finalizeToolGroups()
         }
@@ -1494,17 +2220,21 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // Surface a friendly failure message for error terminals that did NOT
         // already emit an 'error' event (e.g. max_turns / budget / aborted).
         // user_message is empty for successful / waiting terminals.
-        if (payload?.user_message && !erroredRuns.has(e.run_id)) {
+        const userMessage =
+          e.data && typeof e.data === 'object' && !Array.isArray(e.data)
+            ? (e.data as Record<string, unknown>).user_message
+            : undefined
+        if (typeof userMessage === 'string' && userMessage && !erroredRuns.has(e.run_id)) {
           messages.value.push({
             id: uuid(),
             type: 'system',
             system_subtype: 'failed',
-            markdown: payload.user_message,
+            markdown: userMessage,
             timestamp: e.ts
           })
         }
         // R5: pull authoritative messages + status from DB
-        void reconcileFromDB(e.run_id)
+        void reconcileFromDB(e.run_id, expectedEpoch)
         break
       }
 
@@ -1514,7 +2244,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // user_error translation layer). Mark the run so the following terminal
         // event does not show a second failure bubble.
         erroredRuns.add(e.run_id)
-        applyError(new Error(payload?.message ?? '服务暂时不可用，请稍后再试。'))
+        applyError(new Error(payload?.message ?? '服务暂时不可用，请稍后再试。'), expectedEpoch)
         break
       }
 
@@ -1528,7 +2258,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    * applyError — translate a non-409 stream error into a system message visible
    * in the chat UI. Called by useAgentStream composable on catch (T11).
    */
-  const applyError = (err: Error | unknown): void => {
+  const applyError = (err: Error | unknown, expectedEpoch?: number): void => {
+    if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
     const message = err instanceof Error ? err.message : String(err)
     messages.value.push({
       id: uuid(),
@@ -1559,6 +2290,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const reset = (): void => {
+    invalidateSession()
     availableAgents.value = []
     recentSessions.value = []
     currentAgent.value = null
@@ -1587,6 +2319,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     sessionStorage.removeItem('agentChat:currentSessionId')
   }
 
+  // Pinia setup stores run in an effect scope. reset() covers normal chat/view
+  // replacement, while this guard also releases the timer and DOM listener when
+  // Pinia itself disposes the store (logout, test teardown, or app teardown).
+  onScopeDispose(() => {
+    invalidateSession()
+  })
+
   return {
     ensureCurrentRun,
     availableAgents,
@@ -1612,6 +2351,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isRunning,
     isWaitingForUser,
     isWaitingForAuth,
+    isQueuedExternalContinuationActive,
+    isWaitingForExternalAction,
     hasActiveToolCall,
     activeCodeStream,
     toolGroups,
@@ -1630,9 +2371,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     renameSession,
     deleteSession,
     reset,
+    beginSession,
+    currentSessionEpoch,
+    isCurrentSessionEpoch,
     appendUserMessage,
     applyStreamEvent,
     applyError,
-    markQuestionAnswered
+    markQuestionAnswered,
+    resumeFeishuOperation
   }
 })

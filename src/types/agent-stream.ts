@@ -8,6 +8,8 @@
  * enabling direct JSON deserialization without any case conversion.
  */
 
+import type { FeishuActionPhase } from '@/api/feishu'
+
 // ---------------------------------------------------------------------------
 // Event type discriminant
 // ---------------------------------------------------------------------------
@@ -25,6 +27,7 @@ export type AgentStreamEventType =
   | 'step_done'
   | 'state_change'
   | 'question_prompt'
+  | 'external_action'
   | 'terminal'
   | 'error'
   | 'ping'
@@ -51,6 +54,14 @@ export interface AgentStreamEvent<T = unknown> {
 // ---------------------------------------------------------------------------
 // Payload interfaces (one per non-ping EventType)
 // ---------------------------------------------------------------------------
+
+/** stream_start — canonical identifiers for the stream the server accepted. */
+export interface StreamStartPayload {
+  /** Stable server-owned session id (normally an RFC 4122 UUID). */
+  session_id: string
+  /** Must match the envelope run_id; protects the route/session ownership bind. */
+  run_id: number
+}
 
 /** token_delta — LLM text increment (highest-frequency event) */
 export interface TokenDeltaPayload {
@@ -165,6 +176,19 @@ export interface QuestionPromptPayload {
   auth_url?: string
 }
 
+/**
+ * Safe browser projection of the live external-action event. Backend events
+ * also carry internal routing fields, but the frontend never retains or
+ * exposes them. The URL is transient and is not part of a restored snapshot.
+ */
+export interface ExternalActionPayload {
+  operation_id: string
+  session_id: string
+  phase: FeishuActionPhase
+  url?: string
+  expires_at: string
+}
+
 /** terminal — stream ended (success or failure) */
 export interface TerminalPayload {
   /** TerminalReason enum value */
@@ -191,6 +215,7 @@ export interface ErrorPayload {
 // ---------------------------------------------------------------------------
 
 export type TokenDeltaEvent = AgentStreamEvent<TokenDeltaPayload>
+export type StreamStartEvent = AgentStreamEvent<StreamStartPayload>
 export type ReasoningDeltaEvent = AgentStreamEvent<ReasoningDeltaPayload>
 export type AssistantMessageEvent = AgentStreamEvent<AssistantMessagePayload>
 export type ToolCallStartEvent = AgentStreamEvent<ToolCallStartPayload>
@@ -201,6 +226,7 @@ export type ToolCallErrorEvent = AgentStreamEvent<ToolCallErrorPayload>
 export type StepDoneEvent = AgentStreamEvent<StepDonePayload>
 export type StateChangeEvent = AgentStreamEvent<StateChangePayload>
 export type QuestionPromptEvent = AgentStreamEvent<QuestionPromptPayload>
+export type ExternalActionEvent = AgentStreamEvent<ExternalActionPayload>
 export type TerminalEvent = AgentStreamEvent<TerminalPayload>
 export type ErrorEvent = AgentStreamEvent<ErrorPayload>
 
