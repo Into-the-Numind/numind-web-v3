@@ -32,6 +32,8 @@ vi.mock('@/api/feishu', () => ({
 import * as api from '@/api/agent'
 import * as feishuAPI from '@/api/feishu'
 
+const TEST_NOW = new Date('2026-07-14T00:00:00Z')
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
@@ -97,6 +99,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
   vi.useFakeTimers()
+  vi.setSystemTime(TEST_NOW)
 })
 
 describe('agentChat session epoch', () => {
