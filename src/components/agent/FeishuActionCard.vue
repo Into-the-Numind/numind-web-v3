@@ -97,7 +97,7 @@ const statusText = computed<string>(() => {
   if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
   if (expired.value) return '链接已过期，请重新生成后继续。'
   if (props.action.action_status === 'completed') return '授权步骤已完成，正在继续原任务。'
-  if (props.action.action_status === 'terminal') return '此操作已结束，请根据对话中的最新提示继续。'
+  if (props.action.action_status === 'terminal') return '原飞书任务已结束，请重新发送原指令。'
   if (missingLink.value) return '当前链接不可用，请重新生成链接后继续。'
   return ''
 })

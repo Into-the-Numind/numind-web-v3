@@ -17,6 +17,7 @@ import {
   type FeishuConnectionState,
   type FeishuConnectResult,
   type FeishuExternalAction,
+  type FeishuRefreshResult,
   type FeishuStatusAction
 } from '@/api/feishu'
 
@@ -108,13 +109,13 @@ export const useFeishuStore = defineStore('feishu', () => {
     }
   }
 
-  async function refreshAction(sessionId: string): Promise<FeishuExternalAction> {
+  async function refreshAction(sessionId: string): Promise<FeishuRefreshResult> {
     refreshingAction.value = true
     error.value = ''
     try {
-      const action = await refreshFeishuAction(sessionId)
-      liveAction.value = action
-      return action
+      const result = await refreshFeishuAction(sessionId)
+      if (result.action) liveAction.value = result.action
+      return result
     } catch (cause) {
       error.value = userFacingError(cause, '刷新飞书授权链接失败')
       throw cause

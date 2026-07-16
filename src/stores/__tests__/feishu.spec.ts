@@ -59,11 +59,13 @@ describe('feishu workspace store', () => {
 
   it('refreshes by session ID and clears connection metadata after unbind', async () => {
     vi.mocked(api.refreshFeishuAction).mockResolvedValue({
-      operation_id: 'op-1',
-      session_id: 'session-2',
-      phase: 'user_auth',
-      url: 'https://safe.example/refreshed',
-      expires_at: '2026-07-15T01:00:00Z'
+      action: {
+        operation_id: 'op-1',
+        session_id: 'session-2',
+        phase: 'user_auth',
+        url: 'https://safe.example/refreshed',
+        expires_at: '2026-07-15T01:00:00Z'
+      }
     })
     vi.mocked(api.unbindFeishuConnection).mockResolvedValue({
       state: 'none',
@@ -80,6 +82,19 @@ describe('feishu workspace store', () => {
     expect(api.refreshFeishuAction).toHaveBeenCalledWith('session-1')
     expect(store.connected).toBe(false)
     expect(store.appIdMasked).toBe('')
+    expect(store.activeAction).toBeNull()
+  })
+
+  it('does not cache a terminal refresh result as a live action', async () => {
+    vi.mocked(api.refreshFeishuAction).mockResolvedValue({
+      terminal: { operation_id: 'op-terminal', state: 'failed' }
+    })
+    const store = useFeishuStore()
+
+    await expect(store.refreshAction('session-stale')).resolves.toEqual({
+      terminal: { operation_id: 'op-terminal', state: 'failed' }
+    })
+
     expect(store.activeAction).toBeNull()
   })
 })

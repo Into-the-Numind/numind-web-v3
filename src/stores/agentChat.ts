@@ -659,7 +659,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const settleExternalAction = (
     operationID: string,
     status: ExternalActionStatus,
-    runID?: number
+    runID?: number,
+    eligibleStatuses: readonly ExternalActionStatus[] = ['pending']
   ): void => {
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
@@ -667,7 +668,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         message.type !== 'external_action' ||
         message.operation_id !== operationID ||
         (runID !== undefined && message.run_id !== runID) ||
-        message.action_status !== 'pending'
+        !eligibleStatuses.includes(message.action_status)
       ) {
         continue
       }
@@ -678,6 +679,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       messages.value[index] = settled
     }
     if (!hasPendingExternalAction()) stopExternalActionPolling()
+  }
+
+  const settleFeishuTerminalOperation = (operationID: string, runID?: number): void => {
+    settleExternalAction(operationID, 'terminal', runID, ['pending', 'expired'])
   }
 
   const settlePendingExternalActionsForRun = (
@@ -2378,6 +2383,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     applyStreamEvent,
     applyError,
     markQuestionAnswered,
-    resumeFeishuOperation
+    resumeFeishuOperation,
+    settleFeishuTerminalOperation
   }
 })

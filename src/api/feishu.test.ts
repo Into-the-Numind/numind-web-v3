@@ -71,16 +71,30 @@ describe('personal Feishu workspace API', () => {
   it('refreshes an authorization action with the session ID in the path only', async () => {
     mockedRequest.post.mockResolvedValue({
       data: {
-        operation_id: 'op-1',
-        session_id: 'session-1',
-        phase: 'user_auth',
-        url: 'https://safe.example/authorize',
-        expires_at: '2026-07-15T00:00:00Z'
+        action: {
+          operation_id: 'op-1',
+          session_id: 'session-1',
+          phase: 'user_auth',
+          url: 'https://safe.example/authorize',
+          expires_at: '2026-07-15T00:00:00Z'
+        }
       }
     })
 
-    await refreshFeishuAction('session-1')
+    await expect(refreshFeishuAction('session-1')).resolves.toMatchObject({
+      action: { operation_id: 'op-1', session_id: 'session-1' }
+    })
     expect(mockedRequest.post).toHaveBeenCalledWith('/v1/feishu/actions/session-1/refresh')
+  })
+
+  it('returns a terminal refresh result without authorization fields', async () => {
+    mockedRequest.post.mockResolvedValue({
+      data: { terminal: { operation_id: 'op-terminal', state: 'failed' } }
+    })
+
+    await expect(refreshFeishuAction('session-stale')).resolves.toEqual({
+      terminal: { operation_id: 'op-terminal', state: 'failed' }
+    })
   })
 
   it('loads status and unbinds through the shared request client', async () => {

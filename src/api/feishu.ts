@@ -95,6 +95,17 @@ export interface FeishuOperationResult {
   action?: Omit<FeishuExternalAction, 'url'>
 }
 
+export interface FeishuRefreshTerminal {
+  operation_id: string
+  state: Extract<FeishuOperationState, 'succeeded' | 'failed' | 'unknown' | 'cancelled'>
+}
+
+/** Refresh returns either a new live action or the linked operation's terminal state. */
+export interface FeishuRefreshResult {
+  action?: FeishuExternalAction
+  terminal?: FeishuRefreshTerminal
+}
+
 export type FeishuResumeAction = 'user_completed' | 'confirmed' | 'cancelled'
 
 export interface FeishuUnbindResult {
@@ -133,8 +144,8 @@ export async function resumeFeishuOperation(
 }
 
 /** Replace a server-owned authorization session. No body is accepted. */
-export async function refreshFeishuAction(sessionId: string): Promise<FeishuExternalAction> {
-  const { data } = await request.post<FeishuExternalAction>(
+export async function refreshFeishuAction(sessionId: string): Promise<FeishuRefreshResult> {
+  const { data } = await request.post<FeishuRefreshResult>(
     `/v1/feishu/actions/${encodeURIComponent(sessionId)}/refresh`
   )
   return data

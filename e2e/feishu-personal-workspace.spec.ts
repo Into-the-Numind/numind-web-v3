@@ -139,10 +139,14 @@ async function installLifecycleMocks(
 
   await page.route('**/v1/feishu/actions/*/refresh', async (route) => {
     capture.refreshBodies.push(route.request().postData())
+    const result =
+      refreshedAction && 'terminal' in refreshedAction
+        ? refreshedAction
+        : { action: refreshedAction ?? initialAction }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ code: 0, message: 'ok', data: refreshedAction ?? initialAction })
+      body: JSON.stringify({ code: 0, message: 'ok', data: result })
     })
   })
 
