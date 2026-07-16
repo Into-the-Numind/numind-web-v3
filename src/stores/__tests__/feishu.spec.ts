@@ -57,7 +57,7 @@ describe('feishu workspace store', () => {
     expect(JSON.stringify(store.$state)).not.toContain('https://safe.example/authorize')
   })
 
-  it('refreshes by session ID and clears connection metadata after unbind', async () => {
+  it('returns a refreshed action without mutating shared connection state', async () => {
     vi.mocked(api.refreshFeishuAction).mockResolvedValue({
       action: {
         operation_id: 'op-1',
@@ -77,6 +77,9 @@ describe('feishu workspace store', () => {
     store.appIdMasked = 'cli_****8f2a'
     store.connected = true
     await store.refreshAction('session-1')
+
+    expect(store.activeAction).toBeNull()
+
     await store.disconnect()
 
     expect(api.refreshFeishuAction).toHaveBeenCalledWith('session-1')
