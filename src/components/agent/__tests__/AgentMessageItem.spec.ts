@@ -298,6 +298,61 @@ describe('AgentMessageItem', () => {
       })
     })
 
+    it('settles the exact stale action when refresh reports a terminal operation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      agentStore.beginSession('route-terminal-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-terminal-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        terminal: { operation_id: msg.operation_id, state: 'failed' }
+      } as never)
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStore.messages[0]).toMatchObject({
+        type: 'external_action',
+        operation_id: msg.operation_id,
+        action_status: 'terminal'
+      })
+      expect(agentStore.messages[0]).not.toHaveProperty('url')
+    })
+
+    it('ignores a terminal refresh result for a different operation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      agentStore.beginSession('route-mismatched-terminal-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-mismatched-terminal-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        terminal: { operation_id: 'op-other', state: 'failed' }
+      } as never)
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStore.messages).toEqual([msg])
+    })
+
     it('does not revive a refresh response after the route session epoch changes', async () => {
       const agentStore = useAgentChatStore()
       const feishuStore = useFeishuStore()

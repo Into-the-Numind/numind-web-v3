@@ -28,6 +28,13 @@ interface LifecycleCapture {
   ordinaryAnswerRequests: Request[]
 }
 
+interface TerminalRefreshFixture {
+  terminal: {
+    operation_id: string
+    state: 'failed'
+  }
+}
+
 const FUTURE_ACTION: ActionFixture = {
   operation_id: 'feishu-operation-e2e-301',
   session_id: 'feishu-auth-session-e2e-301',
@@ -90,7 +97,7 @@ async function installLifecycleMocks(
   page: Page,
   runId: number,
   initialAction: ActionFixture,
-  refreshedAction?: ActionFixture
+  refreshedAction?: ActionFixture | TerminalRefreshFixture
 ): Promise<LifecycleCapture> {
   const capture: LifecycleCapture = {
     resumeBodies: [],
@@ -217,5 +224,37 @@ test.describe('personal Feishu workspace', () => {
     await card.getByTestId('feishu-continue').click()
     await expect.poll(() => capture.resumeBodies).toEqual([{ action: 'user_completed' }])
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
+  })
+
+  test('mobile: a terminal refresh closes the stale card without replaying the Agent task', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const expiredAction: ActionFixture = {
+      ...FUTURE_ACTION,
+      operation_id: 'feishu-operation-e2e-303',
+      session_id: 'feishu-auth-session-e2e-303',
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
+      url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=expired-e2e-303'
+    }
+    const capture = await installLifecycleMocks(page, 303, expiredAction, {
+      terminal: { operation_id: expiredAction.operation_id, state: 'failed' }
+    })
+
+    await openAgentConversation(page, '把客户分析写入飞书文档')
+
+    const card = page.getByTestId('feishu-action-card')
+    await expect(card).toContainText('链接已过期，请重新生成后继续。')
+    await card.getByTestId('feishu-refresh').click()
+
+    await expect.poll(() => capture.refreshBodies.length).toBe(1)
+    expect(capture.refreshBodies[0]).toBeNull()
+    await expect(card).toContainText('原飞书任务已结束，请重新发送原指令。')
+    await expect(card.getByTestId('feishu-refresh')).toHaveCount(0)
+    await expect(card.getByTestId('feishu-continue')).toHaveCount(0)
+    expect(capture.ordinaryAnswerRequests).toHaveLength(0)
+
+    await page.waitForTimeout(100)
+    expect(capture.refreshBodies).toHaveLength(1)
   })
 })
