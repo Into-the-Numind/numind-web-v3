@@ -1,16 +1,37 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AgentRunPulse from '../AgentRunPulse.vue'
 import { silenceLadder } from '@/utils/agentRunPulse'
 import { useAgentChatStore } from '@/stores/agentChat'
 import type { AgentRun, AgentMessage } from '@/types/agent'
+import type { AgentStreamEvent } from '@/types/agent-stream'
+
+const { mockStreamAgentRun } = vi.hoisted(() => ({
+  mockStreamAgentRun: vi.fn<
+    [Record<string, unknown>, (event: AgentStreamEvent) => void, AbortSignal | undefined],
+    Promise<void>
+  >()
+}))
 
 vi.mock('@/api/agent', () => ({
   fetchNarrationEvents: vi.fn(),
   getRun: vi.fn(),
   getSessionSnapshot: vi.fn()
 }))
+
+vi.mock('@/api/agent-stream', () => ({
+  streamAgentRun: (...args: Parameters<typeof mockStreamAgentRun>) => mockStreamAgentRun(...args),
+  answerAndResumeStream: vi.fn()
+}))
+
+vi.mock('@/composables/useAgentRun', () => ({
+  useAgentRun: () => ({
+    startStatusPolling: vi.fn()
+  })
+}))
+
+import { useAgentStream } from '@/composables/useAgentStream'
 
 const runningRun = (extra: Partial<AgentRun> = {}): AgentRun =>
   ({
@@ -29,7 +50,10 @@ const runningRun = (extra: Partial<AgentRun> = {}): AgentRun =>
 const streamingAssistant = (): AgentMessage =>
   ({ id: 'a', type: 'assistant', markdown: 'x', isStreaming: true, timestamp: '' }) as AgentMessage
 
-beforeEach(() => setActivePinia(createPinia()))
+beforeEach(() => {
+  setActivePinia(createPinia())
+  vi.clearAllMocks()
+})
 
 describe('silenceLadder', () => {
   it('escalates honestly, never claims progress', () => {
@@ -51,6 +75,29 @@ describe('AgentRunPulse — inline live line (relay)', () => {
     store.currentRun = runningRun()
     const w = mount(AgentRunPulse)
     expect(w.find('.run-pulse').exists()).toBe(true)
+  })
+
+  it('shows immediately after send while the stream has not emitted stream_start yet', async () => {
+    let finishStream!: () => void
+    mockStreamAgentRun.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishStream = resolve
+        })
+    )
+
+    const store = useAgentChatStore()
+    const stream = useAgentStream()
+    const pending = stream.start({ agent_skill_id: 1, input_text: '创建飞书文档' })
+    await flushPromises()
+
+    expect(store.currentRun).toBeNull()
+    const w = mount(AgentRunPulse)
+    expect(w.find('.run-pulse').exists()).toBe(true)
+    expect(w.find('.word').text()).toBe('处理中…')
+
+    finishStream()
+    await pending
   })
 
   it('yields (hidden) when the last message is actively streaming — caret relay', () => {
