@@ -131,9 +131,35 @@ describe('FeishuActionCard', () => {
       })
     })
 
-    expect(wrapper.text()).toContain('此操作已结束')
+    expect(wrapper.text()).toContain('原飞书任务已结束，请根据最新状态决定下一步。')
+    expect(wrapper.text()).not.toContain('重新发送原指令')
     expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
+  })
+
+  it.each([
+    ['failed', '原飞书任务已结束，请重新发送原指令。'],
+    ['unknown', '原飞书操作结果未知，请先在飞书中核对后再试。'],
+    ['cancelled', '原飞书操作已取消。']
+  ] as const)('renders a safe %s terminal instruction', (terminalState, expected) => {
+    const action = Object.assign(createAction({ action_status: 'terminal' }), {
+      terminal_state: terminalState
+    })
+    const wrapper = mountCard({ action })
+
+    expect(wrapper.text()).toContain(expected)
+    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
+  })
+
+  it('does not tell the user to replay a succeeded operation', () => {
+    const action = Object.assign(createAction({ action_status: 'completed' }), {
+      terminal_state: 'succeeded' as const
+    })
+    const wrapper = mountCard({ action })
+
+    expect(wrapper.text()).toContain('飞书操作已完成，正在继续原任务。')
+    expect(wrapper.text()).not.toContain('重新发送原指令')
   })
 
   it('treats an expired confirmation as terminal and never refreshes its operation id', () => {

@@ -95,6 +95,16 @@ export interface FeishuOperationResult {
   action?: Omit<FeishuExternalAction, 'url'>
 }
 
+export interface FeishuRefreshTerminal {
+  operation_id: string
+  state: Extract<FeishuOperationState, 'succeeded' | 'failed' | 'unknown' | 'cancelled'>
+}
+
+/** Refresh returns exactly one new live action or linked terminal state. */
+export type FeishuRefreshResult =
+  | { action: FeishuExternalAction; terminal?: never }
+  | { action?: never; terminal: FeishuRefreshTerminal }
+
 export type FeishuResumeAction = 'user_completed' | 'confirmed' | 'cancelled'
 
 export interface FeishuUnbindResult {
@@ -133,11 +143,48 @@ export async function resumeFeishuOperation(
 }
 
 /** Replace a server-owned authorization session. No body is accepted. */
-export async function refreshFeishuAction(sessionId: string): Promise<FeishuExternalAction> {
-  const { data } = await request.post<FeishuExternalAction>(
+export async function refreshFeishuAction(sessionId: string): Promise<FeishuRefreshResult> {
+  const { data } = await request.post<unknown>(
     `/v1/feishu/actions/${encodeURIComponent(sessionId)}/refresh`
   )
+  if (!isFeishuRefreshResult(data)) {
+    throw new Error('飞书操作已更新，请使用对话中的最新步骤。')
+  }
   return data
+}
+
+function isFeishuRefreshResult(value: unknown): value is FeishuRefreshResult {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  const hasAction = record.action !== undefined && record.action !== null
+  const hasTerminal = record.terminal !== undefined && record.terminal !== null
+  if (hasAction === hasTerminal) return false
+
+  if (hasAction) {
+    const action = record.action
+    if (!action || typeof action !== 'object' || Array.isArray(action)) return false
+    const candidate = action as Record<string, unknown>
+    return (
+      typeof candidate.operation_id === 'string' &&
+      candidate.operation_id.trim() !== '' &&
+      typeof candidate.session_id === 'string' &&
+      candidate.session_id.trim() !== '' &&
+      typeof candidate.phase === 'string' &&
+      ['create_app', 'app_scope', 'user_auth', 'confirmation'].includes(candidate.phase) &&
+      typeof candidate.expires_at === 'string' &&
+      (candidate.url === undefined || typeof candidate.url === 'string')
+    )
+  }
+
+  const terminal = record.terminal
+  if (!terminal || typeof terminal !== 'object' || Array.isArray(terminal)) return false
+  const candidate = terminal as Record<string, unknown>
+  return (
+    typeof candidate.operation_id === 'string' &&
+    candidate.operation_id.trim() !== '' &&
+    typeof candidate.state === 'string' &&
+    ['succeeded', 'failed', 'unknown', 'cancelled'].includes(candidate.state)
+  )
 }
 
 /** Remove the Numind-side workspace connection; the remote app remains owned by the user. */

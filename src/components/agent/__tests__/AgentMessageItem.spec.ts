@@ -5,6 +5,7 @@ import AgentMessageItem from '../AgentMessageItem.vue'
 import { useAgentChatStore } from '@/stores/agentChat'
 import { useFeishuStore } from '@/stores/feishu'
 import type { AgentMessage } from '@/types/agent'
+import type { FeishuRefreshResult } from '@/api/feishu'
 
 const ts = '2026-05-21T10:00:00Z'
 
@@ -278,11 +279,13 @@ describe('AgentMessageItem', () => {
       } as never
       agentStore.messages = [msg]
       vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
-        operation_id: msg.operation_id,
-        session_id: 'session-2',
-        phase: 'user_auth',
-        expires_at: new Date(Date.now() + 120_000).toISOString(),
-        url: 'https://open.feishu.cn/authorize?opaque=fresh'
+        action: {
+          operation_id: msg.operation_id,
+          session_id: 'session-2',
+          phase: 'user_auth',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/authorize?opaque=fresh'
+        }
       })
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
 
@@ -296,6 +299,106 @@ describe('AgentMessageItem', () => {
         session_id: 'session-2',
         url: 'https://open.feishu.cn/authorize?opaque=fresh'
       })
+    })
+
+    it('settles the exact stale action when refresh reports a terminal operation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      msg.action_status = 'expired'
+      msg.expires_at = new Date(Date.now() - 60_000).toISOString()
+      agentStore.beginSession('route-terminal-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-terminal-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        terminal: { operation_id: msg.operation_id, state: 'failed' }
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStore.messages[0]).toMatchObject({
+        type: 'external_action',
+        operation_id: msg.operation_id,
+        action_status: 'terminal'
+      })
+      expect(agentStore.messages[0]).not.toHaveProperty('url')
+      expect(agentStore.currentRun).toMatchObject({
+        id: msg.run_id,
+        status: 'cancelled',
+        state_reason: 'aborted_tools'
+      })
+    })
+
+    it('keeps observing the exact Agent run when refresh reports a succeeded operation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      msg.action_status = 'expired'
+      msg.expires_at = new Date(Date.now() - 60_000).toISOString()
+      agentStore.beginSession('route-succeeded-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-succeeded-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        terminal: { operation_id: msg.operation_id, state: 'succeeded' }
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStore.messages[0]).toMatchObject({
+        type: 'external_action',
+        operation_id: msg.operation_id,
+        action_status: 'completed',
+        terminal_state: 'succeeded'
+      })
+      expect(agentStore.currentRun).toMatchObject({
+        id: msg.run_id,
+        status: 'running',
+        state_reason: 'external_resume_ready'
+      })
+      expect(agentStore.isQueuedExternalContinuationActive).toBe(true)
+    })
+
+    it('ignores a terminal refresh result for a different operation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      agentStore.beginSession('route-mismatched-terminal-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-mismatched-terminal-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        terminal: { operation_id: 'op-other', state: 'failed' }
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStore.messages).toEqual([msg])
     })
 
     it('does not revive a refresh response after the route session epoch changes', async () => {
@@ -312,13 +415,7 @@ describe('AgentMessageItem', () => {
         updated_at: ''
       } as never
       agentStore.messages = [msg]
-      let resolveRefresh!: (action: {
-        operation_id: string
-        session_id: string
-        phase: 'user_auth'
-        expires_at: string
-        url: string
-      }) => void
+      let resolveRefresh!: (result: FeishuRefreshResult) => void
       vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
         new Promise((resolve) => {
           resolveRefresh = resolve
@@ -329,11 +426,13 @@ describe('AgentMessageItem', () => {
       await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
       agentStore.beginSession('route-after-refresh')
       resolveRefresh({
-        operation_id: msg.operation_id,
-        session_id: 'session-fresh',
-        phase: 'user_auth',
-        expires_at: new Date(Date.now() + 120_000).toISOString(),
-        url: 'https://open.feishu.cn/authorize?opaque=stale'
+        action: {
+          operation_id: msg.operation_id,
+          session_id: 'session-fresh',
+          phase: 'user_auth',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/authorize?opaque=stale'
+        }
       })
       await flushPromises()
 
@@ -354,13 +453,7 @@ describe('AgentMessageItem', () => {
         updated_at: ''
       } as never
       agentStore.messages = [msg]
-      let resolveRefresh!: (action: {
-        operation_id: string
-        session_id: string
-        phase: 'user_auth'
-        expires_at: string
-        url: string
-      }) => void
+      let resolveRefresh!: (result: FeishuRefreshResult) => void
       vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
         new Promise((resolve) => {
           resolveRefresh = resolve
@@ -378,11 +471,13 @@ describe('AgentMessageItem', () => {
       agentStore.messages = [replacement]
       await wrapper.setProps({ msg: replacement })
       resolveRefresh({
-        operation_id: msg.operation_id,
-        session_id: 'session-fresh',
-        phase: 'user_auth',
-        expires_at: new Date(Date.now() + 120_000).toISOString(),
-        url: 'https://open.feishu.cn/authorize?opaque=stale'
+        action: {
+          operation_id: msg.operation_id,
+          session_id: 'session-fresh',
+          phase: 'user_auth',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/authorize?opaque=stale'
+        }
       })
       await flushPromises()
 
@@ -408,13 +503,7 @@ describe('AgentMessageItem', () => {
           updated_at: ''
         } as never
         agentStore.messages = [msg]
-        let resolveRefresh!: (action: {
-          operation_id: string
-          session_id: string
-          phase: 'user_auth'
-          expires_at: string
-          url: string
-        }) => void
+        let resolveRefresh!: (result: FeishuRefreshResult) => void
         vi.spyOn(feishuStore, 'refreshAction').mockReturnValue(
           new Promise((resolve) => {
             resolveRefresh = resolve
@@ -436,11 +525,13 @@ describe('AgentMessageItem', () => {
         expect(settled).not.toHaveProperty('url')
 
         resolveRefresh({
-          operation_id: msg.operation_id,
-          session_id: 'session-fresh',
-          phase: 'user_auth',
-          expires_at: new Date(Date.now() + 120_000).toISOString(),
-          url: 'https://open.feishu.cn/authorize?opaque=stale'
+          action: {
+            operation_id: msg.operation_id,
+            session_id: 'session-fresh',
+            phase: 'user_auth',
+            expires_at: new Date(Date.now() + 120_000).toISOString(),
+            url: 'https://open.feishu.cn/authorize?opaque=stale'
+          }
         })
         await flushPromises()
 

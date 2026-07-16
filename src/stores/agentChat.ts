@@ -20,6 +20,7 @@ import {
   type FeishuActionPhase,
   type FeishuExternalAction,
   type FeishuOperationResult,
+  type FeishuRefreshTerminal,
   type FeishuResumeAction
 } from '@/api/feishu'
 import type {
@@ -659,7 +660,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const settleExternalAction = (
     operationID: string,
     status: ExternalActionStatus,
-    runID?: number
+    runID?: number,
+    eligibleStatuses: readonly ExternalActionStatus[] = ['pending'],
+    terminalState?: FeishuRefreshTerminal['state']
   ): void => {
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
@@ -667,7 +670,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         message.type !== 'external_action' ||
         message.operation_id !== operationID ||
         (runID !== undefined && message.run_id !== runID) ||
-        message.action_status !== 'pending'
+        !eligibleStatuses.includes(message.action_status)
       ) {
         continue
       }
@@ -675,9 +678,49 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // wait has ended. The resumed original tool call is the source of truth.
       const settled: ExternalActionMessage = { ...message, action_status: status }
       delete settled.url
+      if (terminalState) settled.terminal_state = terminalState
+      else delete settled.terminal_state
       messages.value[index] = settled
     }
     if (!hasPendingExternalAction()) stopExternalActionPolling()
+  }
+
+  const settleFeishuTerminalOperation = (
+    operationID: string,
+    state: FeishuRefreshTerminal['state'],
+    runID?: number
+  ): void => {
+    if (state === 'succeeded') {
+      settleExternalAction(operationID, 'completed', runID, ['pending', 'expired'], state)
+      if (
+        runID !== undefined &&
+        currentRun.value?.id === runID &&
+        !isTerminalStatus(currentRun.value.status)
+      ) {
+        currentRun.value = {
+          ...currentRun.value,
+          status: 'running',
+          state_reason: EXTERNAL_RESUME_READY_STATE
+        }
+        stuckSince.value = null
+      }
+      return
+    }
+
+    settleExternalAction(operationID, 'terminal', runID, ['pending', 'expired'], state)
+    if (
+      runID !== undefined &&
+      currentRun.value?.id === runID &&
+      !isTerminalStatus(currentRun.value.status)
+    ) {
+      currentRun.value = {
+        ...currentRun.value,
+        status: statusFromTerminalReason('aborted_tools'),
+        state_reason: 'aborted_tools'
+      }
+      stuckSince.value = null
+      finalizeToolGroups()
+    }
   }
 
   const settlePendingExternalActionsForRun = (
@@ -1224,14 +1267,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
     const result = await resumeFeishuLifecycleOperation(operationID, action)
     if (!isCurrentSessionEpoch(epoch)) return result
+    if (result.operation_id !== operationID) {
+      throw new Error('飞书授权步骤已更新，请使用最新链接')
+    }
     switch (result.state) {
       case 'succeeded':
-        settleExternalAction(operationID, 'completed')
+        settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
         break
       case 'failed':
       case 'unknown':
       case 'cancelled':
-        settleExternalAction(operationID, 'terminal')
+        settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
         break
       default:
         if (result.action) updatePendingExternalAction(operationID, result.action)
@@ -2378,6 +2424,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     applyStreamEvent,
     applyError,
     markQuestionAnswered,
-    resumeFeishuOperation
+    resumeFeishuOperation,
+    settleFeishuTerminalOperation
   }
 })

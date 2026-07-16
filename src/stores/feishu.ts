@@ -17,6 +17,7 @@ import {
   type FeishuConnectionState,
   type FeishuConnectResult,
   type FeishuExternalAction,
+  type FeishuRefreshResult,
   type FeishuStatusAction
 } from '@/api/feishu'
 
@@ -108,13 +109,14 @@ export const useFeishuStore = defineStore('feishu', () => {
     }
   }
 
-  async function refreshAction(sessionId: string): Promise<FeishuExternalAction> {
+  async function refreshAction(sessionId: string): Promise<FeishuRefreshResult> {
     refreshingAction.value = true
     error.value = ''
     try {
-      const action = await refreshFeishuAction(sessionId)
-      liveAction.value = action
-      return action
+      // The caller owns route/session identity across this async boundary.
+      // Returning the tagged result without touching shared connection state
+      // prevents a late response from an old Agent card replacing a newer URL.
+      return await refreshFeishuAction(sessionId)
     } catch (cause) {
       error.value = userFacingError(cause, '刷新飞书授权链接失败')
       throw cause

@@ -96,8 +96,25 @@ const statusText = computed<string>(() => {
   if (confirmation.value && expired.value) return '确认已过期，请重新发起。'
   if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
   if (expired.value) return '链接已过期，请重新生成后继续。'
-  if (props.action.action_status === 'completed') return '授权步骤已完成，正在继续原任务。'
-  if (props.action.action_status === 'terminal') return '此操作已结束，请根据对话中的最新提示继续。'
+  if (props.action.action_status === 'completed') {
+    return props.action.terminal_state === 'succeeded'
+      ? '飞书操作已完成，正在继续原任务。'
+      : '授权步骤已完成，正在继续原任务。'
+  }
+  if (props.action.action_status === 'terminal') {
+    switch (props.action.terminal_state) {
+      case 'failed':
+        return '原飞书任务已结束，请重新发送原指令。'
+      case 'unknown':
+        return '原飞书操作结果未知，请先在飞书中核对后再试。'
+      case 'cancelled':
+        return '原飞书操作已取消。'
+      case 'succeeded':
+        return '飞书操作已完成，正在继续原任务。'
+      default:
+        return '原飞书任务已结束，请根据最新状态决定下一步。'
+    }
+  }
   if (missingLink.value) return '当前链接不可用，请重新生成链接后继续。'
   return ''
 })

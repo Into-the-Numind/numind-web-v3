@@ -190,10 +190,21 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
     ) {
       return
     }
+    const hasAction = !!refreshed.action
+    const hasTerminal = !!refreshed.terminal
+    if (hasAction === hasTerminal) {
+      throw new Error('飞书操作已更新，请使用对话中的最新步骤。')
+    }
+    if (refreshed.terminal) {
+      if (refreshed.terminal.operation_id !== operationID) return
+      store.settleFeishuTerminalOperation(operationID, refreshed.terminal.state, runID)
+      return
+    }
+    const refreshedAction = refreshed.action
     // Refresh replaces a URL for this same durable operation. Route the result
     // through the existing allowlisted stream reducer so the original message is
     // updated in place and no user bubble or ordinary answer is ever created.
-    if (refreshed.operation_id !== operationID) {
+    if (!refreshedAction || refreshedAction.operation_id !== operationID) {
       throw new Error('飞书操作已更新，请使用对话中的最新步骤。')
     }
     store.applyStreamEvent({
@@ -201,7 +212,7 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
       seq: externalAction.seq ?? 0,
       ts: new Date().toISOString(),
       run_id: runID,
-      data: { provider: 'lark', ...refreshed }
+      data: { provider: 'lark', ...refreshedAction }
     }, sessionEpoch)
   } catch (error) {
     feishuActionError.value = externalActionErrorMessage(error, '暂时无法刷新飞书链接，请稍后重试。')
