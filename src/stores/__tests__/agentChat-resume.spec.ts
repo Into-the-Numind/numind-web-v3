@@ -417,6 +417,14 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
 
   it('resumes a Feishu operation through its lifecycle API, never the normal answer path', async () => {
     const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as never
     store.messages = [
       {
         id: 'external-action-148',
@@ -440,10 +448,59 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledWith('op-1', 'user_completed')
     expect(store.messages[0]).toMatchObject({
       type: 'external_action',
-      action_status: 'completed'
+      action_status: 'completed',
+      terminal_state: 'succeeded'
     })
+    expect(store.currentRun).toMatchObject({
+      id: 148,
+      status: 'running',
+      state_reason: 'external_resume_ready'
+    })
+    expect(store.isQueuedExternalContinuationActive).toBe(true)
     expect(api.postAgentAnswer).not.toHaveBeenCalled()
   })
+
+  it.each(['failed', 'unknown', 'cancelled'] as const)(
+    'terminalizes the exact Agent run when user_completed returns %s',
+    async (state) => {
+      const store = useAgentChatStore()
+      store.currentRun = {
+        id: 148,
+        session_id: 'sess-resume',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      store.messages = [
+        {
+          id: 'external-action-148',
+          type: 'external_action',
+          run_id: 148,
+          operation_id: 'op-terminal',
+          session_id: 'session-terminal',
+          phase: 'user_auth',
+          expires_at: futureExpiry(),
+          action_status: 'pending',
+          timestamp: ''
+        }
+      ] as never
+      vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValue({
+        operation_id: 'op-terminal',
+        state
+      })
+
+      await store.resumeFeishuOperation('op-terminal')
+
+      expect(store.messages[0]).toMatchObject({ action_status: 'terminal', terminal_state: state })
+      expect(store.currentRun).toMatchObject({
+        id: 148,
+        status: 'cancelled',
+        state_reason: 'aborted_tools'
+      })
+      expect(store.isWaitingForExternalAction).toBe(false)
+    }
+  )
 
   it('replaces an old authorization URL with a URL-less successor action and rejects the old operation', async () => {
     vi.useFakeTimers()

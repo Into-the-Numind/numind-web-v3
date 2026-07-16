@@ -338,6 +338,44 @@ describe('AgentMessageItem', () => {
       })
     })
 
+    it('keeps observing the exact Agent run when refresh reports a succeeded operation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      msg.action_status = 'expired'
+      msg.expires_at = new Date(Date.now() - 60_000).toISOString()
+      agentStore.beginSession('route-succeeded-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-succeeded-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        terminal: { operation_id: msg.operation_id, state: 'succeeded' }
+      })
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+      await flushPromises()
+
+      expect(agentStore.messages[0]).toMatchObject({
+        type: 'external_action',
+        operation_id: msg.operation_id,
+        action_status: 'completed',
+        terminal_state: 'succeeded'
+      })
+      expect(agentStore.currentRun).toMatchObject({
+        id: msg.run_id,
+        status: 'running',
+        state_reason: 'external_resume_ready'
+      })
+      expect(agentStore.isQueuedExternalContinuationActive).toBe(true)
+    })
+
     it('ignores a terminal refresh result for a different operation', async () => {
       const agentStore = useAgentChatStore()
       const feishuStore = useFeishuStore()
