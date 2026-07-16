@@ -197,7 +197,7 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
     }
     if (refreshed.terminal) {
       if (refreshed.terminal.operation_id !== operationID) return
-      store.settleFeishuTerminalOperation(operationID, runID)
+      store.settleFeishuTerminalOperation(operationID, refreshed.terminal.state, runID)
       return
     }
     const refreshedAction = refreshed.action

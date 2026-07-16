@@ -1,4 +1,4 @@
-import type { FeishuActionPhase } from '@/api/feishu'
+import type { FeishuActionPhase, FeishuRefreshTerminal } from '@/api/feishu'
 
 // ============================================================
 // Agent Mode — TypeScript types
@@ -287,6 +287,7 @@ export interface ExternalActionMessage extends BaseMessage {
   expires_at: string
   url?: string
   action_status: ExternalActionStatus
+  terminal_state?: FeishuRefreshTerminal['state']
 }
 
 export type AgentMessage =

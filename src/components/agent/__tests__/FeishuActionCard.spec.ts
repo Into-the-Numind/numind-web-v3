@@ -131,7 +131,8 @@ describe('FeishuActionCard', () => {
       })
     })
 
-    expect(wrapper.text()).toContain('原飞书任务已结束，请重新发送原指令。')
+    expect(wrapper.text()).toContain('原飞书任务已结束，请根据最新状态决定下一步。')
+    expect(wrapper.text()).not.toContain('重新发送原指令')
     expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
   })
