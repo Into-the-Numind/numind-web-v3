@@ -31,7 +31,7 @@ interface LifecycleCapture {
 interface TerminalRefreshFixture {
   terminal: {
     operation_id: string
-    state: 'failed'
+    state: 'succeeded' | 'failed' | 'unknown' | 'cancelled'
   }
 }
 
@@ -256,8 +256,10 @@ test.describe('personal Feishu workspace', () => {
     await expect(card).toContainText('原飞书任务已结束，请重新发送原指令。')
     await expect(card.getByTestId('feishu-refresh')).toHaveCount(0)
     await expect(card.getByTestId('feishu-continue')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '取消任务' })).toHaveCount(0)
+    await expect(page.getByText('处理中…', { exact: true })).toHaveCount(0)
+    await expect(page.locator('textarea').first()).toBeEnabled()
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
-
     await page.waitForTimeout(100)
     expect(capture.refreshBodies).toHaveLength(1)
   })

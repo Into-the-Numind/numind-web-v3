@@ -331,6 +331,11 @@ describe('AgentMessageItem', () => {
         action_status: 'terminal'
       })
       expect(agentStore.messages[0]).not.toHaveProperty('url')
+      expect(agentStore.currentRun).toMatchObject({
+        id: msg.run_id,
+        status: 'cancelled',
+        state_reason: 'aborted_tools'
+      })
     })
 
     it('ignores a terminal refresh result for a different operation', async () => {
