@@ -39,9 +39,10 @@ const isTerminal = computed<boolean>(() => {
   return s != null && TERMINAL_STATUSES.includes(s)
 })
 
-const visible = computed<boolean>(
-  () => store.isRunning && !isTerminal.value && !store.isWaitingForUser && !lastMsgStreaming.value
-)
+const visible = computed<boolean>(() => {
+  const active = store.sendingMessage || (store.isRunning && !isTerminal.value)
+  return active && !store.isWaitingForUser && !lastMsgStreaming.value
+})
 
 // 1s ticker drives the silence ladder + the elapsed while visible.
 const nowMs = ref(Date.now())
@@ -66,6 +67,9 @@ const word = computed<string>(() => {
 })
 
 const elapsedText = computed<string>(() => {
+  // Before stream_start, currentRun may still point at the previous completed
+  // run. Do not display that stale run's elapsed time beside the new pending send.
+  if (store.sendingMessage && !store.isRunning) return ''
   const started = store.currentRun?.started_at
   if (!started) return ''
   const ms = Date.parse(started)

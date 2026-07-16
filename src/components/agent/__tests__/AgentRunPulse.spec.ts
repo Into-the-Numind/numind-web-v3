@@ -98,6 +98,8 @@ describe('AgentRunPulse — inline live line (relay)', () => {
 
     finishStream()
     await pending
+    await flushPromises()
+    expect(w.find('.run-pulse').exists()).toBe(false)
   })
 
   it('yields (hidden) when the last message is actively streaming — caret relay', () => {

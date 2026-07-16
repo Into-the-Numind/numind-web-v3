@@ -57,6 +57,11 @@ export function useAgentStream(): UseAgentStreamApi {
     abort.value = new AbortController()
     const sessionEpoch = store.currentSessionEpoch()
 
+    // The backend may take several seconds before its first stream_start frame.
+    // Mark the request as pending locally so the chat can acknowledge the send
+    // immediately instead of leaving an empty assistant area during that gap.
+    store.sendingMessage = true
+
     // Optimistically render the user's bubble before the SSE round-trip
     // (T14 wire commit missed this; the streaming path has no DB echo or
     // user_message SSE event, so without this the bubble never appears).
@@ -76,6 +81,7 @@ export function useAgentStream(): UseAgentStreamApi {
         store.applyError(err, sessionEpoch)
       }
     } finally {
+      if (store.isCurrentSessionEpoch(sessionEpoch)) store.sendingMessage = false
       isStreaming.value = false
     }
   }
