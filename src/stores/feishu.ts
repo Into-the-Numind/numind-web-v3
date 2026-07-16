@@ -113,9 +113,10 @@ export const useFeishuStore = defineStore('feishu', () => {
     refreshingAction.value = true
     error.value = ''
     try {
-      const result = await refreshFeishuAction(sessionId)
-      if (result.action) liveAction.value = result.action
-      return result
+      // The caller owns route/session identity across this async boundary.
+      // Returning the tagged result without touching shared connection state
+      // prevents a late response from an old Agent card replacing a newer URL.
+      return await refreshFeishuAction(sessionId)
     } catch (cause) {
       error.value = userFacingError(cause, '刷新飞书授权链接失败')
       throw cause
