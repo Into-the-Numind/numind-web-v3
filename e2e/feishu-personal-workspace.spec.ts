@@ -178,7 +178,7 @@ test.describe('personal Feishu workspace', () => {
     await card.getByTestId('feishu-continue').click()
 
     await expect.poll(() => capture.resumeBodies).toEqual([{ action: 'user_completed' }])
-    await expect(card).toContainText('授权步骤已完成，正在继续原任务。')
+    await expect(card).toContainText('飞书操作已完成，正在继续原任务。')
     await expect(card.getByTestId('feishu-url')).toHaveCount(0)
 
     // The browser is only allowed to acknowledge a fixed lifecycle transition.
