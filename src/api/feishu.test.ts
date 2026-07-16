@@ -97,6 +97,25 @@ describe('personal Feishu workspace API', () => {
     })
   })
 
+  it('rejects a malformed refresh response before either branch can update UI state', async () => {
+    mockedRequest.post.mockResolvedValue({
+      data: {
+        action: {
+          operation_id: 'op-1',
+          session_id: 'session-2',
+          phase: 'user_auth',
+          url: 'https://safe.example/refreshed',
+          expires_at: '2026-07-15T01:00:00Z'
+        },
+        terminal: { operation_id: 'op-1', state: 'failed' }
+      }
+    })
+
+    await expect(refreshFeishuAction('session-malformed')).rejects.toThrow(
+      '飞书操作已更新，请使用对话中的最新步骤。'
+    )
+  })
+
   it('loads status and unbinds through the shared request client', async () => {
     mockedRequest.get.mockResolvedValue({
       data: {
