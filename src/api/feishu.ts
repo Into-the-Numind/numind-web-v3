@@ -195,7 +195,12 @@ const FEISHU_ACTION_STATE_BY_PHASE: Record<FeishuActionPhase, FeishuOperationSta
   confirmation: 'waiting_confirmation'
 }
 
-const OFFICIAL_FEISHU_ACTION_HOSTS = new Set(['open.feishu.cn', 'open.larksuite.com'])
+const OFFICIAL_FEISHU_ACTION_HOSTS = new Set([
+  'open.feishu.cn',
+  'open.larksuite.com',
+  'accounts.feishu.cn',
+  'accounts.larksuite.com'
+])
 
 function isOfficialFeishuActionURL(value: unknown): value is string {
   if (typeof value !== 'string' || !value || value.trim() !== value) return false

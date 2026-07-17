@@ -77,7 +77,12 @@ function safeActionString(record: Record<string, unknown>, field: string): strin
   return typeof value === 'string' && value.trim() ? value : null
 }
 
-const OFFICIAL_FEISHU_ACTION_HOSTS = new Set(['open.feishu.cn', 'open.larksuite.com'])
+const OFFICIAL_FEISHU_ACTION_HOSTS = new Set([
+  'open.feishu.cn',
+  'open.larksuite.com',
+  'accounts.feishu.cn',
+  'accounts.larksuite.com'
+])
 
 /**
  * URLs in external-action frames are untrusted transport data. Keep an exact
