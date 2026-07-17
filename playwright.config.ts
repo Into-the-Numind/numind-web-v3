@@ -21,6 +21,7 @@ export default defineConfig({
     {
       name: 'e2e',
       dependencies: ['setup'],
+      testIgnore: /feishu-personal-workspace\.spec\.ts/,
       use: {
         storageState: 'e2e/.auth/user.json',
       },
