@@ -6,6 +6,7 @@
  * owned and must never be accepted or retained by the browser.
  */
 import request from './request'
+import { isOfficialFeishuActionURL } from '@/utils/feishuActionUrl'
 
 export type FeishuConnectionState =
   | 'none'
@@ -195,25 +196,6 @@ const FEISHU_ACTION_STATE_BY_PHASE: Record<FeishuActionPhase, FeishuOperationSta
   confirmation: 'waiting_confirmation'
 }
 
-const OFFICIAL_FEISHU_ACTION_HOSTS = new Set(['open.feishu.cn', 'open.larksuite.com'])
-
-function isOfficialFeishuActionURL(value: unknown): value is string {
-  if (typeof value !== 'string' || !value || value.trim() !== value) return false
-  try {
-    const parsed = new URL(value)
-    return (
-      parsed.protocol === 'https:' &&
-      OFFICIAL_FEISHU_ACTION_HOSTS.has(parsed.hostname) &&
-      !parsed.username &&
-      !parsed.password &&
-      !parsed.hash &&
-      (!parsed.port || parsed.port === '443')
-    )
-  } catch {
-    return false
-  }
-}
-
 function isSafeFeishuExternalAction(
   value: unknown,
   operationId: string
@@ -230,7 +212,8 @@ function isSafeFeishuExternalAction(
     ['create_app', 'app_scope', 'user_auth', 'confirmation'].includes(action.phase) &&
     typeof action.expires_at === 'string' &&
     Number.isFinite(Date.parse(action.expires_at)) &&
-    (action.url === undefined || isOfficialFeishuActionURL(action.url))
+    (action.url === undefined ||
+      isOfficialFeishuActionURL(action.url, action.phase as FeishuActionPhase))
   )
 }
 
@@ -273,7 +256,7 @@ function isFeishuOperationResult(value: unknown): value is FeishuOperationResult
     return (
       hasAction &&
       (result.action as FeishuExternalAction).phase === 'user_auth' &&
-      isOfficialFeishuActionURL((result.action as FeishuExternalAction).url)
+      isOfficialFeishuActionURL((result.action as FeishuExternalAction).url, 'user_auth')
     )
   }
   return !hasAction
