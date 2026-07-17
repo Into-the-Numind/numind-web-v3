@@ -948,6 +948,12 @@ describe('applyStreamEvent', () => {
     store.applyStreamEvent(
       makeEvent('token_delta', { message_id: 'msg-stream-1', text: 'Hello world from streaming' })
     )
+    store.applyStreamEvent(
+      makeEvent('reasoning_delta', {
+        message_id: 'msg-stream-1',
+        text: 'Checked the Feishu write result'
+      })
+    )
     const streamingBefore = store.messages.filter((m) => m.type === 'assistant')
     expect(streamingBefore.length).toBe(1)
     expect(streamingBefore[0].type === 'assistant' && streamingBefore[0].isStreaming).toBe(true)
@@ -971,6 +977,7 @@ describe('applyStreamEvent', () => {
     expect(bubble.type).toBe('final_answer')
     if (bubble.type === 'final_answer') {
       expect(bubble.markdown).toBe('Hello world from streaming')
+      expect(bubble.reasoning).toBe('Checked the Feishu write result')
     }
   })
 

@@ -329,8 +329,12 @@ test.describe('personal Feishu workspace', () => {
     const resumeBodies: Array<Record<string, unknown>> = []
     const ordinaryAnswerRequests: Request[] = []
     const browserErrors: string[] = []
+    let pageLoadCount = 0
     let continuationCompleted = false
 
+    page.on('load', () => {
+      pageLoadCount += 1
+    })
     page.on('request', (request) => {
       if (
         request.method() === 'POST' &&
@@ -398,9 +402,7 @@ test.describe('personal Feishu workspace', () => {
     })
 
     await openAgentConversation(page, '创建一篇飞书文档并在授权后继续告诉我结果')
-    const navigationEntriesBefore = await page.evaluate(
-      () => performance.getEntriesByType('navigation').length
-    )
+    expect(pageLoadCount).toBe(1)
     const card = page.getByTestId('feishu-action-card')
     await expect(card).toHaveCount(1)
     await expect(card.getByTestId('feishu-url')).toHaveText(FUTURE_ACTION.url ?? '')
@@ -419,14 +421,11 @@ test.describe('personal Feishu workspace', () => {
       { action: 'user_completed' }
     ])
     await expect(page.getByText('正在核对飞书写入结果。', { exact: true }).first()).toBeVisible()
-    await expect(page.getByText('飞书文档已经创建完成。', { exact: true }).last()).toBeVisible()
+    await expect(page.locator('.msg-final')).toContainText('飞书文档已经创建完成。')
     await expect(card).toHaveCount(1)
     await expect(card.getByTestId('feishu-url')).toHaveCount(0)
 
-    const navigationEntriesAfter = await page.evaluate(
-      () => performance.getEntriesByType('navigation').length
-    )
-    expect(navigationEntriesAfter).toBe(navigationEntriesBefore)
+    expect(pageLoadCount).toBe(1)
     expect(ordinaryAnswerRequests).toHaveLength(0)
     expect(browserErrors).toEqual([])
   })
@@ -549,6 +548,12 @@ test.describe('personal Feishu workspace', () => {
       url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=FRESH-305'
     }
     const refreshBodies: Array<string | null> = []
+    const browserErrors: string[] = []
+
+    page.on('console', (message) => {
+      if (message.type() === 'error') browserErrors.push(message.text())
+    })
+    page.on('pageerror', (error) => browserErrors.push(error.message))
 
     await page.route(`**/v1/sessions/${sessionId}/snapshot`, async (route) => {
       await route.fulfill({
@@ -637,5 +642,6 @@ test.describe('personal Feishu workspace', () => {
     await expect(card).toHaveCount(1)
     await expect(card.getByTestId('feishu-url')).toHaveText(refreshedAction.url ?? '')
     await expect(card.locator('img[alt="飞书操作二维码"]')).toBeVisible()
+    expect(browserErrors).toEqual([])
   })
 })

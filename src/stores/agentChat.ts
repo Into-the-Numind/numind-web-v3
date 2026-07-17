@@ -1802,6 +1802,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
               id: last.id,
               type: 'final_answer',
               markdown: finalOut,
+              reasoning: last.reasoning,
               run_id: runId,
               timestamp: last.timestamp
             }
