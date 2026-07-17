@@ -209,6 +209,45 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
   })
 
   it.each([
+    [
+      'wrong path',
+      'https://accounts.feishu.cn/oauth/v1/device/other?flow_id=opaque-flow&user_code=SAFE-CODE'
+    ],
+    ['missing flow_id', 'https://accounts.feishu.cn/oauth/v1/device/verify?user_code=SAFE-CODE'],
+    [
+      'extra query key',
+      'https://accounts.feishu.cn/oauth/v1/device/verify?flow_id=opaque-flow&user_code=SAFE-CODE&next=unsafe'
+    ],
+    [
+      'duplicate user_code',
+      'https://accounts.feishu.cn/oauth/v1/device/verify?flow_id=opaque-flow&user_code=A&user_code=B'
+    ]
+  ])('fails closed for an accounts external-action URL with %s', (_label, url) => {
+    const store = useAgentChatStore()
+    try {
+      store.applyStreamEvent({
+        type: 'external_action',
+        seq: 1,
+        ts: new Date().toISOString(),
+        run_id: 148,
+        data: {
+          provider: 'feishu',
+          operation_id: `op-unsafe-accounts-${_label}`,
+          session_id: `session-unsafe-accounts-${_label}`,
+          phase: 'user_auth',
+          url,
+          expires_at: new Date(Date.now() + 60_000).toISOString()
+        }
+      })
+
+      expect(store.messages[0]).toMatchObject({ action_status: 'pending' })
+      expect(store.messages[0]).not.toHaveProperty('url')
+    } finally {
+      store.$dispose()
+    }
+  })
+
+  it.each([
     ['non-HTTPS scheme', 'http://open.feishu.cn/suite/passport/oauth/device?user_code=opaque'],
     ['untrusted host', 'https://evil.example/authorize?next=open.feishu.cn'],
     ['lookalike host', 'https://open.feishu.cn.evil.example/authorize'],
