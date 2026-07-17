@@ -31,12 +31,23 @@ export default defineConfig({
     {
       name: 'mocked',
       testMatch: /feishu-personal-workspace\.spec\.ts/,
+      use: {
+        baseURL: 'http://localhost:5174',
+      },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-  },
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: 'VITE_AGENT_MOCK=false npm run dev -- --port 5174',
+      url: 'http://localhost:5174',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+  ],
 })

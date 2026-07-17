@@ -19,7 +19,7 @@ interface ActionFixture {
   session_id: string
   phase: 'user_auth'
   expires_at: string
-  url: string
+  url?: string
 }
 
 interface LifecycleCapture {
@@ -49,6 +49,51 @@ const FUTURE_ACTION: ActionFixture = {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('token', 'feishu-e2e-opaque-token')
+  })
+  await page.route('**/v1/agent-skills/available', async (route) => {
+    const now = new Date().toISOString()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          list: [
+            {
+              id: 1,
+              name: '飞书测试 Agent',
+              description: '验证个人飞书工作空间',
+              is_active: true,
+              created_at: now,
+              updated_at: now
+            }
+          ],
+          total: 1
+        }
+      })
+    })
+  })
+  await page.route('**/v1/agent-sessions/history', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+    })
+  })
+  await page.route('**/v1/tenant-settings/support-contact', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: {} })
+    })
+  })
+  await page.route('**/v1/agent-sessions/*/title', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: { title: '飞书联调测试' } })
+    })
   })
   await page.route('**/v1/credits/balance', async (route) => {
     await route.fulfill({
@@ -91,6 +136,115 @@ function actionStream(runId: number, action: ActionFixture): string {
       data: { provider: 'lark', ...action }
     })
   ].join('')
+}
+
+function continuationStream(runId: number): string {
+  const now = new Date().toISOString()
+  const messageId = `feishu-continuation-${runId}`
+  const toolCallId = `feishu-tool-${runId}`
+  return [
+    sseFrame({
+      type: 'tool_call_start',
+      seq: 3,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: {
+        tool_call_id: toolCallId,
+        tool_name: 'lark_execute',
+        input_digest: 'safe-browser-fixture'
+      }
+    }),
+    sseFrame({
+      type: 'tool_call_result',
+      seq: 4,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: { tool_call_id: toolCallId, preview: '文档创建完成', duration_ms: 120 }
+    }),
+    sseFrame({
+      type: 'reasoning_delta',
+      seq: 5,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: { message_id: messageId, text: '正在核对飞书写入结果。' }
+    }),
+    sseFrame({
+      type: 'token_delta',
+      seq: 6,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: { message_id: messageId, text: '飞书文档已经创建完成。' }
+    }),
+    sseFrame({
+      type: 'assistant_message',
+      seq: 7,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: {
+        message_id: messageId,
+        content: '飞书文档已经创建完成。',
+        reasoning_content: '正在核对飞书写入结果。',
+        has_tool_calls: false
+      }
+    }),
+    sseFrame({
+      type: 'terminal',
+      seq: 8,
+      ts: now,
+      run_id: runId,
+      data: {
+        reason: 'completed',
+        duration_ms: 900,
+        step_count: 2,
+        final_output: '飞书文档已经创建完成。'
+      }
+    })
+  ].join('')
+}
+
+async function installOpenAgentStream(page: Page, body: string): Promise<void> {
+  await page.addInitScript(({ initialBody }) => {
+    const streamWindow = window as typeof window & {
+      __feishuE2EStreamController?: ReadableStreamDefaultController<Uint8Array>
+    }
+    const originalFetch = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const rawURL = input instanceof Request ? input.url : String(input)
+      const requestURL = new URL(rawURL, window.location.origin)
+      if (requestURL.pathname.endsWith('/v1/agent-runs/stream')) {
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            streamWindow.__feishuE2EStreamController = controller
+            controller.enqueue(encoder.encode(initialBody))
+          }
+        })
+        return new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
+        })
+      }
+      return originalFetch(input, init)
+    }
+  }, { initialBody: body })
+}
+
+async function finishOpenAgentStream(page: Page, body: string): Promise<void> {
+  await page.evaluate((continuationBody) => {
+    const streamWindow = window as typeof window & {
+      __feishuE2EStreamController?: ReadableStreamDefaultController<Uint8Array>
+    }
+    const controller = streamWindow.__feishuE2EStreamController
+    if (!controller) throw new Error('Feishu E2E Agent stream was not opened')
+    controller.enqueue(new TextEncoder().encode(continuationBody))
+    controller.close()
+    delete streamWindow.__feishuE2EStreamController
+  }, body)
 }
 
 async function installLifecycleMocks(
@@ -161,6 +315,122 @@ async function openAgentConversation(page: Page, prompt: string): Promise<void> 
 }
 
 test.describe('personal Feishu workspace', () => {
+  test('desktop: replacement authorization and Agent continuation stay live without a reload', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const runId = 304
+    const replacementAction: ActionFixture = {
+      ...FUTURE_ACTION,
+      session_id: 'feishu-auth-session-e2e-304-replacement',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=REPLACEMENT-304'
+    }
+    const resumeBodies: Array<Record<string, unknown>> = []
+    const ordinaryAnswerRequests: Request[] = []
+    const browserErrors: string[] = []
+    let continuationCompleted = false
+
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        /\/v1\/agent-runs\/\d+\/answer(?:-stream)?(?:\?|$)/.test(request.url())
+      ) {
+        ordinaryAnswerRequests.push(request)
+      }
+    })
+    page.on('console', (message) => {
+      if (message.type() === 'error') browserErrors.push(message.text())
+    })
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+
+    await installOpenAgentStream(page, actionStream(runId, FUTURE_ACTION))
+    await page.route('**/v1/feishu/operations/*/resume', async (route) => {
+      const raw = route.request().postData()
+      resumeBodies.push(raw ? (JSON.parse(raw) as Record<string, unknown>) : {})
+      const firstResume = resumeBodies.length === 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: firstResume
+            ? {
+                operation_id: FUTURE_ACTION.operation_id,
+                state: 'waiting_user_auth',
+                notice_code: 'authorization_expired',
+                action: replacementAction
+              }
+            : { operation_id: FUTURE_ACTION.operation_id, state: 'succeeded' }
+        })
+      })
+      if (!firstResume) {
+        continuationCompleted = true
+        await finishOpenAgentStream(page, continuationStream(runId))
+      }
+    })
+    await page.route(new RegExp(`/v1/agent-runs/${runId}(?:\\?.*)?$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: runId,
+            session_id: `feishu-e2e-run-${runId}`,
+            status: continuationCompleted ? 'completed' : 'running',
+            state_reason: continuationCompleted ? 'completed' : 'waiting_for_user_choice',
+            final_output: continuationCompleted ? '飞书文档已经创建完成。' : '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      })
+    })
+    await page.route(`**/v1/agent-runs/${runId}/narration*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
+
+    await openAgentConversation(page, '创建一篇飞书文档并在授权后继续告诉我结果')
+    const navigationEntriesBefore = await page.evaluate(
+      () => performance.getEntriesByType('navigation').length
+    )
+    const card = page.getByTestId('feishu-action-card')
+    await expect(card).toHaveCount(1)
+    await expect(card.getByTestId('feishu-url')).toHaveText(FUTURE_ACTION.url ?? '')
+
+    await card.getByTestId('feishu-continue').click()
+    await expect(card).toHaveCount(1)
+    await expect(card.getByTestId('feishu-notice')).toHaveText(
+      '原链接已过期，已生成新的授权链接。'
+    )
+    await expect(card.getByTestId('feishu-url')).toHaveText(replacementAction.url ?? '')
+    await expect(card.locator('img[alt="飞书操作二维码"]')).toBeVisible()
+
+    await card.getByTestId('feishu-continue').click()
+    await expect.poll(() => resumeBodies).toEqual([
+      { action: 'user_completed' },
+      { action: 'user_completed' }
+    ])
+    await expect(page.getByText('正在核对飞书写入结果。', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('飞书文档已经创建完成。', { exact: true }).last()).toBeVisible()
+    await expect(card).toHaveCount(1)
+    await expect(card.getByTestId('feishu-url')).toHaveCount(0)
+
+    const navigationEntriesAfter = await page.evaluate(
+      () => performance.getEntriesByType('navigation').length
+    )
+    expect(navigationEntriesAfter).toBe(navigationEntriesBefore)
+    expect(ordinaryAnswerRequests).toHaveLength(0)
+    expect(browserErrors).toEqual([])
+  })
+
   test('desktop: authorization resumes the original Agent task through the lifecycle API', async ({
     page
   }) => {
@@ -262,5 +532,110 @@ test.describe('personal Feishu workspace', () => {
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
     await page.waitForTimeout(100)
     expect(capture.refreshBodies).toHaveLength(1)
+  })
+
+  test('restored missing-link action regenerates in place without a duplicate card', async ({
+    page
+  }) => {
+    const sessionId = 'feishu-e2e-restored-305'
+    const runId = 305
+    const operationId = 'feishu-operation-e2e-305'
+    const staleSessionId = 'feishu-auth-session-e2e-305-stale'
+    const refreshedAction: ActionFixture = {
+      operation_id: operationId,
+      session_id: 'feishu-auth-session-e2e-305-fresh',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=FRESH-305'
+    }
+    const refreshBodies: Array<string | null> = []
+
+    await page.route(`**/v1/sessions/${sessionId}/snapshot`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            session_id: sessionId,
+            agent_skill_id: 1,
+            agent_run_ids: [runId],
+            last_active_at: new Date().toISOString(),
+            status: 'running',
+            run: {
+              id: runId,
+              session_id: sessionId,
+              status: 'running',
+              state_reason: 'waiting_for_user_choice',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            },
+            messages: [
+              {
+                id: 'external-action-restored-305',
+                type: 'external_action',
+                run_id: runId,
+                operation_id: operationId,
+                session_id: staleSessionId,
+                phase: 'user_auth',
+                expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+                provider: 'feishu',
+                timestamp: new Date().toISOString()
+              }
+            ]
+          }
+        })
+      })
+    })
+    await page.route('**/v1/feishu/actions/*/refresh', async (route) => {
+      refreshBodies.push(route.request().postData())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { action: refreshedAction }
+        })
+      })
+    })
+    await page.route(new RegExp(`/v1/agent-runs/${runId}(?:\\?.*)?$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: runId,
+            session_id: sessionId,
+            status: 'running',
+            state_reason: 'waiting_for_user_choice',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      })
+    })
+    await page.route(`**/v1/agent-runs/${runId}/narration*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
+
+    await page.goto(`/agent/chat/${sessionId}?agent_id=1`)
+    const card = page.getByTestId('feishu-action-card')
+    await expect(card).toHaveCount(1)
+    await expect(card).toContainText('当前链接不可用，请重新生成链接后继续。')
+    await expect(card.getByTestId('feishu-url')).toHaveCount(0)
+
+    await card.getByTestId('feishu-refresh').click()
+    await expect.poll(() => refreshBodies).toEqual([null])
+    await expect(card).toHaveCount(1)
+    await expect(card.getByTestId('feishu-url')).toHaveText(refreshedAction.url ?? '')
+    await expect(card.locator('img[alt="飞书操作二维码"]')).toBeVisible()
   })
 })
