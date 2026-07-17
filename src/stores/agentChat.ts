@@ -18,6 +18,7 @@ import * as api from '@/api/agent'
 import {
   resumeFeishuOperation as resumeFeishuLifecycleOperation,
   type FeishuActionPhase,
+  type FeishuAuthorizationNoticeCode,
   type FeishuExternalAction,
   type FeishuOperationResult,
   type FeishuRefreshTerminal,
@@ -492,6 +493,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // observe whichever run happens to be selected after a route switch.
   let externalActionPollEpoch: number | null = null
   let removeExternalActionVisibilityListener: (() => void) | null = null
+  const feishuResumeRequests = new Map<string, Promise<FeishuOperationResult>>()
 
   // Every route/session replacement advances this generation. Async work and
   // SSE callbacks capture it before crossing an await boundary; a result may
@@ -678,6 +680,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // wait has ended. The resumed original tool call is the source of truth.
       const settled: ExternalActionMessage = { ...message, action_status: status }
       delete settled.url
+      delete settled.notice_code
       if (terminalState) settled.terminal_state = terminalState
       else delete settled.terminal_state
       messages.value[index] = settled
@@ -762,7 +765,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const updatePendingExternalAction = (
     operationID: string,
-    action: Omit<FeishuExternalAction, 'url'>
+    action: FeishuExternalAction,
+    noticeCode?: FeishuAuthorizationNoticeCode
   ): void => {
     if (actionHasExpired(action.expires_at)) {
       settleExternalAction(operationID, 'expired')
@@ -779,15 +783,35 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
       const replacement: ExternalActionMessage = {
         ...message,
-        operation_id: action.operation_id,
         session_id: action.session_id,
         phase: action.phase,
         expires_at: action.expires_at
       }
-      // A resume response is deliberately URL-less. Never carry a superseded
-      // one-time authorization URL into a new server-owned action/session.
+      // Never carry a superseded one-time authorization URL or notice into a
+      // replacement. The runtime API validator has already allowlisted a live
+      // official URL; keep its opaque bytes unchanged.
       delete replacement.url
+      delete replacement.notice_code
+      if (action.url && isOfficialFeishuActionURL(action.url)) replacement.url = action.url
+      if (noticeCode) replacement.notice_code = noticeCode
       messages.value[index] = replacement
+    }
+  }
+
+  const updateExternalActionNotice = (
+    operationID: string,
+    noticeCode: FeishuAuthorizationNoticeCode
+  ): void => {
+    for (let index = 0; index < messages.value.length; index += 1) {
+      const message = messages.value[index]
+      if (
+        message.type !== 'external_action' ||
+        message.operation_id !== operationID ||
+        message.action_status !== 'pending'
+      ) {
+        continue
+      }
+      messages.value[index] = { ...message, notice_code: noticeCode }
     }
   }
 
@@ -1250,7 +1274,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     operationID: string,
     action: FeishuResumeAction = 'user_completed'
   ): Promise<FeishuOperationResult> => {
-    const epoch = activeSessionEpoch
     const existing = messages.value.find(
       (message): message is ExternalActionMessage =>
         message.type === 'external_action' && message.operation_id === operationID
@@ -1265,26 +1288,54 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     if (!existing || existing.action_status !== 'pending') {
       throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
-    const result = await resumeFeishuLifecycleOperation(operationID, action)
-    if (!isCurrentSessionEpoch(epoch)) return result
-    if (result.operation_id !== operationID) {
-      throw new Error('飞书授权步骤已更新，请使用最新链接')
+    const pendingRequest = feishuResumeRequests.get(operationID)
+    if (pendingRequest) return pendingRequest
+
+    const epoch = activeSessionEpoch
+    const request = (async (): Promise<FeishuOperationResult> => {
+      const result = await resumeFeishuLifecycleOperation(operationID, action)
+      if (!isCurrentSessionEpoch(epoch)) return result
+      const currentAction = messages.value.find(
+        (message): message is ExternalActionMessage =>
+          message.type === 'external_action' &&
+          message.operation_id === operationID &&
+          message.action_status === 'pending'
+      )
+      if (!currentAction || currentAction.session_id !== existing.session_id) return result
+      if (
+        result.operation_id !== operationID ||
+        (result.action !== undefined && result.action.operation_id !== operationID)
+      ) {
+        throw new Error('飞书授权步骤已更新，请使用最新链接')
+      }
+      switch (result.state) {
+        case 'succeeded':
+          settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
+          break
+        case 'failed':
+        case 'unknown':
+        case 'cancelled':
+          settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
+          break
+        default:
+          if (result.action) {
+            updatePendingExternalAction(operationID, result.action, result.notice_code)
+          } else if (result.notice_code) {
+            updateExternalActionNotice(operationID, result.notice_code)
+          }
+          if (hasPendingExternalAction()) startExternalActionPolling()
+          break
+      }
+      return result
+    })()
+    feishuResumeRequests.set(operationID, request)
+    try {
+      return await request
+    } finally {
+      if (feishuResumeRequests.get(operationID) === request) {
+        feishuResumeRequests.delete(operationID)
+      }
     }
-    switch (result.state) {
-      case 'succeeded':
-        settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
-        break
-      case 'failed':
-      case 'unknown':
-      case 'cancelled':
-        settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
-        break
-      default:
-        if (result.action) updatePendingExternalAction(operationID, result.action)
-        if (hasPendingExternalAction()) startExternalActionPolling()
-        break
-    }
-    return result
   }
 
   const cancelCurrent = async (): Promise<void> => {
@@ -2337,6 +2388,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const reset = (): void => {
     invalidateSession()
+    feishuResumeRequests.clear()
     availableAgents.value = []
     recentSessions.value = []
     currentAgent.value = null

@@ -18,6 +18,7 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useAgentChatStore } from '../agentChat'
+import type { FeishuOperationResult } from '@/api/feishu'
 import type { AgentRun } from '@/types/agent'
 import type { TerminalEvent } from '@/types/agent-stream'
 
@@ -553,7 +554,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     }
   })
 
-  it('replaces an old authorization URL with a URL-less successor action and rejects the old operation', async () => {
+  it('rejects a replacement bound to another operation without changing the live card', async () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-14T10:00:00Z')
     vi.setSystemTime(now)
@@ -585,18 +586,297 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       }
     })
 
-    await store.resumeFeishuOperation('op-old')
+    await expect(store.resumeFeishuOperation('op-old')).rejects.toThrow(
+      '飞书授权步骤已更新'
+    )
 
-    const action = store.messages.find((message) => message.type === 'external_action')
-    expect(action).toMatchObject({
-      operation_id: 'op-successor',
-      session_id: 'session-successor',
-      phase: 'app_scope',
+    expect(store.messages.find((message) => message.type === 'external_action')).toMatchObject({
+      operation_id: 'op-old',
+      session_id: 'session-old',
+      url: 'https://open.feishu.cn/old-authorize',
       action_status: 'pending'
     })
-    expect(action).not.toHaveProperty('url')
-    await expect(store.resumeFeishuOperation('op-old')).rejects.toThrow('飞书授权步骤已更新')
+    store.reset()
+  })
+
+  it('updates a notice without replacing the current session, URL, or expiry', async () => {
+    const store = useAgentChatStore()
+    const expiresAt = futureExpiry()
+    const url = 'https://open.feishu.cn/authorize?user_code=KEEP'
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-notice',
+        session_id: 'session-keep',
+        phase: 'user_auth',
+        expires_at: expiresAt,
+        url
+      }
+    })
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-notice',
+      state: 'waiting_user_auth',
+      notice_code: 'authorization_pending'
+    })
+
+    await store.resumeFeishuOperation('op-notice')
+
+    expect(store.messages[0]).toMatchObject({
+      session_id: 'session-keep',
+      expires_at: expiresAt,
+      url,
+      notice_code: 'authorization_pending',
+      action_status: 'pending'
+    })
+    store.reset()
+  })
+
+  it('clears an old notice when authorization advances to a new external step', async () => {
+    const store = useAgentChatStore()
+    store.messages = [
+      {
+        id: 'external-action-next-step',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-next-step',
+        session_id: 'session-user-auth',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: 'https://open.feishu.cn/authorize?step=user-auth',
+        notice_code: 'authorization_processing',
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-next-step',
+      state: 'waiting_confirmation',
+      action: {
+        operation_id: 'op-next-step',
+        session_id: 'session-confirmation',
+        phase: 'confirmation',
+        expires_at: futureExpiry()
+      }
+    })
+
+    await store.resumeFeishuOperation('op-next-step')
+
+    expect(store.messages[0]).toMatchObject({
+      operation_id: 'op-next-step',
+      session_id: 'session-confirmation',
+      phase: 'confirmation',
+      action_status: 'pending'
+    })
+    expect(store.messages[0]).not.toHaveProperty('notice_code')
+    expect(store.messages[0]).not.toHaveProperty('url')
+    store.reset()
+  })
+
+  it('coalesces duplicate resume clicks into one lifecycle request', async () => {
+    const store = useAgentChatStore()
+    store.messages = [
+      {
+        id: 'external-action-duplicate',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-duplicate',
+        session_id: 'session-duplicate',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: 'https://open.feishu.cn/authorize?user_code=DUPLICATE',
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    let resolveRequest: ((result: FeishuOperationResult) => void) | undefined
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockImplementationOnce(
+      () =>
+        new Promise<FeishuOperationResult>((resolve) => {
+          resolveRequest = resolve
+        })
+    )
+
+    const first = store.resumeFeishuOperation('op-duplicate')
+    const second = store.resumeFeishuOperation('op-duplicate')
+    resolveRequest?.({
+      operation_id: 'op-duplicate',
+      state: 'waiting_user_auth',
+      notice_code: 'authorization_processing'
+    })
+
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2)
     expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledTimes(1)
+    expect(store.messages[0]).toMatchObject({ notice_code: 'authorization_processing' })
+    store.reset()
+  })
+
+  it('discards a late replacement after the navigation epoch changes', async () => {
+    const store = useAgentChatStore()
+    const oldURL = 'https://open.feishu.cn/authorize?user_code=OLD'
+    store.messages = [
+      {
+        id: 'external-action-stale',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-stale',
+        session_id: 'session-old',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: oldURL,
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    let resolveRequest: ((result: FeishuOperationResult) => void) | undefined
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockImplementationOnce(
+      () =>
+        new Promise<FeishuOperationResult>((resolve) => {
+          resolveRequest = resolve
+        })
+    )
+
+    const request = store.resumeFeishuOperation('op-stale')
+    store.beginSession('another-session')
+    resolveRequest?.({
+      operation_id: 'op-stale',
+      state: 'waiting_user_auth',
+      notice_code: 'authorization_expired',
+      action: {
+        operation_id: 'op-stale',
+        session_id: 'session-new',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: 'https://open.feishu.cn/authorize?user_code=NEW'
+      }
+    })
+    await request
+
+    expect(store.messages[0]).toMatchObject({ session_id: 'session-old', url: oldURL })
+    expect(store.messages[0]).not.toHaveProperty('notice_code')
+    store.reset()
+  })
+
+  it('does not let an old resume response overwrite a newer session for the same operation', async () => {
+    const store = useAgentChatStore()
+    store.messages = [
+      {
+        id: 'external-action-session-race',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-session-race',
+        session_id: 'session-old',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: 'https://open.feishu.cn/authorize?user_code=OLD',
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    let resolveRequest: ((result: FeishuOperationResult) => void) | undefined
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockImplementationOnce(
+      () =>
+        new Promise<FeishuOperationResult>((resolve) => {
+          resolveRequest = resolve
+        })
+    )
+
+    const request = store.resumeFeishuOperation('op-session-race')
+    const currentURL = 'https://open.feishu.cn/authorize?user_code=CURRENT'
+    store.messages = [
+      {
+        id: 'external-action-session-race',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-session-race',
+        session_id: 'session-current',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: currentURL,
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    resolveRequest?.({
+      operation_id: 'op-session-race',
+      state: 'waiting_user_auth',
+      notice_code: 'authorization_expired',
+      action: {
+        operation_id: 'op-session-race',
+        session_id: 'session-late',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: 'https://open.feishu.cn/authorize?user_code=LATE'
+      }
+    })
+    await request
+
+    expect(store.messages[0]).toMatchObject({
+      session_id: 'session-current',
+      url: currentURL
+    })
+    expect(store.messages[0]).not.toHaveProperty('notice_code')
+    store.reset()
+  })
+
+  it('keeps the live link when a resume transport request fails', async () => {
+    const store = useAgentChatStore()
+    const url = 'https://open.feishu.cn/authorize?user_code=RETRY'
+    store.messages = [
+      {
+        id: 'external-action-retry',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-retry',
+        session_id: 'session-retry',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url,
+        notice_code: 'authorization_pending',
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockRejectedValueOnce(new Error('503'))
+
+    await expect(store.resumeFeishuOperation('op-retry')).rejects.toThrow('503')
+    expect(store.messages[0]).toMatchObject({ url, notice_code: 'authorization_pending' })
+    store.reset()
+  })
+
+  it('clears an old authorization notice after terminal success', async () => {
+    const store = useAgentChatStore()
+    store.messages = [
+      {
+        id: 'external-action-success',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-success',
+        session_id: 'session-success',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        url: 'https://open.feishu.cn/authorize?user_code=SUCCESS',
+        notice_code: 'authorization_processing',
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-success',
+      state: 'succeeded'
+    })
+
+    await store.resumeFeishuOperation('op-success')
+
+    expect(store.messages[0]).toMatchObject({
+      action_status: 'completed',
+      terminal_state: 'succeeded'
+    })
+    expect(store.messages[0]).not.toHaveProperty('notice_code')
+    expect(store.messages[0]).not.toHaveProperty('url')
     store.reset()
   })
 

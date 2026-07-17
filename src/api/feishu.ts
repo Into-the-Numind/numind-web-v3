@@ -42,6 +42,13 @@ export type FeishuOperationState =
   | 'unknown'
   | 'cancelled'
 
+export type FeishuAuthorizationNoticeCode =
+  | 'authorization_pending'
+  | 'authorization_processing'
+  | 'authorization_rejected'
+  | 'authorization_expired'
+  | 'authorization_updated'
+
 /** Safe browser fields for a server-owned authorization action. */
 export interface FeishuExternalAction {
   operation_id: string
@@ -91,8 +98,10 @@ export interface FeishuOperationResult {
   state: FeishuOperationState
   /** The server-projected tool result is opaque to the lifecycle client. */
   data?: unknown
-  /** Resume responses never carry a live URL. */
-  action?: Omit<FeishuExternalAction, 'url'>
+  /** A recoverable resume response may replace the current live action. */
+  action?: FeishuExternalAction
+  /** Fixed allowlisted lifecycle guidance; never a server-provided message. */
+  notice_code?: FeishuAuthorizationNoticeCode
 }
 
 export interface FeishuRefreshTerminal {
@@ -135,11 +144,139 @@ export async function resumeFeishuOperation(
   operationId: string,
   action: FeishuResumeAction = 'user_completed'
 ): Promise<FeishuOperationResult> {
-  const { data } = await request.post<FeishuOperationResult>(
+  const { data } = await request.post<unknown>(
     `/v1/feishu/operations/${encodeURIComponent(operationId)}/resume`,
     { action }
   )
+  if (!isFeishuOperationResult(data)) {
+    throw new Error('飞书授权状态无效，请稍后重试。')
+  }
   return data
+}
+
+const FEISHU_OPERATION_STATES = new Set<FeishuOperationState>([
+  'not_started',
+  'executing',
+  'waiting_connection',
+  'waiting_app_scope',
+  'waiting_user_auth',
+  'waiting_confirmation',
+  'succeeded',
+  'failed',
+  'unknown',
+  'cancelled'
+])
+
+const FEISHU_NOTICE_CODES = new Set<FeishuAuthorizationNoticeCode>([
+  'authorization_pending',
+  'authorization_processing',
+  'authorization_rejected',
+  'authorization_expired',
+  'authorization_updated'
+])
+
+const FEISHU_REPLACEMENT_NOTICE_CODES = new Set<FeishuAuthorizationNoticeCode>([
+  'authorization_rejected',
+  'authorization_expired',
+  'authorization_updated'
+])
+
+const FEISHU_TERMINAL_OPERATION_STATES = new Set<FeishuOperationState>([
+  'succeeded',
+  'failed',
+  'unknown',
+  'cancelled'
+])
+
+const FEISHU_ACTION_STATE_BY_PHASE: Record<FeishuActionPhase, FeishuOperationState> = {
+  create_app: 'waiting_connection',
+  app_scope: 'waiting_app_scope',
+  user_auth: 'waiting_user_auth',
+  confirmation: 'waiting_confirmation'
+}
+
+const OFFICIAL_FEISHU_ACTION_HOSTS = new Set(['open.feishu.cn', 'open.larksuite.com'])
+
+function isOfficialFeishuActionURL(value: unknown): value is string {
+  if (typeof value !== 'string' || !value || value.trim() !== value) return false
+  try {
+    const parsed = new URL(value)
+    return (
+      parsed.protocol === 'https:' &&
+      OFFICIAL_FEISHU_ACTION_HOSTS.has(parsed.hostname) &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.hash &&
+      (!parsed.port || parsed.port === '443')
+    )
+  } catch {
+    return false
+  }
+}
+
+function isSafeFeishuExternalAction(
+  value: unknown,
+  operationId: string
+): value is FeishuExternalAction {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const action = value as Record<string, unknown>
+  const allowedKeys = new Set(['operation_id', 'session_id', 'phase', 'expires_at', 'url'])
+  if (Object.keys(action).some((key) => !allowedKeys.has(key))) return false
+  return (
+    action.operation_id === operationId &&
+    typeof action.session_id === 'string' &&
+    action.session_id.trim() !== '' &&
+    typeof action.phase === 'string' &&
+    ['create_app', 'app_scope', 'user_auth', 'confirmation'].includes(action.phase) &&
+    typeof action.expires_at === 'string' &&
+    Number.isFinite(Date.parse(action.expires_at)) &&
+    (action.url === undefined || isOfficialFeishuActionURL(action.url))
+  )
+}
+
+function isFeishuOperationResult(value: unknown): value is FeishuOperationResult {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const result = value as Record<string, unknown>
+  const allowedKeys = new Set(['operation_id', 'state', 'data', 'action', 'notice_code'])
+  if (Object.keys(result).some((key) => !allowedKeys.has(key))) return false
+  if (
+    typeof result.operation_id !== 'string' ||
+    result.operation_id.trim() === '' ||
+    typeof result.state !== 'string' ||
+    !FEISHU_OPERATION_STATES.has(result.state as FeishuOperationState)
+  ) {
+    return false
+  }
+
+  const state = result.state as FeishuOperationState
+  const notice = result.notice_code
+  if (
+    notice !== undefined &&
+    (typeof notice !== 'string' || !FEISHU_NOTICE_CODES.has(notice as FeishuAuthorizationNoticeCode))
+  ) {
+    return false
+  }
+  const noticeCode = notice as FeishuAuthorizationNoticeCode | undefined
+  const hasAction = result.action !== undefined
+  if (hasAction && !isSafeFeishuExternalAction(result.action, result.operation_id)) return false
+
+  if (FEISHU_TERMINAL_OPERATION_STATES.has(state)) {
+    return !noticeCode && !hasAction
+  }
+  if (!noticeCode) {
+    if (!hasAction) return true
+    const action = result.action as FeishuExternalAction
+    return FEISHU_ACTION_STATE_BY_PHASE[action.phase] === state
+  }
+  if (state !== 'waiting_user_auth') return false
+  if (FEISHU_REPLACEMENT_NOTICE_CODES.has(noticeCode)) {
+    return (
+      hasAction &&
+      (result.action as FeishuExternalAction).phase === 'user_auth' &&
+      isOfficialFeishuActionURL((result.action as FeishuExternalAction).url)
+    )
+  }
+  return !hasAction
 }
 
 /** Replace a server-owned authorization session. No body is accepted. */
