@@ -50,6 +50,14 @@ const phaseContent = {
   }
 } as const
 
+const noticeContent = {
+  authorization_pending: '尚未检测到授权完成，请完成后再继续。',
+  authorization_processing: '正在确认授权状态，请稍候。',
+  authorization_rejected: '本次授权未通过，已生成新的授权链接。',
+  authorization_expired: '原链接已过期，已生成新的授权链接。',
+  authorization_updated: '授权步骤已更新，请使用新的授权链接。'
+} as const
+
 const now = ref(Date.now())
 let expiryTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -91,6 +99,12 @@ const phase = computed(() => phaseContent[props.action.phase])
 const copied = ref(false)
 const qrDataUrl = ref('')
 let qrGeneration = 0
+const noticeText = computed<string>(() =>
+  current.value && props.action.notice_code ? noticeContent[props.action.notice_code] : ''
+)
+const interactionBusy = computed<boolean>(
+  () => props.busy || props.action.notice_code === 'authorization_processing'
+)
 
 const statusText = computed<string>(() => {
   if (confirmation.value && expired.value) return '确认已过期，请重新发起。'
@@ -119,7 +133,7 @@ const statusText = computed<string>(() => {
   return ''
 })
 
-const alertText = computed<string>(() => props.error || (missingLink.value ? statusText.value : ''))
+const alertText = computed<string>(() => props.error)
 
 function scheduleExpiry(): void {
   if (expiryTimer) {
@@ -182,22 +196,22 @@ async function handleCopy(): Promise<void> {
 }
 
 function handleResume(): void {
-  if (!canResume.value || props.busy) return
+  if (!canResume.value || interactionBusy.value) return
   emit('resume', props.action.operation_id)
 }
 
 function handleRefresh(): void {
-  if (!showRefresh.value || props.busy) return
+  if (!showRefresh.value || interactionBusy.value) return
   emit('refresh', props.action.session_id)
 }
 
 function handleConfirm(): void {
-  if (!current.value || !confirmation.value || props.busy) return
+  if (!current.value || !confirmation.value || interactionBusy.value) return
   emit('confirmed', props.action.operation_id)
 }
 
 function handleCancel(): void {
-  if (!current.value || !confirmation.value || props.busy) return
+  if (!current.value || !confirmation.value || interactionBusy.value) return
   emit('cancelled', props.action.operation_id)
 }
 </script>
@@ -206,7 +220,6 @@ function handleCancel(): void {
   <section
     class="feishu-action-card"
     data-testid="feishu-action-card"
-    aria-live="polite"
     aria-label="飞书操作步骤"
   >
     <div class="feishu-action-card__header">
@@ -219,6 +232,16 @@ function handleCancel(): void {
 
     <p class="feishu-action-card__description">{{ phase.description }}</p>
 
+    <p
+      v-if="noticeText"
+      data-testid="feishu-notice"
+      class="feishu-action-card__notice"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {{ noticeText }}
+    </p>
     <p v-if="statusText" class="feishu-action-card__status">{{ statusText }}</p>
     <p v-if="alertText" class="feishu-action-card__error" role="alert">{{ alertText }}</p>
 
@@ -272,8 +295,8 @@ function handleCancel(): void {
         data-testid="feishu-confirm"
         variant="primary"
         size="sm"
-        :loading="busy"
-        :disabled="busy"
+        :loading="interactionBusy"
+        :disabled="interactionBusy"
         aria-label="确认并继续原任务"
         @click="handleConfirm"
       >
@@ -283,7 +306,7 @@ function handleCancel(): void {
         data-testid="feishu-cancel"
         variant="text"
         size="sm"
-        :disabled="busy"
+        :disabled="interactionBusy"
         aria-label="取消本次飞书操作"
         @click="handleCancel"
       >
@@ -299,8 +322,8 @@ function handleCancel(): void {
         data-testid="feishu-continue"
         variant="primary"
         size="sm"
-        :loading="busy"
-        :disabled="!canResume || busy"
+        :loading="interactionBusy"
+        :disabled="!canResume || interactionBusy"
         aria-label="我已完成，继续原任务"
         @click="handleResume"
       >
@@ -312,8 +335,8 @@ function handleCancel(): void {
         data-testid="feishu-refresh"
         variant="secondary"
         size="sm"
-        :loading="busy"
-        :disabled="busy"
+        :loading="interactionBusy"
+        :disabled="interactionBusy"
         aria-label="重新生成飞书链接"
         @click="handleRefresh"
       >
@@ -327,8 +350,8 @@ function handleCancel(): void {
         data-testid="feishu-refresh"
         variant="secondary"
         size="sm"
-        :loading="busy"
-        :disabled="busy"
+        :loading="interactionBusy"
+        :disabled="interactionBusy"
         aria-label="重新生成飞书链接"
         @click="handleRefresh"
       >
@@ -373,6 +396,7 @@ function handleCancel(): void {
 
 .feishu-action-card__eyebrow,
 .feishu-action-card__description,
+.feishu-action-card__notice,
 .feishu-action-card__status,
 .feishu-action-card__error,
 .feishu-action-card__link-label,
@@ -403,6 +427,7 @@ function handleCancel(): void {
   line-height: var(--line-height-normal);
 }
 
+.feishu-action-card__notice,
 .feishu-action-card__status,
 .feishu-action-card__error {
   margin-top: var(--space-md);
@@ -412,6 +437,7 @@ function handleCancel(): void {
   line-height: var(--line-height-normal);
 }
 
+.feishu-action-card__notice,
 .feishu-action-card__status {
   background: var(--surface-tint);
   color: var(--text-secondary);

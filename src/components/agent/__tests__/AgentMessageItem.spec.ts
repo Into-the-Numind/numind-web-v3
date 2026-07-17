@@ -43,7 +43,7 @@ const globalStubs = {
     props: ['action', 'busy', 'error'],
     emits: ['resume', 'refresh', 'confirmed', 'cancelled'],
     template: `
-      <div data-testid="feishu-action-card-stub">
+      <div data-testid="feishu-action-card-stub" :data-busy="String(busy)" :data-error="error">
         <button data-testid="feishu-resume" @click="$emit('resume', action.operation_id)">继续</button>
         <button data-testid="feishu-refresh" @click="$emit('refresh', action.session_id)">刷新</button>
         <button data-testid="feishu-confirm" @click="$emit('confirmed', action.operation_id)">确认</button>
@@ -262,6 +262,167 @@ describe('AgentMessageItem', () => {
 
       expect(resume).toHaveBeenNthCalledWith(1, 'op-1', 'confirmed')
       expect(resume).toHaveBeenNthCalledWith(2, 'op-1', 'cancelled')
+    })
+
+    it('clears an old transport error only when the exact action session changes', async () => {
+      const store = useAgentChatStore()
+      const msg = externalAction()
+      vi.spyOn(store, 'resumeFeishuOperation').mockRejectedValueOnce(new Error('旧链接请求失败'))
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-error')).toBe(
+        '旧链接请求失败'
+      )
+
+      await wrapper.setProps({
+        msg: { ...msg, notice_code: 'authorization_pending' as const }
+      })
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-error')).toBe(
+        '旧链接请求失败'
+      )
+
+      await wrapper.setProps({
+        msg: {
+          ...msg,
+          session_id: 'session-2',
+          url: 'https://open.feishu.cn/authorize?opaque=fresh',
+          notice_code: 'authorization_updated' as const
+        }
+      })
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-error')).toBe(
+        ''
+      )
+    })
+
+    it('does not let an old request clear the busy state or set an error on a new session', async () => {
+      const store = useAgentChatStore()
+      const msg = externalAction()
+      let rejectOld!: (error: Error) => void
+      let resolveCurrent!: () => void
+      vi.spyOn(store, 'resumeFeishuOperation')
+        .mockReturnValueOnce(
+          new Promise((_, reject) => {
+            rejectOld = reject
+          })
+        )
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveCurrent = () =>
+              resolve({ operation_id: msg.operation_id, state: 'executing' })
+          })
+        )
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'true'
+      )
+      const replacement = {
+        ...msg,
+        session_id: 'session-current',
+        url: 'https://open.feishu.cn/authorize?opaque=current'
+      }
+      await wrapper.setProps({ msg: replacement })
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'false'
+      )
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'true'
+      )
+
+      rejectOld(new Error('旧请求迟到'))
+      await flushPromises()
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'true'
+      )
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-error')).toBe(
+        ''
+      )
+
+      resolveCurrent()
+      await flushPromises()
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'false'
+      )
+    })
+
+    it('keeps an in-flight request busy across a notice-only update', async () => {
+      const store = useAgentChatStore()
+      const msg = externalAction()
+      let resolveRequest!: () => void
+      vi.spyOn(store, 'resumeFeishuOperation').mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveRequest = () => resolve({ operation_id: msg.operation_id, state: 'executing' })
+        })
+      )
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      await wrapper.setProps({
+        msg: { ...msg, notice_code: 'authorization_processing' as const }
+      })
+
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'true'
+      )
+      resolveRequest()
+      await flushPromises()
+      expect(wrapper.get('[data-testid="feishu-action-card-stub"]').attributes('data-busy')).toBe(
+        'false'
+      )
+    })
+
+    it('does not write a late request error after the message item unmounts', async () => {
+      const store = useAgentChatStore()
+      const msg = externalAction()
+      let rejectRequest!: (error: Error) => void
+      vi.spyOn(store, 'resumeFeishuOperation').mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectRequest = reject
+        })
+      )
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      const componentState = wrapper.vm as unknown as {
+        feishuActionBusy: boolean
+        feishuActionError: string
+      }
+
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      expect(componentState.feishuActionBusy).toBe(true)
+      wrapper.unmount()
+      rejectRequest(new Error('卸载后的迟到错误'))
+      await flushPromises()
+
+      expect(componentState.feishuActionBusy).toBe(true)
+      expect(componentState.feishuActionError).toBe('')
+    })
+
+    it('does not write a rejected request after the Agent session epoch changes', async () => {
+      const store = useAgentChatStore()
+      store.beginSession('route-before-resume')
+      const msg = externalAction()
+      let rejectRequest!: (error: Error) => void
+      vi.spyOn(store, 'resumeFeishuOperation').mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectRequest = reject
+        })
+      )
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      const componentState = wrapper.vm as unknown as {
+        feishuActionBusy: boolean
+        feishuActionError: string
+      }
+
+      await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
+      store.beginSession('route-after-resume')
+      rejectRequest(new Error('旧路由请求失败'))
+      await flushPromises()
+
+      expect(componentState.feishuActionBusy).toBe(true)
+      expect(componentState.feishuActionError).toBe('')
     })
 
     it('refreshes a link into the original external-action message', async () => {

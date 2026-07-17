@@ -129,15 +129,38 @@ const asExternalAction = computed<ExternalActionMessage | null>(() =>
 const feishuStore = useFeishuStore()
 const feishuActionBusy = ref(false)
 const feishuActionError = ref('')
+let feishuActionRequestVersion = 0
+let componentUnmounted = false
 
 // A server-issued replacement action is a fresh recoverable step. Do not leave
 // a prior local transport error attached to its new URL/session.
 watch(
-  () => [asExternalAction.value?.operation_id, asExternalAction.value?.session_id],
+  [
+    () => asExternalAction.value?.operation_id,
+    () => asExternalAction.value?.session_id
+  ],
   () => {
+    feishuActionRequestVersion += 1
+    feishuActionBusy.value = false
     feishuActionError.value = ''
   }
 )
+
+function isCurrentFeishuRequest(
+  requestVersion: number,
+  operationID: string,
+  sessionID: string,
+  sessionEpoch: number
+): boolean {
+  const currentAction = asExternalAction.value
+  return (
+    !componentUnmounted &&
+    requestVersion === feishuActionRequestVersion &&
+    store.isCurrentSessionEpoch(sessionEpoch) &&
+    currentAction?.operation_id === operationID &&
+    currentAction.session_id === sessionID
+  )
+}
 
 function externalActionErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
@@ -149,6 +172,9 @@ async function handleExternalResume(
 ): Promise<void> {
   const externalAction = asExternalAction.value
   if (!externalAction || props.readOnly || feishuActionBusy.value) return
+  const actionSessionID = externalAction.session_id
+  const sessionEpoch = store.currentSessionEpoch()
+  const requestVersion = ++feishuActionRequestVersion
   feishuActionBusy.value = true
   feishuActionError.value = ''
   try {
@@ -158,9 +184,16 @@ async function handleExternalResume(
       await store.resumeFeishuOperation(operationID, action)
     }
   } catch (error) {
-    feishuActionError.value = externalActionErrorMessage(error, '暂时无法继续飞书操作，请稍后重试。')
+    if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
+      feishuActionError.value = externalActionErrorMessage(
+        error,
+        '暂时无法继续飞书操作，请稍后重试。'
+      )
+    }
   } finally {
-    feishuActionBusy.value = false
+    if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
+      feishuActionBusy.value = false
+    }
   }
 }
 
@@ -171,6 +204,7 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
   const operationID = externalAction.operation_id
   const actionSessionID = externalAction.session_id
   const runID = externalAction.run_id
+  const requestVersion = ++feishuActionRequestVersion
   feishuActionBusy.value = true
   feishuActionError.value = ''
   try {
@@ -215,9 +249,16 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
       data: { provider: 'lark', ...refreshedAction }
     }, sessionEpoch)
   } catch (error) {
-    feishuActionError.value = externalActionErrorMessage(error, '暂时无法刷新飞书链接，请稍后重试。')
+    if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
+      feishuActionError.value = externalActionErrorMessage(
+        error,
+        '暂时无法刷新飞书链接，请稍后重试。'
+      )
+    }
   } finally {
-    feishuActionBusy.value = false
+    if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
+      feishuActionBusy.value = false
+    }
   }
 }
 
@@ -236,6 +277,8 @@ onMounted(() => {
   }, 1000)
 })
 onUnmounted(() => {
+  componentUnmounted = true
+  feishuActionRequestVersion += 1
   if (stallTicker) clearInterval(stallTicker)
 })
 const isGenerating = computed<boolean>(() =>
