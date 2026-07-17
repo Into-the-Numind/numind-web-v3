@@ -182,6 +182,32 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
+  it('keeps the real Feishu v1.0.68 accounts verification URL without transforming it', () => {
+    const store = useAgentChatStore()
+    const url =
+      'https://accounts.feishu.cn/oauth/v1/device/verify?flow_id=opaque-flow&user_code=SAFE-CODE'
+    try {
+      store.applyStreamEvent({
+        type: 'external_action',
+        seq: 1,
+        ts: new Date().toISOString(),
+        run_id: 148,
+        data: {
+          provider: 'feishu',
+          operation_id: 'op-feishu-accounts-url',
+          session_id: 'session-feishu-accounts-url',
+          phase: 'user_auth',
+          url,
+          expires_at: new Date(Date.now() + 60_000).toISOString()
+        }
+      })
+
+      expect(store.messages[0]).toMatchObject({ url, action_status: 'pending' })
+    } finally {
+      store.$dispose()
+    }
+  })
+
   it.each([
     ['non-HTTPS scheme', 'http://open.feishu.cn/suite/passport/oauth/device?user_code=opaque'],
     ['untrusted host', 'https://evil.example/authorize?next=open.feishu.cn'],

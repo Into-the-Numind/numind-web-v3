@@ -112,6 +112,29 @@ describe('personal Feishu workspace API', () => {
     }
   )
 
+  it('accepts the real Feishu v1.0.68 accounts verification URL for a replacement action', async () => {
+    const url =
+      'https://accounts.feishu.cn/oauth/v1/device/verify?flow_id=opaque-flow&user_code=SAFE-CODE'
+    mockedRequest.post.mockResolvedValue({
+      data: {
+        operation_id: 'op-1',
+        state: 'waiting_user_auth',
+        notice_code: 'authorization_updated',
+        action: {
+          operation_id: 'op-1',
+          session_id: 'session-2',
+          phase: 'user_auth',
+          expires_at: '2026-07-18T00:00:00Z',
+          url
+        }
+      }
+    })
+
+    await expect(resumeFeishuOperation('op-1')).resolves.toMatchObject({
+      action: { url }
+    })
+  })
+
   it('accepts a notice-free next external step when its state and phase agree', async () => {
     mockedRequest.post.mockResolvedValue({
       data: {
