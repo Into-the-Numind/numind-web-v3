@@ -86,6 +86,55 @@ describe('FeishuActionCard', () => {
     expect(QRCode.toDataURL).toHaveBeenLastCalledWith(freshURL, expect.any(Object))
   })
 
+  it.each([
+    ['authorization_pending', '尚未检测到授权完成，请完成后再继续。'],
+    ['authorization_processing', '正在确认授权状态，请稍候。'],
+    ['authorization_rejected', '本次授权未通过，已生成新的授权链接。'],
+    ['authorization_expired', '原链接已过期，已生成新的授权链接。'],
+    ['authorization_updated', '授权步骤已更新，请使用新的授权链接。']
+  ] as const)('announces the fixed %s notice copy', (noticeCode, expected) => {
+    const wrapper = mountCard({ action: createAction({ notice_code: noticeCode }) })
+
+    expect(wrapper.get('[data-testid="feishu-notice"]').text()).toBe(expected)
+    expect(wrapper.get('[data-testid="feishu-notice"]').attributes('role')).toBe('status')
+  })
+
+  it('announces processing once and prevents duplicate lifecycle actions', async () => {
+    const wrapper = mountCard({
+      action: createAction({ notice_code: 'authorization_processing' })
+    })
+
+    expect(wrapper.get('[data-testid="feishu-notice"]').attributes('aria-live')).toBe('polite')
+    expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('[data-testid="feishu-continue"]').trigger('click')
+    expect(wrapper.emitted('resume')).toBeUndefined()
+
+    await wrapper.setProps({ action: createAction(), busy: true })
+    expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeDefined()
+  })
+
+  it.each([
+    'authorization_rejected',
+    'authorization_expired',
+    'authorization_updated'
+  ] as const)('regenerates the QR for a %s replacement', async (noticeCode) => {
+    const wrapper = mountCard()
+    await flushPromises()
+    const freshURL = `${AUTH_URL}&notice=${noticeCode}`
+
+    await wrapper.setProps({
+      action: createAction({
+        session_id: `session-${noticeCode}`,
+        url: freshURL,
+        notice_code: noticeCode
+      })
+    })
+    await flushPromises()
+
+    expect(QRCode.toDataURL).toHaveBeenLastCalledWith(freshURL, expect.any(Object))
+    expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('href')).toBe(freshURL)
+  })
+
   it('emits an operation resume instead of a question answer', async () => {
     const wrapper = mountCard()
     await wrapper.get('[data-testid="feishu-continue"]').trigger('click')
@@ -99,6 +148,13 @@ describe('FeishuActionCard', () => {
     await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
 
     expect(wrapper.emitted('refresh')).toEqual([['session-1']])
+  })
+
+  it('renders a missing-link status exactly once', () => {
+    const wrapper = mountCard({ action: createAction({ url: undefined }) })
+
+    expect(wrapper.text().match(/当前链接不可用，请重新生成链接后继续。/g)).toHaveLength(1)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
   it('expires safely: it removes the old URL, disables continue, and offers refresh', async () => {
@@ -213,9 +269,12 @@ describe('FeishuActionCard', () => {
   })
 
   it('uses polite live announcements and an alert role for actionable errors', () => {
-    const wrapper = mountCard({ error: '暂时无法刷新链接，请稍后重试。' })
+    const wrapper = mountCard({
+      action: createAction({ notice_code: 'authorization_pending' }),
+      error: '暂时无法刷新链接，请稍后重试。'
+    })
 
-    expect(wrapper.get('[data-testid="feishu-action-card"]').attributes('aria-live')).toBe('polite')
+    expect(wrapper.get('[data-testid="feishu-notice"]').attributes('aria-live')).toBe('polite')
     expect(wrapper.get('[role="alert"]').text()).toContain('暂时无法刷新链接')
   })
 })
