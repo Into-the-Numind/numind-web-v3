@@ -502,6 +502,57 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     }
   )
 
+  it('replaces the same card with a live resume action without a page refresh', async () => {
+    const store = useAgentChatStore()
+    try {
+      const oldURL = 'https://open.feishu.cn/suite/passport/oauth/device?user_code=OLD'
+      const newURL = 'https://open.feishu.cn/suite/passport/oauth/device?user_code=NEW'
+      store.applyStreamEvent({
+        type: 'external_action',
+        seq: 1,
+        ts: new Date().toISOString(),
+        run_id: 148,
+        data: {
+          provider: 'feishu',
+          operation_id: 'op-old',
+          session_id: 'session-old',
+          tool_call_id: 'tool-call-1',
+          phase: 'user_auth',
+          url: oldURL,
+          expires_at: futureExpiry()
+        }
+      })
+      vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+        operation_id: 'op-old',
+        state: 'waiting_user_auth',
+        notice_code: 'authorization_expired',
+        action: {
+          operation_id: 'op-old',
+          session_id: 'session-new',
+          phase: 'user_auth',
+          expires_at: futureExpiry(),
+          url: newURL
+        }
+      } as never)
+
+      await store.resumeFeishuOperation('op-old')
+
+      const actions = store.messages.filter((message) => message.type === 'external_action')
+      expect(actions).toHaveLength(1)
+      expect(actions[0]).toMatchObject({
+        operation_id: 'op-old',
+        session_id: 'session-new',
+        url: newURL,
+        notice_code: 'authorization_expired',
+        action_status: 'pending'
+      })
+      expect(actions[0]).not.toMatchObject({ session_id: 'session-old', url: oldURL })
+    } finally {
+      store.reset()
+      store.$dispose()
+    }
+  })
+
   it('replaces an old authorization URL with a URL-less successor action and rejects the old operation', async () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-14T10:00:00Z')
