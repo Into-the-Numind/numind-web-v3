@@ -10,15 +10,16 @@ interface Props {
   attachments: UploadResponse[]
   sending?: boolean
   disabled?: boolean
-  /** True while the agent run / SSE stream is active. Flips the send button into
-   *  a stop button (issue4: 终止 merged into the send button). */
-  streaming?: boolean
+  /** True only when the parent has an active, server-addressable run that can
+   * be cancelled. The stop button must not appear for a stream that has not
+   * received its run_id yet. */
+  canStop?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   sending: false,
   disabled: false,
-  streaming: false
+  canStop: false
 })
 
 const emit = defineEmits<{
@@ -227,7 +228,7 @@ onUnmounted(() => {
                While streaming it's always clickable so the user can abort; otherwise
                it sends and is gated by canSend. -->
           <button
-            v-if="streaming"
+            v-if="canStop"
             class="send-btn send-btn--stop"
             type="button"
             aria-label="终止"

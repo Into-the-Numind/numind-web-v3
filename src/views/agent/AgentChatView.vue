@@ -64,6 +64,12 @@ const currentBalance = computed(() => creditsStore.totalRemain)
 const isMember = computed(
   () => creditsStore.displayState === 'trial' || creditsStore.displayState === 'pro'
 )
+const canStop = computed(
+  () =>
+    !!store.currentRun &&
+    (store.currentRun.status === 'running' || store.currentRun.status === 'pending') &&
+    !store.cancelling
+)
 
 const filteredSessions = computed(() => {
   if (!props.agentId) return store.recentSessions
@@ -103,6 +109,21 @@ const handleCancel = async (): Promise<void> => {
   if (!store.currentRun) return
   const used = store.currentRun.credits_used ?? 0
   await runCtrl.cancel()
+  narration.stop()
+  runCtrl.stopStatusPolling()
+  notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
+}
+
+const handleStop = async (): Promise<void> => {
+  if (!canStop.value) return
+  const used = store.currentRun?.credits_used ?? 0
+  try {
+    await runCtrl.cancel()
+  } catch (err) {
+    notifications.error(`取消任务失败：${(err as Error)?.message ?? '请重试'}`)
+    return
+  }
+  stopStream()
   narration.stop()
   runCtrl.stopStatusPolling()
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
@@ -585,13 +606,13 @@ const handleRetrySnapshot = async (): Promise<void> => {
                 :attachments="store.attachments"
                 :sending="store.sendingMessage"
                 :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
-                :streaming="isStreaming"
+                :can-stop="canStop"
                 @send="handleSend"
                 @estimate-request="handleEstimateRequest"
                 @upload="handleUpload"
                 @remove-attachment="store.removeAttachment"
                 @reject="handleReject"
-                @stop="stopStream"
+                @stop="handleStop"
               />
             </div>
 
@@ -631,13 +652,13 @@ const handleRetrySnapshot = async (): Promise<void> => {
               :attachments="store.attachments"
               :sending="store.sendingMessage"
               :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
-              :streaming="isStreaming"
+              :can-stop="canStop"
               @send="handleSend"
               @estimate-request="handleEstimateRequest"
               @upload="handleUpload"
               @remove-attachment="store.removeAttachment"
               @reject="handleReject"
-              @stop="stopStream"
+              @stop="handleStop"
             />
           </div>
         </template>

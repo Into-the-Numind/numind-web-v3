@@ -19,7 +19,7 @@
  *    /v1/agent-runs/* bootstrap calls.
  *
  * Selectors (verified against source):
- *  .abort-bar / .abort-btn[aria-label="中止流式响应"]  — AgentChatView.vue line 498-501
+ *  .send-btn--stop[aria-label="终止"]                 — AgentInputArea.vue
  *  .msg-user                                           — AgentMessageItem.vue line 102
  *  .msg-assistant .bubble .streaming-cursor            — AgentMessageItem.vue line 146
  *  .msg-final                                          — AgentMessageItem.vue line 224
@@ -265,9 +265,17 @@ async function setupStreamMocks(
     runId?: number
     streamBody?: string
     conflictOnSecond?: boolean
+    runStatus?: 'running' | 'pending' | 'completed' | 'terminated'
+    runStateReason?: string
   } = {}
 ): Promise<void> {
-  const { runId = 1, streamBody = buildHappyStreamBody(runId), conflictOnSecond = false } = opts
+  const {
+    runId = 1,
+    streamBody = buildHappyStreamBody(runId),
+    conflictOnSecond = false,
+    runStatus = 'terminated',
+    runStateReason = runStatus === 'terminated' ? 'completed' : 'running'
+  } = opts
 
   // This file runs only in the `mocked` project (VITE_AGENT_MOCK=false), so
   // seed an opaque browser token and route every dependency. That keeps the
@@ -285,6 +293,14 @@ async function setupStreamMocks(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ code: 0, message: 'ok', data: {} })
+    })
+  })
+
+  await page.route('**/v1/agent-sessions/*/title', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: { title: '测试会话' } })
     })
   })
 
@@ -341,7 +357,7 @@ async function setupStreamMocks(
         body: JSON.stringify({
           code: 0,
           message: 'ok',
-          data: { id: runId, status: 'terminated', state_reason: 'completed', session_id: 'sess-1' }
+          data: { id: runId, status: runStatus, state_reason: runStateReason, session_id: `sess-${runId}` }
         })
       })
     } else {
@@ -436,9 +452,90 @@ test.describe('Scenario 1 — happy stream', () => {
     // Final answer must eventually arrive (.msg-final = AgentMessageItem final_answer type).
     await expect(page.locator('.msg-final').first()).toBeVisible({ timeout: 30_000 })
 
-    // After terminal, the abort bar should be hidden and input should be re-enabled.
-    await expect(page.locator('.abort-bar')).toBeHidden({ timeout: 10_000 })
+    // After terminal, the stop control is replaced by the normal send button.
+    await expect(page.locator('button[aria-label="发送"]').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 5_000 })
+  })
+
+  test('取消失败时保留输入停止键以便重试', async ({ page }) => {
+    await installOpenStream(page, 3)
+    await setupStreamMocks(page, { runId: 3 })
+    await page.route('**/v1/agent-runs/3/cancel', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 500, message: 'cancel failed' })
+      })
+    })
+
+    await page.goto('/agent/chat/new?agent_id=1')
+    const textarea = page.locator('textarea').first()
+    await textarea.fill('请做一个很长的分析')
+    await textarea.press('Enter')
+
+    const stopButton = page.locator('.send-btn--stop[aria-label="终止"]')
+    await expect(stopButton).toBeVisible()
+    await stopButton.click()
+
+    await expect(stopButton).toBeVisible()
+    await expect(textarea).toBeDisabled()
+  })
+
+  test('恢复中的非 SSE run 仍可从输入区停止', async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem('agentChat:currentRunId', '4')
+      sessionStorage.setItem('agentChat:currentSessionId', 'sess-4')
+    })
+    await setupStreamMocks(page, { runId: 4, runStatus: 'running' })
+    let cancelCalls = 0
+    await page.route('**/v1/agent-runs/4/cancel', async (route) => {
+      cancelCalls += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: { run_id: 4, status: 'cancelled' } })
+      })
+    })
+
+    await page.goto('/agent/chat/new?agent_id=1')
+    const stopButton = page.locator('.send-btn--stop[aria-label="终止"]')
+    await expect(stopButton).toBeVisible()
+    await stopButton.click()
+    await expect.poll(() => cancelCalls).toBe(1)
+    await expect(page.locator('textarea').first()).toBeEnabled()
+  })
+
+  test('取消请求进行中连续触发停止仅发送一次', async ({ page }) => {
+    await installOpenStream(page, 5)
+    await setupStreamMocks(page, { runId: 5 })
+    let cancelCalls = 0
+    let completeCancel: (() => void) | undefined
+    const cancelPending = new Promise<void>((resolve) => {
+      completeCancel = resolve
+    })
+    await page.route('**/v1/agent-runs/5/cancel', async (route) => {
+      cancelCalls += 1
+      await cancelPending
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: { run_id: 5, status: 'cancelled' } })
+      })
+    })
+
+    await page.goto('/agent/chat/new?agent_id=1')
+    const textarea = page.locator('textarea').first()
+    await textarea.fill('请做一个很长的分析')
+    await textarea.press('Enter')
+    const stopButton = page.locator('.send-btn--stop[aria-label="终止"]')
+    await expect(stopButton).toBeVisible()
+    await stopButton.evaluate((button) => {
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    await expect.poll(() => cancelCalls).toBe(1)
+    completeCancel?.()
+    await expect(textarea).toBeEnabled()
   })
 })
 
@@ -595,8 +692,8 @@ test.describe('Scenario 4 — disconnect recovery', () => {
     // After recovery: input must eventually be re-enabled (stream or polling settled).
     await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 20_000 })
 
-    // The abort bar must be gone (streaming stopped, either by error or terminal).
-    await expect(page.locator('.abort-bar')).toBeHidden({ timeout: 10_000 })
+    // The stop control must be replaced by the normal send button.
+    await expect(page.locator('button[aria-label="发送"]').first()).toBeVisible({ timeout: 10_000 })
 
     // Note on polling fallback: useAgentStream calls store.applyError on non-409 errors.
     // If the SSE body was short enough to drain before offline, the terminal event fires
@@ -705,6 +802,6 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
 
     // Input is re-enabled after terminal.
     await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 10_000 })
-    await expect(page.locator('.abort-bar')).toBeHidden({ timeout: 5_000 })
+    await expect(page.locator('button[aria-label="发送"]').first()).toBeVisible({ timeout: 5_000 })
   })
 })
