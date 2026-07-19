@@ -31,7 +31,7 @@ export default defineConfig({
     // in-browser test token themselves and therefore deliberately skip auth.setup.
     {
       name: 'mocked',
-      testMatch: /feishu-personal-workspace\.spec\.ts/,
+      testMatch: /(feishu-personal-workspace|agent-tool-recovery)\.spec\.ts/,
       use: {
         baseURL: 'http://localhost:5174',
       },
