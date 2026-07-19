@@ -23,7 +23,6 @@
  *  .msg-assistant .bubble .streaming-cursor            — AgentMessageItem.vue line 146
  *  .msg-final                                          — AgentMessageItem.vue line 224
  *  .msg-question-prompt / .question-prompt__option--btn — AgentMessageItem + QuestionPrompt.vue
- *  .tool-call-list                                     — AgentToolCallList.vue outer wrapper
  *
  * Run:
  *   npm run test:e2e -- --project=mocked e2e/agent-streaming.spec.ts
@@ -504,6 +503,23 @@ test.describe('Scenario 1 — happy stream', () => {
     // After terminal, the stop control is replaced by the normal send button.
     await expect(page.locator('button[aria-label="发送"]').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 5_000 })
+  })
+
+  test('runtime view never shows the header cancel button or input credit estimate', async ({ page }) => {
+    await installOpenStream(page, 1)
+    await page.goto('/agent/chat/new?agent_id=1')
+
+    expect(await page.locator('.first-run__identity').count()).toBe(0)
+    expect(await page.getByRole('button', { name: '取消任务' }).count()).toBe(0)
+
+    const textarea = page.locator('textarea').first()
+    await textarea.fill('请分析本周的内容表现')
+    await page.waitForTimeout(750)
+    expect(await page.getByText(/预计消耗/).count()).toBe(0)
+
+    await textarea.press('Enter')
+    await expect(page.locator('.send-btn--stop[aria-label="终止"]')).toBeVisible()
+    expect(await page.getByRole('button', { name: '取消任务' }).count()).toBe(0)
   })
 
   test('取消失败时保留输入停止键以便重试', async ({ page }) => {
