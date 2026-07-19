@@ -89,15 +89,15 @@ onBeforeUnmount(() => {
         <AgentRunPulse v-if="!readOnly" />
       </div>
     </div>
-    <!-- 当用户手动向上滚动打断跟随状态时，显示优美的“跳回底部”按钮 -->
+    <!-- 用户手动向上滚动后，用紧凑的圆形箭头回到底部。 -->
     <button
       v-if="scrollFollow.isInterrupted.value"
       class="back-to-bottom"
       @click="scrollFollow.resume(scroller!)"
       aria-label="回到底部"
+      title="回到底部"
     >
       <ChevronDown :size="16" />
-      <span>新内容</span>
     </button>
   </div>
 </template>
@@ -140,17 +140,23 @@ onBeforeUnmount(() => {
   background: var(--color-primary, #2563eb);
   color: #fff;
   border: none;
-  border-radius: 20px;
-  padding: 6px 14px;
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .back-to-bottom:hover {
   background: var(--color-primary-hover, #1d4ed8);
+}
+
+.back-to-bottom:focus-visible {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: 3px;
 }
 </style>
