@@ -526,6 +526,7 @@ test.describe('Scenario 1 — happy stream', () => {
     await expect(stopButton).toBeVisible()
     await stopButton.click()
 
+    await expect(page.locator('html')).toHaveAttribute('data-agent-stream-aborted', 'true')
     await expect(stopButton).toBeVisible()
     await expect(textarea).toBeDisabled()
   })
