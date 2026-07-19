@@ -14,10 +14,6 @@ const welcomeText = (): string => {
 
 <template>
   <div class="first-run">
-    <div class="first-run__identity">
-      <span class="first-run__emoji">{{ agent.emoji ?? '🤖' }}</span>
-      <span class="first-run__name">{{ agent.name }}</span>
-    </div>
     <h1 class="first-run__hero">{{ welcomeText() }}</h1>
   </div>
 </template>
@@ -29,27 +25,6 @@ const welcomeText = (): string => {
   align-items: center;
   gap: var(--space-md);
   text-align: center;
-}
-
-.first-run__identity {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 6px var(--space-md);
-  border-radius: var(--radius-pill);
-  background: var(--surface-tint);
-  border: 1px solid var(--border);
-}
-
-.first-run__emoji {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.first-run__name {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
 }
 
 .first-run__hero {

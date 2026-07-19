@@ -4,9 +4,9 @@
  * Intercepts the three "bootstrap" network calls that the AgentSelectView and
  * AgentChatView make on mount, so tests can run without a live backend.
  *
- * The following endpoints are NOT intercepted here because they are handled
- * entirely by src/api/agent.mock.ts when VITE_AGENT_MOCK=true is set in the
- * dev server environment (see playwright.config.ts webServer.env):
+ * The following endpoints are intentionally not intercepted here. Individual
+ * suites either rely on src/api/agent.mock.ts or provide route handlers for
+ * their own protocol-specific scenarios:
  *   /v1/agent-runs/**
  *   /v1/agent-sessions/history
  *   /v1/sessions/**
@@ -97,6 +97,14 @@ export const setupAgentMocks = async (page: Page): Promise<void> => {
     })
   })
 
+  await page.route('**/v1/agent-sessions/history', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+    })
+  })
+
   // GET /v1/credits/balance — stub a healthy pro-member balance so all
   // balance-gated views render correctly (isMember=true, balance >= 50).
   await page.route('**/v1/credits/balance', async (route: Route) => {
@@ -108,10 +116,9 @@ export const setupAgentMocks = async (page: Page): Promise<void> => {
         message: 'ok',
         data: {
           balance: 1500,
-          sub_total: 2000,
-          sub_remain: 1500,
-          booster_total: 0,
-          booster_remain: 0,
+          cycle_remaining: 1500,
+          booster_usable: 0,
+          trial_remaining: 0,
           membership_state: 'pro'
         }
       })

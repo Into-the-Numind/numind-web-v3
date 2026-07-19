@@ -64,6 +64,12 @@ const currentBalance = computed(() => creditsStore.totalRemain)
 const isMember = computed(
   () => creditsStore.displayState === 'trial' || creditsStore.displayState === 'pro'
 )
+const canStop = computed(
+  () =>
+    !!store.currentRun &&
+    (store.currentRun.status === 'running' || store.currentRun.status === 'pending') &&
+    !store.cancelling
+)
 
 const filteredSessions = computed(() => {
   if (!props.agentId) return store.recentSessions
@@ -99,12 +105,23 @@ const handleSelectStarter = (text: string): void => {
   void handleSend(text)
 }
 
-const handleCancel = async (): Promise<void> => {
-  if (!store.currentRun) return
-  const used = store.currentRun.credits_used ?? 0
-  await runCtrl.cancel()
+const handleStop = async (): Promise<void> => {
+  if (!canStop.value) return
+  const used = store.currentRun?.credits_used ?? 0
+
+  // The input stop control must always end the local stream immediately. The
+  // server cancellation may be slow or fail, in which case the active run is
+  // retained and the user can retry from the same control.
+  stopStream()
   narration.stop()
   runCtrl.stopStatusPolling()
+
+  try {
+    await runCtrl.cancel()
+  } catch (err) {
+    notifications.error(`取消任务失败：${(err as Error)?.message ?? '请重试'}`)
+    return
+  }
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
 }
 
@@ -133,11 +150,6 @@ const handleAnswerSubmitted = async (
     narration.start()
     runCtrl.startStatusPolling()
   }
-}
-
-const handleEstimateRequest = async (text: string): Promise<void> => {
-  if (!store.currentAgent) return
-  await store.estimateInput(store.currentAgent.id, text)
 }
 
 const handleUpload = async (file: File): Promise<void> => {
@@ -368,7 +380,6 @@ watch(
         store.stuckSince = null
         store.attachments = []
         store.inputText = ''
-        store.estimate = null
         store.isReadOnly = false
         // 切换会话时关闭文档面板（当前文档属于旧会话的 run）；先 keepalive 落库再清空。
         documentsStore.flushOnUnload()
@@ -564,13 +575,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
         <!-- Header -->
         <AgentChatHeader
           :agent="store.currentAgent"
-          :run="store.currentRun"
-          :read-only="readOnly"
-          :cancelling="store.cancelling"
-          :cancel-always-enabled="narration.cancelAlwaysEnabled.value"
-          :sidebar-open="sidebarOpen"
           @toggle-sidebar="sidebarOpen = !sidebarOpen"
-          @cancel="handleCancel"
         />
 
         <!-- 空状态（新会话无消息）：欢迎语 + 居中输入框 + 快捷开始（居中组合） -->
@@ -580,18 +585,15 @@ const handleRetrySnapshot = async (): Promise<void> => {
 
             <div v-if="!readOnly" class="welcome-stage__input">
               <AgentInputArea
-                :agent-id="store.currentAgent!.id"
-                :estimate="store.estimate"
                 :attachments="store.attachments"
                 :sending="store.sendingMessage"
                 :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
-                :streaming="isStreaming"
+                :can-stop="canStop"
                 @send="handleSend"
-                @estimate-request="handleEstimateRequest"
                 @upload="handleUpload"
                 @remove-attachment="store.removeAttachment"
                 @reject="handleReject"
-                @stop="stopStream"
+                @stop="handleStop"
               />
             </div>
 
@@ -626,18 +628,15 @@ const handleRetrySnapshot = async (): Promise<void> => {
             <!-- issue4: 终止 merged into the send button (AgentInputArea flips to a
                  stop button while streaming) — no separate abort bar. -->
             <AgentInputArea
-              :agent-id="store.currentAgent.id"
-              :estimate="store.estimate"
               :attachments="store.attachments"
               :sending="store.sendingMessage"
               :disabled="isStreaming || store.isRunning || store.isWaitingForUser"
-              :streaming="isStreaming"
+              :can-stop="canStop"
               @send="handleSend"
-              @estimate-request="handleEstimateRequest"
               @upload="handleUpload"
               @remove-attachment="store.removeAttachment"
               @reject="handleReject"
-              @stop="stopStream"
+              @stop="handleStop"
             />
           </div>
         </template>

@@ -1,38 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { AgentSkill, AgentRun } from '@/types/agent'
-import AppButton from '@/components/common/AppButton.vue'
-import { Pause } from 'lucide-vue-next'
+import type { AgentSkill } from '@/types/agent'
 
 interface Props {
   agent: AgentSkill | null
-  run: AgentRun | null
-  readOnly?: boolean
-  cancelling?: boolean
-  /** stuck 60s 之后强制 enable 取消按钮 */
-  cancelAlwaysEnabled?: boolean
-  sidebarOpen?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  readOnly: false,
-  cancelling: false,
-  cancelAlwaysEnabled: false,
-  sidebarOpen: false
-})
+defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'cancel'): void
   (e: 'toggle-sidebar'): void
 }>()
-
-const showCancel = computed(() => {
-  if (props.readOnly) return false
-  const s = props.run?.status
-  return s === 'running' || s === 'pending' || props.cancelAlwaysEnabled
-})
-
-const cancelDisabled = computed(() => props.cancelling)
 </script>
 
 <template>
@@ -55,19 +32,6 @@ const cancelDisabled = computed(() => props.cancelling)
         </svg>
       </button>
       <h2 class="name">{{ agent?.name ?? 'AI 助手' }}</h2>
-    </div>
-
-    <div class="right">
-      <AppButton
-        v-if="showCancel"
-        variant="secondary"
-        size="sm"
-        class="cancel-btn"
-        :disabled="cancelDisabled"
-        @click="emit('cancel')"
-      >
-        <Pause :size="14" /> <span>取消任务</span>
-      </AppButton>
     </div>
   </header>
 </template>
@@ -115,22 +79,6 @@ const cancelDisabled = computed(() => props.cancelling)
   font-weight: 600;
   color: var(--color-text, #1f2937);
   margin: 0;
-}
-
-.right {
-  display: flex;
-  align-items: center;
-}
-
-/* cancel 按钮覆盖为红色 danger 风格 */
-.cancel-btn {
-  color: #b91c1c !important;
-  border-color: #fca5a5 !important;
-}
-
-.cancel-btn:hover:not(:disabled) {
-  background: #fee2e2 !important;
-  border-color: #ef4444 !important;
 }
 
 /* 移动端响应式布局 */
