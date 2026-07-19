@@ -138,6 +138,38 @@ function actionStream(runId: number, action: ActionFixture): string {
   ].join('')
 }
 
+function sequentialActionStream(runId: number, action: ActionFixture): string {
+  const now = new Date().toISOString()
+  return [
+    sseFrame({
+      type: 'stream_start',
+      seq: 1,
+      ts: now,
+      run_id: runId,
+      data: { run_id: runId, session_id: `feishu-e2e-run-${runId}` }
+    }),
+    sseFrame({
+      type: 'tool_call_start',
+      seq: 2,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: {
+        tool_call_id: `feishu-tool-${runId}`,
+        tool_name: 'lark_execute',
+        input_digest: 'safe-sequential-base-fixture'
+      }
+    }),
+    sseFrame({
+      type: 'external_action',
+      seq: 3,
+      ts: now,
+      run_id: runId,
+      data: { provider: 'lark', ...action }
+    })
+  ].join('')
+}
+
 function continuationStream(runId: number): string {
   const now = new Date().toISOString()
   const messageId = `feishu-continuation-${runId}`
@@ -208,30 +240,33 @@ function continuationStream(runId: number): string {
 }
 
 async function installOpenAgentStream(page: Page, body: string): Promise<void> {
-  await page.addInitScript(({ initialBody }) => {
-    const streamWindow = window as typeof window & {
-      __feishuE2EStreamController?: ReadableStreamDefaultController<Uint8Array>
-    }
-    const originalFetch = window.fetch.bind(window)
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const rawURL = input instanceof Request ? input.url : String(input)
-      const requestURL = new URL(rawURL, window.location.origin)
-      if (requestURL.pathname.endsWith('/v1/agent-runs/stream')) {
-        const encoder = new TextEncoder()
-        const stream = new ReadableStream<Uint8Array>({
-          start(controller) {
-            streamWindow.__feishuE2EStreamController = controller
-            controller.enqueue(encoder.encode(initialBody))
-          }
-        })
-        return new Response(stream, {
-          status: 200,
-          headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
-        })
+  await page.addInitScript(
+    ({ initialBody }) => {
+      const streamWindow = window as typeof window & {
+        __feishuE2EStreamController?: ReadableStreamDefaultController<Uint8Array>
       }
-      return originalFetch(input, init)
-    }
-  }, { initialBody: body })
+      const originalFetch = window.fetch.bind(window)
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const rawURL = input instanceof Request ? input.url : String(input)
+        const requestURL = new URL(rawURL, window.location.origin)
+        if (requestURL.pathname.endsWith('/v1/agent-runs/stream')) {
+          const encoder = new TextEncoder()
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              streamWindow.__feishuE2EStreamController = controller
+              controller.enqueue(encoder.encode(initialBody))
+            }
+          })
+          return new Response(stream, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
+          })
+        }
+        return originalFetch(input, init)
+      }
+    },
+    { initialBody: body }
+  )
 }
 
 async function finishOpenAgentStream(page: Page, body: string): Promise<void> {
@@ -319,6 +354,160 @@ async function openAgentConversation(page: Page, prompt: string): Promise<void> 
 }
 
 test.describe('personal Feishu workspace', () => {
+  test('desktop: a second Feishu permission appears from polling without reload and refreshes with an empty body', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const runId = 306
+    const firstAction: ActionFixture = {
+      operation_id: 'feishu-operation-e2e-306-create',
+      session_id: 'feishu-auth-session-e2e-306-create',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=CREATE-306'
+    }
+    const secondAction: ActionFixture = {
+      operation_id: 'feishu-operation-e2e-306-read',
+      session_id: 'feishu-auth-session-e2e-306-read',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString()
+    }
+    const refreshedSecondAction: ActionFixture = {
+      ...secondAction,
+      session_id: 'feishu-auth-session-e2e-306-read-fresh',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=READ-306'
+    }
+    const refreshBodies: Array<string | null> = []
+    const ordinaryAnswerRequests: Request[] = []
+    const browserErrors: string[] = []
+    let pageLoadCount = 0
+
+    page.on('load', () => {
+      pageLoadCount += 1
+    })
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        /\/v1\/agent-runs\/\d+\/answer(?:-stream)?(?:\?|$)/.test(request.url())
+      ) {
+        ordinaryAnswerRequests.push(request)
+      }
+    })
+    page.on('console', (message) => {
+      if (message.type() === 'error') browserErrors.push(message.text())
+    })
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+
+    await installOpenAgentStream(page, sequentialActionStream(runId, firstAction))
+    await page.route('**/v1/feishu/operations/*/resume', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { operation_id: firstAction.operation_id, state: 'succeeded' }
+        })
+      })
+    })
+    await page.route(new RegExp(`/v1/agent-runs/${runId}(?:\\?.*)?$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: runId,
+            session_id: `feishu-e2e-run-${runId}`,
+            status: 'running',
+            state_reason: 'waiting_for_user_choice',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      })
+    })
+    await page.route(`**/v1/sessions/feishu-e2e-run-${runId}/snapshot`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            session_id: `feishu-e2e-run-${runId}`,
+            agent_skill_id: 1,
+            agent_run_ids: [runId],
+            last_active_at: new Date().toISOString(),
+            status: 'running',
+            run: {
+              id: runId,
+              session_id: `feishu-e2e-run-${runId}`,
+              status: 'running',
+              state_reason: 'waiting_for_user_choice',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            },
+            messages: [
+              {
+                id: `external-action-${runId}`,
+                type: 'external_action',
+                run_id: runId,
+                provider: 'feishu',
+                ...secondAction,
+                timestamp: new Date().toISOString()
+              }
+            ]
+          }
+        })
+      })
+    })
+    await page.route('**/v1/feishu/actions/*/refresh', async (route) => {
+      refreshBodies.push(route.request().postData())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { action: refreshedSecondAction }
+        })
+      })
+    })
+    await page.route(`**/v1/agent-runs/${runId}/narration*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
+
+    await openAgentConversation(page, '创建多维表格，写入记录后重新读取')
+    expect(pageLoadCount).toBe(1)
+    const cards = page.getByTestId('feishu-action-card')
+    await expect(cards).toHaveCount(1)
+    await expect(page.locator('.tl-line.active')).toHaveCount(1)
+
+    await cards.first().getByTestId('feishu-continue').click()
+    await expect(cards).toHaveCount(2, { timeout: 15_000 })
+    await expect(cards.first()).toContainText('飞书操作已完成，正在继续原任务。')
+    await expect(cards.nth(1)).toContainText('当前链接不可用，请重新生成链接后继续。')
+    await expect(cards.nth(1).getByTestId('feishu-url')).toHaveCount(0)
+    await expect(page.locator('.tl-line.active')).toHaveCount(0)
+    await expect(page.locator('.tl-line.done')).toHaveCount(1)
+
+    await cards.nth(1).getByTestId('feishu-refresh').click()
+    await expect.poll(() => refreshBodies).toEqual([null])
+    await expect(cards).toHaveCount(2)
+    await expect(cards.nth(1).getByTestId('feishu-url')).toHaveText(refreshedSecondAction.url ?? '')
+    await expect(cards.nth(1).locator('img[alt="飞书操作二维码"]')).toBeVisible()
+    expect(pageLoadCount).toBe(1)
+    expect(ordinaryAnswerRequests).toHaveLength(0)
+    expect(browserErrors).toEqual([])
+  })
+
   test('desktop: replacement authorization and Agent continuation stay live without a reload', async ({
     page
   }) => {
@@ -413,17 +602,14 @@ test.describe('personal Feishu workspace', () => {
 
     await card.getByTestId('feishu-continue').click()
     await expect(card).toHaveCount(1)
-    await expect(card.getByTestId('feishu-notice')).toHaveText(
-      '原链接已过期，已生成新的授权链接。'
-    )
+    await expect(card.getByTestId('feishu-notice')).toHaveText('原链接已过期，已生成新的授权链接。')
     await expect(card.getByTestId('feishu-url')).toHaveText(replacementAction.url ?? '')
     await expect(card.locator('img[alt="飞书操作二维码"]')).toBeVisible()
 
     await card.getByTestId('feishu-continue').click()
-    await expect.poll(() => resumeBodies).toEqual([
-      { action: 'user_completed' },
-      { action: 'user_completed' }
-    ])
+    await expect
+      .poll(() => resumeBodies)
+      .toEqual([{ action: 'user_completed' }, { action: 'user_completed' }])
     await expect(page.getByText('正在核对飞书写入结果。', { exact: true }).first()).toBeVisible()
     await expect(page.locator('.msg-final')).toContainText('飞书文档已经创建完成。')
     await expect(card).toHaveCount(1)
@@ -506,7 +692,9 @@ test.describe('personal Feishu workspace', () => {
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
   })
 
-  test('mobile: an expired authorization link refreshes safely before continuing', async ({ page }) => {
+  test('mobile: an expired authorization link refreshes safely before continuing', async ({
+    page
+  }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const expiredAction: ActionFixture = {
       ...FUTURE_ACTION,
