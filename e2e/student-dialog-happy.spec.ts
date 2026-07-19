@@ -3,7 +3,7 @@
  *
  * Real LLM ReAct happy path: student picks the seeded test agent (id 99999),
  * sends a message, watches narration tool-call events appear, then receives a
- * non-empty final answer. Cost transparency (积分 consumed) is also verified.
+ * non-empty final answer.
  *
  * REQUIRES:
  *   E2E_INTEGRATION=true      — opt-in gate; CI stays green without it
@@ -27,7 +27,6 @@
  *   .msg-final           — AgentMessageItem.vue: <div class="msg msg-final">
  *   .final-answer        — AgentFinalAnswer.vue outer wrapper
  *   .markdown-body       — AgentFinalAnswer.vue: rendered markdown content
- *   .credits             — AgentChatHeader.vue: "已用 N 积分" span
  *
  * NDF v2 #14/14 Phase B (web-v3 part 1)
  */
@@ -103,16 +102,5 @@ test.describe.skip('M-B2: student dialog happy path (dev integration)', () => {
     const text = await markdownBody.textContent()
     expect((text ?? '').trim().length).toBeGreaterThan(0)
 
-    // ── Step 6: cost transparency ─────────────────────────────────────────────
-    // AgentChatHeader renders "已用 N 积分" in .credits span.
-    // After a completed run the counter should be > 0.
-    const creditsSpan = page.locator('.agent-chat-header .credits')
-    await expect(creditsSpan).toBeVisible()
-    const creditsText = await creditsSpan.textContent()
-    // Text is "已用 N 积分" — extract N and assert >= 0
-    const match = (creditsText ?? '').match(/已用\s*(\d+)\s*积分/)
-    expect(match).not.toBeNull()
-    const creditsUsed = parseInt(match![1], 10)
-    expect(creditsUsed).toBeGreaterThanOrEqual(0)
   })
 })

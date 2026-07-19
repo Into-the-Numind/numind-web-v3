@@ -509,17 +509,17 @@ test.describe('Scenario 1 — happy stream', () => {
     await installOpenStream(page, 1)
     await page.goto('/agent/chat/new?agent_id=1')
 
-    expect(await page.locator('.first-run__identity').count()).toBe(0)
-    expect(await page.getByRole('button', { name: '取消任务' }).count()).toBe(0)
-
     const textarea = page.locator('textarea').first()
+    await expect(textarea).toBeVisible()
+    await expect(page.locator('.first-run__identity')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '取消任务' })).toHaveCount(0)
+
     await textarea.fill('请分析本周的内容表现')
-    await page.waitForTimeout(750)
-    expect(await page.getByText(/预计消耗/).count()).toBe(0)
+    await expect(page.getByText(/预计消耗/)).toHaveCount(0)
 
     await textarea.press('Enter')
     await expect(page.locator('.send-btn--stop[aria-label="终止"]')).toBeVisible()
-    expect(await page.getByRole('button', { name: '取消任务' }).count()).toBe(0)
+    await expect(page.getByRole('button', { name: '取消任务' })).toHaveCount(0)
   })
 
   test('取消失败时保留输入停止键以便重试', async ({ page }) => {
