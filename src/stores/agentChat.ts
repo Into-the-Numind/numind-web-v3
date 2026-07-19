@@ -462,6 +462,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const EXTERNAL_ACTION_POLL_INTERVAL_MS = 5_000
   let externalActionPollTimer: ReturnType<typeof setTimeout> | null = null
   let externalActionPollDeadline = 0
+  // Live action mutations and snapshot ordering are separate clocks. A live
+  // SSE/resume/refresh result always fences older URL-less snapshots, while
+  // overlapping snapshots use latest-request-wins ordering among themselves.
+  let externalActionLiveRevision = 0
+  let externalActionSnapshotRequestSeq = 0
   // A polling timer belongs to the session that created its authorization
   // action.  Keep that ownership explicit so a late timer continuation cannot
   // observe whichever run happens to be selected after a route switch.
@@ -621,6 +626,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const beginSession = (sessionID: string): number => {
     activeSessionEpoch += 1
     activeSessionID = sessionID
+    externalActionLiveRevision = 0
+    externalActionSnapshotRequestSeq = 0
     stopExternalActionPolling()
     sendingMessage.value = false
     cancelling.value = false
@@ -630,6 +637,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const invalidateSession = (): void => {
     activeSessionEpoch += 1
     activeSessionID = null
+    externalActionLiveRevision = 0
+    externalActionSnapshotRequestSeq = 0
     stopExternalActionPolling()
   }
 
@@ -640,6 +649,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     eligibleStatuses: readonly ExternalActionStatus[] = ['pending'],
     terminalState?: FeishuRefreshTerminal['state']
   ): void => {
+    let changed = false
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
       if (
@@ -658,7 +668,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (terminalState) settled.terminal_state = terminalState
       else delete settled.terminal_state
       messages.value[index] = settled
+      changed = true
     }
+    if (changed) externalActionLiveRevision += 1
     if (!hasPendingExternalAction()) stopExternalActionPolling()
   }
 
@@ -746,6 +758,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       settleExternalAction(operationID, 'expired')
       return
     }
+    let changed = false
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
       if (
@@ -771,13 +784,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
       if (noticeCode) replacement.notice_code = noticeCode
       messages.value[index] = replacement
+      changed = true
     }
+    if (changed) externalActionLiveRevision += 1
   }
 
   const updateExternalActionNotice = (
     operationID: string,
     noticeCode: FeishuAuthorizationNoticeCode
   ): void => {
+    let changed = false
     for (let index = 0; index < messages.value.length; index += 1) {
       const message = messages.value[index]
       if (
@@ -788,7 +804,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         continue
       }
       messages.value[index] = { ...message, notice_code: noticeCode }
+      changed = true
     }
+    if (changed) externalActionLiveRevision += 1
   }
 
   const scheduleExternalActionPoll = (): void => {
@@ -1118,6 +1136,85 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     }
   }
 
+  /**
+   * Reconcile one server-synthesized Feishu action into the live conversation.
+   * Snapshot URLs are never trusted or restored. A different operation is a
+   * new card with a fresh local Vue key; a replacement session for the same
+   * operation reuses the old card position while revoking its transient URL.
+   */
+  const reconcileSnapshotExternalAction = (
+    payload: unknown,
+    runID: number,
+    timestamp: string,
+    expectedLiveRevision: number,
+    snapshotRequestSeq: number
+  ): boolean => {
+    const candidate = externalActionMessage(payload, runID, timestamp, uuid(), false)
+    if (!candidate) return false
+
+    const pendingInteraction = messages.value.find(
+      (message) =>
+        (message.type === 'question_prompt' &&
+          (message as QuestionPromptMessage).run_id === runID &&
+          (message as QuestionPromptMessage).answer_status === 'pending') ||
+        (message.type === 'external_action' &&
+          message.run_id === runID &&
+          message.action_status === 'pending')
+    )
+    if (
+      pendingInteraction &&
+      (pendingInteraction.type !== 'external_action' ||
+        pendingInteraction.operation_id !== candidate.operation_id)
+    ) {
+      return false
+    }
+
+    const existingIndex = messages.value.findIndex(
+      (message) =>
+        message.type === 'external_action' &&
+        message.run_id === runID &&
+        message.operation_id === candidate.operation_id
+    )
+    if (externalActionLiveRevision !== expectedLiveRevision) {
+      // A live action for this exact operation arrived after the snapshot
+      // request began. It is authoritative regardless of session mismatch;
+      // keep it and let a later stable poll observe any subsequent server move.
+      return (
+        existingIndex >= 0 &&
+        (messages.value[existingIndex] as ExternalActionMessage).action_status === 'pending'
+      )
+    }
+    if (snapshotRequestSeq !== externalActionSnapshotRequestSeq) return false
+    if (existingIndex < 0) {
+      messages.value.push(candidate)
+      return true
+    }
+
+    const existing = messages.value[existingIndex] as ExternalActionMessage
+    // A stale snapshot cannot reopen the same authorization attempt after it
+    // reached a browser-visible terminal state. A different session is the
+    // server's explicit replacement attempt and may reuse the card position.
+    if (existing.action_status !== 'pending') {
+      if (existing.session_id === candidate.session_id) return false
+      messages.value[existingIndex] = { ...candidate, id: existing.id }
+      return true
+    }
+    if (existing.session_id === candidate.session_id) {
+      const sameSession: ExternalActionMessage = { ...candidate, id: existing.id }
+      // A live SSE response may win the race while the URL-less snapshot is in
+      // flight. Keep that allowlisted URL and its current notice in memory.
+      if (existing.url) sameSession.url = existing.url
+      if (existing.notice_code) sameSession.notice_code = existing.notice_code
+      messages.value[existingIndex] = sameSession
+      return true
+    }
+
+    // The backend moved the exact operation to a new authorization attempt.
+    // Replace in place, but deliberately carry neither the old URL nor notice.
+    messages.value[existingIndex] = { ...candidate, id: existing.id }
+    return true
+  }
+
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
     const epoch = activeSessionEpoch
@@ -1170,31 +1267,68 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // status 'running' so isTerminal is already false, but guard explicitly so
       // this stays symmetric with reconcileFromDB if that mapping ever changes.
       const isWaiting = next.state_reason === 'waiting_for_user_choice'
-      // answer-resume-lifecycle F4: a waiting run must show its question card.
-      // The live SSE question_prompt event only covers the streaming first leg;
-      // when a RESUMED leg yields again (polling mode), nothing else injects the
-      // card — fetch it from the session snapshot (synthesizeQuestionPrompt,
-      // verified by the question-options-omitempty hotfix). Idempotent: skip
-      // when a pending card for this run already exists; failures retry on the
-      // next poll tick.
+      // answer-resume-lifecycle F4: a waiting resumed run must show its latest
+      // interactive card. Live SSE covers the streaming first leg only; later
+      // question_prompt and external_action yields are recovered from the
+      // session snapshot. Idempotent: a current pending interaction suppresses
+      // another fetch, while post-await fences reject stale session/run work.
       if (isWaiting) {
         const hasPendingCard = messages.value.some(
           (m) =>
             (m.type === 'question_prompt' &&
               (m as QuestionPromptMessage).run_id === next.id &&
               (m as QuestionPromptMessage).answer_status === 'pending') ||
-            (m.type === 'external_action' &&
-              m.run_id === next.id &&
-              m.action_status === 'pending')
+            (m.type === 'external_action' && m.run_id === next.id && m.action_status === 'pending')
         )
         if (!hasPendingCard && next.session_id) {
           try {
+            const snapshotActionLiveRevision = externalActionLiveRevision
+            const snapshotRequestSeq = ++externalActionSnapshotRequestSeq
             const snap = await api.getSessionSnapshot(String(next.session_id))
-            if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
-            const qp = snap.messages.find(
-              (m) => m.type === 'question_prompt' && (m as QuestionPromptMessage).run_id === next.id
-            ) as QuestionPromptMessage | undefined
-            if (qp) {
+            if (
+              !isCurrentSessionEpoch(epoch) ||
+              currentRun.value?.id !== runID ||
+              currentRun.value.state_reason !== 'waiting_for_user_choice' ||
+              (currentRun.value.status !== 'running' && currentRun.value.status !== 'pending') ||
+              (activeSessionID !== null &&
+                activeSessionID !== 'new' &&
+                String(snap.session_id) !== activeSessionID)
+            ) {
+              return
+            }
+            const interaction = [...(snap.messages ?? [])]
+              .reverse()
+              .find(
+                (message) =>
+                  (message.type === 'question_prompt' || message.type === 'external_action') &&
+                  (message as QuestionPromptMessage | ExternalActionMessage).run_id === next.id
+              )
+            if (interaction?.type === 'external_action') {
+              const reconciled = reconcileSnapshotExternalAction(
+                interaction,
+                next.id,
+                interaction.timestamp ?? new Date().toISOString(),
+                snapshotActionLiveRevision,
+                snapshotRequestSeq
+              )
+              if (reconciled) {
+                // The previous execution leg is paused at a server-owned user
+                // action, so it must not keep advertising an active spinner.
+                finalizeToolGroups('completed')
+                startExternalActionPolling()
+              }
+            } else if (interaction?.type === 'question_prompt') {
+              const pendingInteractionAppeared = messages.value.some(
+                (message) =>
+                  (message.type === 'question_prompt' &&
+                    (message as QuestionPromptMessage).run_id === next.id &&
+                    (message as QuestionPromptMessage).answer_status === 'pending') ||
+                  (message.type === 'external_action' &&
+                    message.run_id === next.id &&
+                    message.action_status === 'pending')
+              )
+              if (pendingInteractionAppeared) return
+              const qp = interaction as QuestionPromptMessage
               messages.value.push({
                 id: qp.id || uuid(),
                 type: 'question_prompt',
@@ -2233,6 +2367,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         } else {
           messages.value.push(actionMessage)
         }
+        externalActionLiveRevision += 1
         startExternalActionPolling()
         break
       }

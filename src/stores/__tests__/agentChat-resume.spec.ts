@@ -1647,7 +1647,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
-  it('replaces a live card in place when the same operation advances to a new snapshot session', async () => {
+  it('replaces an expired card in place when the same operation advances to a new snapshot session', async () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-20T02:20:00Z')
     vi.setSystemTime(now)
@@ -1661,6 +1661,19 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       updated_at: ''
     } as unknown as AgentRun
     store.currentRun = waitingRun
+    store.messages = [
+      {
+        id: 'external-action-base-read',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-old',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() - 60_000).toISOString(),
+        action_status: 'expired',
+        timestamp: now.toISOString()
+      }
+    ] as never
     vi.mocked(api.getRun).mockResolvedValue(waitingRun)
 
     let resolveSnapshot!: (value: never) => void
@@ -1677,20 +1690,6 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
 
     const refreshing = store.refreshRunStatus()
     await snapshotRequested
-    store.applyStreamEvent({
-      type: 'external_action',
-      seq: 2,
-      ts: now.toISOString(),
-      run_id: 148,
-      data: {
-        provider: 'feishu',
-        operation_id: 'op-base-read',
-        session_id: 'session-base-read-old',
-        phase: 'user_auth',
-        expires_at: new Date(now.getTime() + 60_000).toISOString(),
-        url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=OLD-READ'
-      }
-    })
     const originalID = store.messages.find((message) => message.type === 'external_action')?.id
     resolveSnapshot({
       session_id: 'sess-resume',
@@ -1724,6 +1723,184 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       action_status: 'pending'
     })
     expect(actions[0]).not.toHaveProperty('url')
+    store.reset()
+  })
+
+  it('does not let an older in-flight snapshot roll back a newly refreshed session and URL', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:25:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    store.messages = [
+      {
+        id: 'external-action-base-read',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-old',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() - 60_000).toISOString(),
+        action_status: 'expired',
+        timestamp: now.toISOString()
+      }
+    ] as never
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveSnapshot!: (value: never) => void
+    let markSnapshotRequested!: () => void
+    const snapshotRequested = new Promise<void>((resolve) => {
+      markSnapshotRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot).mockImplementationOnce(() => {
+      markSnapshotRequested()
+      return new Promise((resolve) => {
+        resolveSnapshot = resolve
+      })
+    })
+
+    const refreshing = store.refreshRunStatus()
+    await snapshotRequested
+    const freshURL =
+      'https://open.feishu.cn/suite/passport/oauth/device?user_code=NEW-REFRESHED-READ'
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 3,
+      ts: new Date(now.getTime() + 1_000).toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-refreshed',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+        url: freshURL
+      }
+    })
+    resolveSnapshot({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: now.toISOString(),
+      status: 'running',
+      run: waitingRun,
+      messages: [
+        {
+          id: 'external-action-stale-snapshot-148',
+          type: 'external_action',
+          run_id: 148,
+          provider: 'feishu',
+          operation_id: 'op-base-read',
+          session_id: 'session-base-read-old',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 5 * 60_000).toISOString(),
+          timestamp: now.toISOString()
+        }
+      ]
+    } as never)
+    await refreshing
+
+    const actions = store.messages.filter((message) => message.type === 'external_action')
+    expect(actions).toHaveLength(1)
+    expect(actions[0]).toMatchObject({
+      id: 'external-action-base-read',
+      operation_id: 'op-base-read',
+      session_id: 'session-base-read-refreshed',
+      url: freshURL,
+      action_status: 'pending'
+    })
+    store.reset()
+  })
+
+  it('uses the latest overlapping snapshot request when responses arrive out of order', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:27:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveOlderSnapshot!: (value: never) => void
+    let resolveLatestSnapshot!: (value: never) => void
+    let markOlderRequested!: () => void
+    let markLatestRequested!: () => void
+    const olderRequested = new Promise<void>((resolve) => {
+      markOlderRequested = resolve
+    })
+    const latestRequested = new Promise<void>((resolve) => {
+      markLatestRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot)
+      .mockImplementationOnce(() => {
+        markOlderRequested()
+        return new Promise((resolve) => {
+          resolveOlderSnapshot = resolve
+        })
+      })
+      .mockImplementationOnce(() => {
+        markLatestRequested()
+        return new Promise((resolve) => {
+          resolveLatestSnapshot = resolve
+        })
+      })
+
+    const olderRefresh = store.refreshRunStatus()
+    await olderRequested
+    const latestRefresh = store.refreshRunStatus()
+    await latestRequested
+
+    const snapshot = (sessionID: string) =>
+      ({
+        session_id: 'sess-resume',
+        agent_skill_id: 1,
+        agent_run_ids: [148],
+        last_active_at: now.toISOString(),
+        status: 'running',
+        run: waitingRun,
+        messages: [
+          {
+            id: `external-action-${sessionID}`,
+            type: 'external_action',
+            run_id: 148,
+            provider: 'feishu',
+            operation_id: 'op-base-read',
+            session_id: sessionID,
+            phase: 'user_auth',
+            expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+            timestamp: now.toISOString()
+          }
+        ]
+      }) as never
+
+    resolveOlderSnapshot(snapshot('session-base-read-old'))
+    await olderRefresh
+    expect(store.messages.filter((message) => message.type === 'external_action')).toHaveLength(0)
+
+    resolveLatestSnapshot(snapshot('session-base-read-new'))
+    await latestRefresh
+    expect(store.messages.filter((message) => message.type === 'external_action')).toEqual([
+      expect.objectContaining({
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-new',
+        action_status: 'pending'
+      })
+    ])
     store.reset()
   })
 
