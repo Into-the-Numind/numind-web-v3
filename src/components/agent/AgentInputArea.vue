@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import type { EstimateResponse, UploadResponse } from '@/types/agent'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import type { UploadResponse } from '@/types/agent'
 import { Paperclip, ArrowUp, X, FileText, Square } from 'lucide-vue-next'
 import { getInputBudgetState } from '@/utils/inputBudget'
 
 interface Props {
-  agentId: number
-  estimate: EstimateResponse | null
   attachments: UploadResponse[]
   sending?: boolean
   disabled?: boolean
@@ -24,7 +22,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'send', text: string): void
-  (e: 'estimate-request', text: string): void
   (e: 'upload', file: File): void
   (e: 'remove-attachment', url: string): void
   (e: 'reject', reason: string): void
@@ -58,16 +55,6 @@ const autoResize = (): void => {
 }
 
 watch(text, () => nextTick(autoResize))
-
-// Debounce estimate 500ms
-let estimateTimer: ReturnType<typeof setTimeout> | null = null
-watch(text, (newText) => {
-  if (estimateTimer) clearTimeout(estimateTimer)
-  if (newText.trim().length === 0) return
-  estimateTimer = setTimeout(() => {
-    emit('estimate-request', newText)
-  }, 500)
-})
 
 const handleSend = (): void => {
   if (!canSend.value) return
@@ -134,9 +121,6 @@ onMounted(() => {
   nextTick(autoResize)
 })
 
-onUnmounted(() => {
-  if (estimateTimer) clearTimeout(estimateTimer)
-})
 </script>
 
 <template>
@@ -171,18 +155,6 @@ onUnmounted(() => {
         @paste="handlePaste"
         @input="autoResize"
       />
-
-      <!-- 预估消耗条 -->
-      <div
-        v-if="estimate && text.trim().length > 0"
-        class="estimate-bar"
-        :class="{ large: estimate.is_large_task }"
-      >
-        <template v-if="estimate.is_large_task">
-          📊 本次运行属于大型任务，预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分
-        </template>
-        <template v-else> 预计消耗 {{ estimate.min }}-{{ estimate.max }} 积分 </template>
-      </div>
 
       <!-- Attachment preview strip -->
       <div v-if="attachments.length > 0" class="attachment-strip">
@@ -310,25 +282,6 @@ onUnmounted(() => {
 .chat-input:disabled {
   color: var(--text-muted);
   cursor: not-allowed;
-}
-
-/* ===== Estimate Bar ===== */
-.estimate-bar {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 6px 10px;
-  background: hsla(160, 40%, 50%, 0.06);
-  color: hsl(160, 45%, 36%);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border: 1px dashed hsla(160, 45%, 50%, 0.2);
-  display: inline-flex;
-}
-
-.estimate-bar.large {
-  background: #fff7ed;
-  color: #c2410c;
-  border-color: #fdba74;
 }
 
 /* ===== Attachment Strip ===== */

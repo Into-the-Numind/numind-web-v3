@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import AgentChatHeader from '../AgentChatHeader.vue'
-import type { AgentSkill, AgentRun, AgentRunStatus } from '@/types/agent'
+import type { AgentSkill } from '@/types/agent'
 
 const mkAgent = (): AgentSkill => ({
   id: 1,
@@ -13,69 +13,19 @@ const mkAgent = (): AgentSkill => ({
   updated_at: ''
 })
 
-const mkRun = (status: AgentRunStatus, usedCredits = 0): AgentRun => ({
-  id: 1,
-  session_id: 1,
-  user_id: 1,
-  agent_skill_id: 1,
-  status,
-  credits_used: usedCredits,
-  created_at: '',
-  updated_at: ''
-})
-
 describe('AgentChatHeader', () => {
-  it('cancel button shown only when running', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
-    })
-    expect(wrapper.text()).toContain('取消任务')
-  })
+  it('shows the Agent name and never renders a duplicate cancel task button', () => {
+    const wrapper = mount(AgentChatHeader, { props: { agent: mkAgent() } })
 
-  it('cancel button hidden when readOnly', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000, readOnly: true }
-    })
+    expect(wrapper.find('.name').text()).toBe('测试助手')
     expect(wrapper.text()).not.toContain('取消任务')
+    expect(wrapper.find('.cancel-btn').exists()).toBe(false)
   })
 
-  it('cancel button hidden when completed', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('completed'), balance: 1000 }
-    })
-    expect(wrapper.text()).not.toContain('取消任务')
-  })
+  it('emits a sidebar toggle request', async () => {
+    const wrapper = mount(AgentChatHeader, { props: { agent: mkAgent() } })
 
-  it('cancel button shown when stuck 60s+ even if status not running', () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('completed'), balance: 1000, cancelAlwaysEnabled: true }
-    })
-    expect(wrapper.text()).toContain('取消任务')
+    await wrapper.find('.sidebar-toggle').trigger('click')
+    expect(wrapper.emitted('toggle-sidebar')).toHaveLength(1)
   })
-
-  it('cancel button disabled while cancelling', async () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000, cancelling: true }
-    })
-    const btn = wrapper.find('.cancel-btn')
-    expect(btn.attributes('disabled')).toBeDefined()
-  })
-
-  it('emits cancel on click', async () => {
-    const wrapper = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('running'), balance: 1000 }
-    })
-    await wrapper.find('.cancel-btn').trigger('click')
-    expect(wrapper.emitted('cancel')).toHaveLength(1)
-  })
-
-  it('does not render a status badge (removed per product decision)', () => {
-    const w = mount(AgentChatHeader, {
-      props: { agent: mkAgent(), run: mkRun('completed'), balance: 1000, readOnly: true }
-    })
-    expect(w.find('.status-badge').exists()).toBe(false)
-  })
-
-  // "已用 X 积分" credits_used 显示已按产品决定移除（不需要在 header 暴露会话花费），
-  // 对应组件代码也无相关渲染。原 it('shows credits_used') 测试随之删除。
 })
