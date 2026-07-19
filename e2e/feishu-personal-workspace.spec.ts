@@ -251,7 +251,8 @@ async function installLifecycleMocks(
   page: Page,
   runId: number,
   initialAction: ActionFixture,
-  refreshedAction?: ActionFixture | TerminalRefreshFixture
+  refreshedAction?: ActionFixture | TerminalRefreshFixture,
+  resumeDelayMs = 0
 ): Promise<LifecycleCapture> {
   const capture: LifecycleCapture = {
     resumeBodies: [],
@@ -280,6 +281,9 @@ async function installLifecycleMocks(
   await page.route('**/v1/feishu/operations/*/resume', async (route) => {
     const raw = route.request().postData()
     capture.resumeBodies.push(raw ? (JSON.parse(raw) as Record<string, unknown>) : {})
+    if (resumeDelayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, resumeDelayMs))
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -455,6 +459,50 @@ test.describe('personal Feishu workspace', () => {
     expect(JSON.stringify(capture.resumeBodies[0])).not.toMatch(
       /argv|scope|permission|token|secret|credential/i
     )
+    expect(capture.ordinaryAnswerRequests).toHaveLength(0)
+  })
+
+  test('desktop: authorization confirmation may finish after the global 30-second API timeout', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const capture = await installLifecycleMocks(page, 305, FUTURE_ACTION, undefined, 31_000)
+    await page.route(new RegExp('/v1/agent-runs/305(?:\\?.*)?$'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: 305,
+            session_id: 'feishu-e2e-run-305',
+            status: 'running',
+            state_reason: 'waiting_for_user_choice',
+            final_output: '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      })
+    })
+    await page.route('**/v1/agent-runs/305/narration*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
+
+    await openAgentConversation(page, '授权完成后继续原来的飞书任务')
+
+    const card = page.getByTestId('feishu-action-card')
+    await expect(card).toBeVisible()
+    await card.getByTestId('feishu-continue').click()
+
+    await expect.poll(() => capture.resumeBodies).toEqual([{ action: 'user_completed' }])
+    await expect(card).toContainText('飞书操作已完成，正在继续原任务。', { timeout: 40_000 })
+    await expect(card).not.toContainText('请求超时')
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
   })
 
