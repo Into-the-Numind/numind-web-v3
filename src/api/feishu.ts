@@ -147,7 +147,8 @@ export async function resumeFeishuOperation(
 ): Promise<FeishuOperationResult> {
   const { data } = await request.post<unknown>(
     `/v1/feishu/operations/${encodeURIComponent(operationId)}/resume`,
-    { action }
+    { action },
+    { timeout: 60_000 }
   )
   if (!isFeishuOperationResult(data)) {
     throw new Error('飞书授权状态无效，请稍后重试。')
