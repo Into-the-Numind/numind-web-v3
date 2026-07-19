@@ -52,9 +52,11 @@ describe('personal Feishu workspace API', () => {
 
     await resumeFeishuOperation('op-1')
 
-    expect(mockedRequest.post).toHaveBeenCalledWith('/v1/feishu/operations/op-1/resume', {
-      action: 'user_completed'
-    })
+    expect(mockedRequest.post).toHaveBeenCalledWith(
+      '/v1/feishu/operations/op-1/resume',
+      { action: 'user_completed' },
+      { timeout: 60_000 }
+    )
   })
 
   it('allows only the fixed lifecycle actions', async () => {
@@ -63,9 +65,11 @@ describe('personal Feishu workspace API', () => {
     })
 
     await resumeFeishuOperation('op-1', 'cancelled')
-    expect(mockedRequest.post).toHaveBeenCalledWith('/v1/feishu/operations/op-1/resume', {
-      action: 'cancelled'
-    })
+    expect(mockedRequest.post).toHaveBeenCalledWith(
+      '/v1/feishu/operations/op-1/resume',
+      { action: 'cancelled' },
+      { timeout: 60_000 }
+    )
   })
 
   it.each(['authorization_pending', 'authorization_processing'] as const)(
