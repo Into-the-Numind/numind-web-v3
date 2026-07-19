@@ -136,6 +136,8 @@ export interface ToolCallErrorPayload {
   tool_call_id: string
   error: string
   duration_ms: number
+  /** The platform can safely correct this attempt and continue the same run. */
+  recoverable?: boolean
 }
 
 /** step_done — one complete ReAct iteration finished */

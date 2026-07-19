@@ -123,6 +123,26 @@ describe('AgentToolCallItem — flat timeline line', () => {
     expect(w.find('.tl-txt').text()).toBe('已写入 3 个区块')
   })
 
+  it('recoverable correction stays active and never renders a red alert', () => {
+    const w = mount(AgentToolCallItem, {
+      props: {
+        group: grp(
+          'progress',
+          [
+            ev('use', '正在读取飞书文档', 'lark_execute'),
+            ev('progress', '正在调整执行方式', 'lark_execute')
+          ],
+          'lark_execute'
+        )
+      }
+    })
+    expect(w.find('.tl-txt').text()).toBe('调整执行方式')
+    expect(w.find('.tl-line').classes()).toContain('active')
+    expect(w.find('.tl-line').classes()).not.toContain('error')
+    expect(w.findComponent(Loader2).exists()).toBe(true)
+    expect(w.findComponent(AlertCircle).exists()).toBe(false)
+  })
+
   // 问题5b: the redundant flowing dots were removed — an active tool line shows the
   // Loader2 spinner as its sole liveness signal (one state, one signal).
   it('active line shows only the spinner, no flowing dots', () => {

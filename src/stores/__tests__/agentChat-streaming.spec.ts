@@ -611,7 +611,28 @@ describe('applyStreamEvent', () => {
     expect(store.isRunning).toBe(false)
   })
 
-  // 9. tool_call_error — sets state to error + error_message
+  // 9. tool_call_error — recoverable corrections stay in progress; real errors stop
+  it('tool_call_error: recoverable correction stays in progress without a red error', async () => {
+    const store = useAgentChatStore()
+    await seedToolCall(store, 'tc-recoverable', 0)
+    store.applyStreamEvent(
+      makeEvent('tool_call_error', {
+        tool_call_id: 'tc-recoverable',
+        error: 'internal command correction',
+        duration_ms: 5,
+        recoverable: true
+      })
+    )
+    const group = store.messages.find((m) => m.type === 'tool_group')
+    const tc = group?.type === 'tool_group' ? group.tool_calls[0] : null
+    expect(tc?.current_state).toBe('progress')
+    expect(tc?.error_message).toBeUndefined()
+    expect(tc?.events[1]).toMatchObject({
+      state: 'progress',
+      message: '正在调整执行方式'
+    })
+  })
+
   it('tool_call_error: sets current_state=error + error_message + appends event', async () => {
     const store = useAgentChatStore()
     await seedToolCall(store, 'tc-1', 0)

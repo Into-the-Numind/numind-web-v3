@@ -2147,18 +2147,19 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         const payload = e.data as ToolCallErrorPayload
         if (!payload?.tool_call_id) break
         updateStreamingToolCall(payload.tool_call_id, (tc) => {
-          tc.current_state = 'error'
-          // Keep the raw error on error_message (not rendered as the headline);
-          // show a friendly line so learners don't see a technical error string.
-          // Neutral wording — a tool error terminates the run (eino CompositeInterrupt),
-          // so we must NOT imply it was skipped / that the agent keeps going.
-          tc.error_message = payload.error
+          const recoverable = payload.recoverable === true
+          tc.current_state = recoverable ? 'progress' : 'error'
+          // A recoverable error is an internal correction attempt: keep it in a
+          // live, neutral state and do not persist the raw error as a user-facing
+          // failure. Legacy and explicit non-recoverable errors retain the
+          // terminal red treatment.
+          tc.error_message = recoverable ? undefined : payload.error
           tc.events.push({
             run_id: e.run_id,
             tool_call_id: payload.tool_call_id,
             tool_name: tc.tool_name,
-            state: 'error',
-            message: '执行出错',
+            state: recoverable ? 'progress' : 'error',
+            message: recoverable ? '正在调整执行方式' : '执行出错',
             timestamp: e.ts
           })
         })
