@@ -486,6 +486,13 @@ test.describe('personal Feishu workspace', () => {
         })
       })
     })
+    await page.route('**/v1/agent-runs/305/narration*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
 
     await openAgentConversation(page, '授权完成后继续原来的飞书任务')
 
