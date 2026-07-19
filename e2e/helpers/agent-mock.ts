@@ -97,6 +97,14 @@ export const setupAgentMocks = async (page: Page): Promise<void> => {
     })
   })
 
+  await page.route('**/v1/agent-sessions/history', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+    })
+  })
+
   // GET /v1/credits/balance — stub a healthy pro-member balance so all
   // balance-gated views render correctly (isMember=true, balance >= 50).
   await page.route('**/v1/credits/balance', async (route: Route) => {
@@ -108,10 +116,9 @@ export const setupAgentMocks = async (page: Page): Promise<void> => {
         message: 'ok',
         data: {
           balance: 1500,
-          sub_total: 2000,
-          sub_remain: 1500,
-          booster_total: 0,
-          booster_remain: 0,
+          cycle_remaining: 1500,
+          booster_usable: 0,
+          trial_remaining: 0,
           membership_state: 'pro'
         }
       })

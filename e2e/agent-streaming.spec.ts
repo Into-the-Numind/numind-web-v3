@@ -269,8 +269,24 @@ async function setupStreamMocks(
 ): Promise<void> {
   const { runId = 1, streamBody = buildHappyStreamBody(runId), conflictOnSecond = false } = opts
 
+  // This file runs only in the `mocked` project (VITE_AGENT_MOCK=false), so
+  // seed an opaque browser token and route every dependency. That keeps the
+  // cancel request observable as a real browser fetch instead of short-cutting
+  // through agent.mock.ts.
+  await page.addInitScript(() => {
+    localStorage.setItem('token', 'agent-streaming-test-token')
+  })
+
   // Standard agent bootstrap (agent list, sessions, credits).
   await setupAgentMocks(page)
+
+  await page.route('**/v1/tenant-settings/support-contact', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: {} })
+    })
+  })
 
   // POST /v1/agent-runs — createRun response (used by VITE_AGENT_MOCK=false paths;
   // when mock is true, agent.mock.ts intercepts this, so this route may not fire).
@@ -334,6 +350,57 @@ async function setupStreamMocks(
   })
 }
 
+/**
+ * Keep a browser-owned SSE response open until the UI aborts it. A finite
+ * `route.fulfill({ body })` closes at EOF and would hide the stop control before
+ * the test can prove that clicking it calls the server cancellation endpoint.
+ */
+async function installOpenStream(page: import('@playwright/test').Page, runId: number): Promise<void> {
+  await page.addInitScript((id) => {
+    const nativeFetch = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (!url.includes('/v1/agent-runs/stream')) {
+        return nativeFetch(input, init)
+      }
+
+      const encoder = new TextEncoder()
+      const now = new Date().toISOString()
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const send = (event: Record<string, unknown>): void => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+          }
+          send({
+            type: 'stream_start',
+            seq: 1,
+            ts: now,
+            run_id: id,
+            data: { run_id: id, session_id: `sess-${id}` }
+          })
+          send({
+            type: 'token_delta',
+            seq: 2,
+            ts: now,
+            run_id: id,
+            data: { message_id: `msg-${id}`, text: '正在处理…' }
+          })
+          init?.signal?.addEventListener(
+            'abort',
+            () => controller.error(new DOMException('aborted by test', 'AbortError')),
+            { once: true }
+          )
+        }
+      })
+      return new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
+      })
+    }
+  }, runId)
+}
+
 // ---------------------------------------------------------------------------
 // Scenario 1: Happy stream
 // ---------------------------------------------------------------------------
@@ -380,11 +447,19 @@ test.describe('Scenario 1 — happy stream', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Scenario 2 — abort mid-stream', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupStreamMocks(page, { runId: 2, streamBody: buildSlowStreamBody(2) })
-  })
+  test('输入区停止键会取消服务端 Agent run', async ({ page }) => {
+    const cancelRequests: { method: string; url: string }[] = []
+    await installOpenStream(page, 2)
+    await setupStreamMocks(page, { runId: 2 })
+    await page.route('**/v1/agent-runs/2/cancel', async (route) => {
+      cancelRequests.push({ method: route.request().method(), url: route.request().url() })
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: { run_id: 2, status: 'cancelled' } })
+      })
+    })
 
-  test('中止 button stops stream and re-enables input', async ({ page }) => {
     await page.goto('/agent/chat/new?agent_id=1')
     await expect(page.locator('text=爆款分析师').first()).toBeVisible({ timeout: 10_000 })
 
@@ -393,20 +468,22 @@ test.describe('Scenario 2 — abort mid-stream', () => {
     await textarea.fill('请做一个很长的分析')
     await textarea.press('Enter')
 
-    // Wait for the abort bar to appear (isStreaming = true).
-    const abortBtn = page.locator('button[aria-label="中止流式响应"]')
-    await expect(page.locator('.abort-bar')).toBeVisible({ timeout: 10_000 })
+    const stopButton = page.locator('.send-btn--stop[aria-label="终止"]')
+    await expect(stopButton).toBeVisible({ timeout: 10_000 })
 
     // Stream has started — some token text should be visible.
     await expect(page.locator('.msg-assistant').first()).toBeVisible({ timeout: 5_000 })
 
-    // Click 中止.
-    await abortBtn.click()
+    await stopButton.click()
 
-    // After abort: the abort bar must disappear (isStreaming flips false).
-    await expect(page.locator('.abort-bar')).toBeHidden({ timeout: 10_000 })
+    await expect
+      .poll(() => cancelRequests.length, { timeout: 5_000 })
+      .toBe(1)
+    expect(cancelRequests[0]).toMatchObject({
+      method: 'POST',
+      url: expect.stringContaining('/v1/agent-runs/2/cancel')
+    })
 
-    // Input must be re-enabled (disabled only when isStreaming || isRunning || isWaitingForUser).
     await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 5_000 })
   })
 })
