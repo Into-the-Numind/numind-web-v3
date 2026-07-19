@@ -117,15 +117,20 @@ const handleCancel = async (): Promise<void> => {
 const handleStop = async (): Promise<void> => {
   if (!canStop.value) return
   const used = store.currentRun?.credits_used ?? 0
+
+  // The input stop control must always end the local stream immediately. The
+  // server cancellation may be slow or fail, in which case the active run is
+  // retained and the user can retry from the same control.
+  stopStream()
+  narration.stop()
+  runCtrl.stopStatusPolling()
+
   try {
     await runCtrl.cancel()
   } catch (err) {
     notifications.error(`取消任务失败：${(err as Error)?.message ?? '请重试'}`)
     return
   }
-  stopStream()
-  narration.stop()
-  runCtrl.stopStatusPolling()
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)
 }
 

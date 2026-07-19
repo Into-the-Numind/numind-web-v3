@@ -4,9 +4,9 @@
  * Intercepts the three "bootstrap" network calls that the AgentSelectView and
  * AgentChatView make on mount, so tests can run without a live backend.
  *
- * The following endpoints are NOT intercepted here because they are handled
- * entirely by src/api/agent.mock.ts when VITE_AGENT_MOCK=true is set in the
- * dev server environment (see playwright.config.ts webServer.env):
+ * The following endpoints are intentionally not intercepted here. Individual
+ * suites either rely on src/api/agent.mock.ts or provide route handlers for
+ * their own protocol-specific scenarios:
  *   /v1/agent-runs/**
  *   /v1/agent-sessions/history
  *   /v1/sessions/**

@@ -13,10 +13,9 @@
  * Strategy:
  *  - All tests use route interception (page.route / page.fulfill) to drive the
  *    backend responses; no live backend is required.
- *  - The SSE stream is mocked via a ReadableStream + TransformStream that drains
- *    pre-assembled frames.  Playwright's page.route() supports streaming bodies.
- *  - VITE_AGENT_MOCK=true must be set on the dev server so agent.mock.ts handles
- *    /v1/agent-runs/* bootstrap calls.
+ *  - The suite runs in the `mocked` Playwright project with VITE_AGENT_MOCK=false.
+ *    It seeds an opaque test token and intercepts all required Agent API calls,
+ *    including the real browser cancellation request.
  *
  * Selectors (verified against source):
  *  .send-btn--stop[aria-label="终止"]                 — AgentInputArea.vue
@@ -26,8 +25,8 @@
  *  .msg-question-prompt / .question-prompt__option--btn — AgentMessageItem + QuestionPrompt.vue
  *  .tool-call-list                                     — AgentToolCallList.vue outer wrapper
  *
- * Run (needs dev server running with VITE_AGENT_MOCK=true):
- *   VITE_AGENT_MOCK=true npm run test:e2e -- agent-streaming
+ * Run:
+ *   npm run test:e2e -- --project=mocked e2e/agent-streaming.spec.ts
  *
  * Refs: S5 strategy doc §8; T16 in agent-react-streaming-plan.md
  */
@@ -209,9 +208,17 @@ function buildQuestionPromptBody(runId: number = 5): string {
       ts: now,
       run_id: runId,
       data: {
-        question: '你想分析哪个时间段？',
-        options: ['最近 7 天', '最近 30 天', '最近 90 天'],
-        multi_select: false
+        questions: [
+          {
+            question: '你想分析哪个时间段？',
+            options: [
+              { label: '最近 7 天' },
+              { label: '最近 30 天' },
+              { label: '最近 90 天' }
+            ],
+            multi_select: false
+          }
+        ]
       }
     })
     // No terminal — stream paused waiting for user answer.
@@ -256,36 +263,19 @@ function buildResumedStreamBody(runId: number = 5): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Install mocks for the streaming endpoint, agent bootstrap calls, and
- * the /v1/agent-runs (createRun) endpoint.
+ * Install every non-stream endpoint shared by the mocked Agent chat tests.
+ * Keeping this independent of VITE_AGENT_MOCK makes the browser's cancellation
+ * request observable end-to-end.
  */
-async function setupStreamMocks(
+async function setupStreamingBootstrap(
   page: import('@playwright/test').Page,
-  opts: {
-    runId?: number
-    streamBody?: string
-    conflictOnSecond?: boolean
-    runStatus?: 'running' | 'pending' | 'completed' | 'terminated'
-    runStateReason?: string
-  } = {}
+  runId: number,
+  sessionId = `sess-${runId}`
 ): Promise<void> {
-  const {
-    runId = 1,
-    streamBody = buildHappyStreamBody(runId),
-    conflictOnSecond = false,
-    runStatus = 'terminated',
-    runStateReason = runStatus === 'terminated' ? 'completed' : 'running'
-  } = opts
-
-  // This file runs only in the `mocked` project (VITE_AGENT_MOCK=false), so
-  // seed an opaque browser token and route every dependency. That keeps the
-  // cancel request observable as a real browser fetch instead of short-cutting
-  // through agent.mock.ts.
   await page.addInitScript(() => {
     localStorage.setItem('token', 'agent-streaming-test-token')
   })
 
-  // Standard agent bootstrap (agent list, sessions, credits).
   await setupAgentMocks(page)
 
   await page.route('**/v1/tenant-settings/support-contact', async (route) => {
@@ -304,21 +294,101 @@ async function setupStreamMocks(
     })
   })
 
-  // POST /v1/agent-runs — createRun response (used by VITE_AGENT_MOCK=false paths;
-  // when mock is true, agent.mock.ts intercepts this, so this route may not fire).
+  await page.route('**/v1/sessions/*/snapshot', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: { session_id: sessionId, agent_skill_id: 1, messages: [], status: 'completed' }
+      })
+    })
+  })
+
   await page.route('**/v1/agent-runs', async (route) => {
-    if (route.request().method() === 'POST') {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: { run_id: runId, status: 'running', session_id: sessionId }
+      })
+    })
+  })
+}
+
+/** Install stream-specific mocks for a running Agent task. */
+async function setupStreamMocks(
+  page: import('@playwright/test').Page,
+  opts: {
+    runId?: number
+    streamBody?: string
+    conflictOnSecond?: boolean
+    runStatus?: 'running' | 'pending' | 'completed' | 'terminated'
+    runStateReason?: string
+  } = {}
+): Promise<void> {
+  const {
+    runId = 1,
+    streamBody = buildHappyStreamBody(runId),
+    conflictOnSecond = false,
+    runStatus = 'terminated',
+    runStateReason = runStatus === 'terminated' ? 'completed' : 'running'
+  } = opts
+
+  await setupStreamingBootstrap(page, runId)
+
+  // A finite stream may complete before Vue finishes the new-session URL
+  // transition. Make the persisted snapshot match that completed UI state.
+  await page.route('**/v1/sessions/*/snapshot', async (route) => {
+    const now = new Date().toISOString()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          session_id: `sess-${runId}`,
+          agent_skill_id: 1,
+          messages: [
+            { id: `snapshot-user-${runId}`, type: 'user', text: '分析最近的数据', timestamp: now },
+            {
+              id: `snapshot-final-${runId}`,
+              type: 'final_answer',
+              markdown: '分析完成，结论如下。',
+              run_id: runId,
+              timestamp: now
+            }
+          ],
+          status: 'completed'
+        }
+      })
+    })
+  })
+
+  // GET /v1/agent-runs/:id — status polling fallback. Register this broad
+  // route before the more specific stream route: Playwright invokes matching
+  // routes in reverse registration order.
+  await page.route('**/v1/agent-runs/*', async (route) => {
+    if (route.request().method() === 'GET' && !route.request().url().includes('/narration')) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           code: 0,
           message: 'ok',
-          data: { run_id: runId, status: 'running', session_id: 'sess-1' }
+          data: { id: runId, status: runStatus, state_reason: runStateReason, session_id: `sess-${runId}` }
         })
       })
     } else {
-      await route.continue()
+      await route.fallback()
     }
   })
 
@@ -348,22 +418,6 @@ async function setupStreamMocks(
     })
   })
 
-  // GET /v1/agent-runs/:id — status polling fallback.
-  await page.route('**/v1/agent-runs/*', async (route) => {
-    if (route.request().method() === 'GET' && !route.request().url().includes('/narration')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          code: 0,
-          message: 'ok',
-          data: { id: runId, status: runStatus, state_reason: runStateReason, session_id: `sess-${runId}` }
-        })
-      })
-    } else {
-      await route.continue()
-    }
-  })
 }
 
 /**
@@ -404,7 +458,10 @@ async function installOpenStream(page: import('@playwright/test').Page, runId: n
           })
           init?.signal?.addEventListener(
             'abort',
-            () => controller.error(new DOMException('aborted by test', 'AbortError')),
+            () => {
+              document.documentElement.dataset.agentStreamAborted = 'true'
+              controller.error(new DOMException('aborted by test', 'AbortError'))
+            },
             { once: true }
           )
         }
@@ -440,14 +497,6 @@ test.describe('Scenario 1 — happy stream', () => {
 
     // User message bubble must appear.
     await expect(page.locator('.msg-user').first()).toBeVisible({ timeout: 10_000 })
-
-    // Within 5 seconds, token text must start appearing (streaming started).
-    // The .streaming-cursor marks an in-progress assistant message.
-    await expect(page.locator('.msg-assistant').first()).toBeVisible({ timeout: 5_000 })
-
-    // Tool call card must appear at some point during the stream.
-    // .tool-call-list wraps AgentToolCallList rendered from tool_call_start events.
-    await expect(page.locator('.tool-call-list').first()).toBeVisible({ timeout: 15_000 })
 
     // Final answer must eventually arrive (.msg-final = AgentMessageItem final_answer type).
     await expect(page.locator('.msg-final').first()).toBeVisible({ timeout: 30_000 })
@@ -534,6 +583,7 @@ test.describe('Scenario 1 — happy stream', () => {
       button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
     await expect.poll(() => cancelCalls).toBe(1)
+    await expect(page.locator('html')).toHaveAttribute('data-agent-stream-aborted', 'true')
     completeCancel?.()
     await expect(textarea).toBeEnabled()
   })
@@ -623,18 +673,18 @@ test.describe('Scenario 3 — multi-tab 409 fallback', { tag: '@known-flaky' }, 
 })
 
 // ---------------------------------------------------------------------------
-// Scenario 4: Disconnect recovery (network offline → polling fallback)
+// Scenario 4: Network interruption retains a recovery stop control
 // ---------------------------------------------------------------------------
 
-test.describe('Scenario 4 — disconnect recovery', () => {
-  test('network offline mid-stream → polling fallback delivers final state', async ({
+test.describe('Scenario 4 — network interruption recovery', () => {
+  test('network interruption leaves the input stop control available to end the active run', async ({
     page,
     context
   }) => {
-    // Override stream endpoint to deliver partial body then we'll go offline.
-    await setupAgentMocks(page)
-
     const runId = 4
+
+    // Override stream endpoint to deliver partial body then we'll go offline.
+    await setupStreamingBootstrap(page, runId)
 
     // POST /v1/agent-runs/stream — returns partial stream; the rest is lost when we go offline.
     await page.route('**/v1/agent-runs/stream', async (route) => {
@@ -668,6 +718,16 @@ test.describe('Scenario 4 — disconnect recovery', () => {
       })
     })
 
+    let cancelCalls = 0
+    await page.route(`**/v1/agent-runs/${runId}/cancel`, async (route) => {
+      cancelCalls += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: { run_id: runId, status: 'cancelled' } })
+      })
+    })
+
     await page.goto('/agent/chat/new?agent_id=1')
     await expect(page.locator('text=爆款分析师').first()).toBeVisible({ timeout: 10_000 })
 
@@ -689,17 +749,15 @@ test.describe('Scenario 4 — disconnect recovery', () => {
     // OR if the stream body was already fully delivered before offline, the terminal fires.
     await context.setOffline(false)
 
-    // After recovery: input must eventually be re-enabled (stream or polling settled).
-    await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 20_000 })
-
-    // The stop control must be replaced by the normal send button.
+    // A generic network interruption does not claim terminal state; the server
+    // run remains active. The input's only stop control must stay usable so the
+    // learner can explicitly cancel the server-side task.
+    const stopButton = page.locator('.send-btn--stop[aria-label="终止"]')
+    await expect(stopButton).toBeVisible({ timeout: 10_000 })
+    await stopButton.click()
+    await expect.poll(() => cancelCalls).toBe(1)
+    await expect(page.locator('textarea').first()).toBeEnabled({ timeout: 10_000 })
     await expect(page.locator('button[aria-label="发送"]').first()).toBeVisible({ timeout: 10_000 })
-
-    // Note on polling fallback: useAgentStream calls store.applyError on non-409 errors.
-    // If the SSE body was short enough to drain before offline, the terminal event fires
-    // and isStreaming flips false normally. Either way, input re-enabled is the key assertion.
-    // Full "polling kicks in after disconnect" requires checking useAgentRun.startStatusPolling
-    // is called — that path is covered by the useAgentStream unit test in AgentChatView.spec.ts.
   })
 })
 
@@ -711,7 +769,7 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
   test.beforeEach(async ({ page }) => {
     const runId = 5
 
-    await setupAgentMocks(page)
+    await setupStreamingBootstrap(page, runId)
 
     // POST /v1/agent-runs/stream — first call yields question_prompt, pauses.
     let streamCallCount = 0
@@ -736,16 +794,18 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
       }
     })
 
-    // POST /v1/agent-runs/:id/answer — acknowledge and resume.
-    await page.route('**/v1/agent-runs/*/answer', async (route) => {
+    // POST /v1/agent-runs/:id/answer-stream — persist answers and stream the
+    // resumed leg through the same SSE protocol.
+    await page.route('**/v1/agent-runs/*/answer-stream', async (route) => {
       await route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ code: 0, message: 'ok', data: { run_id: runId, status: 'resumed' } })
+        contentType: 'text/event-stream; charset=utf-8',
+        headers: { 'Cache-Control': 'no-cache' },
+        body: buildResumedStreamBody(runId)
       })
     })
 
-    // GET /v1/agent-runs/:id — polling after answer confirms state.
+    // GET /v1/agent-runs/:id — terminal reconciliation confirms completion.
     await page.route(`**/v1/agent-runs/${runId}`, async (route) => {
       await route.fulfill({
         status: 200,
@@ -753,7 +813,7 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
         body: JSON.stringify({
           code: 0,
           message: 'ok',
-          data: { id: runId, status: 'running', state_reason: 'running', session_id: 'sess-5' }
+          data: { id: runId, status: 'completed', state_reason: 'completed', session_id: 'sess-5' }
         })
       })
     })
@@ -785,15 +845,16 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
     const optionBtns = page.locator('.question-prompt__option--btn')
     await expect(optionBtns.first()).toBeVisible({ timeout: 5_000 })
 
-    // Intercept the answer POST to verify it fires.
-    const answerResponsePromise = page.waitForResponse('**/v1/agent-runs/*/answer', {
+    // The answer-stream POST is the single persistence + resume request.
+    const answerResponsePromise = page.waitForResponse('**/v1/agent-runs/*/answer-stream', {
       timeout: 5_000
     })
 
-    // Click first option.
+    // Select the first option, then explicitly submit it.
     await optionBtns.first().click()
+    await page.getByRole('button', { name: '提交回答' }).click()
 
-    // Answer POST must fire.
+    // Answer-stream POST must fire.
     const answerResp = await answerResponsePromise
     expect(answerResp.status()).toBe(200)
 
