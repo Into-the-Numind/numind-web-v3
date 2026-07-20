@@ -67,8 +67,12 @@ const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 
 export const buildAttachmentRequestFields = (
   uploaded: UploadResponse[]
 ): Pick<CreateRunRequest, 'attachment_ids' | 'attachment_urls'> => {
-  const attachmentIds = uploaded.filter((item) => item.id > 0).map((item) => item.id)
-  const attachmentURLs = uploaded.filter((item) => item.id <= 0).map((item) => item.url)
+  const hasPersistedID = (item: UploadResponse): boolean =>
+    Number.isSafeInteger(item.id) && item.id > 0
+  const attachmentIds = uploaded.filter(hasPersistedID).map((item) => item.id)
+  // Defensive rolling compatibility: a pre-ID/malformed response must retain
+  // its URL instead of being silently omitted from both arrays.
+  const attachmentURLs = uploaded.filter((item) => !hasPersistedID(item)).map((item) => item.url)
   return {
     ...(attachmentIds.length > 0 ? { attachment_ids: attachmentIds } : {}),
     ...(attachmentURLs.length > 0 ? { attachment_urls: attachmentURLs } : {})
