@@ -772,7 +772,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     )
 
     const first = store.resumeFeishuOperation('op-duplicate', 'session-duplicate')
-    const second = store.resumeFeishuOperation('op-duplicate', 'session-duplicate', 'cancel')
+    const second = store.resumeFeishuOperation('op-duplicate', 'session-duplicate', 'cancelled')
     resolveRequest?.({
       operation_id: 'op-duplicate',
       state: 'waiting_user_auth',
