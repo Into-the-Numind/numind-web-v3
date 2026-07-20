@@ -381,6 +381,21 @@ function isQueuedExternalContinuation(stateReason?: string): boolean {
 }
 
 /**
+ * A final_output is authoritative only after the Agent run has genuinely
+ * ended. During an authorization pause (and while its detached continuation
+ * is queued/claimed), the backend deliberately exposes the last assistant
+ * turn as final_output for recovery. That text is progress, not the answer.
+ */
+function isAuthoritativeFinalRun(run: Pick<AgentRun, 'status' | 'state_reason'>): boolean {
+  return (
+    isTerminalStatus(run.status) &&
+    run.state_reason !== 'waiting_for_user_choice' &&
+    run.state_reason !== 'running' &&
+    !isQueuedExternalContinuation(run.state_reason)
+  )
+}
+
+/**
  * StreamingAssistantMessage — AssistantMessage carrying SSE bookkeeping fields.
  * `_stream_id`: backend-provided message_id used to deduplicate token_delta
  * accumulation; `_run_id`: agent_run.id this bubble belongs to (used by
@@ -467,6 +482,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // overlapping snapshots use latest-request-wins ordering among themselves.
   let externalActionLiveRevision = 0
   let externalActionSnapshotRequestSeq = 0
+  // Status polling can be triggered by both the view observer and the external
+  // action timer. Only the latest-started request may mutate the run/UI; without
+  // this fence, a slower old `running` response can undo a newer `completed` one.
+  let runStatusRequestSeq = 0
   // A polling timer belongs to the session that created its authorization
   // action.  Keep that ownership explicit so a late timer continuation cannot
   // observe whichever run happens to be selected after a route switch.
@@ -625,6 +644,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    */
   const beginSession = (sessionID: string): number => {
     activeSessionEpoch += 1
+    runStatusRequestSeq += 1
     activeSessionID = sessionID
     externalActionLiveRevision = 0
     externalActionSnapshotRequestSeq = 0
@@ -636,6 +656,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const invalidateSession = (): void => {
     activeSessionEpoch += 1
+    runStatusRequestSeq += 1
     activeSessionID = null
     externalActionLiveRevision = 0
     externalActionSnapshotRequestSeq = 0
@@ -686,6 +707,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         currentRun.value?.id === runID &&
         !isTerminalStatus(currentRun.value.status)
       ) {
+        runStatusRequestSeq += 1
         currentRun.value = {
           ...currentRun.value,
           status: 'running',
@@ -702,6 +724,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       currentRun.value?.id === runID &&
       !isTerminalStatus(currentRun.value.status)
     ) {
+      runStatusRequestSeq += 1
       currentRun.value = {
         ...currentRun.value,
         status: statusFromTerminalReason('aborted_tools'),
@@ -1215,16 +1238,100 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     return true
   }
 
+  const streamingAssistantBubblesForRun = (runID: number): StreamingAssistantMessage[] =>
+    messages.value.filter(
+      (message): message is StreamingAssistantMessage =>
+        message.type === 'assistant' &&
+        (message as StreamingAssistantMessage)._stream_id !== undefined &&
+        (message as StreamingAssistantMessage)._run_id === runID
+    )
+
+  /** Keep progress text visible when an SSE leg pauses, but remove its cursor. */
+  const settleProvisionalAssistantBubbles = (runID: number): void => {
+    for (const bubble of streamingAssistantBubblesForRun(runID)) {
+      bubble.isStreaming = false
+    }
+  }
+
+  /**
+   * Reconcile one genuine terminal answer in place. This deliberately updates
+   * an existing same-run final bubble: older clients could incorrectly promote
+   * authorization progress to final_answer, and the authoritative completed
+   * response must be able to repair that state without a page reload.
+   */
+  const upsertAuthoritativeFinalAnswer = (
+    runID: number,
+    finalOut: string,
+    replaceExisting = false
+  ): void => {
+    // Even a legitimate terminal run may have no assistant text. Its cursor
+    // must still stop, while the accumulated bubble remains visible as-is.
+    settleProvisionalAssistantBubbles(runID)
+    if (!finalOut) return
+
+    const existingFinalIndex = messages.value.findIndex(
+      (message) => message.type === 'final_answer' && message.run_id === runID
+    )
+    if (existingFinalIndex >= 0) {
+      const existing = messages.value[existingFinalIndex]
+      // Only the first active → terminal status transition may repair an old
+      // provisional final. Repeated/late terminal reconciliation must be a
+      // no-op, otherwise stale DB reads could overwrite the correct answer.
+      if (replaceExisting && existing.type === 'final_answer') {
+        messages.value[existingFinalIndex] = { ...existing, markdown: finalOut }
+      }
+      return
+    }
+
+    const runBubbles = streamingAssistantBubblesForRun(runID)
+    for (const bubble of runBubbles) bubble.isStreaming = false
+    const last = runBubbles[runBubbles.length - 1]
+    if (last) {
+      const index = messages.value.findIndex(
+        (message) =>
+          message.type === 'assistant' &&
+          (message as StreamingAssistantMessage)._stream_id === last._stream_id &&
+          (message as StreamingAssistantMessage)._run_id === runID
+      )
+      if (index >= 0) {
+        messages.value[index] = {
+          id: last.id,
+          type: 'final_answer',
+          markdown: finalOut,
+          reasoning: last.reasoning,
+          run_id: runID,
+          timestamp: last.timestamp
+        }
+        return
+      }
+    }
+
+    messages.value.push({
+      id: uuid(),
+      type: 'final_answer',
+      markdown: finalOut,
+      run_id: runID,
+      timestamp: new Date().toISOString()
+    })
+  }
+
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
     const epoch = activeSessionEpoch
     const runID = currentRun.value.id
+    const requestSeq = ++runStatusRequestSeq
     try {
       const prevStatus = currentRun.value.status
       const next = await api.getRun(runID)
       // A session may have changed while the request was in flight. Never let
       // session A's status/final answer/authorization card alter session B.
-      if (!isCurrentSessionEpoch(epoch) || currentRun.value?.id !== runID) return
+      if (
+        requestSeq !== runStatusRequestSeq ||
+        !isCurrentSessionEpoch(epoch) ||
+        currentRun.value?.id !== runID
+      ) {
+        return
+      }
       if (activeSessionID !== null && activeSessionID !== 'new' && next.session_id !== activeSessionID) {
         return
       }
@@ -1259,9 +1366,6 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const wasActive = prevStatus === 'running' || prevStatus === 'pending'
       const isTerminal = next.status !== 'running' && next.status !== 'pending'
       const finalOut = next.final_output ?? ''
-      const alreadyHasFinal = messages.value.some(
-        (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === next.id
-      )
       // A run paused for ask_user_question is NOT done (its final_output is the
       // pre-question prose). Today the backend maps waiting_for_user_choice →
       // status 'running' so isTerminal is already false, but guard explicitly so
@@ -1348,22 +1452,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           }
         }
       }
-      if (
-        wasActive &&
-        isTerminal &&
-        finalOut &&
-        !alreadyHasFinal &&
-        !isWaiting &&
-        !isResuming &&
-        !queuedExternalContinuation
-      ) {
-        messages.value.push({
-          id: uuid(),
-          type: 'final_answer',
-          markdown: finalOut,
-          run_id: next.id,
-          timestamp: new Date().toISOString()
-        })
+      if (isAuthoritativeFinalRun(next)) {
+        upsertAuthoritativeFinalAnswer(next.id, finalOut, wasActive)
       }
       // Run reached terminal (done / failed / cancelled, but not a waiting pause
       // or a resume re-entry) → stop any lingering tool-call timers.
@@ -1848,6 +1938,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *      final_answer, deduped against re-entrant calls.
    */
   const reconcileFromDB = async (runId: number, expectedEpoch = activeSessionEpoch): Promise<void> => {
+    const requestSeq = ++runStatusRequestSeq
     // 问题5a: the terminal SSE handler already set currentRun to a terminal status
     // synchronously (before this async getRun resolves). The authoritative DB read
     // can lag the in-memory terminal (the row may not be flushed yet) and return a
@@ -1861,86 +1952,37 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     const lockedReason = currentRun.value?.state_reason
     try {
       const run = await api.getRun(runId)
-      if (!isCurrentSessionEpoch(expectedEpoch) || currentRun.value?.id !== runId) return
+      if (
+        requestSeq !== runStatusRequestSeq ||
+        !isCurrentSessionEpoch(expectedEpoch) ||
+        currentRun.value?.id !== runId
+      ) {
+        return
+      }
       if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
         return
       }
-      currentRun.value =
+      const reconciledRun =
         wasTerminal && !isTerminalStatus(run.status)
           ? { ...run, status: lockedStatus!, state_reason: lockedReason ?? run.state_reason }
           : run
+      currentRun.value = reconciledRun
       const finalOut = run.final_output ?? ''
 
-      // Idempotency: if this run already produced a final_answer (a prior
-      // terminal/reconcile converted or pushed it), there is nothing left to do.
-      const alreadyHasFinal = messages.value.some(
-        (m) => m.type === 'final_answer' && (m as { run_id?: number }).run_id === runId
-      )
-      if (alreadyHasFinal) return
-
-      // ALL assistant bubbles for THIS run — regardless of isStreaming. The
-      // final-answer turn's assistant_message already set isStreaming=false BEFORE
-      // this terminal/reconcile fired (dev SSE run 180: assistant_message + step_done
-      // precede terminal). An isStreaming-only filter therefore missed the bubble, so
-      // it never became a final_answer and the file cards + copy button only appeared
-      // after a manual refresh. Match by _run_id (only streaming-created bubbles carry
-      // it; reloaded snapshot bubbles do not, and are already final_answer anyway).
-      const runBubbles = messages.value.filter(
-        (m): m is StreamingAssistantMessage =>
-          m.type === 'assistant' &&
-          (m as StreamingAssistantMessage)._stream_id !== undefined &&
-          (m as StreamingAssistantMessage)._run_id === runId
-      )
-
-      if (runBubbles.length > 0) {
-        for (const b of runBubbles) {
-          b.isStreaming = false
-        }
-        if (finalOut) {
-          // Convert the LAST bubble to a 'final_answer' so AgentFinalAnswer renders
-          // the artifact cards + copy button live (matching the reloaded snapshot,
-          // which ends in 'final_answer'). A plain 'assistant' bubble renders finalOut
-          // as raw markdown — links stay plain text (no cards) and no copy button.
-          const last = runBubbles[runBubbles.length - 1]
-          const idx = messages.value.findIndex(
-            (m) =>
-              m.type === 'assistant' &&
-              (m as StreamingAssistantMessage)._stream_id === last._stream_id
-          )
-          if (idx >= 0) {
-            messages.value[idx] = {
-              id: last.id,
-              type: 'final_answer',
-              markdown: finalOut,
-              reasoning: last.reasoning,
-              run_id: runId,
-              timestamp: last.timestamp
-            }
-          } else {
-            last.markdown = finalOut
-          }
-        }
+      // A waiting/queued authorization leg is not a completed Agent response.
+      // The DB final_output at this point is merely the latest progress prose.
+      // Stop the streaming cursor, keep the text provisional, and wait for the
+      // authoritative terminal status reached by the detached continuation.
+      if (!isAuthoritativeFinalRun(reconciledRun)) {
+        settleProvisionalAssistantBubbles(runId)
         return
       }
 
-      // Fallback: no streaming-created assistant bubble for this run (e.g. a
-      // tool-only run). Push final_output as a stand-alone final_answer. The
-      // alreadyHasFinal guard above makes this idempotent. A run paused for
-      // ask_user_question is NOT done (final_output is the pre-question prose);
-      // state_reason==='running' is a resumed leg still in flight.
-      if (
-        finalOut &&
-        run.state_reason !== 'waiting_for_user_choice' &&
-        run.state_reason !== 'running'
-      ) {
-        messages.value.push({
-          id: uuid(),
-          type: 'final_answer',
-          markdown: finalOut,
-          run_id: runId,
-          timestamp: new Date().toISOString()
-        })
-      }
+      // Idempotency: if this run already produced a final_answer (a prior
+      // terminal/reconcile converted or pushed it), update it from the DB's
+      // authoritative terminal output. This is both idempotent and self-heals
+      // stale interim finals left by an older browser bundle.
+      upsertAuthoritativeFinalAnswer(runId, finalOut)
     } catch {
       // Network error during reconcile — streaming UI is already visible, silently ignore
     }
