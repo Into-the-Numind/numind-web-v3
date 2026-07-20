@@ -11,8 +11,10 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/feishu', () => ({
   connectFeishu: vi.fn(),
+  continueFeishuConnection: vi.fn(),
   getFeishuStatus: vi.fn(),
   refreshFeishuAction: vi.fn(),
+  resumeFeishuOperation: vi.fn(),
   unbindFeishuConnection: vi.fn()
 }))
 
@@ -99,6 +101,107 @@ describe('FeishuConnection', () => {
     expect(wrapper.get('[data-testid="feishu-manual-action"]').text()).toContain('打开飞书完成授权')
   })
 
+  it('completes the exact manual session without starting a second connection', async () => {
+    vi.mocked(api.getFeishuStatus).mockResolvedValue(status())
+    vi.mocked(api.connectFeishu).mockResolvedValue({
+      state: 'waiting_user_auth',
+      action: {
+        session_id: 'manual-connect-session',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 300_000).toISOString(),
+        url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=opaque'
+      }
+    })
+    vi.mocked(api.continueFeishuConnection).mockResolvedValue({ state: 'connected' })
+    vi.mocked(api.getFeishuStatus).mockResolvedValueOnce(status()).mockResolvedValueOnce(
+      status({ state: 'connected', connected: true })
+    )
+    const wrapper = mountConnection()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="feishu-connect"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="feishu-continue-connection"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="feishu-manual-continue"]').trigger('click')
+    await flushPromises()
+
+    expect(api.continueFeishuConnection).toHaveBeenCalledWith('manual-connect-session')
+    expect(api.connectFeishu).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="feishu-manual-action"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="feishu-connection-success"]').text()).toContain('已连接')
+  })
+
+  it('restores a URL-free exact action before allowing completion', async () => {
+    vi.mocked(api.getFeishuStatus).mockResolvedValue(status({
+      state: 'waiting_user_auth',
+      active_action: {
+        operation_id: 'connect-op-1',
+        session_id: 'connect-session-1',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 300_000).toISOString(),
+        link_available: false
+      }
+    }))
+    vi.mocked(api.refreshFeishuAction).mockResolvedValue({
+      action: {
+        operation_id: 'connect-op-1',
+        session_id: 'connect-session-2',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 300_000).toISOString(),
+        url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=restored'
+      }
+    })
+    const wrapper = mountConnection()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="feishu-manual-continue"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="feishu-manual-restore"]').trigger('click')
+    await flushPromises()
+
+    expect(api.refreshFeishuAction).toHaveBeenCalledWith('connect-session-1')
+    expect(wrapper.get('[data-testid="feishu-open-action"]').attributes('href')).toContain('state=restored')
+    expect(wrapper.get('[data-testid="feishu-manual-continue"]').exists()).toBe(true)
+  })
+
+  it('removes a cancelled old connection card and refreshes to the current state', async () => {
+	const liveStatus = status({
+	  state: 'waiting_user_auth',
+	  active_action: {
+		operation_id: 'stale-op',
+		session_id: 'stale-session',
+		phase: 'user_auth',
+		expires_at: new Date(Date.now() + 300_000).toISOString(),
+		link_available: false
+	  }
+	})
+	vi.mocked(api.getFeishuStatus).mockResolvedValueOnce(liveStatus).mockResolvedValueOnce(status())
+	vi.mocked(api.refreshFeishuAction).mockResolvedValue({
+	  action: {
+		operation_id: 'stale-op',
+		session_id: 'stale-session-live',
+		phase: 'user_auth',
+		expires_at: new Date(Date.now() + 300_000).toISOString(),
+		url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=stale'
+	  }
+	})
+	vi.mocked(api.resumeFeishuOperation).mockResolvedValue({
+	  operation_id: 'stale-op',
+	  state: 'cancelled'
+	})
+	const wrapper = mountConnection()
+	await flushPromises()
+	await wrapper.get('[data-testid="feishu-manual-restore"]').trigger('click')
+	await flushPromises()
+
+	await wrapper.get('[data-testid="feishu-manual-continue"]').trigger('click')
+	await flushPromises()
+
+	expect(api.resumeFeishuOperation).toHaveBeenCalledWith('stale-op', 'stale-session-live')
+	expect(api.getFeishuStatus).toHaveBeenCalledTimes(2)
+	expect(wrapper.find('[data-testid="feishu-manual-action"]').exists()).toBe(false)
+  })
+
   it('renders a recoverable status error with a retry action', async () => {
     vi.mocked(api.getFeishuStatus).mockRejectedValueOnce(new Error('状态服务暂不可用'))
     vi.mocked(api.getFeishuStatus).mockResolvedValueOnce(status())
@@ -169,6 +272,20 @@ describe('FeishuConnection', () => {
     await flushPromises()
     expect(api.connectFeishu).not.toHaveBeenCalled()
     expect(api.getFeishuStatus).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows an Agent-owned business authorization as read-only instead of duplicating it', async () => {
+	vi.mocked(api.getFeishuStatus).mockResolvedValue(status({
+	  state: 'waiting_user_auth',
+	  in_agent_flow: true
+	}))
+	const wrapper = mountConnection()
+	await flushPromises()
+
+	expect(wrapper.text()).toContain('AI 助手中已有一个飞书授权步骤')
+	expect(wrapper.find('[data-testid="feishu-continue-connection"]').exists()).toBe(false)
+	expect(wrapper.find('[data-testid="feishu-manual-action"]').exists()).toBe(false)
+	expect(api.connectFeishu).not.toHaveBeenCalled()
   })
 
   it('uses ConfirmModal before unbinding and clarifies that the remote app remains', async () => {
