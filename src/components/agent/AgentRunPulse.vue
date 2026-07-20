@@ -9,8 +9,8 @@
  *  - while the last assistant message is actively STREAMING text, the in-text
  *    caret is the alive signal → this line yields (hidden);
  *  - otherwise, while the run is going, it shows a breathing dot + an HONEST
- *    silence word (keyed off the store's real `stuckSince`) + a live elapsed
- *    timer. The WORD is generic ("处理中…"), never an echo of the active tool —
+ *    status word without any visible elapsed clock. The WORD is generic
+ *    ("处理中…"), never an echo of the active tool —
  *    the tool's own timeline line above already shows the specifics, so there is
  *    no duplication.
  *  - suppressed while waiting for the user's answer (the inverse lie).
@@ -44,7 +44,8 @@ const visible = computed<boolean>(() => {
   return active && !store.isWaitingForUser && !lastMsgStreaming.value
 })
 
-// 1s ticker drives the silence ladder + the elapsed while visible.
+// The internal ticker only advances the coarse patience wording. It never
+// renders an elapsed clock or elapsed seconds to the user.
 const nowMs = ref(Date.now())
 let ticker: ReturnType<typeof setInterval> | null = null
 const startTicker = (): void => {
@@ -65,27 +66,12 @@ const word = computed<string>(() => {
   const sec = Math.max(0, Math.floor((performance.now() - store.stuckSince) / 1000))
   return silenceLadder(sec)
 })
-
-const elapsedText = computed<string>(() => {
-  // Before stream_start, currentRun may still point at the previous completed
-  // run. Do not display that stale run's elapsed time beside the new pending send.
-  if (store.sendingMessage && !store.isRunning) return ''
-  const started = store.currentRun?.started_at
-  if (!started) return ''
-  const ms = Date.parse(started)
-  if (Number.isNaN(ms)) return ''
-  const sec = Math.max(0, Math.floor((nowMs.value - ms) / 1000))
-  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
-})
 </script>
 
 <template>
   <div v-if="visible" class="run-pulse">
     <span class="dot" aria-hidden="true" />
     <span class="word" aria-hidden="true">{{ word }}</span>
-    <span v-if="elapsedText" class="time" :title="`已用时 ${elapsedText}`">{{ elapsedText }}</span>
-    <!-- one polite live-region; the word changes slowly (silence ladder), so a
-         screen reader hears the working state without per-tick spam. -->
     <span class="sr-only" aria-live="polite">{{ word }}</span>
   </div>
 </template>
@@ -129,14 +115,6 @@ const elapsedText = computed<string>(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.time {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--text-muted, #8b90a0);
-  font-variant-numeric: tabular-nums;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .dot {
     animation: none;

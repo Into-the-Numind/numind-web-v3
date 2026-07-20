@@ -1308,6 +1308,17 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     settleProvisionalAssistantBubbles(runID)
     if (!finalOut) return
 
+    const appendFinalAnswer = (reasoning?: string): void => {
+      messages.value.push({
+        id: uuid(),
+        type: 'final_answer',
+        markdown: finalOut,
+        reasoning,
+        run_id: runID,
+        timestamp: new Date().toISOString()
+      })
+    }
+
     const existingFinalIndex = messages.value.findIndex(
       (message) => message.type === 'final_answer' && message.run_id === runID
     )
@@ -1317,7 +1328,26 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // provisional final. Repeated/late terminal reconciliation must be a
       // no-op, otherwise stale DB reads could overwrite the correct answer.
       if (replaceExisting && existing.type === 'final_answer') {
-        messages.value[existingFinalIndex] = { ...existing, markdown: finalOut }
+        if (existingFinalIndex === messages.value.length - 1) {
+          messages.value[existingFinalIndex] = { ...existing, markdown: finalOut }
+        } else {
+          // An authorization pause may have promoted progress text before the
+          // detached continuation appended its cards/tool steps. Keep that
+          // progress where it happened, but restore it to a settled assistant
+          // message and append the authoritative answer at the real timeline
+          // tail. The append intentionally changes length so MessageList resumes
+          // follow-scroll without moving or duplicating any prior event.
+          messages.value[existingFinalIndex] = {
+            id: existing.id,
+            type: 'assistant',
+            markdown: existing.markdown,
+            reasoning: existing.reasoning,
+            isStreaming: false,
+            seq: existing.seq,
+            timestamp: existing.timestamp
+          }
+          appendFinalAnswer(existing.reasoning)
+        }
       }
       return
     }
@@ -1332,26 +1362,25 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           (message as StreamingAssistantMessage)._stream_id === last._stream_id &&
           (message as StreamingAssistantMessage)._run_id === runID
       )
-      if (index >= 0) {
+      if (index === messages.value.length - 1) {
         messages.value[index] = {
           id: last.id,
           type: 'final_answer',
           markdown: finalOut,
           reasoning: last.reasoning,
           run_id: runID,
+          seq: last.seq,
           timestamp: last.timestamp
         }
         return
       }
+      if (index >= 0) {
+        appendFinalAnswer(last.reasoning)
+        return
+      }
     }
 
-    messages.value.push({
-      id: uuid(),
-      type: 'final_answer',
-      markdown: finalOut,
-      run_id: runID,
-      timestamp: new Date().toISOString()
-    })
+    appendFinalAnswer()
   }
 
   const refreshRunStatus = async (): Promise<void> => {
