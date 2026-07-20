@@ -1,7 +1,7 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
-import { useAgentChatStore } from '../agentChat'
+import { buildAttachmentRequestFields, useAgentChatStore } from '../agentChat'
 import type { NarrationEvent, AgentRun, ToolGroupMessage } from '@/types/agent'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 
@@ -657,6 +657,7 @@ describe('agentChat store', () => {
 
   it('uploadAttachment pushes to attachments array', async () => {
     vi.mocked(api.uploadAttachment).mockResolvedValueOnce({
+      id: 1,
       url: 'https://cos.example/agent-attachments/1/x-a.xlsx',
       filename: 'a.xlsx',
       size: 100,
@@ -669,15 +670,13 @@ describe('agentChat store', () => {
     expect(store.attachments.length).toBe(1)
   })
 
-  it('startNewRun sends attachment_urls (not attachment_ids) in createRun payload', async () => {
-    // Regression: server expects "attachment_urls" (COS URL array). Previously
-    // frontend sent "attachment_ids" → backend silently dropped attachments →
-    // LLM claimed "no file uploaded" even though UI showed the chip.
+  it('startNewRun sends persisted attachment_ids in createRun payload', async () => {
     const store = useAgentChatStore()
 
     // Seed two uploaded attachments
     vi.mocked(api.uploadAttachment)
       .mockResolvedValueOnce({
+        id: 101,
         url: 'https://cos.example/agent-attachments/1/x-a.pdf',
         filename: 'a.pdf',
         size: 100,
@@ -685,6 +684,7 @@ describe('agentChat store', () => {
         created_at: '2026-05-22T10:00:00Z'
       })
       .mockResolvedValueOnce({
+        id: 102,
         url: 'https://cos.example/agent-attachments/1/y-b.jpg',
         filename: 'b.jpg',
         size: 200,
@@ -711,20 +711,17 @@ describe('agentChat store', () => {
 
     await store.startNewRun(1, 'please read these')
 
-    // The createRun payload MUST carry attachment_urls (string COS URLs).
+    // The createRun payload carries stable DB identities so file_read can use
+    // the upload-time parsed cache.
     expect(api.createRun).toHaveBeenCalledWith(
       expect.objectContaining({
         agent_skill_id: 1,
         input_text: 'please read these',
-        attachment_urls: [
-          'https://cos.example/agent-attachments/1/x-a.pdf',
-          'https://cos.example/agent-attachments/1/y-b.jpg'
-        ]
+        attachment_ids: [101, 102]
       })
     )
-    // Old buggy field MUST NOT be present.
     const callArg = vi.mocked(api.createRun).mock.calls[0][0] as Record<string, unknown>
-    expect(callArg.attachment_ids).toBeUndefined()
+    expect(callArg.attachment_urls).toBeUndefined()
     // Local attachments cleared after send.
     expect(store.attachments.length).toBe(0)
   })
@@ -732,6 +729,7 @@ describe('agentChat store', () => {
   it('removeAttachment filters by url', async () => {
     const store = useAgentChatStore()
     vi.mocked(api.uploadAttachment).mockResolvedValueOnce({
+      id: 103,
       url: 'https://cos.example/agent-attachments/1/x-keep.pdf',
       filename: 'keep.pdf',
       size: 50,
@@ -742,6 +740,32 @@ describe('agentChat store', () => {
     expect(store.attachments.length).toBe(1)
     store.removeAttachment('https://cos.example/agent-attachments/1/x-keep.pdf')
     expect(store.attachments.length).toBe(0)
+  })
+
+  it('attachment request falls back to URL only when upload id is zero', () => {
+    expect(
+      buildAttachmentRequestFields([
+        {
+          id: 7,
+          url: 'https://cos.example/agent-attachments/1/managed.pdf',
+          filename: 'managed.pdf',
+          size: 10,
+          mime_type: 'application/pdf',
+          created_at: ''
+        },
+        {
+          id: 0,
+          url: 'https://cos.example/agent-attachments/1/idless.txt',
+          filename: 'idless.txt',
+          size: 5,
+          mime_type: 'text/plain',
+          created_at: ''
+        }
+      ])
+    ).toEqual({
+      attachment_ids: [7],
+      attachment_urls: ['https://cos.example/agent-attachments/1/idless.txt']
+    })
   })
 })
 
