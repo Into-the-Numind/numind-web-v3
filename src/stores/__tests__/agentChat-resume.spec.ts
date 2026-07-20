@@ -111,7 +111,6 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     expect(live).not.toHaveProperty('tool_call_id')
 
     vi.mocked(api.getSessionSnapshot).mockResolvedValue({
-      session_id: 'sess-resume',
       agent_skill_id: 1,
       agent_run_ids: [148],
       last_active_at: '',
@@ -139,7 +138,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           provider: 'feishu'
         }
       ]
-    } as never)
+    } as never) // exact current backend shape: identity is nested under run
 
     await store.loadSessionSnapshot('sess-resume', false)
 
@@ -1206,6 +1205,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     const now = new Date('2026-07-14T10:00:00Z')
     vi.setSystemTime(now)
     const store = useAgentChatStore()
+    store.beginSession('sess-resume')
     store.currentRun = {
       id: 148,
       session_id: 'sess-resume',
@@ -1773,6 +1773,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     const now = new Date('2026-07-20T02:00:00Z')
     vi.setSystemTime(now)
     const store = useAgentChatStore()
+    store.beginSession('sess-resume')
     store.currentRun = {
       id: 148,
       session_id: 'sess-resume',
@@ -1810,7 +1811,6 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     const waitingRun = { ...store.currentRun } as AgentRun
     vi.mocked(api.getRun).mockResolvedValue(waitingRun)
     vi.mocked(api.getSessionSnapshot).mockResolvedValue({
-      session_id: 'sess-resume',
       agent_skill_id: 1,
       agent_run_ids: [148],
       last_active_at: now.toISOString(),
@@ -1831,7 +1831,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
           timestamp: now.toISOString()
         }
       ]
-    } as never)
+    } as never) // exact current backend shape: identity is nested under run
 
     await store.refreshRunStatus()
 

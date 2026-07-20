@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentMessageList from '../AgentMessageList.vue'
 
@@ -33,5 +33,51 @@ describe('AgentMessageList', () => {
 
     await button.trigger('click')
     expect(resume).toHaveBeenCalled()
+  })
+
+  it('follows narration appended inside an existing tool-group message', async () => {
+    const messages = [
+      {
+        id: 'tg-1',
+        type: 'tool_group',
+        timestamp: '2026-07-20T10:00:00Z',
+        tool_calls: [
+          {
+            tool_call_id: 'tc-1',
+            tool_name: 'lark_execute',
+            current_state: 'use',
+            events: [
+              {
+                run_id: 252,
+                tool_call_id: 'tc-1',
+                tool_name: 'lark_execute',
+                state: 'use',
+                message: '处理操作',
+                timestamp: '2026-07-20T10:00:00Z'
+              }
+            ]
+          }
+        ]
+      }
+    ]
+    const wrapper = mount(AgentMessageList, {
+      props: { messages: messages as never },
+      global: { stubs: { AgentMessageItem: true, AgentRunPulse: true } }
+    })
+    vi.clearAllMocks()
+
+    messages[0].tool_calls[0].events.push({
+      run_id: 252,
+      tool_call_id: 'tc-1',
+      tool_name: 'lark_execute',
+      state: 'result',
+      message: '操作完成',
+      timestamp: '2026-07-20T10:00:01Z'
+    })
+    messages[0].tool_calls[0].current_state = 'result'
+    await wrapper.setProps({ messages: messages as never })
+    await flushPromises()
+
+    expect(checkAndScroll).toHaveBeenCalled()
   })
 })
