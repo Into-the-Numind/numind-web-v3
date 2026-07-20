@@ -19,9 +19,7 @@ import FeishuActionCard from '../FeishuActionCard.vue'
 const AUTH_URL =
   'https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=cli_x&redirect_uri=https%3A%2F%2Fnumind.example%2Fcallback&state=opaque-value'
 
-const createAction = (
-  overrides: Partial<ExternalActionMessage> = {}
-): ExternalActionMessage => ({
+const createAction = (overrides: Partial<ExternalActionMessage> = {}): ExternalActionMessage => ({
   id: 'message-1',
   type: 'external_action',
   run_id: 7,
@@ -91,7 +89,7 @@ describe('FeishuActionCard', () => {
     ['authorization_processing', '正在确认授权状态，请稍候。'],
     ['authorization_rejected', '本次授权未通过，已生成新的授权链接。'],
     ['authorization_expired', '原链接已过期，已生成新的授权链接。'],
-    ['authorization_updated', '授权步骤已更新，请使用新的授权链接。']
+    ['authorization_updated', '授权步骤已更新，正在加载最新操作。']
   ] as const)('announces the fixed %s notice copy', (noticeCode, expected) => {
     const wrapper = mountCard({ action: createAction({ notice_code: noticeCode }) })
 
@@ -113,27 +111,26 @@ describe('FeishuActionCard', () => {
     expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeDefined()
   })
 
-  it.each([
-    'authorization_rejected',
-    'authorization_expired',
-    'authorization_updated'
-  ] as const)('regenerates the QR for a %s replacement', async (noticeCode) => {
-    const wrapper = mountCard()
-    await flushPromises()
-    const freshURL = `${AUTH_URL}&notice=${noticeCode}`
+  it.each(['authorization_rejected', 'authorization_expired', 'authorization_updated'] as const)(
+    'regenerates the QR for a %s replacement',
+    async (noticeCode) => {
+      const wrapper = mountCard()
+      await flushPromises()
+      const freshURL = `${AUTH_URL}&notice=${noticeCode}`
 
-    await wrapper.setProps({
-      action: createAction({
-        session_id: `session-${noticeCode}`,
-        url: freshURL,
-        notice_code: noticeCode
+      await wrapper.setProps({
+        action: createAction({
+          session_id: `session-${noticeCode}`,
+          url: freshURL,
+          notice_code: noticeCode
+        })
       })
-    })
-    await flushPromises()
+      await flushPromises()
 
-    expect(QRCode.toDataURL).toHaveBeenLastCalledWith(freshURL, expect.any(Object))
-    expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('href')).toBe(freshURL)
-  })
+      expect(QRCode.toDataURL).toHaveBeenLastCalledWith(freshURL, expect.any(Object))
+      expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('href')).toBe(freshURL)
+    }
+  )
 
   it('emits an operation resume instead of a question answer', async () => {
     const wrapper = mountCard()
@@ -153,7 +150,7 @@ describe('FeishuActionCard', () => {
   it('renders a missing-link status exactly once', () => {
     const wrapper = mountCard({ action: createAction({ url: undefined }) })
 
-    expect(wrapper.text().match(/当前链接不可用，请重新生成链接后继续。/g)).toHaveLength(1)
+    expect(wrapper.text().match(/正在获取当前步骤的最新飞书链接。/g)).toHaveLength(1)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
@@ -234,16 +231,28 @@ describe('FeishuActionCard', () => {
     expect(wrapper.emitted('refresh')).toBeUndefined()
   })
 
-  it.each([
-    ['expired', { expires_at: new Date(Date.now() - 1_000).toISOString() }],
-    ['without a current link', { url: undefined }]
-  ])('treats app-scope authorization %s as terminal instead of refreshing', (_state, overrides) => {
-    const wrapper = mountCard({ action: createAction({ phase: 'app_scope', ...overrides }) })
+  it('lets an expired app-scope authorization rebuild its official approval link', async () => {
+    const wrapper = mountCard({
+      action: createAction({
+        phase: 'app_scope',
+        expires_at: new Date(Date.now() - 1_000).toISOString()
+      })
+    })
 
-    expect(wrapper.text()).toContain('管理员批准步骤已失效，请重新发起')
+    expect(wrapper.text()).toContain('管理员批准步骤已失效，请重新生成链接')
     expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
-    expect(wrapper.emitted('refresh')).toBeUndefined()
+    await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+    expect(wrapper.emitted('refresh')).toEqual([['session-1']])
+  })
+
+  it('lets a URL-free current app-scope card continue from the already-open Feishu page', async () => {
+    const wrapper = mountCard({ action: createAction({ phase: 'app_scope', url: undefined }) })
+
+    expect(wrapper.text()).toContain('请在刚才打开的飞书页面完成批准后继续')
+    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeUndefined()
+    await wrapper.get('[data-testid="feishu-continue"]').trigger('click')
+    expect(wrapper.emitted('resume')).toEqual([['op-1']])
   })
 
   it('clears the authorization expiry timer once the action is no longer pending', async () => {

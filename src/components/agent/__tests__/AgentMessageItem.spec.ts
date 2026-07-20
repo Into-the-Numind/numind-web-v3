@@ -239,7 +239,7 @@ describe('AgentMessageItem', () => {
       await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
       await flushPromises()
 
-      expect(resume).toHaveBeenCalledWith('op-1')
+      expect(resume).toHaveBeenCalledWith('op-1', 'session-1', 'user_completed', msg.run_id)
       expect(wrapper.emitted('answer-submitted')).toBeUndefined()
       expect(store.messages).toHaveLength(1)
       expect(store.messages[0].type).toBe('external_action')
@@ -259,7 +259,7 @@ describe('AgentMessageItem', () => {
       await flushPromises()
 
       expect(resume).toHaveBeenCalledOnce()
-      expect(resume).toHaveBeenCalledWith('op-1', 'confirmed')
+      expect(resume).toHaveBeenCalledWith('op-1', 'session-1', 'confirmed', msg.run_id)
     })
 
     it('clears an old transport error only when the exact action session changes', async () => {
@@ -307,8 +307,7 @@ describe('AgentMessageItem', () => {
         )
         .mockReturnValueOnce(
           new Promise((resolve) => {
-            resolveCurrent = () =>
-              resolve({ operation_id: msg.operation_id, state: 'executing' })
+            resolveCurrent = () => resolve({ operation_id: msg.operation_id, state: 'executing' })
           })
         )
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
@@ -499,6 +498,44 @@ describe('AgentMessageItem', () => {
       await wrapper.setProps({ msg: agentStore.messages[0] })
       await flushPromises()
       expect(refresh).toHaveBeenCalledTimes(1)
+    })
+
+    it('recovers a URL-free app-scope approval after a reload without manual navigation', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      msg.phase = 'app_scope'
+      delete msg.url
+      agentStore.beginSession('route-app-scope-snapshot')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-app-scope-snapshot',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      const refresh = vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        action: {
+          operation_id: msg.operation_id,
+          session_id: 'session-app-scope-refreshed',
+          phase: 'app_scope',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/app/cli_app/auth'
+        }
+      })
+
+      mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+
+      expect(refresh).toHaveBeenCalledTimes(1)
+      expect(refresh).toHaveBeenCalledWith('session-1')
+      expect(agentStore.messages[0]).toMatchObject({
+        session_id: 'session-app-scope-refreshed',
+        phase: 'app_scope',
+        url: 'https://open.feishu.cn/app/cli_app/auth'
+      })
     })
 
     it('settles the exact stale action when refresh reports a terminal operation', async () => {
@@ -712,13 +749,16 @@ describe('AgentMessageItem', () => {
         const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
 
         await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
-        agentStore.applyStreamEvent({
-          type: 'terminal',
-          seq: 2,
-          ts: new Date().toISOString(),
-          run_id: msg.run_id,
-          data: { reason: terminalReason, duration_ms: 1, step_count: 1 }
-        } as never, agentStore.currentSessionEpoch())
+        agentStore.applyStreamEvent(
+          {
+            type: 'terminal',
+            seq: 2,
+            ts: new Date().toISOString(),
+            run_id: msg.run_id,
+            data: { reason: terminalReason, duration_ms: 1, step_count: 1 }
+          } as never,
+          agentStore.currentSessionEpoch()
+        )
         const settled = agentStore.messages[0]
         await wrapper.setProps({ msg: settled })
         expect(settled).toMatchObject({ action_status: expectedStatus })

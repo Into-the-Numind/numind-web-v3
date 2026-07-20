@@ -50,11 +50,11 @@ describe('personal Feishu workspace API', () => {
       data: { operation_id: 'op-1', state: 'succeeded' }
     })
 
-    await resumeFeishuOperation('op-1')
+    await resumeFeishuOperation('op-1', 'session-1')
 
     expect(mockedRequest.post).toHaveBeenCalledWith(
       '/v1/feishu/operations/op-1/resume',
-      { action: 'user_completed' },
+      { action: 'user_completed', session_id: 'session-1' },
       { timeout: 60_000 }
     )
   })
@@ -64,10 +64,10 @@ describe('personal Feishu workspace API', () => {
       data: { operation_id: 'op-1', state: 'cancelled' }
     })
 
-    await resumeFeishuOperation('op-1', 'cancelled')
+    await resumeFeishuOperation('op-1', 'session-1', 'cancelled')
     expect(mockedRequest.post).toHaveBeenCalledWith(
       '/v1/feishu/operations/op-1/resume',
-      { action: 'cancelled' },
+      { action: 'cancelled', session_id: 'session-1' },
       { timeout: 60_000 }
     )
   })
@@ -83,7 +83,7 @@ describe('personal Feishu workspace API', () => {
         }
       })
 
-      await expect(resumeFeishuOperation('op-1')).resolves.toMatchObject({
+      await expect(resumeFeishuOperation('op-1', 'session-1')).resolves.toMatchObject({
         operation_id: 'op-1',
         notice_code: noticeCode
       })
@@ -109,7 +109,7 @@ describe('personal Feishu workspace API', () => {
         }
       })
 
-      await expect(resumeFeishuOperation('op-1')).resolves.toMatchObject({
+      await expect(resumeFeishuOperation('op-1', 'session-1')).resolves.toMatchObject({
         notice_code: noticeCode,
         action: { url }
       })
@@ -134,8 +134,29 @@ describe('personal Feishu workspace API', () => {
       }
     })
 
-    await expect(resumeFeishuOperation('op-1')).resolves.toMatchObject({
+    await expect(resumeFeishuOperation('op-1', 'session-1')).resolves.toMatchObject({
       action: { url }
+    })
+  })
+
+  it('accepts a URL-free current action when a stale card observes a newer server step', async () => {
+    mockedRequest.post.mockResolvedValue({
+      data: {
+        operation_id: 'op-1',
+        state: 'waiting_user_auth',
+        notice_code: 'authorization_updated',
+        action: {
+          operation_id: 'op-1',
+          session_id: 'session-current',
+          phase: 'user_auth',
+          expires_at: '2026-07-18T00:00:00Z'
+        }
+      }
+    })
+
+    await expect(resumeFeishuOperation('op-1', 'session-stale')).resolves.toMatchObject({
+      notice_code: 'authorization_updated',
+      action: { session_id: 'session-current' }
     })
   })
 
@@ -169,7 +190,7 @@ describe('personal Feishu workspace API', () => {
       }
     })
 
-    await expect(resumeFeishuOperation('op-1')).rejects.toThrow(
+    await expect(resumeFeishuOperation('op-1', 'session-1')).rejects.toThrow(
       '飞书授权状态无效，请稍后重试。'
     )
   })
@@ -188,7 +209,7 @@ describe('personal Feishu workspace API', () => {
       }
     })
 
-    await expect(resumeFeishuOperation('op-1')).resolves.toMatchObject({
+    await expect(resumeFeishuOperation('op-1', 'session-1')).resolves.toMatchObject({
       state: 'waiting_confirmation',
       action: { phase: 'confirmation' }
     })
@@ -327,7 +348,7 @@ describe('personal Feishu workspace API', () => {
   ])('rejects $label with one fixed local error', async ({ data }) => {
     mockedRequest.post.mockResolvedValue({ data })
 
-    const operation = resumeFeishuOperation('op-1')
+    const operation = resumeFeishuOperation('op-1', 'session-1')
     await expect(operation).rejects.toThrow('飞书授权状态无效，请稍后重试。')
     await expect(operation).rejects.not.toThrow('sensitive server detail')
   })
