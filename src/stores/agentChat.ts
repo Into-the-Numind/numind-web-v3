@@ -1568,7 +1568,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const resumeFeishuOperation = async (
     operationID: string,
     sessionID: string,
-    action: FeishuResumeAction = 'user_completed'
+    action: FeishuResumeAction = 'user_completed',
+    runID?: number
   ): Promise<FeishuOperationResult> => {
     const requestedSessionID = sessionID.trim()
     if (!requestedSessionID) throw new Error('飞书授权步骤已更新，请使用最新链接')
@@ -1576,7 +1577,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       (message): message is ExternalActionMessage =>
         message.type === 'external_action' &&
         message.operation_id === operationID &&
-        message.session_id === requestedSessionID
+        message.session_id === requestedSessionID &&
+        (runID === undefined || message.run_id === runID)
     )
     const legacyConfirmation = existing?.phase === 'confirmation'
     if (

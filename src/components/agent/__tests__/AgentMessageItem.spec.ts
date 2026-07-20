@@ -239,7 +239,7 @@ describe('AgentMessageItem', () => {
       await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
       await flushPromises()
 
-      expect(resume).toHaveBeenCalledWith('op-1', 'session-1')
+      expect(resume).toHaveBeenCalledWith('op-1', 'session-1', 'user_completed', msg.run_id)
       expect(wrapper.emitted('answer-submitted')).toBeUndefined()
       expect(store.messages).toHaveLength(1)
       expect(store.messages[0].type).toBe('external_action')
@@ -259,7 +259,7 @@ describe('AgentMessageItem', () => {
       await flushPromises()
 
       expect(resume).toHaveBeenCalledOnce()
-      expect(resume).toHaveBeenCalledWith('op-1', 'session-1', 'confirmed')
+      expect(resume).toHaveBeenCalledWith('op-1', 'session-1', 'confirmed', msg.run_id)
     })
 
     it('clears an old transport error only when the exact action session changes', async () => {

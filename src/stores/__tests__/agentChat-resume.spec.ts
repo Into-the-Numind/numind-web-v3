@@ -793,7 +793,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         type: 'external_action',
         run_id: 147,
         operation_id: 'op-reused-in-history',
-        session_id: 'session-historical',
+        session_id: 'session-current',
         phase: 'create_app',
         expires_at: futureExpiry(),
         action_status: 'pending',
@@ -817,7 +817,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       notice_code: 'authorization_processing'
     })
 
-    await store.resumeFeishuOperation('op-reused-in-history', 'session-current')
+    await store.resumeFeishuOperation('op-reused-in-history', 'session-current', 'user_completed', 148)
 
     expect(store.messages[0]).not.toHaveProperty('notice_code')
     expect(store.messages[1]).toMatchObject({ notice_code: 'authorization_processing' })

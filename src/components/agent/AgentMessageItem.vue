@@ -172,16 +172,13 @@ async function handleExternalResume(
   const externalAction = asExternalAction.value
   if (!externalAction || props.readOnly || feishuActionBusy.value) return
   const actionSessionID = externalAction.session_id
+  const actionRunID = externalAction.run_id
   const sessionEpoch = store.currentSessionEpoch()
   const requestVersion = ++feishuActionRequestVersion
   feishuActionBusy.value = true
   feishuActionError.value = ''
   try {
-    if (action === 'user_completed') {
-      await store.resumeFeishuOperation(operationID, actionSessionID)
-    } else {
-      await store.resumeFeishuOperation(operationID, actionSessionID, action)
-    }
+    await store.resumeFeishuOperation(operationID, actionSessionID, action, actionRunID)
   } catch (error) {
     if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
       feishuActionError.value = externalActionErrorMessage(
