@@ -1546,14 +1546,20 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       (message): message is ExternalActionMessage =>
         message.type === 'external_action' && message.operation_id === operationID
     )
+    const legacyConfirmation = existing?.phase === 'confirmation'
     if (
-      existing?.action_status === 'expired' ||
-      (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at))
+      !legacyConfirmation &&
+      (existing?.action_status === 'expired' ||
+        (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at)))
     ) {
       settleExternalAction(operationID, 'expired')
       throw new Error('飞书授权已过期，请刷新链接后重试')
     }
-    if (!existing || existing.action_status !== 'pending') {
+    if (
+      !existing ||
+      (existing.action_status !== 'pending' &&
+        !(legacyConfirmation && existing.action_status === 'expired'))
+    ) {
       throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
     const pendingRequest = feishuResumeRequests.get(operationID)
