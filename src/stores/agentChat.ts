@@ -701,12 +701,19 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     runID?: number
   ): void => {
     if (state === 'succeeded') {
-      settleExternalAction(operationID, 'completed', runID, ['pending', 'expired'], state)
-      if (
-        runID !== undefined &&
-        currentRun.value?.id === runID &&
-        !isTerminalStatus(currentRun.value.status)
-      ) {
+      // A concurrent status poll may have already settled the browser card just
+      // before this lifecycle response arrives. The exact operation/session
+      // response is still authoritative: success means the durable continuation
+      // was queued, so re-arm run observation even if that poll briefly painted
+      // the run terminal. Otherwise the next permission card is never fetched.
+      settleExternalAction(
+        operationID,
+        'completed',
+        runID,
+        ['pending', 'expired', 'completed'],
+        state
+      )
+      if (runID !== undefined && currentRun.value?.id === runID) {
         runStatusRequestSeq += 1
         currentRun.value = {
           ...currentRun.value,
@@ -1151,10 +1158,42 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const m = messages.value[i]
       if (m.type !== 'tool_group') continue
       const tg = m as ToolGroupMessage
-      if (!tg.tool_calls.some((tc) => IN_FLIGHT_STATES.includes(tc.current_state))) continue
-      const tool_calls = tg.tool_calls.map((tc) =>
-        IN_FLIGHT_STATES.includes(tc.current_state) ? { ...tc, current_state: terminalState } : tc
+      const hasUnsettledCall = tg.tool_calls.some(
+        (tc) =>
+          IN_FLIGHT_STATES.includes(tc.current_state) ||
+          (status === 'completed' &&
+            (tc.current_state === 'error' || tc.current_state === 'rejected'))
       )
+      if (!hasUnsettledCall) continue
+      const tool_calls = tg.tool_calls.map((tc) => {
+        if (IN_FLIGHT_STATES.includes(tc.current_state)) {
+          return { ...tc, current_state: terminalState }
+        }
+        if (
+          status === 'completed' &&
+          (tc.current_state === 'error' || tc.current_state === 'rejected')
+        ) {
+          const latest = tc.events[tc.events.length - 1]
+          return {
+            ...tc,
+            current_state: 'result' as const,
+            // Preserve error_message for diagnostics, but give the user the
+            // recovered outcome that the completed Agent run proved.
+            events: [
+              ...tc.events,
+              {
+                run_id: latest?.run_id ?? currentRun.value?.id ?? 0,
+                tool_call_id: tc.tool_call_id,
+                tool_name: tc.tool_name,
+                state: 'result' as const,
+                message: '已自动调整并继续',
+                timestamp: new Date().toISOString()
+              }
+            ]
+          }
+        }
+        return tc
+      })
       messages.value[i] = { ...tg, tool_calls }
     }
   }
@@ -1498,8 +1537,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const currentAction = messages.value.find(
         (message): message is ExternalActionMessage =>
           message.type === 'external_action' &&
-          message.operation_id === operationID &&
-          message.action_status === 'pending'
+          message.operation_id === operationID
       )
       if (!currentAction || currentAction.session_id !== existing.session_id) return result
       if (
@@ -1518,6 +1556,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
           break
         default:
+          // Non-terminal lifecycle updates can only mutate the still-current
+          // pending attempt. A poll-settled card is accepted above solely for an
+          // exact terminal response, never for an old notice or replacement URL.
+          if (currentAction.action_status !== 'pending') return result
           if (result.action) {
             updatePendingExternalAction(operationID, result.action, result.notice_code)
           } else if (result.notice_code) {

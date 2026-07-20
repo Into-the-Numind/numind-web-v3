@@ -13,6 +13,7 @@
  */
 
 import { expect, test, type Page, type Request } from '@playwright/test'
+import { createDiagnostics } from './helpers/diagnose'
 
 interface ActionFixture {
   operation_id: string
@@ -412,6 +413,128 @@ async function openAgentConversation(page: Page, prompt: string): Promise<void> 
 }
 
 test.describe('personal Feishu workspace', () => {
+  test('desktop: a concurrent terminal poll cannot swallow a successful resume before the next permission', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const diag = createDiagnostics(page)
+    const runId = 307
+    const firstAction: ActionFixture = {
+      operation_id: 'feishu-operation-e2e-307-create',
+      session_id: 'feishu-auth-session-e2e-307-create',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=CREATE-307'
+    }
+    const secondAction: ActionFixture = {
+      operation_id: 'feishu-operation-e2e-307-node',
+      session_id: 'feishu-auth-session-e2e-307-node',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString()
+    }
+    let resumeCompleted = false
+    let statusReads = 0
+    let snapshotReads = 0
+
+    await installOpenAgentStream(page, sequentialActionStream(runId, firstAction))
+    await page.route('**/v1/feishu/operations/*/resume', async (route) => {
+      // Reproduce the Dev race: the already-scheduled status poll settles the
+      // old card just before the lifecycle request reports success.
+      await new Promise((resolve) => setTimeout(resolve, 5_500))
+      resumeCompleted = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { operation_id: firstAction.operation_id, state: 'succeeded' }
+        })
+      })
+    })
+    await page.route(new RegExp(`/v1/agent-runs/${runId}(?:\\?.*)?$`), async (route) => {
+      statusReads += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: runId,
+            session_id: `feishu-e2e-run-${runId}`,
+            status: resumeCompleted ? 'running' : 'completed',
+            state_reason: resumeCompleted ? 'waiting_for_user_choice' : 'completed',
+            final_output: '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      })
+    })
+    await page.route(`**/v1/sessions/feishu-e2e-run-${runId}/snapshot`, async (route) => {
+      snapshotReads += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            session_id: `feishu-e2e-run-${runId}`,
+            agent_skill_id: 1,
+            agent_run_ids: [runId],
+            last_active_at: new Date().toISOString(),
+            status: 'running',
+            run: {
+              id: runId,
+              session_id: `feishu-e2e-run-${runId}`,
+              status: 'running',
+              state_reason: 'waiting_for_user_choice',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            },
+            messages: [
+              {
+                id: `external-action-${runId}-node`,
+                type: 'external_action',
+                run_id: runId,
+                provider: 'feishu',
+                ...secondAction,
+                timestamp: new Date().toISOString()
+              }
+            ]
+          }
+        })
+      })
+    })
+    await page.route(`**/v1/agent-runs/${runId}/narration*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
+
+    await openAgentConversation(page, '创建知识库并继续创建节点')
+    const cards = page.getByTestId('feishu-action-card')
+    await expect(cards).toHaveCount(1)
+    await cards.first().getByTestId('feishu-continue').click()
+
+    try {
+      await expect(cards).toHaveCount(2, { timeout: 15_000 })
+    } catch (error) {
+      diag.dump()
+      diag.networkFor(`/v1/agent-runs/${runId}`)
+      await diag.domText('.agent-message-list')
+      await diag.screenshot('feishu-resume-settlement-race')
+      throw error
+    }
+    await expect(cards.nth(1)).toContainText('当前链接不可用，请重新生成链接后继续。')
+    expect(statusReads).toBeGreaterThanOrEqual(2)
+    expect(snapshotReads).toBeGreaterThanOrEqual(1)
+  })
+
   test('desktop: a second Feishu permission appears from polling without reload and refreshes with an empty body', async ({
     page
   }) => {
