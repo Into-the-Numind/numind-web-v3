@@ -284,6 +284,37 @@ describe('FeishuActionCard', () => {
     expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
   })
 
+  it('automatically retries a transient legacy confirmation migration failure', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountCard({
+      action: createAction({
+        phase: 'confirmation',
+        url: undefined,
+        expires_at: new Date(Date.now() - 60_000).toISOString()
+      })
+    })
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
+
+    await wrapper.setProps({ error: '服务暂时不可用' })
+    await vi.advanceTimersByTimeAsync(900)
+    expect(wrapper.emitted('confirmed')).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1'], ['op-1']])
+  })
+
+  it('renders the real terminal outcome for a migrated confirmation', () => {
+    const action = Object.assign(
+      createAction({ phase: 'confirmation', action_status: 'terminal', url: undefined }),
+      { terminal_state: 'failed' as const }
+    )
+    const wrapper = mountCard({ action })
+
+    expect(wrapper.text()).toContain('原飞书任务已结束，请重新发送原指令。')
+    expect(wrapper.text()).not.toContain('正在继续原任务。')
+    expect(wrapper.emitted('confirmed')).toBeUndefined()
+  })
+
   it('uses polite live announcements and an alert role for actionable errors', () => {
     const wrapper = mountCard({
       action: createAction({ notice_code: 'authorization_pending' }),

@@ -1340,6 +1340,55 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
+  it('keeps observing an expired legacy confirmation when resume reports executing', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 149,
+      session_id: 'sess-legacy-confirmation',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as AgentRun
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 149,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-executing-legacy-confirmation',
+        session_id: 'session-executing-legacy-confirmation',
+        tool_call_id: 'tool-call-confirmation',
+        phase: 'confirmation',
+        expires_at: new Date(now.getTime() - 1_000).toISOString()
+      }
+    })
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-executing-legacy-confirmation',
+      state: 'executing'
+    })
+    vi.mocked(api.getRun).mockResolvedValueOnce({
+      ...store.currentRun,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '旧确认步骤已自动完成。'
+    } as AgentRun)
+
+    await store.resumeFeishuOperation('op-executing-legacy-confirmation', 'confirmed')
+
+    expect(store.messages[0]).toMatchObject({ action_status: 'pending', phase: 'confirmation' })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(api.getRun).toHaveBeenCalledWith(149)
+    expect(store.messages[0]).toMatchObject({ action_status: 'completed' })
+    expect(store.messages.some((message) => message.type === 'final_answer')).toBe(true)
+    store.reset()
+  })
+
   it('fails closed when a malformed expiry replaces a live action', () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-14T10:00:00Z')
