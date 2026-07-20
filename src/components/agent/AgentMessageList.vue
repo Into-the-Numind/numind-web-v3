@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
-import type { AgentMessage, AssistantMessage } from '@/types/agent'
+import type { AgentMessage, AssistantMessage, ToolGroupMessage } from '@/types/agent'
 import type { AnswerItemPayload } from '@/api/agent'
 import { useScrollFollow } from '@/composables/useScrollFollow'
 import AgentMessageItem from './AgentMessageItem.vue'
@@ -38,12 +38,36 @@ const streamingMessageText = computed<string>(() => {
   return (streamingMsg.markdown || '') + (streamingMsg.reasoning || '')
 })
 
+// Polling updates an existing tool_group in place, so messages.length and the
+// streaming assistant text do not change. Track only the small presentation
+// facts that affect the visible timeline; this keeps follow-scroll responsive
+// without a deep watch over all message content or exposing model reasoning.
+const toolNarrationSignature = computed<string>(() =>
+  props.messages
+    .filter((message): message is ToolGroupMessage => message.type === 'tool_group')
+    .map((message) =>
+      message.tool_calls
+        .map(
+          (call) =>
+            `${call.tool_call_id}:${call.current_state}:${call.events.length}:${call.events.at(-1)?.timestamp ?? ''}`
+        )
+        .join(',')
+    )
+    .join('|')
+)
+
 // 监听流式输出文本增长，在 Following 状态下实时平滑滚动到底部
 watch(streamingMessageText, () => {
   nextTick(() => {
     if (scroller.value) {
       scrollFollow.checkAndScroll(scroller.value)
     }
+  })
+})
+
+watch(toolNarrationSignature, () => {
+  nextTick(() => {
+    if (scroller.value) scrollFollow.checkAndScroll(scroller.value)
   })
 })
 

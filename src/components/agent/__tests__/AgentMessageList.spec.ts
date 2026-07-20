@@ -66,16 +66,29 @@ describe('AgentMessageList', () => {
     })
     vi.clearAllMocks()
 
-    messages[0].tool_calls[0].events.push({
-      run_id: 252,
-      tool_call_id: 'tc-1',
-      tool_name: 'lark_execute',
-      state: 'result',
-      message: '操作完成',
-      timestamp: '2026-07-20T10:00:01Z'
-    })
-    messages[0].tool_calls[0].current_state = 'result'
-    await wrapper.setProps({ messages: messages as never })
+    const updatedMessages = [
+      {
+        ...messages[0],
+        tool_calls: [
+          {
+            ...messages[0].tool_calls[0],
+            current_state: 'result',
+            events: [
+              ...messages[0].tool_calls[0].events,
+              {
+                run_id: 252,
+                tool_call_id: 'tc-1',
+                tool_name: 'lark_execute',
+                state: 'result',
+                message: '操作完成',
+                timestamp: '2026-07-20T10:00:01Z'
+              }
+            ]
+          }
+        ]
+      }
+    ]
+    await wrapper.setProps({ messages: updatedMessages as never })
     await flushPromises()
 
     expect(checkAndScroll).toHaveBeenCalled()

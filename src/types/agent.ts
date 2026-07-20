@@ -326,8 +326,8 @@ export interface ToolCallAggregate {
 // ─────────────────────────────────────────
 
 export interface SessionSnapshot {
-  /** UUID string */
-  session_id: string
+  /** UUID string. Optional only for a rolling deployment from the old backend. */
+  session_id?: string
   agent_skill_id: number
   messages: AgentMessage[]
   /** Backend RunSummary for the session's latest run. Used to restore
