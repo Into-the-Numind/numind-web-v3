@@ -610,14 +610,22 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const nextPendingExternalActionDeadline = (): number | null => {
     let deadline: number | null = null
+    let observesLegacyConfirmation = false
     for (const message of messages.value) {
       if (message.type !== 'external_action' || message.action_status !== 'pending') continue
+      // A historical confirmation is no longer an authorization grant and its
+      // old expiry cannot end observation of the already-bound Agent operation.
+      // Keep polling the run until its durable continuation becomes terminal.
+      if (message.phase === 'confirmation') {
+        observesLegacyConfirmation = true
+        continue
+      }
       const expiresAt = actionExpiryTimestamp(message.expires_at)
       // A malformed timestamp is never allowed to become an unbounded wait.
       if (expiresAt === null) return null
       deadline = deadline === null ? expiresAt : Math.min(deadline, expiresAt)
     }
-    return deadline
+    return deadline ?? (observesLegacyConfirmation ? Number.MAX_SAFE_INTEGER : null)
   }
 
   const stopExternalActionPolling = (removeVisibilityListener = true): void => {
@@ -771,6 +779,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         (message): message is ExternalActionMessage =>
           message.type === 'external_action' &&
           message.action_status === 'pending' &&
+          message.phase !== 'confirmation' &&
           actionHasExpired(message.expires_at, now)
       )
       .map((message) => message.operation_id)
@@ -1546,14 +1555,20 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       (message): message is ExternalActionMessage =>
         message.type === 'external_action' && message.operation_id === operationID
     )
+    const legacyConfirmation = existing?.phase === 'confirmation'
     if (
-      existing?.action_status === 'expired' ||
-      (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at))
+      !legacyConfirmation &&
+      (existing?.action_status === 'expired' ||
+        (existing?.action_status === 'pending' && actionHasExpired(existing.expires_at)))
     ) {
       settleExternalAction(operationID, 'expired')
       throw new Error('飞书授权已过期，请刷新链接后重试')
     }
-    if (!existing || existing.action_status !== 'pending') {
+    if (
+      !existing ||
+      (existing.action_status !== 'pending' &&
+        !(legacyConfirmation && existing.action_status === 'expired'))
+    ) {
       throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
     const pendingRequest = feishuResumeRequests.get(operationID)
@@ -1584,11 +1599,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         case 'cancelled':
           settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
           break
-        default:
+        default: {
           // Non-terminal lifecycle updates can only mutate the still-current
           // pending attempt. A poll-settled card is accepted above solely for an
           // exact terminal response, never for an old notice or replacement URL.
-          if (currentAction.action_status !== 'pending') return result
+          const observesExpiredLegacyConfirmation =
+            legacyConfirmation && currentAction.action_status === 'expired'
+          if (!observesExpiredLegacyConfirmation && currentAction.action_status !== 'pending') {
+            return result
+          }
+          if (observesExpiredLegacyConfirmation) {
+            settleExternalAction(operationID, 'pending', existing.run_id, ['expired'])
+          }
           if (result.action) {
             updatePendingExternalAction(operationID, result.action, result.notice_code)
           } else if (result.notice_code) {
@@ -1596,6 +1618,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           }
           if (hasPendingExternalAction()) startExternalActionPolling()
           break
+        }
       }
       return result
     })()

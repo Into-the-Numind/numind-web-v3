@@ -570,7 +570,6 @@ const systemText = computed<string>(() => {
         @resume="handleExternalResume"
         @refresh="handleExternalRefresh"
         @confirmed="(operationID) => handleExternalResume(operationID, 'confirmed')"
-        @cancelled="(operationID) => handleExternalResume(operationID, 'cancelled')"
       />
     </div>
   </div>

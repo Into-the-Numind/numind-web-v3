@@ -18,7 +18,7 @@ import { createDiagnostics } from './helpers/diagnose'
 interface ActionFixture {
   operation_id: string
   session_id: string
-  phase: 'user_auth'
+  phase: 'user_auth' | 'confirmation'
   expires_at: string
   url?: string
 }
@@ -413,6 +413,50 @@ async function openAgentConversation(page: Page, prompt: string): Promise<void> 
 }
 
 test.describe('personal Feishu workspace', () => {
+  test('desktop: a legacy confirmation continues without buttons, reload, or a second user action', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const runId = 309
+    let pageLoads = 0
+    const resumeBodies: Array<Record<string, unknown>> = []
+    page.on('load', () => {
+      pageLoads += 1
+    })
+    await installOpenAgentStream(
+      page,
+      actionStream(runId, {
+        operation_id: 'feishu-operation-e2e-309',
+        session_id: 'legacy-confirmation-e2e-309',
+        phase: 'confirmation',
+        expires_at: new Date(Date.now() - 60_000).toISOString()
+      })
+    )
+    await page.route('**/v1/feishu/operations/*/resume', async (route) => {
+      const raw = route.request().postData()
+      resumeBodies.push(raw ? (JSON.parse(raw) as Record<string, unknown>) : {})
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { operation_id: 'feishu-operation-e2e-309', state: 'executing' }
+        })
+      })
+    })
+
+    await openAgentConversation(page, '继续旧版飞书任务')
+    await expect(page.getByTestId('feishu-confirm')).toHaveCount(0)
+    await expect(page.getByTestId('feishu-cancel')).toHaveCount(0)
+    await expect.poll(() => resumeBodies.length).toBe(1)
+    expect(resumeBodies[0]).toEqual({ action: 'confirmed' })
+
+    await finishOpenAgentStream(page, continuationStream(runId))
+    await expect(page.getByText('飞书文档已经创建完成。', { exact: true })).toBeVisible()
+    expect(pageLoads).toBe(1)
+  })
+
   test('desktop: a concurrent terminal poll cannot swallow a successful resume before the next permission', async ({
     page
   }) => {

@@ -51,7 +51,7 @@ describe('FeishuActionCard', () => {
     ['create_app', '创建个人应用', '为你的有数账号创建一个独立飞书自建应用'],
     ['app_scope', '等待管理员批准', '这项能力需要飞书管理员批准'],
     ['user_auth', '授权并继续', '请授权本次任务需要的文档权限'],
-    ['confirmation', '确认继续原任务', '确认后将继续执行本次飞书操作']
+    ['confirmation', '正在继续原任务', '旧版确认步骤已取消']
   ] as const)('renders the precise %s phase copy', async (phase, heading, description) => {
     const wrapper = mountCard({ action: createAction({ phase, url: undefined }) })
     await flushPromises()
@@ -218,7 +218,7 @@ describe('FeishuActionCard', () => {
     expect(wrapper.text()).not.toContain('重新发送原指令')
   })
 
-  it('treats an expired confirmation as terminal and never refreshes its operation id', () => {
+  it('migrates an expired confirmation without refreshing an authorization link', () => {
     const wrapper = mountCard({
       action: createAction({
         phase: 'confirmation',
@@ -226,10 +226,11 @@ describe('FeishuActionCard', () => {
       })
     })
 
-    expect(wrapper.text()).toContain('确认已过期，请重新发起')
+    expect(wrapper.text()).toContain('正在继续原任务')
     expect(wrapper.find('[data-testid="feishu-confirm"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="feishu-cancel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
     expect(wrapper.emitted('refresh')).toBeUndefined()
   })
 
@@ -258,14 +259,60 @@ describe('FeishuActionCard', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('emits distinct confirmation and cancellation lifecycle actions', async () => {
+  it('never renders business confirmation controls', async () => {
     const wrapper = mountCard({ action: createAction({ phase: 'confirmation', url: undefined }) })
+    await flushPromises()
 
-    await wrapper.get('[data-testid="feishu-confirm"]').trigger('click')
-    await wrapper.get('[data-testid="feishu-cancel"]').trigger('click')
-
+    expect(wrapper.find('[data-testid="feishu-confirm"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-cancel"]').exists()).toBe(false)
     expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
-    expect(wrapper.emitted('cancelled')).toEqual([['op-1']])
+  })
+
+  it('migrates an expired legacy confirmation without rendering business confirmation controls', async () => {
+    const wrapper = mountCard({
+      action: createAction({
+        phase: 'confirmation',
+        url: undefined,
+        expires_at: new Date(Date.now() - 60_000).toISOString()
+      })
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="feishu-confirm"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-cancel"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('确认已过期')
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
+  })
+
+  it('automatically retries a transient legacy confirmation migration failure', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountCard({
+      action: createAction({
+        phase: 'confirmation',
+        url: undefined,
+        expires_at: new Date(Date.now() - 60_000).toISOString()
+      })
+    })
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
+
+    await wrapper.setProps({ error: '服务暂时不可用' })
+    await vi.advanceTimersByTimeAsync(900)
+    expect(wrapper.emitted('confirmed')).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1'], ['op-1']])
+  })
+
+  it('renders the real terminal outcome for a migrated confirmation', () => {
+    const action = Object.assign(
+      createAction({ phase: 'confirmation', action_status: 'terminal', url: undefined }),
+      { terminal_state: 'failed' as const }
+    )
+    const wrapper = mountCard({ action })
+
+    expect(wrapper.text()).toContain('原飞书任务已结束，请重新发送原指令。')
+    expect(wrapper.text()).not.toContain('正在继续原任务。')
+    expect(wrapper.emitted('confirmed')).toBeUndefined()
   })
 
   it('uses polite live announcements and an alert role for actionable errors', () => {

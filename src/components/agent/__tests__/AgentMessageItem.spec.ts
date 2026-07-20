@@ -41,13 +41,12 @@ const globalStubs = {
   },
   FeishuActionCard: {
     props: ['action', 'busy', 'error'],
-    emits: ['resume', 'refresh', 'confirmed', 'cancelled'],
+    emits: ['resume', 'refresh', 'confirmed'],
     template: `
       <div data-testid="feishu-action-card-stub" :data-busy="String(busy)" :data-error="error">
         <button data-testid="feishu-resume" @click="$emit('resume', action.operation_id)">继续</button>
         <button data-testid="feishu-refresh" @click="$emit('refresh', action.session_id)">刷新</button>
         <button data-testid="feishu-confirm" @click="$emit('confirmed', action.operation_id)">确认</button>
-        <button data-testid="feishu-cancel" @click="$emit('cancelled', action.operation_id)">取消</button>
       </div>
     `
   }
@@ -246,7 +245,7 @@ describe('AgentMessageItem', () => {
       expect(store.messages[0].type).toBe('external_action')
     })
 
-    it('routes confirmation and cancellation through distinct operation actions', async () => {
+    it('routes a legacy confirmation through its compatibility action only', async () => {
       const store = useAgentChatStore()
       const msg = externalAction()
       store.messages = [msg]
@@ -257,11 +256,10 @@ describe('AgentMessageItem', () => {
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
 
       await wrapper.get('[data-testid="feishu-confirm"]').trigger('click')
-      await wrapper.get('[data-testid="feishu-cancel"]').trigger('click')
       await flushPromises()
 
-      expect(resume).toHaveBeenNthCalledWith(1, 'op-1', 'confirmed')
-      expect(resume).toHaveBeenNthCalledWith(2, 'op-1', 'cancelled')
+      expect(resume).toHaveBeenCalledOnce()
+      expect(resume).toHaveBeenCalledWith('op-1', 'confirmed')
     })
 
     it('clears an old transport error only when the exact action session changes', async () => {

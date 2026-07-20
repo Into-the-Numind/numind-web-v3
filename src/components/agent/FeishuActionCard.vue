@@ -28,7 +28,6 @@ const emit = defineEmits<{
   resume: [operationId: string]
   refresh: [sessionId: string]
   confirmed: [operationId: string]
-  cancelled: [operationId: string]
 }>()
 
 const phaseContent = {
@@ -45,8 +44,8 @@ const phaseContent = {
     description: '请授权本次任务需要的文档权限。以后使用已授权能力时不会重复出现。'
   },
   confirmation: {
-    title: '确认继续原任务',
-    description: '确认后将继续执行本次飞书操作。'
+    title: '正在继续原任务',
+    description: '旧版确认步骤已取消，正在按原任务自动继续。'
   }
 } as const
 
@@ -83,13 +82,10 @@ const refreshableAuthorizationPhase = computed<boolean>(
 const url = computed<string>(() => props.action.url ?? '')
 const showsCurrentURL = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const missingLink = computed<boolean>(() => current.value && !confirmation.value && !url.value)
-// `app_scope` and `confirmation` cannot mint a replacement link. The backend
-// rejects app-scope recovery because its ConsoleURL is not reconstructable;
-// confirmation carries an operation id rather than an authorization session.
+// `app_scope` cannot mint a replacement link. The backend rejects app-scope
+// recovery because its ConsoleURL is not reconstructable.
 const restartRequired = computed<boolean>(
-  () =>
-    (confirmation.value && expired.value) ||
-    (props.action.phase === 'app_scope' && (expired.value || missingLink.value))
+  () => props.action.phase === 'app_scope' && (expired.value || missingLink.value)
 )
 const showRefresh = computed<boolean>(
   () => refreshableAuthorizationPhase.value && (expired.value || missingLink.value)
@@ -105,11 +101,72 @@ const noticeText = computed<string>(() =>
 const interactionBusy = computed<boolean>(
   () => props.busy || props.action.notice_code === 'authorization_processing'
 )
+let migratedConfirmationKey = ''
+let migratedConfirmationAttempts = 0
+let confirmationRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearConfirmationRetry(): void {
+  if (confirmationRetryTimer) {
+    clearTimeout(confirmationRetryTimer)
+    confirmationRetryTimer = null
+  }
+}
+
+function scheduleConfirmationRetry(key: string, operationID: string): void {
+  if (confirmationRetryTimer) return
+  const delay = Math.min(
+    1_000 * 2 ** Math.min(Math.max(migratedConfirmationAttempts - 1, 0), 4),
+    15_000
+  )
+  confirmationRetryTimer = setTimeout(() => {
+    confirmationRetryTimer = null
+    const action = props.action
+    if (
+      action.phase !== 'confirmation' ||
+      (action.action_status !== 'pending' && action.action_status !== 'expired') ||
+      `${action.operation_id}:${action.session_id}` !== key ||
+      props.busy
+    ) {
+      return
+    }
+    migratedConfirmationAttempts += 1
+    emit('confirmed', operationID)
+  }, delay)
+}
+
+watch(
+  () => [
+    props.action.phase,
+    props.action.operation_id,
+    props.action.session_id,
+    props.action.action_status,
+    props.busy,
+    props.error
+  ] as const,
+  ([actionPhase, operationID, sessionID, actionStatus, busy, error]) => {
+    if (
+      actionPhase !== 'confirmation' ||
+      (actionStatus !== 'pending' && actionStatus !== 'expired')
+    ) {
+      clearConfirmationRetry()
+      return
+    }
+    const key = `${operationID}:${sessionID}`
+    if (migratedConfirmationKey !== key) {
+      clearConfirmationRetry()
+      if (busy) return
+      migratedConfirmationKey = key
+      migratedConfirmationAttempts = 1
+      emit('confirmed', operationID)
+      return
+    }
+    if (!busy && error) scheduleConfirmationRetry(key, operationID)
+  },
+  { immediate: true }
+)
 
 const statusText = computed<string>(() => {
-  if (confirmation.value && expired.value) return '确认已过期，请重新发起。'
   if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
-  if (expired.value) return '链接已过期，请重新生成后继续。'
   if (props.action.action_status === 'completed') {
     return props.action.terminal_state === 'succeeded'
       ? '飞书操作已完成，正在继续原任务。'
@@ -129,6 +186,8 @@ const statusText = computed<string>(() => {
         return '原飞书任务已结束，请根据最新状态决定下一步。'
     }
   }
+  if (confirmation.value) return '正在继续原任务。'
+  if (expired.value) return '链接已过期，请重新生成后继续。'
   if (missingLink.value) return '当前链接不可用，请重新生成链接后继续。'
   return ''
 })
@@ -183,6 +242,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (expiryTimer) clearTimeout(expiryTimer)
+  clearConfirmationRetry()
 })
 
 async function handleCopy(): Promise<void> {
@@ -205,15 +265,6 @@ function handleRefresh(): void {
   emit('refresh', props.action.session_id)
 }
 
-function handleConfirm(): void {
-  if (!current.value || !confirmation.value || interactionBusy.value) return
-  emit('confirmed', props.action.operation_id)
-}
-
-function handleCancel(): void {
-  if (!current.value || !confirmation.value || interactionBusy.value) return
-  emit('cancelled', props.action.operation_id)
-}
 </script>
 
 <template>
@@ -290,32 +341,8 @@ function handleCancel(): void {
       <p class="feishu-action-card__expires">请在链接有效期内完成此步骤。</p>
     </template>
 
-    <div v-if="confirmation && current" class="feishu-action-card__controls">
-      <AppButton
-        data-testid="feishu-confirm"
-        variant="primary"
-        size="sm"
-        :loading="interactionBusy"
-        :disabled="interactionBusy"
-        aria-label="确认并继续原任务"
-        @click="handleConfirm"
-      >
-        确认并继续
-      </AppButton>
-      <AppButton
-        data-testid="feishu-cancel"
-        variant="text"
-        size="sm"
-        :disabled="interactionBusy"
-        aria-label="取消本次飞书操作"
-        @click="handleCancel"
-      >
-        取消
-      </AppButton>
-    </div>
-
     <div
-      v-else-if="!confirmation && !restartRequired && (current || expired)"
+      v-if="!confirmation && !restartRequired && (current || expired)"
       class="feishu-action-card__controls"
     >
       <AppButton
