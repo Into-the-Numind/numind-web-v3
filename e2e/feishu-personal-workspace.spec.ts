@@ -479,6 +479,11 @@ test.describe('personal Feishu workspace', () => {
       phase: 'user_auth',
       expires_at: new Date(Date.now() + 10 * 60_000).toISOString()
     }
+    const refreshedSecondAction: ActionFixture = {
+      ...secondAction,
+      session_id: 'feishu-auth-session-e2e-307-node-fresh',
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=NODE-307'
+    }
     let resumeCompleted = false
     let statusReads = 0
     let snapshotReads = 0
@@ -497,6 +502,13 @@ test.describe('personal Feishu workspace', () => {
           message: 'ok',
           data: { operation_id: firstAction.operation_id, state: 'succeeded' }
         })
+      })
+    })
+    await page.route('**/v1/feishu/actions/*/refresh', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: { action: refreshedSecondAction } })
       })
     })
     await page.route(new RegExp(`/v1/agent-runs/${runId}(?:\\?.*)?$`), async (route) => {
@@ -577,7 +589,7 @@ test.describe('personal Feishu workspace', () => {
       await diag.screenshot('feishu-resume-settlement-race')
       throw error
     }
-    await expect(cards.nth(1)).toContainText('当前链接不可用，请重新生成链接后继续。')
+    await expect(cards.nth(1).getByTestId('feishu-url')).toHaveText(refreshedSecondAction.url ?? '')
     expect(statusReads).toBeGreaterThanOrEqual(2)
     expect(snapshotReads).toBeGreaterThanOrEqual(1)
   })
@@ -721,12 +733,9 @@ test.describe('personal Feishu workspace', () => {
     await cards.first().getByTestId('feishu-continue').click()
     await expect(cards).toHaveCount(2, { timeout: 15_000 })
     await expect(cards.first()).toContainText('飞书操作已完成，正在继续原任务。')
-    await expect(cards.nth(1)).toContainText('当前链接不可用，请重新生成链接后继续。')
-    await expect(cards.nth(1).getByTestId('feishu-url')).toHaveCount(0)
     await expect(page.locator('.tl-line.active')).toHaveCount(0)
     await expect(page.locator('.tl-line.done')).toHaveCount(1)
 
-    await cards.nth(1).getByTestId('feishu-refresh').click()
     await expect.poll(() => refreshBodies).toEqual([null])
     await expect(cards).toHaveCount(2)
     await expect(cards.nth(1).getByTestId('feishu-url')).toHaveText(refreshedSecondAction.url ?? '')
@@ -1283,10 +1292,6 @@ test.describe('personal Feishu workspace', () => {
     await page.goto(`/agent/chat/${sessionId}?agent_id=1`)
     const card = page.getByTestId('feishu-action-card')
     await expect(card).toHaveCount(1)
-    await expect(card).toContainText('当前链接不可用，请重新生成链接后继续。')
-    await expect(card.getByTestId('feishu-url')).toHaveCount(0)
-
-    await card.getByTestId('feishu-refresh').click()
     await expect.poll(() => refreshBodies).toEqual([null])
     await expect(card).toHaveCount(1)
     await expect(card.getByTestId('feishu-url')).toHaveText(refreshedAction.url ?? '')
