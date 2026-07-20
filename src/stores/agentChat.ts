@@ -89,7 +89,10 @@ const STABLE_SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
  * data: it must carry exactly the server's two identifiers and its run id must
  * agree with the envelope before it can alter route ownership.
  */
-function parseStreamStartPayload(payload: unknown, envelopeRunID: number): StreamStartPayload | null {
+function parseStreamStartPayload(
+  payload: unknown,
+  envelopeRunID: number
+): StreamStartPayload | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
   const record = payload as Record<string, unknown>
   const keys = Object.keys(record)
@@ -864,23 +867,26 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     externalActionPollDeadline = deadline
     if (typeof document !== 'undefined' && document.hidden) return
 
-    externalActionPollTimer = setTimeout(() => {
-      externalActionPollTimer = null
-      if (!isCurrentSessionEpoch(pollEpoch) || externalActionPollEpoch !== pollEpoch) return
-      expirePendingExternalActions()
-      if (!hasPendingExternalAction()) return
-      if (typeof document !== 'undefined' && document.hidden) return
-      void (async () => {
-        await refreshRunStatus()
-        if (
-          isCurrentSessionEpoch(pollEpoch) &&
-          externalActionPollEpoch === pollEpoch &&
-          hasPendingExternalAction()
-        ) {
-          startExternalActionPolling()
-        }
-      })()
-    }, Math.min(EXTERNAL_ACTION_POLL_INTERVAL_MS, deadline - now))
+    externalActionPollTimer = setTimeout(
+      () => {
+        externalActionPollTimer = null
+        if (!isCurrentSessionEpoch(pollEpoch) || externalActionPollEpoch !== pollEpoch) return
+        expirePendingExternalActions()
+        if (!hasPendingExternalAction()) return
+        if (typeof document !== 'undefined' && document.hidden) return
+        void (async () => {
+          await refreshRunStatus()
+          if (
+            isCurrentSessionEpoch(pollEpoch) &&
+            externalActionPollEpoch === pollEpoch &&
+            hasPendingExternalAction()
+          ) {
+            startExternalActionPolling()
+          }
+        })()
+      },
+      Math.min(EXTERNAL_ACTION_POLL_INTERVAL_MS, deadline - now)
+    )
   }
 
   const startExternalActionPolling = (): void => {
@@ -1383,7 +1389,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       ) {
         return
       }
-      if (activeSessionID !== null && activeSessionID !== 'new' && next.session_id !== activeSessionID) {
+      if (
+        activeSessionID !== null &&
+        activeSessionID !== 'new' &&
+        next.session_id !== activeSessionID
+      ) {
         return
       }
       const queuedExternalContinuation = isQueuedExternalContinuation(next.state_reason)
@@ -1530,11 +1540,16 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    */
   const resumeFeishuOperation = async (
     operationID: string,
+    sessionID: string,
     action: FeishuResumeAction = 'user_completed'
   ): Promise<FeishuOperationResult> => {
+    const requestedSessionID = sessionID.trim()
+    if (!requestedSessionID) throw new Error('飞书授权步骤已更新，请使用最新链接')
     const existing = messages.value.find(
       (message): message is ExternalActionMessage =>
-        message.type === 'external_action' && message.operation_id === operationID
+        message.type === 'external_action' &&
+        message.operation_id === operationID &&
+        message.session_id === requestedSessionID
     )
     const legacyConfirmation = existing?.phase === 'confirmation'
     if (
@@ -1552,19 +1567,22 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     ) {
       throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
-    const pendingRequest = feishuResumeRequests.get(operationID)
+    const requestKey = `${operationID}:${existing.session_id}:${action}`
+    const pendingRequest = feishuResumeRequests.get(requestKey)
     if (pendingRequest) return pendingRequest
 
     const epoch = activeSessionEpoch
     const request = (async (): Promise<FeishuOperationResult> => {
-      const result = await resumeFeishuLifecycleOperation(operationID, action)
+      const result = await resumeFeishuLifecycleOperation(operationID, existing.session_id, action)
       if (!isCurrentSessionEpoch(epoch)) return result
       const currentAction = messages.value.find(
         (message): message is ExternalActionMessage =>
           message.type === 'external_action' &&
-          message.operation_id === operationID
+          message.operation_id === operationID &&
+          message.session_id === existing.session_id &&
+          message.run_id === existing.run_id
       )
-      if (!currentAction || currentAction.session_id !== existing.session_id) return result
+      if (!currentAction) return result
       if (
         result.operation_id !== operationID ||
         (result.action !== undefined && result.action.operation_id !== operationID)
@@ -1603,12 +1621,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
       return result
     })()
-    feishuResumeRequests.set(operationID, request)
+    feishuResumeRequests.set(requestKey, request)
     try {
       return await request
     } finally {
-      if (feishuResumeRequests.get(operationID) === request) {
-        feishuResumeRequests.delete(operationID)
+      if (feishuResumeRequests.get(requestKey) === request) {
+        feishuResumeRequests.delete(requestKey)
       }
     }
   }
@@ -1976,7 +1994,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     try {
       const run = await api.getRun(runId)
       if (!isCurrentSessionEpoch(epoch)) return
-      if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
+      if (
+        activeSessionID !== null &&
+        activeSessionID !== 'new' &&
+        run.session_id !== activeSessionID
+      ) {
         return
       }
       currentRun.value = run
@@ -2012,7 +2034,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    *      e.g. tool-only steps), fall back to pushing a stand-alone
    *      final_answer, deduped against re-entrant calls.
    */
-  const reconcileFromDB = async (runId: number, expectedEpoch = activeSessionEpoch): Promise<void> => {
+  const reconcileFromDB = async (
+    runId: number,
+    expectedEpoch = activeSessionEpoch
+  ): Promise<void> => {
     const requestSeq = ++runStatusRequestSeq
     // 问题5a: the terminal SSE handler already set currentRun to a terminal status
     // synchronously (before this async getRun resolves). The authoritative DB read
@@ -2034,7 +2059,11 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       ) {
         return
       }
-      if (activeSessionID !== null && activeSessionID !== 'new' && run.session_id !== activeSessionID) {
+      if (
+        activeSessionID !== null &&
+        activeSessionID !== 'new' &&
+        run.session_id !== activeSessionID
+      ) {
         return
       }
       const reconciledRun =

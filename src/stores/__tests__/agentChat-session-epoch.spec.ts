@@ -162,8 +162,12 @@ describe('agentChat session epoch', () => {
     oldSnapshot.resolve(snapshot('session-a'))
     await loadA
 
-    expect(store.messages).toContainEqual(expect.objectContaining({ markdown: 'history session-b' }))
-    expect(store.messages).not.toContainEqual(expect.objectContaining({ markdown: 'history session-a' }))
+    expect(store.messages).toContainEqual(
+      expect.objectContaining({ markdown: 'history session-b' })
+    )
+    expect(store.messages).not.toContainEqual(
+      expect.objectContaining({ markdown: 'history session-a' })
+    )
     expect(store.loadingSnapshot).toBe(false)
   })
 
@@ -202,8 +206,12 @@ describe('agentChat session epoch', () => {
     await refreshingA
 
     expect(store.currentRun).toBeNull()
-    expect(store.messages).toContainEqual(expect.objectContaining({ markdown: 'history session-b' }))
-    expect(store.messages).not.toContainEqual(expect.objectContaining({ markdown: 'old A must not appear' }))
+    expect(store.messages).toContainEqual(
+      expect.objectContaining({ markdown: 'history session-b' })
+    )
+    expect(store.messages).not.toContainEqual(
+      expect.objectContaining({ markdown: 'old A must not appear' })
+    )
     expect(store.messages).not.toContainEqual(expect.objectContaining({ operation_id: 'op-a' }))
     expect(store.isWaitingForExternalAction).toBe(false)
     expect(vi.getTimerCount()).toBe(0)
@@ -261,7 +269,7 @@ describe('agentChat session epoch', () => {
       epochA
     )
 
-    const resumingA = store.resumeFeishuOperation('op-a')
+    const resumingA = store.resumeFeishuOperation('op-a', 'session-a')
     await store.loadSessionSnapshot('session-b', false)
     delayedResume.resolve({
       operation_id: 'op-a',
@@ -275,7 +283,9 @@ describe('agentChat session epoch', () => {
     })
     await resumingA
 
-    expect(store.messages).toContainEqual(expect.objectContaining({ markdown: 'history session-b' }))
+    expect(store.messages).toContainEqual(
+      expect.objectContaining({ markdown: 'history session-b' })
+    )
     expect(store.messages).not.toContainEqual(expect.objectContaining({ operation_id: 'op-a' }))
     expect(store.isWaitingForExternalAction).toBe(false)
     expect(vi.getTimerCount()).toBe(0)

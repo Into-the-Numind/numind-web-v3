@@ -137,10 +137,7 @@ const autoRefreshAttempts = new Set<string>()
 // A server-issued replacement action is a fresh recoverable step. Do not leave
 // a prior local transport error attached to its new URL/session.
 watch(
-  [
-    () => asExternalAction.value?.operation_id,
-    () => asExternalAction.value?.session_id
-  ],
+  [() => asExternalAction.value?.operation_id, () => asExternalAction.value?.session_id],
   () => {
     feishuActionRequestVersion += 1
     feishuActionBusy.value = false
@@ -181,9 +178,9 @@ async function handleExternalResume(
   feishuActionError.value = ''
   try {
     if (action === 'user_completed') {
-      await store.resumeFeishuOperation(operationID)
+      await store.resumeFeishuOperation(operationID, actionSessionID)
     } else {
-      await store.resumeFeishuOperation(operationID, action)
+      await store.resumeFeishuOperation(operationID, actionSessionID, action)
     }
   } catch (error) {
     if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
@@ -243,13 +240,16 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
     if (!refreshedAction || refreshedAction.operation_id !== operationID) {
       throw new Error('飞书操作已更新，请使用对话中的最新步骤。')
     }
-    store.applyStreamEvent({
-      type: 'external_action',
-      seq: externalAction.seq ?? 0,
-      ts: new Date().toISOString(),
-      run_id: runID,
-      data: { provider: 'lark', ...refreshedAction }
-    }, sessionEpoch)
+    store.applyStreamEvent(
+      {
+        type: 'external_action',
+        seq: externalAction.seq ?? 0,
+        ts: new Date().toISOString(),
+        run_id: runID,
+        data: { provider: 'lark', ...refreshedAction }
+      },
+      sessionEpoch
+    )
   } catch (error) {
     if (isCurrentFeishuRequest(requestVersion, operationID, actionSessionID, sessionEpoch)) {
       feishuActionError.value = externalActionErrorMessage(
@@ -609,7 +609,11 @@ const systemText = computed<string>(() => {
 
   <!-- A persisted pre-external-action auth prompt has no safe continuation.
        Keep its history visible without exposing its expired URL or answer API. -->
-  <div v-else-if="asLegacyAuthPrompt" class="msg msg-system" data-testid="legacy-feishu-auth-notice">
+  <div
+    v-else-if="asLegacyAuthPrompt"
+    class="msg msg-system"
+    data-testid="legacy-feishu-auth-notice"
+  >
     <p class="system-text">旧的飞书授权步骤已失效，请重新发起操作，或前往设置更新连接。</p>
   </div>
 
@@ -637,13 +641,10 @@ const systemText = computed<string>(() => {
         :run-id="asQuestionPrompt.run_id"
         :questions="asQuestionPrompt.questions"
         :answered="asQuestionPrompt.answer_status === 'answered'"
-        @answer-submitted="
-          (answers) => emit('answer-submitted', asQuestionPrompt!.run_id, answers)
-        "
+        @answer-submitted="(answers) => emit('answer-submitted', asQuestionPrompt!.run_id, answers)"
       />
     </div>
   </div>
-
 </template>
 
 <style scoped>

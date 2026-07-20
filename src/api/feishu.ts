@@ -143,11 +143,15 @@ export async function getFeishuStatus(): Promise<FeishuStatus> {
  */
 export async function resumeFeishuOperation(
   operationId: string,
+  sessionId: string,
   action: FeishuResumeAction = 'user_completed'
 ): Promise<FeishuOperationResult> {
+  if (!operationId.trim() || !sessionId.trim()) {
+    throw new Error('飞书授权步骤已更新，请使用最新步骤。')
+  }
   const { data } = await request.post<unknown>(
     `/v1/feishu/operations/${encodeURIComponent(operationId)}/resume`,
-    { action },
+    { action, session_id: sessionId },
     { timeout: 60_000 }
   )
   if (!isFeishuOperationResult(data)) {
@@ -172,12 +176,6 @@ const FEISHU_OPERATION_STATES = new Set<FeishuOperationState>([
 const FEISHU_NOTICE_CODES = new Set<FeishuAuthorizationNoticeCode>([
   'authorization_pending',
   'authorization_processing',
-  'authorization_rejected',
-  'authorization_expired',
-  'authorization_updated'
-])
-
-const FEISHU_REPLACEMENT_NOTICE_CODES = new Set<FeishuAuthorizationNoticeCode>([
   'authorization_rejected',
   'authorization_expired',
   'authorization_updated'
@@ -236,7 +234,8 @@ function isFeishuOperationResult(value: unknown): value is FeishuOperationResult
   const notice = result.notice_code
   if (
     notice !== undefined &&
-    (typeof notice !== 'string' || !FEISHU_NOTICE_CODES.has(notice as FeishuAuthorizationNoticeCode))
+    (typeof notice !== 'string' ||
+      !FEISHU_NOTICE_CODES.has(notice as FeishuAuthorizationNoticeCode))
   ) {
     return false
   }
@@ -252,8 +251,17 @@ function isFeishuOperationResult(value: unknown): value is FeishuOperationResult
     const action = result.action as FeishuExternalAction
     return FEISHU_ACTION_STATE_BY_PHASE[action.phase] === state
   }
+  if (noticeCode === 'authorization_updated') {
+    if (!hasAction) return false
+    const replacement = result.action as FeishuExternalAction
+    return (
+      FEISHU_ACTION_STATE_BY_PHASE[replacement.phase] === state &&
+      (replacement.url === undefined ||
+        isOfficialFeishuActionURL(replacement.url, replacement.phase))
+    )
+  }
   if (state !== 'waiting_user_auth') return false
-  if (FEISHU_REPLACEMENT_NOTICE_CODES.has(noticeCode)) {
+  if (noticeCode === 'authorization_rejected' || noticeCode === 'authorization_expired') {
     return (
       hasAction &&
       (result.action as FeishuExternalAction).phase === 'user_auth' &&

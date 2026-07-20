@@ -511,9 +511,13 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       state: 'succeeded'
     })
 
-    await store.resumeFeishuOperation('op-1')
+    await store.resumeFeishuOperation('op-1', 'session-1')
 
-    expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledWith('op-1', 'user_completed')
+    expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledWith(
+      'op-1',
+      'session-1',
+      'user_completed'
+    )
     expect(store.messages[0]).toMatchObject({
       type: 'external_action',
       action_status: 'completed',
@@ -558,7 +562,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         state
       })
 
-      await store.resumeFeishuOperation('op-terminal')
+      await store.resumeFeishuOperation('op-terminal', 'session-terminal')
 
       expect(store.messages[0]).toMatchObject({ action_status: 'terminal', terminal_state: state })
       expect(store.currentRun).toMatchObject({
@@ -603,7 +607,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         }
       } as never)
 
-      await store.resumeFeishuOperation('op-old')
+      await store.resumeFeishuOperation('op-old', 'session-old')
 
       const actions = store.messages.filter((message) => message.type === 'external_action')
       expect(actions).toHaveLength(1)
@@ -653,7 +657,9 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       }
     })
 
-    await expect(store.resumeFeishuOperation('op-old')).rejects.toThrow('飞书授权步骤已更新')
+    await expect(store.resumeFeishuOperation('op-old', 'session-old')).rejects.toThrow(
+      '飞书授权步骤已更新'
+    )
 
     expect(store.messages.find((message) => message.type === 'external_action')).toMatchObject({
       operation_id: 'op-old',
@@ -688,7 +694,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       notice_code: 'authorization_pending'
     })
 
-    await store.resumeFeishuOperation('op-notice')
+    await store.resumeFeishuOperation('op-notice', 'session-keep')
 
     expect(store.messages[0]).toMatchObject({
       session_id: 'session-keep',
@@ -728,7 +734,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       }
     })
 
-    await store.resumeFeishuOperation('op-next-step')
+    await store.resumeFeishuOperation('op-next-step', 'session-user-auth')
 
     expect(store.messages[0]).toMatchObject({
       operation_id: 'op-next-step',
@@ -765,8 +771,8 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         })
     )
 
-    const first = store.resumeFeishuOperation('op-duplicate')
-    const second = store.resumeFeishuOperation('op-duplicate')
+    const first = store.resumeFeishuOperation('op-duplicate', 'session-duplicate')
+    const second = store.resumeFeishuOperation('op-duplicate', 'session-duplicate')
     resolveRequest?.({
       operation_id: 'op-duplicate',
       state: 'waiting_user_auth',
@@ -804,7 +810,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         })
     )
 
-    const request = store.resumeFeishuOperation('op-stale')
+    const request = store.resumeFeishuOperation('op-stale', 'session-old')
     store.beginSession('another-session')
     resolveRequest?.({
       operation_id: 'op-stale',
@@ -849,7 +855,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
         })
     )
 
-    const request = store.resumeFeishuOperation('op-session-race')
+    const request = store.resumeFeishuOperation('op-session-race', 'session-old')
     const currentURL = 'https://open.feishu.cn/authorize?user_code=CURRENT'
     store.messages = [
       {
@@ -907,7 +913,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     ]
     vi.mocked(feishuAPI.resumeFeishuOperation).mockRejectedValueOnce(new Error('503'))
 
-    await expect(store.resumeFeishuOperation('op-retry')).rejects.toThrow('503')
+    await expect(store.resumeFeishuOperation('op-retry', 'session-retry')).rejects.toThrow('503')
     expect(store.messages[0]).toMatchObject({ url, notice_code: 'authorization_pending' })
     store.reset()
   })
@@ -934,7 +940,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       state: 'succeeded'
     })
 
-    await store.resumeFeishuOperation('op-success')
+    await store.resumeFeishuOperation('op-success', 'session-success')
 
     expect(store.messages[0]).toMatchObject({
       action_status: 'completed',
@@ -1300,7 +1306,9 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(api.getRun).not.toHaveBeenCalled()
 
-    await expect(store.resumeFeishuOperation('op-expired')).rejects.toThrow('飞书授权已过期')
+    await expect(store.resumeFeishuOperation('op-expired', 'session-expired')).rejects.toThrow(
+      '飞书授权已过期'
+    )
     expect(feishuAPI.resumeFeishuOperation).not.toHaveBeenCalled()
     store.reset()
   })
@@ -1330,11 +1338,16 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     })
 
     await expect(
-      store.resumeFeishuOperation('op-expired-legacy-confirmation', 'confirmed')
+      store.resumeFeishuOperation(
+        'op-expired-legacy-confirmation',
+        'session-expired-legacy-confirmation',
+        'confirmed'
+      )
     ).resolves.toMatchObject({ state: 'succeeded' })
 
     expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledWith(
       'op-expired-legacy-confirmation',
+      'session-expired-legacy-confirmation',
       'confirmed'
     )
     store.reset()
@@ -1379,7 +1392,11 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       final_output: '旧确认步骤已自动完成。'
     } as AgentRun)
 
-    await store.resumeFeishuOperation('op-executing-legacy-confirmation', 'confirmed')
+    await store.resumeFeishuOperation(
+      'op-executing-legacy-confirmation',
+      'session-executing-legacy-confirmation',
+      'confirmed'
+    )
 
     expect(store.messages[0]).toMatchObject({ action_status: 'pending', phase: 'confirmation' })
     await vi.advanceTimersByTimeAsync(5_000)

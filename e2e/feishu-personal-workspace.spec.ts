@@ -450,7 +450,10 @@ test.describe('personal Feishu workspace', () => {
     await expect(page.getByTestId('feishu-confirm')).toHaveCount(0)
     await expect(page.getByTestId('feishu-cancel')).toHaveCount(0)
     await expect.poll(() => resumeBodies.length).toBe(1)
-    expect(resumeBodies[0]).toEqual({ action: 'confirmed' })
+    expect(resumeBodies[0]).toEqual({
+      action: 'confirmed',
+      session_id: 'legacy-confirmation-e2e-309'
+    })
 
     await finishOpenAgentStream(page, continuationStream(runId))
     await expect(page.getByText('飞书文档已经创建完成。', { exact: true })).toBeVisible()
@@ -834,7 +837,10 @@ test.describe('personal Feishu workspace', () => {
     await card.getByTestId('feishu-continue').click()
     await expect
       .poll(() => resumeBodies)
-      .toEqual([{ action: 'user_completed' }, { action: 'user_completed' }])
+      .toEqual([
+        { action: 'user_completed', session_id: FUTURE_ACTION.session_id },
+        { action: 'user_completed', session_id: replacementAction.session_id }
+      ])
     await expect(page.getByText('正在核对飞书写入结果。', { exact: true }).first()).toBeVisible()
     await expect(page.locator('.msg-final')).toContainText('飞书文档已经创建完成。')
     await expect(card).toHaveCount(1)
@@ -984,7 +990,9 @@ test.describe('personal Feishu workspace', () => {
 
     await card.getByTestId('feishu-continue').click()
 
-    await expect.poll(() => resumeBodies).toEqual([{ action: 'user_completed' }])
+    await expect
+      .poll(() => resumeBodies)
+      .toEqual([{ action: 'user_completed', session_id: action.session_id }])
     await expect(card).toContainText('飞书操作已完成，正在继续原任务。')
     await expect(page.locator('.tl-line.done')).toContainText('飞书记录读取完成')
     const runPulse = page.locator('.run-pulse')
@@ -1035,7 +1043,9 @@ test.describe('personal Feishu workspace', () => {
 
     await card.getByTestId('feishu-continue').click()
 
-    await expect.poll(() => capture.resumeBodies).toEqual([{ action: 'user_completed' }])
+    await expect
+      .poll(() => capture.resumeBodies)
+      .toEqual([{ action: 'user_completed', session_id: FUTURE_ACTION.session_id }])
     await expect(card).toContainText('飞书操作已完成，正在继续原任务。')
     await expect(card.getByTestId('feishu-url')).toHaveCount(0)
 
@@ -1085,7 +1095,9 @@ test.describe('personal Feishu workspace', () => {
     await expect(card).toBeVisible()
     await card.getByTestId('feishu-continue').click()
 
-    await expect.poll(() => capture.resumeBodies).toEqual([{ action: 'user_completed' }])
+    await expect
+      .poll(() => capture.resumeBodies)
+      .toEqual([{ action: 'user_completed', session_id: FUTURE_ACTION.session_id }])
     await expect(card).toContainText('飞书操作已完成，正在继续原任务。', { timeout: 40_000 })
     await expect(card).not.toContainText('请求超时')
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
@@ -1130,7 +1142,9 @@ test.describe('personal Feishu workspace', () => {
       .toBeLessThanOrEqual(375)
 
     await card.getByTestId('feishu-continue').click()
-    await expect.poll(() => capture.resumeBodies).toEqual([{ action: 'user_completed' }])
+    await expect
+      .poll(() => capture.resumeBodies)
+      .toEqual([{ action: 'user_completed', session_id: refreshedAction.session_id }])
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
   })
 

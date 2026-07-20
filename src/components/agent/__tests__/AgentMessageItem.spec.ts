@@ -259,7 +259,7 @@ describe('AgentMessageItem', () => {
       await flushPromises()
 
       expect(resume).toHaveBeenCalledOnce()
-      expect(resume).toHaveBeenCalledWith('op-1', 'confirmed')
+      expect(resume).toHaveBeenCalledWith('op-1', 'session-1', 'confirmed')
     })
 
     it('clears an old transport error only when the exact action session changes', async () => {
@@ -307,8 +307,7 @@ describe('AgentMessageItem', () => {
         )
         .mockReturnValueOnce(
           new Promise((resolve) => {
-            resolveCurrent = () =>
-              resolve({ operation_id: msg.operation_id, state: 'executing' })
+            resolveCurrent = () => resolve({ operation_id: msg.operation_id, state: 'executing' })
           })
         )
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
@@ -712,13 +711,16 @@ describe('AgentMessageItem', () => {
         const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
 
         await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
-        agentStore.applyStreamEvent({
-          type: 'terminal',
-          seq: 2,
-          ts: new Date().toISOString(),
-          run_id: msg.run_id,
-          data: { reason: terminalReason, duration_ms: 1, step_count: 1 }
-        } as never, agentStore.currentSessionEpoch())
+        agentStore.applyStreamEvent(
+          {
+            type: 'terminal',
+            seq: 2,
+            ts: new Date().toISOString(),
+            run_id: msg.run_id,
+            data: { reason: terminalReason, duration_ms: 1, step_count: 1 }
+          } as never,
+          agentStore.currentSessionEpoch()
+        )
         const settled = agentStore.messages[0]
         await wrapper.setProps({ msg: settled })
         expect(settled).toMatchObject({ action_status: expectedStatus })

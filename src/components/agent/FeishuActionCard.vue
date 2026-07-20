@@ -54,7 +54,7 @@ const noticeContent = {
   authorization_processing: '正在确认授权状态，请稍候。',
   authorization_rejected: '本次授权未通过，已生成新的授权链接。',
   authorization_expired: '原链接已过期，已生成新的授权链接。',
-  authorization_updated: '授权步骤已更新，请使用新的授权链接。'
+  authorization_updated: '授权步骤已更新，正在加载最新操作。'
 } as const
 
 const now = ref(Date.now())
@@ -84,13 +84,13 @@ const showsCurrentURL = computed<boolean>(() => current.value && !confirmation.v
 const missingLink = computed<boolean>(() => current.value && !confirmation.value && !url.value)
 // `app_scope` cannot mint a replacement link. The backend rejects app-scope
 // recovery because its ConsoleURL is not reconstructable.
-const restartRequired = computed<boolean>(
-  () => props.action.phase === 'app_scope' && (expired.value || missingLink.value)
-)
+const restartRequired = computed<boolean>(() => props.action.phase === 'app_scope' && expired.value)
 const showRefresh = computed<boolean>(
   () => refreshableAuthorizationPhase.value && (expired.value || missingLink.value)
 )
-const canResume = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
+const canResume = computed<boolean>(
+  () => current.value && !confirmation.value && (!!url.value || props.action.phase === 'app_scope')
+)
 const phase = computed(() => phaseContent[props.action.phase])
 const copied = ref(false)
 const qrDataUrl = ref('')
@@ -135,14 +135,15 @@ function scheduleConfirmationRetry(key: string, operationID: string): void {
 }
 
 watch(
-  () => [
-    props.action.phase,
-    props.action.operation_id,
-    props.action.session_id,
-    props.action.action_status,
-    props.busy,
-    props.error
-  ] as const,
+  () =>
+    [
+      props.action.phase,
+      props.action.operation_id,
+      props.action.session_id,
+      props.action.action_status,
+      props.busy,
+      props.error
+    ] as const,
   ([actionPhase, operationID, sessionID, actionStatus, busy, error]) => {
     if (
       actionPhase !== 'confirmation' ||
@@ -166,6 +167,7 @@ watch(
 )
 
 const statusText = computed<string>(() => {
+  if (props.busy) return '正在检查飞书状态并衔接原任务，请稍候。'
   if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
   if (props.action.action_status === 'completed') {
     return props.action.terminal_state === 'succeeded'
@@ -188,7 +190,10 @@ const statusText = computed<string>(() => {
   }
   if (confirmation.value) return '正在继续原任务。'
   if (expired.value) return '链接已过期，请重新生成后继续。'
-  if (missingLink.value) return '当前链接不可用，请重新生成链接后继续。'
+  if (missingLink.value && props.action.phase === 'app_scope') {
+    return '审批步骤已更新，请在刚才打开的飞书页面完成批准后继续。'
+  }
+  if (missingLink.value) return '正在获取当前步骤的最新飞书链接。'
   return ''
 })
 
@@ -205,10 +210,13 @@ function scheduleExpiry(): void {
     now.value = Date.now()
     return
   }
-  expiryTimer = setTimeout(() => {
-    now.value = Date.now()
-    expiryTimer = null
-  }, expiresAt - Date.now() + 1)
+  expiryTimer = setTimeout(
+    () => {
+      now.value = Date.now()
+      expiryTimer = null
+    },
+    expiresAt - Date.now() + 1
+  )
 }
 
 watch(
@@ -264,15 +272,10 @@ function handleRefresh(): void {
   if (!showRefresh.value || interactionBusy.value) return
   emit('refresh', props.action.session_id)
 }
-
 </script>
 
 <template>
-  <section
-    class="feishu-action-card"
-    data-testid="feishu-action-card"
-    aria-label="飞书操作步骤"
-  >
+  <section class="feishu-action-card" data-testid="feishu-action-card" aria-label="飞书操作步骤">
     <div class="feishu-action-card__header">
       <span class="feishu-action-card__icon" aria-hidden="true"><ShieldCheck :size="18" /></span>
       <div>
@@ -354,7 +357,7 @@ function handleRefresh(): void {
         aria-label="我已完成，继续原任务"
         @click="handleResume"
       >
-        我已完成，继续
+        {{ interactionBusy ? '正在检查…' : '我已完成，继续' }}
       </AppButton>
       <p class="feishu-action-card__control-hint">完成飞书页面操作后，继续原任务。</p>
       <AppButton
@@ -507,7 +510,12 @@ function handleRefresh(): void {
 }
 
 .feishu-action-card__qr-skeleton {
-  background: linear-gradient(90deg, var(--surface-tint) 25%, var(--surface-hover) 50%, var(--surface-tint) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--surface-tint) 25%,
+    var(--surface-hover) 50%,
+    var(--surface-tint) 75%
+  );
   background-size: 300% 100%;
   animation: feishu-qr-shimmer 1.4s ease infinite;
 }
