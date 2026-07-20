@@ -432,7 +432,10 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       await store.refreshRunStatus()
 
       const action = store.messages.find((message) => message.type === 'external_action')
-      expect(action).toMatchObject({ action_status: 'pending', url: 'https://open.feishu.cn/authorize' })
+      expect(action).toMatchObject({
+        action_status: 'pending',
+        url: 'https://open.feishu.cn/authorize'
+      })
       expect(store.isWaitingForExternalAction).toBe(true)
       expect(vi.getTimerCount()).toBe(1)
       store.reset()
@@ -651,9 +654,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       }
     })
 
-    await expect(store.resumeFeishuOperation('op-old')).rejects.toThrow(
-      '飞书授权步骤已更新'
-    )
+    await expect(store.resumeFeishuOperation('op-old')).rejects.toThrow('飞书授权步骤已更新')
 
     expect(store.messages.find((message) => message.type === 'external_action')).toMatchObject({
       operation_id: 'op-old',
@@ -1098,9 +1099,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
       vi.setSystemTime(now)
       Object.defineProperty(document, 'hidden', { configurable: true, value: false })
       const store = useAgentChatStore()
-      vi.mocked(api.getRun).mockImplementationOnce(
-        () => new Promise<AgentRun>(() => undefined)
-      )
+      vi.mocked(api.getRun).mockImplementationOnce(() => new Promise<AgentRun>(() => undefined))
 
       store.applyStreamEvent({
         type: 'external_action',
@@ -1194,7 +1193,10 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     } as TerminalEvent)
 
     const action = store.messages.find((message) => message.type === 'external_action')
-    expect(action).toMatchObject({ action_status: 'pending', url: 'https://open.feishu.cn/authorize' })
+    expect(action).toMatchObject({
+      action_status: 'pending',
+      url: 'https://open.feishu.cn/authorize'
+    })
     expect(store.isWaitingForExternalAction).toBe(true)
     store.reset()
   })
@@ -1474,6 +1476,491 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     // Idempotent: a second poll with the pending card present must not duplicate.
     await store.refreshRunStatus()
     expect(store.messages.filter((m) => m.type === 'question_prompt')).toHaveLength(1)
+  })
+
+  it('injects a second Feishu action from the waiting snapshot without reload', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:00:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as never
+    store.messages = [
+      {
+        id: 'tool-group-148',
+        type: 'tool_group',
+        tool_calls: [
+          {
+            tool_call_id: 'tool-call-base-create',
+            tool_name: 'lark_execute',
+            events: [],
+            current_state: 'use'
+          }
+        ],
+        timestamp: now.toISOString()
+      },
+      {
+        id: 'external-action-148',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-base-create',
+        session_id: 'session-base-create',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() + 60_000).toISOString(),
+        action_status: 'completed',
+        timestamp: now.toISOString()
+      }
+    ] as never
+    const waitingRun = { ...store.currentRun } as AgentRun
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+    vi.mocked(api.getSessionSnapshot).mockResolvedValue({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: now.toISOString(),
+      status: 'running',
+      run: waitingRun,
+      messages: [
+        {
+          // The backend snapshot synthesizer may reuse a run-derived id. A
+          // different operation still needs a unique local Vue key.
+          id: 'external-action-148',
+          type: 'external_action',
+          run_id: 148,
+          provider: 'feishu',
+          operation_id: 'op-base-read',
+          session_id: 'session-base-read',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+          timestamp: now.toISOString()
+        }
+      ]
+    } as never)
+
+    await store.refreshRunStatus()
+
+    const actions = store.messages.filter((message) => message.type === 'external_action')
+    expect(actions).toHaveLength(2)
+    expect(actions[0]).toMatchObject({
+      id: 'external-action-148',
+      operation_id: 'op-base-create',
+      session_id: 'session-base-create',
+      action_status: 'completed'
+    })
+    expect(actions[1]).toMatchObject({
+      operation_id: 'op-base-read',
+      session_id: 'session-base-read',
+      action_status: 'pending'
+    })
+    expect(actions[1]).not.toHaveProperty('url')
+    expect(new Set(actions.map((message) => message.id)).size).toBe(2)
+    expect(store.messages.find((message) => message.type === 'tool_group')).toMatchObject({
+      tool_calls: [{ current_state: 'result' }]
+    })
+
+    await store.refreshRunStatus()
+    expect(store.messages.filter((message) => message.type === 'external_action')).toHaveLength(2)
+    expect(api.getSessionSnapshot).toHaveBeenCalledTimes(1)
+    store.reset()
+  })
+
+  it('does not let a late URL-less snapshot downgrade a live action for the same operation', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:10:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveSnapshot!: (value: never) => void
+    let markSnapshotRequested!: () => void
+    const snapshotRequested = new Promise<void>((resolve) => {
+      markSnapshotRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot).mockImplementationOnce(() => {
+      markSnapshotRequested()
+      return new Promise((resolve) => {
+        resolveSnapshot = resolve
+      })
+    })
+
+    const refreshing = store.refreshRunStatus()
+    await snapshotRequested
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 2,
+      ts: now.toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+        url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=LIVE-READ'
+      }
+    })
+    resolveSnapshot({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: now.toISOString(),
+      status: 'running',
+      run: waitingRun,
+      messages: [
+        {
+          id: 'external-action-snapshot-148',
+          type: 'external_action',
+          run_id: 148,
+          provider: 'feishu',
+          operation_id: 'op-base-read',
+          session_id: 'session-base-read',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+          timestamp: now.toISOString()
+        }
+      ]
+    } as never)
+    await refreshing
+
+    const actions = store.messages.filter((message) => message.type === 'external_action')
+    expect(actions).toHaveLength(1)
+    expect(actions[0]).toMatchObject({
+      operation_id: 'op-base-read',
+      session_id: 'session-base-read',
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=LIVE-READ'
+    })
+    store.reset()
+  })
+
+  it('replaces an expired card in place when the same operation advances to a new snapshot session', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:20:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    store.messages = [
+      {
+        id: 'external-action-base-read',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-old',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() - 60_000).toISOString(),
+        action_status: 'expired',
+        timestamp: now.toISOString()
+      }
+    ] as never
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveSnapshot!: (value: never) => void
+    let markSnapshotRequested!: () => void
+    const snapshotRequested = new Promise<void>((resolve) => {
+      markSnapshotRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot).mockImplementationOnce(() => {
+      markSnapshotRequested()
+      return new Promise((resolve) => {
+        resolveSnapshot = resolve
+      })
+    })
+
+    const refreshing = store.refreshRunStatus()
+    await snapshotRequested
+    const originalID = store.messages.find((message) => message.type === 'external_action')?.id
+    resolveSnapshot({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: now.toISOString(),
+      status: 'running',
+      run: waitingRun,
+      messages: [
+        {
+          id: 'external-action-snapshot-148',
+          type: 'external_action',
+          run_id: 148,
+          provider: 'feishu',
+          operation_id: 'op-base-read',
+          session_id: 'session-base-read-new',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+          timestamp: now.toISOString()
+        }
+      ]
+    } as never)
+    await refreshing
+
+    const actions = store.messages.filter((message) => message.type === 'external_action')
+    expect(actions).toHaveLength(1)
+    expect(actions[0]).toMatchObject({
+      id: originalID,
+      operation_id: 'op-base-read',
+      session_id: 'session-base-read-new',
+      action_status: 'pending'
+    })
+    expect(actions[0]).not.toHaveProperty('url')
+    store.reset()
+  })
+
+  it('does not let an older in-flight snapshot roll back a newly refreshed session and URL', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:25:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    store.messages = [
+      {
+        id: 'external-action-base-read',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-old',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() - 60_000).toISOString(),
+        action_status: 'expired',
+        timestamp: now.toISOString()
+      }
+    ] as never
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveSnapshot!: (value: never) => void
+    let markSnapshotRequested!: () => void
+    const snapshotRequested = new Promise<void>((resolve) => {
+      markSnapshotRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot).mockImplementationOnce(() => {
+      markSnapshotRequested()
+      return new Promise((resolve) => {
+        resolveSnapshot = resolve
+      })
+    })
+
+    const refreshing = store.refreshRunStatus()
+    await snapshotRequested
+    const freshURL =
+      'https://open.feishu.cn/suite/passport/oauth/device?user_code=NEW-REFRESHED-READ'
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 3,
+      ts: new Date(now.getTime() + 1_000).toISOString(),
+      run_id: 148,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-refreshed',
+        phase: 'user_auth',
+        expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+        url: freshURL
+      }
+    })
+    resolveSnapshot({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: now.toISOString(),
+      status: 'running',
+      run: waitingRun,
+      messages: [
+        {
+          id: 'external-action-stale-snapshot-148',
+          type: 'external_action',
+          run_id: 148,
+          provider: 'feishu',
+          operation_id: 'op-base-read',
+          session_id: 'session-base-read-old',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 5 * 60_000).toISOString(),
+          timestamp: now.toISOString()
+        }
+      ]
+    } as never)
+    await refreshing
+
+    const actions = store.messages.filter((message) => message.type === 'external_action')
+    expect(actions).toHaveLength(1)
+    expect(actions[0]).toMatchObject({
+      id: 'external-action-base-read',
+      operation_id: 'op-base-read',
+      session_id: 'session-base-read-refreshed',
+      url: freshURL,
+      action_status: 'pending'
+    })
+    store.reset()
+  })
+
+  it('uses the latest overlapping snapshot request when responses arrive out of order', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:27:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveOlderSnapshot!: (value: never) => void
+    let resolveLatestSnapshot!: (value: never) => void
+    let markOlderRequested!: () => void
+    let markLatestRequested!: () => void
+    const olderRequested = new Promise<void>((resolve) => {
+      markOlderRequested = resolve
+    })
+    const latestRequested = new Promise<void>((resolve) => {
+      markLatestRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot)
+      .mockImplementationOnce(() => {
+        markOlderRequested()
+        return new Promise((resolve) => {
+          resolveOlderSnapshot = resolve
+        })
+      })
+      .mockImplementationOnce(() => {
+        markLatestRequested()
+        return new Promise((resolve) => {
+          resolveLatestSnapshot = resolve
+        })
+      })
+
+    const olderRefresh = store.refreshRunStatus()
+    await olderRequested
+    const latestRefresh = store.refreshRunStatus()
+    await latestRequested
+
+    const snapshot = (sessionID: string) =>
+      ({
+        session_id: 'sess-resume',
+        agent_skill_id: 1,
+        agent_run_ids: [148],
+        last_active_at: now.toISOString(),
+        status: 'running',
+        run: waitingRun,
+        messages: [
+          {
+            id: `external-action-${sessionID}`,
+            type: 'external_action',
+            run_id: 148,
+            provider: 'feishu',
+            operation_id: 'op-base-read',
+            session_id: sessionID,
+            phase: 'user_auth',
+            expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+            timestamp: now.toISOString()
+          }
+        ]
+      }) as never
+
+    resolveOlderSnapshot(snapshot('session-base-read-old'))
+    await olderRefresh
+    expect(store.messages.filter((message) => message.type === 'external_action')).toHaveLength(0)
+
+    resolveLatestSnapshot(snapshot('session-base-read-new'))
+    await latestRefresh
+    expect(store.messages.filter((message) => message.type === 'external_action')).toEqual([
+      expect.objectContaining({
+        operation_id: 'op-base-read',
+        session_id: 'session-base-read-new',
+        action_status: 'pending'
+      })
+    ])
+    store.reset()
+  })
+
+  it('drops a late sequential-action snapshot after the route session is reset', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-20T02:30:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 148,
+      session_id: 'sess-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+    vi.mocked(api.getRun).mockResolvedValue(waitingRun)
+
+    let resolveSnapshot!: (value: never) => void
+    let markSnapshotRequested!: () => void
+    const snapshotRequested = new Promise<void>((resolve) => {
+      markSnapshotRequested = resolve
+    })
+    vi.mocked(api.getSessionSnapshot).mockImplementationOnce(() => {
+      markSnapshotRequested()
+      return new Promise((resolve) => {
+        resolveSnapshot = resolve
+      })
+    })
+
+    const refreshing = store.refreshRunStatus()
+    await snapshotRequested
+    store.reset()
+    resolveSnapshot({
+      session_id: 'sess-resume',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: now.toISOString(),
+      status: 'running',
+      run: waitingRun,
+      messages: [
+        {
+          id: 'external-action-snapshot-148',
+          type: 'external_action',
+          run_id: 148,
+          provider: 'feishu',
+          operation_id: 'op-base-read',
+          session_id: 'session-base-read',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+          timestamp: now.toISOString()
+        }
+      ]
+    } as never)
+    await refreshing
+
+    expect(store.messages.filter((message) => message.type === 'external_action')).toHaveLength(0)
+    expect(store.currentRun).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   // issue3 (stuck spinner after task done): once a run is terminal, NO live
