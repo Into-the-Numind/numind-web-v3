@@ -1599,7 +1599,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         case 'cancelled':
           settleFeishuTerminalOperation(operationID, result.state, existing.run_id)
           break
-        default:
+        default: {
           // Non-terminal lifecycle updates can only mutate the still-current
           // pending attempt. A poll-settled card is accepted above solely for an
           // exact terminal response, never for an old notice or replacement URL.
@@ -1618,6 +1618,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           }
           if (hasPendingExternalAction()) startExternalActionPolling()
           break
+        }
       }
       return result
     })()
