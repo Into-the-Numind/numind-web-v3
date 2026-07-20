@@ -1140,8 +1140,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // When the run reaches a terminal state, flip any tool_call still showing a
   // non-terminal state to 'result'. The polling poll stops the instant the run is
   // no longer running, so the last tool's result narration may never be fetched —
-  // leaving AgentToolCallItem's live "已用时 X" timer ticking forever (customer-
-  // reported "task done but the card keeps counting"). This guarantees nothing
+  // leaving AgentToolCallItem's active spinner visible forever (customer-reported
+  // "task done but the card keeps running"). This guarantees nothing
   // reads as "executing" once the run is done. Idempotent; only rewrites groups
   // that actually had a lingering in-flight tool.
   const IN_FLIGHT_STATES: NarrationState[] = ['queued', 'use', 'progress']

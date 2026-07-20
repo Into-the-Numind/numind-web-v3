@@ -943,23 +943,30 @@ test.describe('personal Feishu workspace', () => {
     await expect.poll(() => resumeBodies).toEqual([{ action: 'user_completed' }])
     await expect(card).toContainText('飞书操作已完成，正在继续原任务。')
     await expect(page.locator('.tl-line.done')).toContainText('飞书记录读取完成')
-    await expect(page.locator('.run-pulse')).toBeVisible()
-    await expect.soft(page.locator('.run-pulse .time')).toHaveCount(0)
+    const runPulse = page.locator('.run-pulse')
+    await expect(runPulse).toBeVisible()
+    await expect(runPulse.locator('.time')).toHaveCount(0)
+    await expect(runPulse).not.toContainText(/\d+:\d{2}/)
+    await expect(runPulse.locator('[title*="已用时"], [aria-label*="已用时"]')).toHaveCount(0)
+    await expect(runPulse.locator('.sr-only')).not.toContainText(/\d+:\d{2}/)
 
     allowCompletion = true
     await expect(page.locator('.msg-final')).toContainText(finalText, { timeout: 15_000 })
     await expect(page.locator('.msg-final')).not.toContainText(provisionalText)
     const timelineOrder = await page.locator('.messages-container > .msg').evaluateAll((nodes) =>
       nodes.map((node) => ({
+        assistant: node.classList.contains('msg-assistant'),
         externalAction: node.classList.contains('msg-external-action'),
         toolGroup: node.classList.contains('msg-tool-group'),
         finalAnswer: node.classList.contains('msg-final')
       }))
     )
+    const assistantIndex = timelineOrder.findIndex((item) => item.assistant)
     const externalActionIndex = timelineOrder.findIndex((item) => item.externalAction)
     const toolGroupIndex = timelineOrder.findIndex((item) => item.toolGroup)
     const finalAnswerIndex = timelineOrder.findIndex((item) => item.finalAnswer)
-    expect(externalActionIndex).toBeGreaterThanOrEqual(0)
+    expect(assistantIndex).toBeGreaterThanOrEqual(0)
+    expect(externalActionIndex).toBeGreaterThan(assistantIndex)
     expect(toolGroupIndex).toBeGreaterThan(externalActionIndex)
     expect(finalAnswerIndex).toBeGreaterThan(toolGroupIndex)
     expect(finalAnswerIndex).toBe(timelineOrder.length - 1)
