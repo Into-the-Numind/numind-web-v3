@@ -1305,6 +1305,41 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     store.reset()
   })
 
+  it('allows only an expired legacy confirmation to reach the compatibility resume API', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    const store = useAgentChatStore()
+    store.applyStreamEvent({
+      type: 'external_action',
+      seq: 1,
+      ts: now.toISOString(),
+      run_id: 149,
+      data: {
+        provider: 'feishu',
+        operation_id: 'op-expired-legacy-confirmation',
+        session_id: 'session-expired-legacy-confirmation',
+        tool_call_id: 'tool-call-confirmation',
+        phase: 'confirmation',
+        expires_at: new Date(now.getTime() - 1_000).toISOString()
+      }
+    })
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-expired-legacy-confirmation',
+      state: 'succeeded'
+    })
+
+    await expect(
+      store.resumeFeishuOperation('op-expired-legacy-confirmation', 'confirmed')
+    ).resolves.toMatchObject({ state: 'succeeded' })
+
+    expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledWith(
+      'op-expired-legacy-confirmation',
+      'confirmed'
+    )
+    store.reset()
+  })
+
   it('fails closed when a malformed expiry replaces a live action', () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-14T10:00:00Z')

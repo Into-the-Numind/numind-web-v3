@@ -268,6 +268,22 @@ describe('FeishuActionCard', () => {
     expect(wrapper.emitted('cancelled')).toEqual([['op-1']])
   })
 
+  it('migrates an expired legacy confirmation without rendering business confirmation controls', async () => {
+    const wrapper = mountCard({
+      action: createAction({
+        phase: 'confirmation',
+        url: undefined,
+        expires_at: new Date(Date.now() - 60_000).toISOString()
+      })
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="feishu-confirm"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-cancel"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('确认已过期')
+    expect(wrapper.emitted('confirmed')).toEqual([['op-1']])
+  })
+
   it('uses polite live announcements and an alert role for actionable errors', () => {
     const wrapper = mountCard({
       action: createAction({ notice_code: 'authorization_pending' }),
