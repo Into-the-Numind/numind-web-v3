@@ -284,6 +284,7 @@ watch(
       props.readOnly ||
       action.action_status !== 'pending' ||
       action.url ||
+      (action.phase !== 'create_app' && action.phase !== 'user_auth') ||
       feishuActionBusy.value
     ) {
       return

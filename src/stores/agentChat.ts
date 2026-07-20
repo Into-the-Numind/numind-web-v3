@@ -793,11 +793,32 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const updatePendingExternalAction = (
     operationID: string,
+    currentSessionID: string,
+    runID: number,
     action: FeishuExternalAction,
     noticeCode?: FeishuAuthorizationNoticeCode
   ): void => {
     if (actionHasExpired(action.expires_at)) {
-      settleExternalAction(operationID, 'expired')
+      let changed = false
+      for (let index = 0; index < messages.value.length; index += 1) {
+        const message = messages.value[index]
+        if (
+          message.type !== 'external_action' ||
+          message.operation_id !== operationID ||
+          message.session_id !== currentSessionID ||
+          message.run_id !== runID ||
+          message.action_status !== 'pending'
+        ) {
+          continue
+        }
+        const expiredAction: ExternalActionMessage = { ...message, action_status: 'expired' }
+        delete expiredAction.url
+        delete expiredAction.notice_code
+        messages.value[index] = expiredAction
+        changed = true
+      }
+      if (changed) externalActionLiveRevision += 1
+      if (!hasPendingExternalAction()) stopExternalActionPolling()
       return
     }
     let changed = false
@@ -806,6 +827,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (
         message.type !== 'external_action' ||
         message.operation_id !== operationID ||
+        message.session_id !== currentSessionID ||
+        message.run_id !== runID ||
         message.action_status !== 'pending'
       ) {
         continue
@@ -833,6 +856,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const updateExternalActionNotice = (
     operationID: string,
+    currentSessionID: string,
+    runID: number,
     noticeCode: FeishuAuthorizationNoticeCode
   ): void => {
     let changed = false
@@ -841,6 +866,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       if (
         message.type !== 'external_action' ||
         message.operation_id !== operationID ||
+        message.session_id !== currentSessionID ||
+        message.run_id !== runID ||
         message.action_status !== 'pending'
       ) {
         continue
@@ -1567,7 +1594,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     ) {
       throw new Error('飞书授权步骤已更新，请使用最新链接')
     }
-    const requestKey = `${operationID}:${existing.session_id}:${action}`
+    const requestKey = `${operationID}:${existing.session_id}`
     const pendingRequest = feishuResumeRequests.get(requestKey)
     if (pendingRequest) return pendingRequest
 
@@ -1611,9 +1638,20 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             settleExternalAction(operationID, 'pending', existing.run_id, ['expired'])
           }
           if (result.action) {
-            updatePendingExternalAction(operationID, result.action, result.notice_code)
+            updatePendingExternalAction(
+              operationID,
+              existing.session_id,
+              existing.run_id,
+              result.action,
+              result.notice_code
+            )
           } else if (result.notice_code) {
-            updateExternalActionNotice(operationID, result.notice_code)
+            updateExternalActionNotice(
+              operationID,
+              existing.session_id,
+              existing.run_id,
+              result.notice_code
+            )
           }
           if (hasPendingExternalAction()) startExternalActionPolling()
           break

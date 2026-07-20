@@ -772,7 +772,7 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     )
 
     const first = store.resumeFeishuOperation('op-duplicate', 'session-duplicate')
-    const second = store.resumeFeishuOperation('op-duplicate', 'session-duplicate')
+    const second = store.resumeFeishuOperation('op-duplicate', 'session-duplicate', 'cancel')
     resolveRequest?.({
       operation_id: 'op-duplicate',
       state: 'waiting_user_auth',
@@ -782,6 +782,45 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     await expect(Promise.all([first, second])).resolves.toHaveLength(2)
     expect(feishuAPI.resumeFeishuOperation).toHaveBeenCalledTimes(1)
     expect(store.messages[0]).toMatchObject({ notice_code: 'authorization_processing' })
+    store.reset()
+  })
+
+  it('updates only the exact run and session when an operation id appears in history', async () => {
+    const store = useAgentChatStore()
+    store.messages = [
+      {
+        id: 'external-action-historical',
+        type: 'external_action',
+        run_id: 147,
+        operation_id: 'op-reused-in-history',
+        session_id: 'session-historical',
+        phase: 'create_app',
+        expires_at: futureExpiry(),
+        action_status: 'pending',
+        timestamp: ''
+      },
+      {
+        id: 'external-action-current',
+        type: 'external_action',
+        run_id: 148,
+        operation_id: 'op-reused-in-history',
+        session_id: 'session-current',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        action_status: 'pending',
+        timestamp: ''
+      }
+    ]
+    vi.mocked(feishuAPI.resumeFeishuOperation).mockResolvedValueOnce({
+      operation_id: 'op-reused-in-history',
+      state: 'waiting_user_auth',
+      notice_code: 'authorization_processing'
+    })
+
+    await store.resumeFeishuOperation('op-reused-in-history', 'session-current')
+
+    expect(store.messages[0]).not.toHaveProperty('notice_code')
+    expect(store.messages[1]).toMatchObject({ notice_code: 'authorization_processing' })
     store.reset()
   })
 
