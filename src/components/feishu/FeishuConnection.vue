@@ -70,6 +70,32 @@
 
         <p v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</p>
 
+        <div v-if="store.activeAction" class="fc-manual-action" data-testid="feishu-manual-action">
+          <p class="fc-manual-title">{{ manualActionTitle }}</p>
+          <p class="fc-manual-desc">在飞书官方页面完成当前步骤后，回到这里继续。无需提供 App ID 或 App Secret。</p>
+          <div class="fc-manual-controls">
+            <a
+              v-if="manualActionUrl"
+              class="fc-action-link"
+              data-testid="feishu-open-action"
+              :href="manualActionUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              打开飞书完成授权
+            </a>
+            <AppButton
+              variant="secondary"
+              size="sm"
+              data-testid="feishu-manual-continue"
+              :loading="store.connecting"
+              @click="handleConnect"
+            >
+              我已完成，继续
+            </AppButton>
+          </div>
+        </div>
+
         <ul v-if="showCapabilities" class="fc-capabilities" aria-label="飞书能力状态">
           <li
             v-for="domain in capabilityDomains"
@@ -102,7 +128,8 @@
             variant="secondary"
             size="sm"
             data-testid="feishu-reauthorize"
-            @click="openAgent('重新授权')"
+            :loading="store.connecting"
+            @click="handleConnect"
           >
             重新授权
           </AppButton>
@@ -122,7 +149,8 @@
           variant="primary"
           size="sm"
           :data-testid="actionTestId"
-          @click="openAgent(actionLabel)"
+          :loading="store.connecting"
+          @click="handleConnect"
         >
           {{ actionLabel }}
         </AppButton>
@@ -142,16 +170,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { AlertCircle, ShieldCheck } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useFeishuStore } from '@/stores/feishu'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { FeishuCapabilityDomain, FeishuCapabilityState, FeishuConnectionState } from '@/api/feishu'
+import { isOfficialFeishuActionURL } from '@/utils/feishuActionUrl'
 
 const store = useFeishuStore()
-const router = useRouter()
 const notifications = useNotificationsStore()
 const confirmVisible = ref(false)
 const initialized = ref(false)
@@ -206,6 +233,20 @@ const actionTestId = computed(() => {
   }
   return 'feishu-connect'
 })
+const manualActionUrl = computed(() => {
+  const action = store.activeAction
+  if (!action || !('url' in action) || !action.url) return ''
+  return isOfficialFeishuActionURL(action.url, action.phase) ? action.url : ''
+})
+const manualActionTitle = computed(() => {
+  switch (store.activeAction?.phase) {
+    case 'create_app': return '创建你的个人飞书应用'
+    case 'app_scope': return '为个人应用开通所需权限'
+    case 'user_auth': return '授权有数使用你的个人飞书工作空间'
+    case 'confirmation': return '确认当前飞书操作'
+    default: return '继续飞书连接'
+  }
+})
 
 function capabilityState(domain: FeishuCapabilityDomain): FeishuCapabilityState {
   return store.capabilities[domain].state
@@ -228,9 +269,17 @@ async function reload(): Promise<void> {
   initialized.value = true
 }
 
-function openAgent(action: string): void {
-  notifications.info(`请在 AI 助手中${action}；完成飞书官方页面操作后，原任务会自动继续。`)
-  void router.push({ name: 'home' })
+async function handleConnect(): Promise<void> {
+  if (store.connecting) return
+  try {
+    const result = await store.connect()
+    if (result.state === 'connected') {
+      notifications.success('飞书个人工作空间已连接')
+      await store.fetchStatus()
+    }
+  } catch {
+    notifications.error(store.error || '发起飞书连接失败，请稍后重试。')
+  }
 }
 
 async function handleDisconnect(): Promise<void> {
@@ -330,6 +379,56 @@ onMounted(() => {
   margin: 0;
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
+}
+
+.fc-manual-action {
+  padding: var(--space-md);
+  margin-top: var(--space-lg);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-light);
+  border-radius: var(--radius-sm);
+}
+
+.fc-manual-title,
+.fc-manual-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+}
+
+.fc-manual-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.fc-manual-desc {
+  margin-top: var(--space-xs);
+  color: var(--text-secondary);
+}
+
+.fc-manual-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.fc-action-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-md);
+  color: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  background: var(--primary);
+  border-radius: var(--radius-sm);
+}
+
+.fc-action-link:hover {
+  background: var(--primary-hover);
 }
 
 .fc-desc {

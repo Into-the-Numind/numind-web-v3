@@ -139,18 +139,20 @@ describe('FeishuConnection', () => {
   it.each([
     ['waiting_user_auth', '继续连接', 'feishu-continue-connection', undefined],
     ['reauth_required', '重新授权', 'feishu-reauthorize', 'cli_****recover']
-  ] as const)('uses the Agent entry for %s without directly creating another connection', async (stateName, label, testId, appIdMasked) => {
+  ] as const)('continues the server-owned connection flow for %s', async (stateName, label, testId, appIdMasked) => {
     vi.mocked(api.getFeishuStatus).mockResolvedValue(
       status({ state: stateName, connected: false, app_id_masked: appIdMasked })
     )
+    vi.mocked(api.connectFeishu).mockResolvedValue({ state: stateName })
     const wrapper = mountConnection()
     await flushPromises()
 
     expect(wrapper.get(`[data-testid="${testId}"]`).text()).toContain(label)
     if (appIdMasked) expect(wrapper.text()).toContain(appIdMasked)
     await wrapper.get(`[data-testid="${testId}"]`).trigger('click')
-    expect(push).toHaveBeenCalledWith({ name: 'home' })
-    expect(api.connectFeishu).not.toHaveBeenCalled()
+    await flushPromises()
+    expect(push).not.toHaveBeenCalled()
+    expect(api.connectFeishu).toHaveBeenCalledTimes(1)
   })
 
   it('keeps a disconnecting workspace out of the Agent connection path until cleanup finishes', async () => {

@@ -139,6 +139,63 @@ function actionStream(runId: number, action: ActionFixture): string {
   ].join('')
 }
 
+test('settings connect starts the lifecycle in place instead of redirecting to an inert Agent page', async ({ page }) => {
+  const connectRequests: Request[] = []
+  await page.route('**/v1/feishu/status', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          state: 'none',
+          connected: false,
+          capabilities: {
+            docs: { state: 'unknown' },
+            base: { state: 'unknown' },
+            wiki: { state: 'unknown' }
+          }
+        }
+      })
+    })
+  })
+  await page.route('**/v1/feishu/connect', async (route) => {
+    connectRequests.push(route.request())
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          state: 'waiting_user_auth',
+          action: {
+            operation_id: '',
+            session_id: 'settings-connect-session',
+            phase: 'user_auth',
+            expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+            url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=settings-opaque'
+          }
+        }
+      })
+    })
+  })
+
+  await page.goto('/settings')
+  await page.getByTestId('feishu-connect').click()
+
+  await expect(page).toHaveURL(/\/settings$/)
+  await expect(page.getByTestId('feishu-manual-action')).toContainText('打开飞书完成授权')
+  await expect(page.getByTestId('feishu-open-action')).toHaveAttribute(
+    'href',
+    'https://open.feishu.cn/open-apis/authen/v1/authorize?state=settings-opaque'
+  )
+  expect(connectRequests).toHaveLength(1)
+  expect(connectRequests[0].method()).toBe('POST')
+  expect(connectRequests[0].postDataJSON()).toEqual({ intent: 'manual' })
+})
+
 function sequentialActionStream(runId: number, action: ActionFixture): string {
   const now = new Date().toISOString()
   return [
