@@ -28,7 +28,6 @@ const emit = defineEmits<{
   resume: [operationId: string]
   refresh: [sessionId: string]
   confirmed: [operationId: string]
-  cancelled: [operationId: string]
 }>()
 
 const phaseContent = {
@@ -103,6 +102,37 @@ const interactionBusy = computed<boolean>(
   () => props.busy || props.action.notice_code === 'authorization_processing'
 )
 let migratedConfirmationKey = ''
+let migratedConfirmationAttempts = 0
+let confirmationRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearConfirmationRetry(): void {
+  if (confirmationRetryTimer) {
+    clearTimeout(confirmationRetryTimer)
+    confirmationRetryTimer = null
+  }
+}
+
+function scheduleConfirmationRetry(key: string, operationID: string): void {
+  if (confirmationRetryTimer) return
+  const delay = Math.min(
+    1_000 * 2 ** Math.min(Math.max(migratedConfirmationAttempts - 1, 0), 4),
+    15_000
+  )
+  confirmationRetryTimer = setTimeout(() => {
+    confirmationRetryTimer = null
+    const action = props.action
+    if (
+      action.phase !== 'confirmation' ||
+      (action.action_status !== 'pending' && action.action_status !== 'expired') ||
+      `${action.operation_id}:${action.session_id}` !== key ||
+      props.busy
+    ) {
+      return
+    }
+    migratedConfirmationAttempts += 1
+    emit('confirmed', operationID)
+  }, delay)
+}
 
 watch(
   () => [
@@ -110,28 +140,33 @@ watch(
     props.action.operation_id,
     props.action.session_id,
     props.action.action_status,
-    props.busy
+    props.busy,
+    props.error
   ] as const,
-  ([actionPhase, operationID, sessionID, actionStatus, busy]) => {
+  ([actionPhase, operationID, sessionID, actionStatus, busy, error]) => {
     if (
       actionPhase !== 'confirmation' ||
-      (actionStatus !== 'pending' && actionStatus !== 'expired') ||
-      busy
+      (actionStatus !== 'pending' && actionStatus !== 'expired')
     ) {
+      clearConfirmationRetry()
       return
     }
     const key = `${operationID}:${sessionID}`
-    if (migratedConfirmationKey === key) return
-    migratedConfirmationKey = key
-    emit('confirmed', operationID)
+    if (migratedConfirmationKey !== key) {
+      clearConfirmationRetry()
+      if (busy) return
+      migratedConfirmationKey = key
+      migratedConfirmationAttempts = 1
+      emit('confirmed', operationID)
+      return
+    }
+    if (!busy && error) scheduleConfirmationRetry(key, operationID)
   },
   { immediate: true }
 )
 
 const statusText = computed<string>(() => {
-  if (confirmation.value) return '正在继续原任务。'
   if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
-  if (expired.value) return '链接已过期，请重新生成后继续。'
   if (props.action.action_status === 'completed') {
     return props.action.terminal_state === 'succeeded'
       ? '飞书操作已完成，正在继续原任务。'
@@ -151,6 +186,8 @@ const statusText = computed<string>(() => {
         return '原飞书任务已结束，请根据最新状态决定下一步。'
     }
   }
+  if (confirmation.value) return '正在继续原任务。'
+  if (expired.value) return '链接已过期，请重新生成后继续。'
   if (missingLink.value) return '当前链接不可用，请重新生成链接后继续。'
   return ''
 })
@@ -205,6 +242,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (expiryTimer) clearTimeout(expiryTimer)
+  clearConfirmationRetry()
 })
 
 async function handleCopy(): Promise<void> {
