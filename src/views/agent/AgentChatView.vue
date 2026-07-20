@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, computed, watch, ref, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, MoreVertical, Pin, PinOff, Edit3, Trash2 } from 'lucide-vue-next'
-import { useAgentChatStore } from '@/stores/agentChat'
+import { buildAttachmentRequestFields, useAgentChatStore } from '@/stores/agentChat'
 import { useCreditsStore } from '@/stores/credits'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useAgentNarration } from '@/composables/useAgentNarration'
@@ -92,7 +92,7 @@ const handleSend = async (text: string): Promise<void> => {
       agent_skill_id: store.currentAgent.id,
       input_text: text,
       session_id: props.sessionId !== 'new' ? props.sessionId : newSid,
-      attachment_urls: store.attachments.map((a) => a.url)
+      ...buildAttachmentRequestFields(store.attachments)
     })
   } catch (err) {
     const msg = (err as Error)?.message ?? '发送失败,请稍后重试'

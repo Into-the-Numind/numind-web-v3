@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises, shallowMount } from '@vue/test-utils'
-import { useAgentChatStore } from '@/stores/agentChat'
+import { buildAttachmentRequestFields, useAgentChatStore } from '@/stores/agentChat'
 import AgentChatView from '../AgentChatView.vue'
 import * as api from '@/api/agent'
 
@@ -169,6 +169,17 @@ describe('T14 — streaming path wiring', () => {
       updated_at: ''
     }
 
+    store.attachments = [
+      {
+        id: 88,
+        url: 'https://cos.example/agent-attachments/1/customer.docx',
+        filename: 'customer.docx',
+        size: 100,
+        mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        created_at: ''
+      }
+    ]
+
     // Simulate the handleSend logic directly (mirrors AgentChatView.handleSend)
     const sessionId = 'new'
     const text = '测试问题'
@@ -176,7 +187,7 @@ describe('T14 — streaming path wiring', () => {
       agent_skill_id: store.currentAgent.id,
       input_text: text,
       session_id: sessionId !== 'new' ? sessionId : undefined,
-      attachment_urls: store.attachments.map((a) => a.url)
+      ...buildAttachmentRequestFields(store.attachments)
     })
 
     expect(mockStreamStart).toHaveBeenCalledOnce()
@@ -184,7 +195,8 @@ describe('T14 — streaming path wiring', () => {
     expect(callArg.agent_skill_id).toBe(42)
     expect(callArg.input_text).toBe('测试问题')
     expect(callArg.session_id).toBeUndefined() // 'new' → not passed
-    expect(callArg.attachment_urls).toEqual([])
+    expect(callArg.attachment_ids).toEqual([88])
+    expect(callArg.attachment_urls).toBeUndefined()
   })
 
   it('session_id 非 new 时透传给 start()', async () => {
@@ -203,7 +215,7 @@ describe('T14 — streaming path wiring', () => {
       agent_skill_id: store.currentAgent.id,
       input_text: 'hello',
       session_id: sessionId !== 'new' ? sessionId : undefined,
-      attachment_urls: []
+      ...buildAttachmentRequestFields(store.attachments)
     })
 
     const callArg = mockStreamStart.mock.calls[0][0]

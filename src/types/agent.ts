@@ -114,10 +114,11 @@ export interface CreateRunRequest {
   /** UUID string from prior createRun response */
   session_id?: string
   input_text: string
-  /** COS URLs of any previously uploaded attachments to attach to this run.
-   *  Server expects field name "attachment_urls" (string array of COS URLs).
-   *  Was previously misnamed "attachment_ids" with numeric ids — backend never
-   *  read that field, so attachments silently dropped before LLM. */
+  /** Persisted agent_attachment IDs. This is the preferred identity: the
+   *  backend ownership-checks it and file_read pages the upload-time cache. */
+  attachment_ids?: number[]
+  /** Rolling fallback for upload results whose DB persistence failed (id=0),
+   *  plus legacy clients and generated artifacts. */
   attachment_urls?: string[]
   restore_from_session_id?: string
 }
@@ -403,9 +404,8 @@ export interface RecentSession {
 // ─────────────────────────────────────────
 
 export interface UploadResponse {
-  /** agent_attachment row id — required by capability routing (chatbot uses
-   *  attachment_ids; agent's file_read path uses url). Returned by
-   *  POST /v1/agent-attachments. */
+  /** agent_attachment row id. Normal Agent runs send this as attachment_ids;
+   *  zero means persistence failed and the URL compatibility path is used. */
   id: number
   /** COS URL — file_read tool ownership check parses {userID} out of the path. */
   url: string

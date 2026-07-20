@@ -62,6 +62,23 @@ import { isOfficialFeishuActionURL } from '@/utils/feishuActionUrl'
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
+/** Build the rolling-safe attachment portion shared by stream and non-stream
+ * Agent requests. Persisted uploads use IDs; only id=0 falls back to URL. */
+export const buildAttachmentRequestFields = (
+  uploaded: UploadResponse[]
+): Pick<CreateRunRequest, 'attachment_ids' | 'attachment_urls'> => {
+  const hasPersistedID = (item: UploadResponse): boolean =>
+    Number.isSafeInteger(item.id) && item.id > 0
+  const attachmentIds = uploaded.filter(hasPersistedID).map((item) => item.id)
+  // Defensive rolling compatibility: a pre-ID/malformed response must retain
+  // its URL instead of being silently omitted from both arrays.
+  const attachmentURLs = uploaded.filter((item) => !hasPersistedID(item)).map((item) => item.url)
+  return {
+    ...(attachmentIds.length > 0 ? { attachment_ids: attachmentIds } : {}),
+    ...(attachmentURLs.length > 0 ? { attachment_urls: attachmentURLs } : {})
+  }
+}
+
 const FEISHU_ACTION_PHASES: FeishuActionPhase[] = [
   'create_app',
   'app_scope',
@@ -1062,9 +1079,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         agent_skill_id: agentId,
         input_text: text,
         session_id: sessionId && sessionId !== 'new' ? sessionId : undefined,
-        // Server expects "attachment_urls": array of COS URLs (NOT numeric ids).
-        // The upload endpoint does not return an id, so url IS the identity.
-        attachment_urls: attachments.value.map((a) => a.url)
+        ...buildAttachmentRequestFields(attachments.value)
       })
       if (!isCurrentSessionEpoch(epoch)) return
       const userMsg: AgentMessage = {
@@ -2147,7 +2162,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    * tool-group cursor, attachments, input box, estimate).
    *
    * NOTE on attachments: this reads `store.attachments.value` (which carries
-   * filenames), NOT `req.attachment_urls` (URL-only). Callers MUST invoke
+   * filenames), not the request's ID/URL transport fields. Callers MUST invoke
    * this BEFORE the request's attachments are mutated/cleared elsewhere; in
    * the only caller (useAgentStream.start) the order is guaranteed because
    * the `isStreaming` guard runs synchronously beforehand and this action
