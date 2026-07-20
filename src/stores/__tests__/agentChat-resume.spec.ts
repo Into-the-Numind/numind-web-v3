@@ -1425,6 +1425,66 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     expect(finals).toHaveLength(0)
   })
 
+  it('keeps an authorization-pause bubble provisional and shows the real result without reload', async () => {
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 239,
+      session_id: 'sess-feishu-live-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      final_output: '授权前的阶段性说明，不能成为最终回复。',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    const completedRun = {
+      ...waitingRun,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '飞书多维表格已创建并复读成功。'
+    } as unknown as AgentRun
+
+    store.currentRun = waitingRun
+    store.applyStreamEvent({
+      type: 'token_delta',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 239,
+      data: {
+        message_id: 'pre-auth-assistant-239',
+        text: '授权前的阶段性说明，不能成为最终回复。'
+      }
+    })
+    vi.mocked(api.getRun).mockResolvedValueOnce(waitingRun)
+
+    // The real SSE connection closes with a waiting terminal while the user
+    // leaves the page to authorize. DB reconciliation must keep the existing
+    // streaming bubble provisional instead of labelling it as the final answer.
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 2,
+      ts: new Date().toISOString(),
+      run_id: 239,
+      data: { reason: 'waiting_for_user_choice', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+    await vi.waitFor(() => expect(api.getRun).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => {
+      expect(store.messages.filter((message) => message.type === 'final_answer')).toHaveLength(0)
+    })
+
+    // After authorization the detached continuation is observed only through
+    // status polling. Its authoritative final_output must replace/finalize the
+    // provisional bubble without relying on a browser refresh or snapshot.
+    vi.mocked(api.getRun).mockResolvedValueOnce(completedRun)
+    await store.refreshRunStatus()
+
+    const finals = store.messages.filter((message) => message.type === 'final_answer')
+    expect(finals).toHaveLength(1)
+    expect(finals[0]).toMatchObject({
+      run_id: 239,
+      markdown: '飞书多维表格已创建并复读成功。'
+    })
+  })
+
   it('a pending-status run is also kept active through a resume signature', async () => {
     const store = useAgentChatStore()
     store.currentRun = { id: 148, status: 'pending' } as AgentRun

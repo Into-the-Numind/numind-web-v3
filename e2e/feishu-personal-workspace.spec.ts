@@ -170,6 +170,64 @@ function sequentialActionStream(runId: number, action: ActionFixture): string {
   ].join('')
 }
 
+function detachedAuthorizationPauseStream(
+  runId: number,
+  action: ActionFixture,
+  provisionalText: string
+): string {
+  const now = new Date().toISOString()
+  const messageId = `feishu-provisional-${runId}`
+  return [
+    sseFrame({
+      type: 'stream_start',
+      seq: 1,
+      ts: now,
+      run_id: runId,
+      data: { run_id: runId, session_id: `feishu-e2e-run-${runId}` }
+    }),
+    sseFrame({
+      type: 'token_delta',
+      seq: 2,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: { message_id: messageId, text: provisionalText }
+    }),
+    sseFrame({
+      type: 'assistant_message',
+      seq: 3,
+      ts: now,
+      run_id: runId,
+      step: 1,
+      data: {
+        message_id: messageId,
+        content: provisionalText,
+        reasoning_content: '',
+        has_tool_calls: true
+      }
+    }),
+    sseFrame({
+      type: 'external_action',
+      seq: 4,
+      ts: now,
+      run_id: runId,
+      data: { provider: 'lark', ...action }
+    }),
+    sseFrame({
+      type: 'terminal',
+      seq: 5,
+      ts: now,
+      run_id: runId,
+      data: {
+        reason: 'waiting_for_user_choice',
+        duration_ms: 500,
+        step_count: 1,
+        final_output: provisionalText
+      }
+    })
+  ].join('')
+}
+
 function continuationStream(runId: number): string {
   const now = new Date().toISOString()
   const messageId = `feishu-continuation-${runId}`
@@ -618,6 +676,130 @@ test.describe('personal Feishu workspace', () => {
     expect(pageLoadCount).toBe(1)
     expect(ordinaryAnswerRequests).toHaveLength(0)
     expect(browserErrors).toEqual([])
+  })
+
+  test('desktop: a closed authorization stream finishes from status polling without a reload', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const runId = 307
+    const action: ActionFixture = {
+      operation_id: 'feishu-operation-e2e-307',
+      session_id: 'feishu-auth-session-e2e-307',
+      phase: 'user_auth',
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/suite/passport/oauth/device?user_code=DETACHED-307'
+    }
+    const provisionalText = '记录已经创建，正在等待授权后重新读取。'
+    const finalText = '真正的最终结果：记录读取成功。'
+    const resumeBodies: Array<Record<string, unknown>> = []
+    const observedRunStates: string[] = []
+    let pageLoadCount = 0
+    let resumed = false
+    let postResumeStatusReads = 0
+
+    page.on('load', () => {
+      pageLoadCount += 1
+    })
+
+    // Unlike installOpenAgentStream, this finite response closes at the
+    // authorization pause. The resumed leg can therefore arrive only through
+    // the normal detached run-status observer, matching the production path.
+    await page.route('**/v1/agent-runs/stream', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream; charset=utf-8',
+        headers: { 'Cache-Control': 'no-cache' },
+        body: detachedAuthorizationPauseStream(runId, action, provisionalText)
+      })
+    })
+    await page.route('**/v1/feishu/operations/*/resume', async (route) => {
+      const raw = route.request().postData()
+      resumeBodies.push(raw ? (JSON.parse(raw) as Record<string, unknown>) : {})
+      resumed = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { operation_id: action.operation_id, state: 'succeeded' }
+        })
+      })
+    })
+    await page.route(
+      new RegExp(`/v1/feishu/operations/${action.operation_id}(?:\\?.*)?$`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 0,
+            message: 'ok',
+            data: { operation_id: action.operation_id, state: 'waiting_user_auth', action }
+          })
+        })
+      }
+    )
+    await page.route(new RegExp(`/v1/agent-runs/${runId}(?:\\?.*)?$`), async (route) => {
+      let status = 'running'
+      let stateReason = 'waiting_for_user_choice'
+      let finalOutput = provisionalText
+      if (resumed) {
+        postResumeStatusReads += 1
+        if (postResumeStatusReads === 1) {
+          status = 'terminated'
+          stateReason = 'external_resume_ready'
+        } else {
+          status = 'completed'
+          stateReason = 'completed'
+          finalOutput = finalText
+        }
+      }
+      observedRunStates.push(stateReason)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: runId,
+            session_id: `feishu-e2e-run-${runId}`,
+            status,
+            state_reason: stateReason,
+            final_output: finalOutput,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      })
+    })
+    await page.route(`**/v1/agent-runs/${runId}/narration*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+      })
+    })
+
+    await openAgentConversation(page, '创建多维表格，授权后重新读取记录并告诉我结果')
+    const card = page.getByTestId('feishu-action-card')
+    await expect(card).toBeVisible()
+    await expect(page.locator('.msg-assistant')).toContainText(provisionalText)
+    await expect(page.locator('.msg-final')).toHaveCount(0)
+    expect(pageLoadCount).toBe(1)
+
+    await card.getByTestId('feishu-continue').click()
+
+    await expect.poll(() => resumeBodies).toEqual([{ action: 'user_completed' }])
+    await expect(card).toContainText('飞书操作已完成，正在继续原任务。')
+    await expect(page.locator('.msg-final')).toContainText(finalText, { timeout: 15_000 })
+    await expect(page.locator('.msg-final')).not.toContainText(provisionalText)
+    await expect.poll(() => postResumeStatusReads).toBeGreaterThanOrEqual(2)
+    expect(observedRunStates).toContain('external_resume_ready')
+    expect(observedRunStates.at(-1)).toBe('completed')
+    expect(pageLoadCount).toBe(1)
   })
 
   test('desktop: authorization resumes the original Agent task through the lifecycle API', async ({
