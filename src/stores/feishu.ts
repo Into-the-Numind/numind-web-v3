@@ -9,8 +9,10 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   connectFeishu,
+  continueFeishuConnection,
   getFeishuStatus,
   refreshFeishuAction,
+  resumeFeishuOperation,
   unbindFeishuConnection,
   type FeishuCapabilities,
   type FeishuCapabilityDomain,
@@ -18,6 +20,7 @@ import {
   type FeishuConnectResult,
   type FeishuExternalAction,
   type FeishuRefreshResult,
+  type FeishuOperationResult,
   type FeishuStatusAction
 } from '@/api/feishu'
 
@@ -49,6 +52,7 @@ export const useFeishuStore = defineStore('feishu', () => {
   const connected = ref(false)
   const appIdMasked = ref('')
   const cliVersion = ref('')
+  const inAgentFlow = ref(false)
   const capabilities = ref<FeishuCapabilities>(unknownCapabilities())
 
   const loading = ref(false)
@@ -78,6 +82,21 @@ export const useFeishuStore = defineStore('feishu', () => {
     return result
   }
 
+  function applyContinuedConnectResult(
+    result: FeishuConnectResult,
+    expectedSessionId: string
+  ): FeishuConnectResult {
+    if (liveAction.value?.session_id !== expectedSessionId) return result
+    state.value = result.state
+    connected.value = result.state === 'connected'
+    if (result.state === 'connected') {
+      liveAction.value = null
+    } else if (result.action) {
+      liveAction.value = result.action
+    }
+    return result
+  }
+
   async function fetchStatus(): Promise<void> {
     loading.value = true
     error.value = ''
@@ -87,6 +106,7 @@ export const useFeishuStore = defineStore('feishu', () => {
       connected.value = result.connected
       appIdMasked.value = result.app_id_masked ?? ''
       cliVersion.value = result.cli_version ?? ''
+      inAgentFlow.value = result.in_agent_flow ?? false
       capabilities.value = normalizeCapabilities(result.capabilities)
       liveAction.value = result.active_action ?? null
     } catch (cause) {
@@ -106,6 +126,72 @@ export const useFeishuStore = defineStore('feishu', () => {
       throw cause
     } finally {
       connecting.value = false
+    }
+  }
+
+  async function continueConnection(sessionId: string): Promise<FeishuConnectResult> {
+    connecting.value = true
+    error.value = ''
+    try {
+      return applyContinuedConnectResult(await continueFeishuConnection(sessionId), sessionId)
+    } catch (cause) {
+      error.value = userFacingError(cause, '确认飞书授权失败')
+      throw cause
+    } finally {
+      connecting.value = false
+    }
+  }
+
+  async function resumeConnectionAction(
+    operationId: string,
+    sessionId: string
+  ): Promise<FeishuOperationResult> {
+    connecting.value = true
+    error.value = ''
+    try {
+      const result = await resumeFeishuOperation(operationId, sessionId)
+      if (liveAction.value?.session_id !== sessionId) return result
+      if (result.state === 'succeeded') {
+        state.value = 'connected'
+        connected.value = true
+        liveAction.value = null
+      } else if (['failed', 'unknown', 'cancelled'].includes(result.state)) {
+        state.value = 'error'
+        connected.value = false
+        liveAction.value = null
+      } else if (result.action) {
+        liveAction.value = result.action
+        state.value = result.action.phase === 'create_app' ? 'creating_app' :
+          result.action.phase === 'app_scope' ? 'waiting_app_approval' : 'waiting_user_auth'
+      }
+      return result
+    } catch (cause) {
+      error.value = userFacingError(cause, '确认飞书授权失败')
+      throw cause
+    } finally {
+      connecting.value = false
+    }
+  }
+
+  async function restoreConnectionAction(sessionId: string): Promise<FeishuRefreshResult> {
+    refreshingAction.value = true
+    error.value = ''
+    try {
+      const result = await refreshFeishuAction(sessionId)
+      if (liveAction.value?.session_id !== sessionId) return result
+      if (result.action) {
+        liveAction.value = result.action
+        state.value = result.action.phase === 'create_app' ? 'creating_app' :
+          result.action.phase === 'app_scope' ? 'waiting_app_approval' : 'waiting_user_auth'
+      } else {
+        liveAction.value = null
+      }
+      return result
+    } catch (cause) {
+      error.value = userFacingError(cause, '恢复飞书授权步骤失败')
+      throw cause
+    } finally {
+      refreshingAction.value = false
     }
   }
 
@@ -134,6 +220,7 @@ export const useFeishuStore = defineStore('feishu', () => {
       connected.value = result.connected
       appIdMasked.value = ''
       cliVersion.value = ''
+      inAgentFlow.value = false
       capabilities.value = unknownCapabilities()
       liveAction.value = null
     } catch (cause) {
@@ -149,6 +236,7 @@ export const useFeishuStore = defineStore('feishu', () => {
     connected,
     appIdMasked,
     cliVersion,
+    inAgentFlow,
     capabilities,
     activeAction,
     loading,
@@ -161,6 +249,9 @@ export const useFeishuStore = defineStore('feishu', () => {
     hasAvailableCapability,
     fetchStatus,
     connect,
+    continueConnection,
+    resumeConnectionAction,
+    restoreConnectionAction,
     refreshAction,
     disconnect
   }

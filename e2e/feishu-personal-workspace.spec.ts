@@ -139,6 +139,75 @@ function actionStream(runId: number, action: ActionFixture): string {
   ].join('')
 }
 
+test('settings connect starts the lifecycle in place instead of redirecting to an inert Agent page', async ({ page }) => {
+  const connectRequests: Request[] = []
+  let connected = false
+  await page.route('**/v1/feishu/status', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          state: connected ? 'connected' : 'none',
+          connected,
+          capabilities: {
+            docs: { state: 'unknown' },
+            base: { state: 'unknown' },
+            wiki: { state: 'unknown' }
+          }
+        }
+      })
+    })
+  })
+  await page.route('**/v1/feishu/connect', async (route) => {
+    connectRequests.push(route.request())
+    const body = route.request().postDataJSON()
+    if (body.action === 'user_completed') connected = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: connected ? { state: 'connected' } : {
+          state: 'waiting_user_auth',
+          action: {
+            session_id: 'settings-connect-session',
+            phase: 'user_auth',
+            expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+            url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=settings-opaque'
+          }
+        }
+      })
+    })
+  })
+
+  await page.goto('/settings')
+  await page.getByTestId('feishu-connect').click()
+
+  await expect(page).toHaveURL(/\/settings$/)
+  await expect(page.getByTestId('feishu-manual-action')).toContainText('打开飞书完成授权')
+  await expect(page.getByTestId('feishu-open-action')).toHaveAttribute(
+    'href',
+    'https://open.feishu.cn/open-apis/authen/v1/authorize?state=settings-opaque'
+  )
+  expect(connectRequests).toHaveLength(1)
+  expect(connectRequests[0].method()).toBe('POST')
+  expect(connectRequests[0].postDataJSON()).toEqual({ intent: 'manual' })
+
+  await page.getByTestId('feishu-manual-continue').click()
+  await expect(page.getByTestId('feishu-connection-success')).toContainText('已连接')
+  await expect(page.getByTestId('feishu-manual-action')).toHaveCount(0)
+  expect(connectRequests).toHaveLength(2)
+  expect(connectRequests[1].postDataJSON()).toEqual({
+    intent: 'manual',
+    action: 'user_completed',
+    session_id: 'settings-connect-session'
+  })
+})
+
 function sequentialActionStream(runId: number, action: ActionFixture): string {
   const now = new Date().toISOString()
   return [

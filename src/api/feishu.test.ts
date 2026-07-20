@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import request from './request'
 import {
   connectFeishu,
+  continueFeishuConnection,
   getFeishuStatus,
   refreshFeishuAction,
   resumeFeishuOperation,
@@ -32,10 +33,9 @@ describe('personal Feishu workspace API', () => {
       data: {
         state: 'waiting_user_auth',
         action: {
-          operation_id: 'op-1',
           session_id: 'session-1',
           phase: 'user_auth',
-          url: 'https://safe.example/authorize',
+          url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=opaque',
           expires_at: '2026-07-15T00:00:00Z'
         }
       }
@@ -43,6 +43,17 @@ describe('personal Feishu workspace API', () => {
 
     await expect(connectFeishu()).resolves.toMatchObject({ state: 'waiting_user_auth' })
     expect(mockedRequest.post).toHaveBeenCalledWith('/v1/feishu/connect', { intent: 'manual' })
+  })
+
+  it('continues the exact manual session without operation, scopes, or credentials', async () => {
+    mockedRequest.post.mockResolvedValue({ data: { state: 'connected' } })
+
+    await expect(continueFeishuConnection('session-1')).resolves.toEqual({ state: 'connected' })
+    expect(mockedRequest.post).toHaveBeenCalledWith(
+      '/v1/feishu/connect',
+      { intent: 'manual', action: 'user_completed', session_id: 'session-1' },
+      { timeout: 60_000 }
+    )
   })
 
   it('resumes an operation without sending argv or scopes', async () => {
@@ -360,7 +371,7 @@ describe('personal Feishu workspace API', () => {
           operation_id: 'op-1',
           session_id: 'session-1',
           phase: 'user_auth',
-          url: 'https://safe.example/authorize',
+          url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=refresh-opaque',
           expires_at: '2026-07-15T00:00:00Z'
         }
       }
@@ -370,6 +381,23 @@ describe('personal Feishu workspace API', () => {
       action: { operation_id: 'op-1', session_id: 'session-1' }
     })
     expect(mockedRequest.post).toHaveBeenCalledWith('/v1/feishu/actions/session-1/refresh')
+  })
+
+  it('normalizes a manual refresh action whose wire response omits operation_id', async () => {
+    mockedRequest.post.mockResolvedValue({
+      data: {
+        action: {
+          session_id: 'manual-session-2',
+          phase: 'user_auth',
+          url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=manual-refresh',
+          expires_at: '2026-07-15T00:00:00Z'
+        }
+      }
+    })
+
+    await expect(refreshFeishuAction('manual-session-1')).resolves.toMatchObject({
+      action: { operation_id: '', session_id: 'manual-session-2' }
+    })
   })
 
   it('returns a terminal refresh result without authorization fields', async () => {
@@ -389,7 +417,7 @@ describe('personal Feishu workspace API', () => {
           operation_id: 'op-1',
           session_id: 'session-2',
           phase: 'user_auth',
-          url: 'https://safe.example/refreshed',
+          url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=malformed',
           expires_at: '2026-07-15T01:00:00Z'
         },
         terminal: { operation_id: 'op-1', state: 'failed' }
