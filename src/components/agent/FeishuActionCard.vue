@@ -77,13 +77,14 @@ const pending = computed<boolean>(() => props.action.action_status === 'pending'
 const current = computed<boolean>(() => pending.value && !expired.value)
 const confirmation = computed<boolean>(() => props.action.phase === 'confirmation')
 const refreshableAuthorizationPhase = computed<boolean>(
-  () => props.action.phase === 'create_app' || props.action.phase === 'user_auth'
+  () =>
+    props.action.phase === 'create_app' ||
+    props.action.phase === 'app_scope' ||
+    props.action.phase === 'user_auth'
 )
 const url = computed<string>(() => props.action.url ?? '')
 const showsCurrentURL = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const missingLink = computed<boolean>(() => current.value && !confirmation.value && !url.value)
-// `app_scope` cannot mint a replacement link. The backend rejects app-scope
-// recovery because its ConsoleURL is not reconstructable.
 const restartRequired = computed<boolean>(() => props.action.phase === 'app_scope' && expired.value)
 const showRefresh = computed<boolean>(
   () => refreshableAuthorizationPhase.value && (expired.value || missingLink.value)
@@ -168,7 +169,7 @@ watch(
 
 const statusText = computed<string>(() => {
   if (props.busy) return '正在检查飞书状态并衔接原任务，请稍候。'
-  if (restartRequired.value) return '管理员批准步骤已失效，请重新发起。'
+  if (restartRequired.value) return '管理员批准步骤已失效，请重新生成链接。'
   if (props.action.action_status === 'completed') {
     return props.action.terminal_state === 'succeeded'
       ? '飞书操作已完成，正在继续原任务。'

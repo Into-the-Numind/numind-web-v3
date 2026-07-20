@@ -231,7 +231,7 @@ describe('FeishuActionCard', () => {
     expect(wrapper.emitted('refresh')).toBeUndefined()
   })
 
-  it('treats expired app-scope authorization as terminal instead of refreshing', () => {
+  it('lets an expired app-scope authorization rebuild its official approval link', async () => {
     const wrapper = mountCard({
       action: createAction({
         phase: 'app_scope',
@@ -239,17 +239,17 @@ describe('FeishuActionCard', () => {
       })
     })
 
-    expect(wrapper.text()).toContain('管理员批准步骤已失效，请重新发起')
+    expect(wrapper.text()).toContain('管理员批准步骤已失效，请重新生成链接')
     expect(wrapper.find('[data-testid="feishu-continue"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
-    expect(wrapper.emitted('refresh')).toBeUndefined()
+    await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+    expect(wrapper.emitted('refresh')).toEqual([['session-1']])
   })
 
   it('lets a URL-free current app-scope card continue from the already-open Feishu page', async () => {
     const wrapper = mountCard({ action: createAction({ phase: 'app_scope', url: undefined }) })
 
     expect(wrapper.text()).toContain('请在刚才打开的飞书页面完成批准后继续')
-    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-refresh"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeUndefined()
     await wrapper.get('[data-testid="feishu-continue"]').trigger('click')
     expect(wrapper.emitted('resume')).toEqual([['op-1']])

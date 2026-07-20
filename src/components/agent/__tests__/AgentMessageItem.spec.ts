@@ -500,7 +500,7 @@ describe('AgentMessageItem', () => {
       expect(refresh).toHaveBeenCalledTimes(1)
     })
 
-    it('keeps a URL-free app-scope approval actionable without an unsupported refresh', async () => {
+    it('recovers a URL-free app-scope approval after a reload without manual navigation', async () => {
       const agentStore = useAgentChatStore()
       const feishuStore = useFeishuStore()
       const msg = externalAction()
@@ -516,13 +516,26 @@ describe('AgentMessageItem', () => {
         updated_at: ''
       } as never
       agentStore.messages = [msg]
-      const refresh = vi.spyOn(feishuStore, 'refreshAction')
+      const refresh = vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        action: {
+          operation_id: msg.operation_id,
+          session_id: 'session-app-scope-refreshed',
+          phase: 'app_scope',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/app/cli_app/auth'
+        }
+      })
 
       const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
       await flushPromises()
 
-      expect(refresh).not.toHaveBeenCalled()
-      expect(wrapper.get('[data-testid="feishu-resume"]').attributes('disabled')).toBeUndefined()
+      expect(refresh).toHaveBeenCalledTimes(1)
+      expect(refresh).toHaveBeenCalledWith('session-1')
+      expect(agentStore.messages[0]).toMatchObject({
+        session_id: 'session-app-scope-refreshed',
+        phase: 'app_scope',
+        url: 'https://open.feishu.cn/app/cli_app/auth'
+      })
     })
 
     it('settles the exact stale action when refresh reports a terminal operation', async () => {
