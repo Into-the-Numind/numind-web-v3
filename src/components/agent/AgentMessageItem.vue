@@ -126,11 +126,13 @@ const asExternalAction = computed<ExternalActionMessage | null>(() =>
   props.msg.type === 'external_action' ? props.msg : null
 )
 
+const store = useAgentChatStore()
 const feishuStore = useFeishuStore()
 const feishuActionBusy = ref(false)
 const feishuActionError = ref('')
 let feishuActionRequestVersion = 0
 let componentUnmounted = false
+const autoRefreshAttempts = new Set<string>()
 
 // A server-issued replacement action is a fresh recoverable step. Do not leave
 // a prior local transport error attached to its new URL/session.
@@ -262,13 +264,44 @@ async function handleExternalRefresh(sessionID: string): Promise<void> {
   }
 }
 
+// A durable snapshot deliberately contains no one-time authorization URL. The
+// card is already bound to the current user/run/operation/session, so recover
+// its live URL once through the existing refresh endpoint instead of waiting
+// for a manual page reload. A failed attempt remains visible and manually
+// retryable; the set prevents background retry loops.
+watch(
+  [
+    () => asExternalAction.value?.operation_id,
+    () => asExternalAction.value?.session_id,
+    () => asExternalAction.value?.url,
+    () => asExternalAction.value?.action_status,
+    () => props.readOnly
+  ],
+  () => {
+    const action = asExternalAction.value
+    if (
+      !action ||
+      props.readOnly ||
+      action.action_status !== 'pending' ||
+      action.url ||
+      feishuActionBusy.value
+    ) {
+      return
+    }
+    const key = `${action.operation_id}:${action.session_id}`
+    if (autoRefreshAttempts.has(key)) return
+    autoRefreshAttempts.add(key)
+    void handleExternalRefresh(action.session_id)
+  },
+  { immediate: true }
+)
+
 // 问题三: while the streaming assistant bubble sits token-silent (the LLM is composing
 // a tool call's args / file content), the bare blinking caret reads as frozen. A 1s
 // ticker re-evaluates isStalled so the caret upgrades to an explicit "正在生成…"
 // indicator once the silence crosses the threshold AND no tool is active yet (a running
 // tool's timeline line owns the liveness signal). nowMs is in Date.now()'s domain to
 // match the store's lastStreamDeltaAt.
-const store = useAgentChatStore()
 const nowMs = ref(Date.now())
 let stallTicker: ReturnType<typeof setInterval> | null = null
 onMounted(() => {

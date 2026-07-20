@@ -460,6 +460,47 @@ describe('AgentMessageItem', () => {
       })
     })
 
+    it('recovers a URL-free snapshot action once without waiting for a user reload', async () => {
+      const agentStore = useAgentChatStore()
+      const feishuStore = useFeishuStore()
+      const msg = externalAction()
+      delete msg.url
+      agentStore.beginSession('route-auto-refresh')
+      agentStore.currentRun = {
+        id: msg.run_id,
+        session_id: 'route-auto-refresh',
+        status: 'running',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: ''
+      } as never
+      agentStore.messages = [msg]
+      const refresh = vi.spyOn(feishuStore, 'refreshAction').mockResolvedValue({
+        action: {
+          operation_id: msg.operation_id,
+          session_id: 'session-auto-refreshed',
+          phase: 'user_auth',
+          expires_at: new Date(Date.now() + 120_000).toISOString(),
+          url: 'https://open.feishu.cn/authorize?opaque=auto-refreshed'
+        }
+      })
+
+      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      await flushPromises()
+
+      expect(refresh).toHaveBeenCalledTimes(1)
+      expect(refresh).toHaveBeenCalledWith('session-1')
+      expect(agentStore.messages[0]).toMatchObject({
+        type: 'external_action',
+        session_id: 'session-auto-refreshed',
+        url: 'https://open.feishu.cn/authorize?opaque=auto-refreshed'
+      })
+
+      await wrapper.setProps({ msg: agentStore.messages[0] })
+      await flushPromises()
+      expect(refresh).toHaveBeenCalledTimes(1)
+    })
+
     it('settles the exact stale action when refresh reports a terminal operation', async () => {
       const agentStore = useAgentChatStore()
       const feishuStore = useFeishuStore()

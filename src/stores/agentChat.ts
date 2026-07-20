@@ -1167,39 +1167,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const m = messages.value[i]
       if (m.type !== 'tool_group') continue
       const tg = m as ToolGroupMessage
-      const hasUnsettledCall = tg.tool_calls.some(
-        (tc) =>
-          IN_FLIGHT_STATES.includes(tc.current_state) ||
-          (status === 'completed' &&
-            (tc.current_state === 'error' || tc.current_state === 'rejected'))
+      const hasUnsettledCall = tg.tool_calls.some((tc) =>
+        IN_FLIGHT_STATES.includes(tc.current_state)
       )
       if (!hasUnsettledCall) continue
       const tool_calls = tg.tool_calls.map((tc) => {
         if (IN_FLIGHT_STATES.includes(tc.current_state)) {
           return { ...tc, current_state: terminalState }
-        }
-        if (
-          status === 'completed' &&
-          (tc.current_state === 'error' || tc.current_state === 'rejected')
-        ) {
-          const latest = tc.events[tc.events.length - 1]
-          return {
-            ...tc,
-            current_state: 'result' as const,
-            // Preserve error_message for diagnostics, but give the user the
-            // recovered outcome that the completed Agent run proved.
-            events: [
-              ...tc.events,
-              {
-                run_id: latest?.run_id ?? currentRun.value?.id ?? 0,
-                tool_call_id: tc.tool_call_id,
-                tool_name: tc.tool_name,
-                state: 'result' as const,
-                message: '已自动调整并继续',
-                timestamp: new Date().toISOString()
-              }
-            ]
-          }
         }
         return tc
       })
@@ -1465,15 +1439,22 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           try {
             const snapshotActionLiveRevision = externalActionLiveRevision
             const snapshotRequestSeq = ++externalActionSnapshotRequestSeq
-            const snap = await api.getSessionSnapshot(String(next.session_id))
+            const requestedSessionID = String(next.session_id)
+            const snap = await api.getSessionSnapshot(requestedSessionID)
+            // New backends return an explicit top-level identity. During a
+            // backend-first rolling deployment, fall back to the same identity
+            // already present in the nested run summary. Both are still fenced
+            // against the requested route and current session.
+            const snapshotSessionID = snap.session_id ?? snap.run?.session_id
             if (
               !isCurrentSessionEpoch(epoch) ||
               currentRun.value?.id !== runID ||
               currentRun.value.state_reason !== 'waiting_for_user_choice' ||
               (currentRun.value.status !== 'running' && currentRun.value.status !== 'pending') ||
+              snapshotSessionID !== requestedSessionID ||
               (activeSessionID !== null &&
                 activeSessionID !== 'new' &&
-                String(snap.session_id) !== activeSessionID)
+                snapshotSessionID !== activeSessionID)
             ) {
               return
             }

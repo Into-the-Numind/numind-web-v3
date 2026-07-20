@@ -296,6 +296,44 @@ describe('agentChat store', () => {
     expect(tg.tool_calls.find((t) => t.tool_call_id === 'b')?.current_state).toBe('result')
   })
 
+  it('does not repaint an explicit tool error as success when the overall run completes', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    store.messages.push({
+      id: 'tg-explicit-error',
+      type: 'tool_group',
+      timestamp: '',
+      tool_calls: [
+        {
+          tool_call_id: 'failed-write',
+          tool_name: 'lark_execute',
+          current_state: 'error',
+          error_message: 'unknown_result',
+          events: [
+            {
+              run_id: 999,
+              tool_call_id: 'failed-write',
+              tool_name: 'lark_execute',
+              state: 'error',
+              message: '操作失败，稍后再试一下',
+              timestamp: '2026-07-20T10:00:00Z'
+            }
+          ]
+        }
+      ]
+    } as ToolGroupMessage)
+    vi.mocked(api.getRun).mockResolvedValueOnce({ id: 999, status: 'completed' } as AgentRun)
+
+    await store.refreshRunStatus()
+
+    const group = store.messages.find((m) => m.id === 'tg-explicit-error') as ToolGroupMessage
+    expect(group.tool_calls[0]).toMatchObject({
+      current_state: 'error',
+      error_message: 'unknown_result'
+    })
+    expect(group.tool_calls[0].events.at(-1)?.state).toBe('error')
+  })
+
   // An interrupted run (cancelled/failed/...) must NOT paint its in-flight tool as
   // a green "已完成" — it gets 'error', not 'result'.
   it('finalizes in-flight tools to error when the run is cancelled (not completed)', async () => {
