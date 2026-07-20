@@ -1485,6 +1485,152 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     })
   })
 
+  it('repairs a stale same-run final when the completed poll returns the authoritative answer', async () => {
+    const store = useAgentChatStore()
+    store.currentRun = {
+      id: 239,
+      session_id: 'sess-feishu-live-resume',
+      status: 'running',
+      state_reason: 'external_resume_ready',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    store.messages = [
+      {
+        id: 'stale-final-239',
+        type: 'final_answer',
+        run_id: 239,
+        markdown: '授权前的阶段性说明，不能成为最终回复。',
+        timestamp: ''
+      }
+    ]
+    vi.mocked(api.getRun).mockResolvedValueOnce({
+      ...store.currentRun,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '飞书多维表格已创建并复读成功。'
+    } as AgentRun)
+
+    await store.refreshRunStatus()
+
+    expect(store.messages).toEqual([
+      expect.objectContaining({
+        id: 'stale-final-239',
+        type: 'final_answer',
+        run_id: 239,
+        markdown: '飞书多维表格已创建并复读成功。'
+      })
+    ])
+  })
+
+  it('ignores an older overlapping status response after a newer poll completes the run', async () => {
+    const store = useAgentChatStore()
+    const activeRun = {
+      id: 239,
+      session_id: 'sess-feishu-live-resume',
+      status: 'running',
+      state_reason: 'external_resume_ready',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    const completedRun = {
+      ...activeRun,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '最新轮询拿到的真正最终结果。'
+    } as unknown as AgentRun
+    const staleRunningRun = {
+      ...activeRun,
+      final_output: '迟到的授权前状态。'
+    } as unknown as AgentRun
+    store.currentRun = activeRun
+
+    let resolveOlder!: (run: AgentRun) => void
+    let resolveNewer!: (run: AgentRun) => void
+    vi.mocked(api.getRun)
+      .mockImplementationOnce(
+        () =>
+          new Promise<AgentRun>((resolve) => {
+            resolveOlder = resolve
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<AgentRun>((resolve) => {
+            resolveNewer = resolve
+          })
+      )
+
+    const olderPoll = store.refreshRunStatus()
+    const newerPoll = store.refreshRunStatus()
+    resolveNewer(completedRun)
+    await newerPoll
+    resolveOlder(staleRunningRun)
+    await olderPoll
+
+    expect(store.currentRun).toMatchObject({ status: 'completed', state_reason: 'completed' })
+    expect(store.messages.filter((message) => message.type === 'final_answer')).toEqual([
+      expect.objectContaining({ markdown: '最新轮询拿到的真正最终结果。', run_id: 239 })
+    ])
+  })
+
+  it('ignores a stale pause reconciliation after status polling completes the run', async () => {
+    const store = useAgentChatStore()
+    const waitingRun = {
+      id: 239,
+      session_id: 'sess-feishu-live-resume',
+      status: 'running',
+      state_reason: 'waiting_for_user_choice',
+      final_output: '授权前的阶段性说明。',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    const completedRun = {
+      ...waitingRun,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '跨路径竞态后的真正最终结果。'
+    } as unknown as AgentRun
+    store.currentRun = waitingRun
+
+    let resolvePauseReconcile!: (run: AgentRun) => void
+    let resolveStatusPoll!: (run: AgentRun) => void
+    vi.mocked(api.getRun)
+      .mockImplementationOnce(
+        () =>
+          new Promise<AgentRun>((resolve) => {
+            resolvePauseReconcile = resolve
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<AgentRun>((resolve) => {
+            resolveStatusPoll = resolve
+          })
+      )
+
+    // The waiting terminal launches reconcileFromDB and leaves its DB read in
+    // flight while a newer detached status poll observes completion.
+    store.applyStreamEvent({
+      type: 'terminal',
+      seq: 1,
+      ts: new Date().toISOString(),
+      run_id: 239,
+      data: { reason: 'waiting_for_user_choice', duration_ms: 1, step_count: 1 }
+    } as TerminalEvent)
+    const statusPoll = store.refreshRunStatus()
+    resolveStatusPoll(completedRun)
+    await statusPoll
+    resolvePauseReconcile(waitingRun)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(store.currentRun).toMatchObject({ status: 'completed', state_reason: 'completed' })
+    expect(store.messages.filter((message) => message.type === 'final_answer')).toEqual([
+      expect.objectContaining({ markdown: '跨路径竞态后的真正最终结果。', run_id: 239 })
+    ])
+  })
+
   it('a pending-status run is also kept active through a resume signature', async () => {
     const store = useAgentChatStore()
     store.currentRun = { id: 148, status: 'pending' } as AgentRun
