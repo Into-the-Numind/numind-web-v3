@@ -50,6 +50,81 @@ function hardFailureToolStream(runId: number): string {
   ].join('')
 }
 
+function completedAfterUnclassifiedToolErrorStream(runId: number): string {
+  const ts = new Date().toISOString()
+  return [
+    frame({
+      type: 'stream_start',
+      seq: 1,
+      ts,
+      run_id: runId,
+      data: { run_id: runId, session_id: 'recovered-unclassified-session' }
+    }),
+    frame({
+      type: 'tool_call_start',
+      seq: 2,
+      ts,
+      run_id: runId,
+      step: 0,
+      data: {
+        tool_call_id: 'lark-unclassified-attempt',
+        tool_name: 'lark_execute',
+        input_digest: 'safe-unclassified',
+        input_preview: { argv: ['wiki', '+create'] }
+      }
+    }),
+    frame({
+      type: 'tool_call_error',
+      seq: 3,
+      ts,
+      run_id: runId,
+      step: 0,
+      data: {
+        tool_call_id: 'lark-unclassified-attempt',
+        error: '操作失败，稍后再试一下',
+        duration_ms: 1
+      }
+    }),
+    frame({
+      type: 'tool_call_start',
+      seq: 4,
+      ts,
+      run_id: runId,
+      step: 1,
+      data: {
+        tool_call_id: 'lark-recovery-inspect',
+        tool_name: 'lark_inspect',
+        input_digest: 'safe-inspect',
+        input_preview: { operation_id: 'wiki-create-op' }
+      }
+    }),
+    frame({
+      type: 'tool_call_result',
+      seq: 5,
+      ts,
+      run_id: runId,
+      step: 1,
+      data: {
+        tool_call_id: 'lark-recovery-inspect',
+        preview: '{"ok":true,"state":"succeeded"}',
+        duration_ms: 50
+      }
+    }),
+    frame({
+      type: 'terminal',
+      seq: 6,
+      ts,
+      run_id: runId,
+      data: {
+        reason: 'completed',
+        duration_ms: 100,
+        step_count: 2,
+        final_output: '飞书知识库已经创建完成。'
+      }
+    })
+  ].join('')
+}
+
 test('recoverable Feishu correction stays professional and never renders as a red failure', async ({ page }) => {
   const runId = 226
   const diag = createDiagnostics(page)
@@ -131,6 +206,114 @@ test('recoverable Feishu correction stays professional and never renders as a re
   await expect(page.locator('.tool-timeline').first()).toContainText('调整执行方式')
   await expect(page.locator('.tl-line.error')).toHaveCount(0)
   await expect(page.getByText('执行出错')).toHaveCount(0)
+})
+
+test('a completed Agent run reconciles an unclassified intermediate Feishu error as recovered', async ({
+  page
+}) => {
+  const runId = 241
+  await page.addInitScript(() =>
+    localStorage.setItem('token', 'e2e-agent-unclassified-recovery-token')
+  )
+  await setupAgentMocks(page)
+
+  await page.route('**/v1/credits/balance', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          cycle_remaining: 1500,
+          booster_usable: 0,
+          trial_remaining: 0,
+          membership_state: 'pro'
+        }
+      })
+    })
+  })
+  await page.route('**/v1/agent-sessions/history**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+    })
+  })
+  await page.route('**/v1/tenant-settings/support-contact', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, message: 'ok', data: {} })
+    })
+  })
+  await page.route('**/v1/sessions/recovered-unclassified-session/snapshot', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          session_id: 'recovered-unclassified-session',
+          agent_skill_id: 1,
+          messages: [],
+          status: 'completed'
+        }
+      })
+    })
+  })
+  await page.route(`**/v1/agent-runs/${runId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: {
+          id: runId,
+          session_id: 'recovered-unclassified-session',
+          agent_skill_id: 1,
+          user_id: 1,
+          status: 'completed',
+          state_reason: 'completed',
+          final_output: '飞书知识库已经创建完成。',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      })
+    })
+  })
+  await page.route('**/v1/agent-runs/stream', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream; charset=utf-8',
+      headers: { 'Cache-Control': 'no-cache' },
+      body: completedAfterUnclassifiedToolErrorStream(runId)
+    })
+  })
+  await page.route('**/v1/agent-runs', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'ok',
+        data: { run_id: runId, session_id: 'recovered-unclassified-session' }
+      })
+    })
+  })
+
+  await page.goto('/agent/chat/recovered-unclassified-session?agent_id=1')
+  await expect(page.locator('textarea').first()).toBeVisible()
+  await page.locator('textarea').first().fill('创建飞书知识库')
+  await page.locator('textarea').first().press('Enter')
+
+  await expect(page.locator('.msg-final')).toContainText('飞书知识库已经创建完成。')
+  await expect(page.locator('.tl-line.error')).toHaveCount(0)
+  await expect(page.getByText('操作失败，稍后再试一下')).toHaveCount(0)
+  await expect(page.getByText('已自动调整并继续')).toBeVisible()
 })
 
 test('hard Feishu terminal failure remains visibly red and never becomes a green success', async ({ page }) => {
