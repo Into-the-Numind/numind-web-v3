@@ -526,7 +526,7 @@ describe('AgentMessageItem', () => {
         }
       })
 
-      const wrapper = mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
+      mount(AgentMessageItem, { props: { msg }, global: { stubs: globalStubs } })
       await flushPromises()
 
       expect(refresh).toHaveBeenCalledTimes(1)
