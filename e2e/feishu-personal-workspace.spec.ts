@@ -820,6 +820,8 @@ test.describe('personal Feishu workspace', () => {
     let pageLoadCount = 0
     let resumed = false
     let postResumeStatusReads = 0
+    let continuationNarrationServed = false
+    let allowCompletion = false
 
     page.on('load', () => {
       pageLoadCount += 1
@@ -870,8 +872,8 @@ test.describe('personal Feishu workspace', () => {
       let finalOutput = provisionalText
       if (resumed) {
         postResumeStatusReads += 1
-        if (postResumeStatusReads === 1) {
-          status = 'terminated'
+        if (!allowCompletion) {
+          status = 'running'
           stateReason = 'external_resume_ready'
         } else {
           status = 'completed'
@@ -893,16 +895,39 @@ test.describe('personal Feishu workspace', () => {
             state_reason: stateReason,
             final_output: finalOutput,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            started_at: new Date(Date.now() - 30_000).toISOString()
           }
         })
       })
     })
     await page.route(`**/v1/agent-runs/${runId}/narration*`, async (route) => {
+      const events =
+        resumed && !continuationNarrationServed
+          ? [
+              {
+                run_id: runId,
+                tool_call_id: `feishu-detached-tool-${runId}`,
+                tool_name: 'lark_execute',
+                state: 'use',
+                message: '重新读取飞书记录',
+                timestamp: new Date().toISOString()
+              },
+              {
+                run_id: runId,
+                tool_call_id: `feishu-detached-tool-${runId}`,
+                tool_name: 'lark_execute',
+                state: 'result',
+                message: '飞书记录读取完成',
+                timestamp: new Date(Date.now() + 1).toISOString()
+              }
+            ]
+          : []
+      if (events.length > 0) continuationNarrationServed = true
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ code: 0, message: 'ok', data: [] })
+        body: JSON.stringify({ code: 0, message: 'ok', data: events })
       })
     })
 
@@ -917,10 +942,35 @@ test.describe('personal Feishu workspace', () => {
 
     await expect.poll(() => resumeBodies).toEqual([{ action: 'user_completed' }])
     await expect(card).toContainText('飞书操作已完成，正在继续原任务。')
+    await expect(page.locator('.tl-line.done')).toContainText('飞书记录读取完成')
+    const runPulse = page.locator('.run-pulse')
+    await expect(runPulse).toBeVisible()
+    await expect(runPulse.locator('.time')).toHaveCount(0)
+    await expect(runPulse).not.toContainText(/\d+:\d{2}/)
+    await expect(runPulse.locator('[title*="已用时"], [aria-label*="已用时"]')).toHaveCount(0)
+    await expect(runPulse.locator('.sr-only')).not.toContainText(/\d+:\d{2}/)
+
+    allowCompletion = true
     await expect(page.locator('.msg-final')).toContainText(finalText, { timeout: 15_000 })
     await expect(page.locator('.msg-final')).not.toContainText(provisionalText)
-    await expect.poll(() => postResumeStatusReads).toBeGreaterThanOrEqual(2)
-    expect(observedRunStates).toContain('external_resume_ready')
+    const timelineOrder = await page.locator('.messages-container > .msg').evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        assistant: node.classList.contains('msg-assistant'),
+        externalAction: node.classList.contains('msg-external-action'),
+        toolGroup: node.classList.contains('msg-tool-group'),
+        finalAnswer: node.classList.contains('msg-final')
+      }))
+    )
+    const assistantIndex = timelineOrder.findIndex((item) => item.assistant)
+    const externalActionIndex = timelineOrder.findIndex((item) => item.externalAction)
+    const toolGroupIndex = timelineOrder.findIndex((item) => item.toolGroup)
+    const finalAnswerIndex = timelineOrder.findIndex((item) => item.finalAnswer)
+    expect(assistantIndex).toBeGreaterThanOrEqual(0)
+    expect(externalActionIndex).toBeGreaterThan(assistantIndex)
+    expect(toolGroupIndex).toBeGreaterThan(externalActionIndex)
+    expect(finalAnswerIndex).toBeGreaterThan(toolGroupIndex)
+    expect(finalAnswerIndex).toBe(timelineOrder.length - 1)
+    await expect.poll(() => postResumeStatusReads).toBeGreaterThanOrEqual(1)
     expect(observedRunStates.at(-1)).toBe('completed')
     expect(pageLoadCount).toBe(1)
   })
