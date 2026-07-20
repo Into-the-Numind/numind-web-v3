@@ -239,7 +239,7 @@ describe('AgentMessageItem', () => {
       await wrapper.get('[data-testid="feishu-resume"]').trigger('click')
       await flushPromises()
 
-      expect(resume).toHaveBeenCalledWith('op-1')
+      expect(resume).toHaveBeenCalledWith('op-1', 'session-1')
       expect(wrapper.emitted('answer-submitted')).toBeUndefined()
       expect(store.messages).toHaveLength(1)
       expect(store.messages[0].type).toBe('external_action')
