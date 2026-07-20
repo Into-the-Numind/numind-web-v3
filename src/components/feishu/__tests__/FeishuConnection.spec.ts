@@ -72,8 +72,18 @@ describe('FeishuConnection', () => {
     expect(wrapper.find('[data-testid="feishu-connection-loading"]').exists()).toBe(false)
   })
 
-  it('guides an unconnected user to ask the Agent, without starting or polling a legacy connect flow', async () => {
+  it('starts the server-owned connection flow when an unconnected user clicks connect', async () => {
     vi.mocked(api.getFeishuStatus).mockResolvedValue(status())
+    vi.mocked(api.connectFeishu).mockResolvedValue({
+      state: 'waiting_user_auth',
+      action: {
+        operation_id: '',
+        session_id: 'manual-connect-session',
+        phase: 'user_auth',
+        expires_at: new Date(Date.now() + 300_000).toISOString(),
+        url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=opaque'
+      }
+    })
     const wrapper = mountConnection()
     await flushPromises()
 
@@ -83,8 +93,10 @@ describe('FeishuConnection', () => {
     expect(wrapper.text()).not.toContain('IM')
 
     await wrapper.get('[data-testid="feishu-connect"]').trigger('click')
-    expect(push).toHaveBeenCalledWith({ name: 'home' })
-    expect(api.connectFeishu).not.toHaveBeenCalled()
+    await flushPromises()
+    expect(api.connectFeishu).toHaveBeenCalledTimes(1)
+    expect(push).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="feishu-manual-action"]').text()).toContain('打开飞书完成授权')
   })
 
   it('renders a recoverable status error with a retry action', async () => {
