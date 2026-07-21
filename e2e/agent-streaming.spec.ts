@@ -883,3 +883,178 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
     await expect(page.locator('button[aria-label="发送"]').first()).toBeVisible({ timeout: 5_000 })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Customer regression: external-action card must not sever the live stream
+// ---------------------------------------------------------------------------
+
+test.describe('Customer regression — post-card realtime continuation', () => {
+  const runId = 91
+
+  test.beforeEach(async ({ page }) => {
+    await setupStreamMocks(page, {
+      runId,
+      runStatus: 'terminated',
+      runStateReason: 'waiting_for_user_choice'
+    })
+
+    await page.addInitScript((id) => {
+      const nativeFetch = window.fetch.bind(window)
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        const encoder = new TextEncoder()
+        const frame = (cursor: string, event: Record<string, unknown>): Uint8Array =>
+          encoder.encode(`id: ${cursor}\ndata: ${JSON.stringify(event)}\n\n`)
+        const now = new Date().toISOString()
+
+        if (url.includes(`/v1/agent-runs/${id}/events`)) {
+          document.documentElement.dataset.postCardStreamAttached = 'true'
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              window.setTimeout(() => {
+                controller.enqueue(
+                  frame('2000-0', {
+                    type: 'stream_start',
+                    seq: 1,
+                    ts: now,
+                    run_id: id,
+                    data: { run_id: id, session_id: `sess-${id}` }
+                  })
+                )
+              }, 100)
+              window.setTimeout(() => {
+                controller.enqueue(
+                  frame('2001-0', {
+                    type: 'reasoning_delta',
+                    seq: 2,
+                    ts: now,
+                    run_id: id,
+                    data: { message_id: 'post-card-message', text: '卡片后正在实时思考' }
+                  })
+                )
+              }, 250)
+              window.setTimeout(() => {
+                controller.enqueue(
+                  frame('2002-0', {
+                    type: 'token_delta',
+                    seq: 3,
+                    ts: now,
+                    run_id: id,
+                    data: { message_id: 'post-card-message', text: '卡片后的正式文字已实时到达' }
+                  })
+                )
+              }, 400)
+              window.setTimeout(() => {
+                controller.enqueue(
+                  frame('2003-0', {
+                    type: 'tool_call_start',
+                    seq: 4,
+                    ts: now,
+                    run_id: id,
+                    step: 0,
+                    data: {
+                      tool_call_id: 'post-card-tool',
+                      tool_name: 'web_search',
+                      input_digest: 'digest'
+                    }
+                  })
+                )
+              }, 550)
+              // Keep the response open long enough for assertions to prove that
+              // the DOM changed before EOF/terminal or a snapshot refresh.
+              window.setTimeout(() => {
+                controller.enqueue(
+                  frame('2004-0', {
+                    type: 'terminal',
+                    seq: 5,
+                    ts: now,
+                    run_id: id,
+                    data: { reason: 'completed', duration_ms: 1, step_count: 1 }
+                  })
+                )
+                controller.close()
+              }, 4000)
+            }
+          })
+          return new Response(body, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
+          })
+        }
+
+        if (url.includes('/v1/agent-runs/stream')) {
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                frame('1000-0', {
+                  type: 'stream_start',
+                  seq: 1,
+                  ts: now,
+                  run_id: id,
+                  data: { run_id: id, session_id: `sess-${id}` }
+                })
+              )
+              controller.enqueue(
+                frame('1001-0', {
+                  type: 'token_delta',
+                  seq: 2,
+                  ts: now,
+                  run_id: id,
+                  data: { message_id: 'pre-card-message', text: '卡片前内容' }
+                })
+              )
+              controller.enqueue(
+                frame('1002-0', {
+                  type: 'external_action',
+                  seq: 3,
+                  ts: now,
+                  run_id: id,
+                  data: {
+                    provider: 'lark',
+                    operation_id: 'post-card-operation',
+                    session_id: 'post-card-session',
+                    phase: 'user_auth',
+                    url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=post-card',
+                    expires_at: new Date(Date.now() + 300_000).toISOString()
+                  }
+                })
+              )
+              controller.enqueue(
+                frame('1003-0', {
+                  type: 'terminal',
+                  seq: 4,
+                  ts: now,
+                  run_id: id,
+                  data: { reason: 'waiting_for_user_choice', duration_ms: 1, step_count: 1 }
+                })
+              )
+              controller.close()
+            }
+          })
+          return new Response(body, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
+          })
+        }
+
+        return nativeFetch(input, init)
+      }
+    }, runId)
+  })
+
+  test('reasoning, formal text and tool activity render before the continuation stream ends', async ({
+    page
+  }) => {
+    await page.goto('/agent/chat/new?agent_id=1')
+    const textarea = page.locator('textarea').first()
+    await textarea.fill('执行需要外部授权的打标任务')
+    await textarea.press('Enter')
+
+    await expect(page.getByText('卡片前内容')).toBeVisible()
+    await expect(page.locator('.msg-external-action').first()).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('data-post-card-stream-attached', 'true')
+    await expect(page.getByText('卡片后正在实时思考')).toBeVisible({ timeout: 2000 })
+    await expect(page.getByText('卡片后的正式文字已实时到达')).toBeVisible({ timeout: 2000 })
+    await expect(page.getByText(/搜索/).last()).toBeVisible({ timeout: 2000 })
+  })
+})
