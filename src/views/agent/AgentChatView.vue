@@ -40,7 +40,14 @@ const creditsStore = useCreditsStore()
 const notifications = useNotificationsStore()
 const narration = useAgentNarration()
 const runCtrl = useAgentRun()
-const { start: startStream, stop: stopStream, isStreaming, startResume } = useAgentStream()
+const {
+  start: startStream,
+  stop: stopStream,
+  isStreaming,
+  fallbackPolling,
+  startResume,
+  attachContinuation
+} = useAgentStream()
 const documentsStore = useDocumentsStore()
 
 // 第三栏文档面板的显隐：有当前文档 / 加载中 / 打开出错任一即展开。
@@ -427,12 +434,19 @@ watch(
 // state refreshes cannot create duplicate observers; terminal/session/unmount
 // cleanup below tears down the shared timers.
 watch(
-  () => store.isWaitingForAuth || store.isQueuedExternalContinuationActive,
-  (shouldObserve) => {
-    if (shouldObserve) {
-      narration.start()
-      runCtrl.startStatusPolling()
-    }
+  () =>
+    [
+      store.isWaitingForAuth || store.isQueuedExternalContinuationActive,
+      isStreaming.value,
+      fallbackPolling.value,
+      store.currentRun?.id
+    ] as const,
+  ([shouldObserve, hasLiveStream, hasPollingFallback, runId]) => {
+    if (!shouldObserve || hasLiveStream || hasPollingFallback || !runId) return
+    // A reloaded route or second tab joins at its own saved cursor. Without one,
+    // the backend derives the cursor of the latest persisted external pause and
+    // replays only continuation events after that exact semantic boundary.
+    void attachContinuation(runId)
   }
 )
 

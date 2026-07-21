@@ -74,6 +74,35 @@ vi.mock('@/api/agent', () => ({
 // ─── useAgentStream mock ───────────────────────────────────────────────────
 const mockStreamStart = vi.fn(async () => {})
 const mockStreamStartResume = vi.fn(async () => {})
+const emitAttachedTerminal = async (runId: number): Promise<void> => {
+  const store = useAgentChatStore()
+  const epoch = store.currentSessionEpoch()
+  store.applyStreamEvent(
+    {
+      type: 'assistant_message',
+      seq: 1,
+      ts: '2026-07-14T10:00:04Z',
+      run_id: runId,
+      data: {
+        message_id: `attached-${runId}`,
+        content: '飞书文档已经创建完成。',
+        has_tool_calls: false
+      }
+    },
+    epoch
+  )
+  store.applyStreamEvent(
+    {
+      type: 'terminal',
+      seq: 2,
+      ts: '2026-07-14T10:00:05Z',
+      run_id: runId,
+      data: { reason: 'completed' }
+    },
+    epoch
+  )
+}
+const mockAttachContinuation = vi.fn(emitAttachedTerminal)
 const mockStreamStop = vi.fn()
 const mockIsStreaming = ref(false)
 const mockFallbackPolling = ref(false)
@@ -82,6 +111,7 @@ vi.mock('@/composables/useAgentStream', () => ({
   useAgentStream: () => ({
     start: mockStreamStart,
     startResume: mockStreamStartResume,
+    attachContinuation: mockAttachContinuation,
     stop: mockStreamStop,
     isStreaming: mockIsStreaming,
     fallbackPolling: mockFallbackPolling
@@ -99,6 +129,7 @@ beforeEach(() => {
   mockIsStreaming.value = false
   mockFallbackPolling.value = false
   vi.clearAllMocks()
+  mockAttachContinuation.mockImplementation(emitAttachedTerminal)
 })
 
 afterEach(() => {
@@ -321,15 +352,7 @@ describe('Feishu queued continuation reload', () => {
       const action = store.messages.find((message) => message.type === 'external_action')
       expect(action).toMatchObject({ action_status: 'completed' })
       expect(action).not.toHaveProperty('url')
-      expect(store.currentRun).toMatchObject({
-        id: 148,
-        status: 'running',
-        state_reason: stateReason
-      })
-
-      await vi.advanceTimersByTimeAsync(5_000)
-      await flushPromises()
-
+      expect(mockAttachContinuation).toHaveBeenCalledWith(148)
       expect(api.getRun).toHaveBeenCalledWith(148)
       expect(api.getRun).toHaveBeenCalledTimes(1)
       expect(store.currentRun).toMatchObject({ id: 148, status: 'completed' })
@@ -348,6 +371,7 @@ describe('Feishu queued continuation reload', () => {
     vi.useFakeTimers()
     const now = new Date('2026-07-14T10:00:00Z')
     vi.setSystemTime(now)
+    mockAttachContinuation.mockImplementationOnce(async () => {})
     vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
       session_id: 'sess-queued',
       agent_skill_id: 1,
@@ -389,6 +413,7 @@ describe('Feishu queued continuation reload', () => {
     })
     await flushPromises()
     expect(useAgentChatStore().currentRun).toMatchObject({ id: 148, status: 'running' })
+    expect(mockAttachContinuation).toHaveBeenCalledWith(148)
 
     await wrapper.setProps({ sessionId: 'sess-history' })
     await flushPromises()

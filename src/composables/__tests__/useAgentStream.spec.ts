@@ -28,11 +28,18 @@ const mockAnswerAndResumeStream = vi.fn<
   [number, Record<string, unknown>, (e: AgentStreamEvent) => void, AbortSignal | undefined],
   Promise<void>
 >()
+const mockStreamAgentRunEvents = vi.fn<
+  [number, string, (e: AgentStreamEvent) => void, AbortSignal | undefined],
+  Promise<void>
+>()
 vi.mock('@/api/agent-stream', () => ({
   streamAgentRun: (...args: unknown[]) =>
     mockStreamAgentRun(...(args as Parameters<typeof mockStreamAgentRun>)),
   answerAndResumeStream: (...args: unknown[]) =>
-    mockAnswerAndResumeStream(...(args as Parameters<typeof mockAnswerAndResumeStream>))
+    mockAnswerAndResumeStream(...(args as Parameters<typeof mockAnswerAndResumeStream>)),
+  streamAgentRunEvents: (...args: unknown[]) =>
+    mockStreamAgentRunEvents(...(args as Parameters<typeof mockStreamAgentRunEvents>)),
+  compareAgentStreamCursor: (a: string, b: string) => a.localeCompare(b)
 }))
 
 // Mock the store
@@ -41,14 +48,21 @@ const mockApplyError = vi.fn()
 const mockAppendUserMessage = vi.fn()
 const mockCurrentSessionEpoch = vi.fn(() => 7)
 const mockIsCurrentSessionEpoch = vi.fn(() => true)
+const mockStore = {
+  applyStreamEvent: mockApplyStreamEvent,
+  applyError: mockApplyError,
+  appendUserMessage: mockAppendUserMessage,
+  currentSessionEpoch: mockCurrentSessionEpoch,
+  isCurrentSessionEpoch: mockIsCurrentSessionEpoch,
+  currentRun: { id: 42 } as { id: number; updated_at?: string } | null,
+  sendingMessage: false,
+  setRealtimeContinuationRun: vi.fn(),
+  transportCursorForRun: vi.fn(() => ''),
+  recordTransportCursor: vi.fn(),
+  clearTransportCursor: vi.fn()
+}
 vi.mock('@/stores/agentChat', () => ({
-  useAgentChatStore: () => ({
-    applyStreamEvent: mockApplyStreamEvent,
-    applyError: mockApplyError,
-    appendUserMessage: mockAppendUserMessage,
-    currentSessionEpoch: mockCurrentSessionEpoch,
-    isCurrentSessionEpoch: mockIsCurrentSessionEpoch
-  })
+  useAgentChatStore: () => mockStore
 }))
 
 // Mock useAgentRun composable — capture startStatusPolling
@@ -82,6 +96,8 @@ function makeEvent(type: AgentStreamEvent['type']): AgentStreamEvent {
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
+  mockStore.currentRun = { id: 42 }
+  mockStore.sendingMessage = false
 })
 
 // ---------------------------------------------------------------------------
@@ -264,6 +280,90 @@ describe('useAgentStream', () => {
     await start(baseReq)
     expect(fallbackPolling.value).toBe(false)
   })
+
+  it('external-action terminal attaches from the last cursor and forwards post-card events', async () => {
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '1000-0' })
+      onEvent({ ...makeEvent('external_action'), transport_cursor: '1001-0' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '1002-0',
+        data: { reason: 'waiting_for_user_choice' }
+      })
+    })
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({ ...makeEvent('reasoning_delta'), transport_cursor: '2000-0' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '2001-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { start } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
+    expect(mockStreamAgentRunEvents.mock.calls[0][0]).toBe(42)
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('1002-0')
+    expect(mockApplyStreamEvent.mock.calls.map(([event]) => event.type)).toContain(
+      'reasoning_delta'
+    )
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+  })
+
+  it('reconnects from the confirmed cursor when the initial SSE rejects after the card', async () => {
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '1000-0' })
+      onEvent({ ...makeEvent('external_action'), transport_cursor: '1001-0' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '1002-0',
+        data: { reason: 'waiting_for_user_choice' }
+      })
+      throw new Error('proxy reset after waiting frame')
+    })
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({ ...makeEvent('token_delta'), transport_cursor: '2000-0' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '2001-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { start } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('1002-0')
+    expect(mockApplyError).not.toHaveBeenCalled()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+  })
+
+  it('attaches a rebuilt tab from the server-owned external-pause baseline', async () => {
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '3000-0' })
+      onEvent({ ...makeEvent('reasoning_delta'), transport_cursor: '3001-0' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '3002-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachContinuation } = useAgentStream()
+    await attachContinuation(42)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
+    expect(mockStreamAgentRunEvents.mock.calls[0][0]).toBe(42)
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('pause')
+    expect(mockApplyStreamEvent.mock.calls.map(([event]) => event.type)).toContain(
+      'reasoning_delta'
+    )
+    expect(mockStore.clearTransportCursor).toHaveBeenCalledWith(42)
+  })
+
 })
 
 // ─── issue4 (dev): no narration prose after answering (poll-only resume) ──────

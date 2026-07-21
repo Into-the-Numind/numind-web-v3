@@ -198,17 +198,21 @@ describe('applyStreamEvent', () => {
     expect(msg?.type === 'assistant' && msg.reasoning).toBe('step-by-step')
   })
 
-  it('assistant_message: no-op when no streaming bubble exists for message_id', () => {
+  it('assistant_message: creates an authoritative bubble when a rebuilt tab missed deltas', () => {
     const store = useAgentChatStore()
     // No prior token_delta for this id
     store.applyStreamEvent(
       makeEvent('assistant_message', {
         message_id: 'nonexistent',
-        content: 'ghost',
+        content: 'recovered final text',
         has_tool_calls: false
       })
     )
-    expect(store.messages.length).toBe(0)
+    expect(store.messages).toHaveLength(1)
+    expect(store.messages[0].type === 'assistant' && store.messages[0].markdown).toBe(
+      'recovered final text'
+    )
+    expect(store.messages[0].type === 'assistant' && store.messages[0].isStreaming).toBe(false)
   })
 
   // 6. tool_call_start — creates tool_group message
@@ -244,6 +248,25 @@ describe('applyStreamEvent', () => {
     await seedToolCall(store, 'tc-step1', 1)
     const groups = store.messages.filter((m) => m.type === 'tool_group')
     expect(groups.length).toBe(2)
+  })
+
+  it('continuation stream_start creates a new tool group generation for reused steps', async () => {
+    const store = useAgentChatStore()
+    await seedToolCall(store, 'tc-before-card', 0)
+
+    store.applyStreamEvent(
+      makeEvent('stream_start', { run_id: 999, session_id: 'sess-continuation' })
+    )
+    await seedToolCall(store, 'tc-after-card', 0)
+
+    const groups = store.messages.filter((message) => message.type === 'tool_group')
+    expect(groups).toHaveLength(2)
+    expect(groups[0].type === 'tool_group' && groups[0].tool_calls[0]?.tool_call_id).toBe(
+      'tc-before-card'
+    )
+    expect(groups[1].type === 'tool_group' && groups[1].tool_calls[0]?.tool_call_id).toBe(
+      'tc-after-card'
+    )
   })
 
   // agent-exec-ux-followup: the streaming label must surface the concrete query
@@ -1132,6 +1155,19 @@ describe('applyStreamEvent', () => {
     store.applyStreamEvent(makeEvent('error', { code: 'internal' }))
     const sysMsgs = store.messages.filter((m) => m.type === 'system')
     expect(sysMsgs[0].type === 'system' && sysMsgs[0].markdown).toBe('服务暂时不可用，请稍后再试。')
+  })
+})
+
+describe('run transport cursor recovery', () => {
+  it('survives a component/store reset within the same browser tab and clears at terminal', () => {
+    const store = useAgentChatStore()
+    store.recordTransportCursor(999, '4000-7')
+
+    store.reset()
+    expect(store.transportCursorForRun(999)).toBe('4000-7')
+
+    store.clearTransportCursor(999)
+    expect(store.transportCursorForRun(999)).toBe('')
   })
 })
 
