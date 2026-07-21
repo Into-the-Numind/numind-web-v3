@@ -830,7 +830,15 @@ test.describe('Scenario 5 — question_prompt yield → choice → resume', () =
         body: JSON.stringify({
           code: 0,
           message: 'ok',
-          data: { id: runId, status: 'completed', state_reason: 'completed', session_id: 'sess-5' }
+          data: {
+            id: runId,
+            status: 'completed',
+            state_reason: 'completed',
+            session_id: 'sess-5',
+            // The terminal SSE carries the prose immediately; reconciliation
+            // confirms the same authoritative final output persisted by the run.
+            final_output: '好的，为你分析最近 7 天的数据。'
+          }
         })
       })
     })
