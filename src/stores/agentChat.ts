@@ -516,6 +516,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   // While a run-events SSE is attached, polling may still inspect the external
   // provider card but must not replay the same assistant transcript snapshot.
   const realtimeContinuationRunID = ref<number | null>(null)
+  // Redis Stream transport cursors are scoped by server-owned run ID. Keeping
+  // them in the store (rather than one composable-local variable) lets every
+  // reconnect within this tab resume exclusively after the last applied event.
+  const transportCursorByRun = new Map<number, string>()
 
   // Every route/session replacement advances this generation. Async work and
   // SSE callbacks capture it before crossing an await boundary; a result may
@@ -2358,6 +2362,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         // T3: this run's streamed items start at the current tail; keep them
         // ordered by the backend's monotonic seq from here on.
         settlePendingExternalActionsForRun(e.run_id, 'completed')
+        // Detached continuations restart their local step numbering. A new
+        // stream_start therefore begins a fresh tool-group generation even
+        // when the run ID is unchanged.
+        streamingToolGroupIds.value = new Map()
         seqBlockRunId = e.run_id
         seqBlockStart = messages.value.length
         break
@@ -2400,13 +2408,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             m.type === 'assistant' &&
             (m as StreamingAssistantMessage)._stream_id === payload.message_id &&
             (m as StreamingAssistantMessage)._run_id === e.run_id
-        )
-        if (existing) {
-          existing.markdown = payload.content // authoritative final from DB
-          existing.isStreaming = false
-          if (payload.reasoning_content) {
-            existing.reasoning = payload.reasoning_content
-          }
+        ) ?? ensureStreamingAssistantMessage(payload.message_id, e.run_id)
+        // A rebuilt subscriber can join at the completed-message frame without
+        // having seen this tab's token_delta. Creating the bubble here keeps the
+        // authoritative formal text realtime instead of waiting for refresh.
+        tagStreamSeq(existing, e)
+        existing.markdown = payload.content
+        existing.isStreaming = false
+        if (payload.reasoning_content) {
+          existing.reasoning = payload.reasoning_content
         }
         break
       }
@@ -2801,6 +2811,30 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     realtimeContinuationRunID.value = runId
   }
 
+  const transportCursorStorageKey = (runId: number): string =>
+    `agentChat:transportCursor:${runId}`
+
+  const readStoredTransportCursor = (runId: number): string => {
+    const inMemory = transportCursorByRun.get(runId)
+    if (inMemory) return inMemory
+    const stored = sessionStorage.getItem(transportCursorStorageKey(runId)) ?? ''
+    if (stored) transportCursorByRun.set(runId, stored)
+    return stored
+  }
+
+  const transportCursorForRun = (runId: number): string => readStoredTransportCursor(runId)
+
+  const recordTransportCursor = (runId: number, cursor: string): void => {
+    if (runId <= 0 || !cursor) return
+    transportCursorByRun.set(runId, cursor)
+    sessionStorage.setItem(transportCursorStorageKey(runId), cursor)
+  }
+
+  const clearTransportCursor = (runId: number): void => {
+    transportCursorByRun.delete(runId)
+    sessionStorage.removeItem(transportCursorStorageKey(runId))
+  }
+
   const reset = (): void => {
     invalidateSession()
     feishuResumeRequests.clear()
@@ -2828,6 +2862,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     agentsError.value = null
     sessionError.value = null
     realtimeContinuationRunID.value = null
+    transportCursorByRun.clear()
     erroredRuns.clear()
     sessionStorage.removeItem('agentChat:currentRunId')
     sessionStorage.removeItem('agentChat:currentSessionId')
@@ -2893,6 +2928,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     applyError,
     markQuestionAnswered,
     setRealtimeContinuationRun,
+    transportCursorForRun,
+    recordTransportCursor,
+    clearTransportCursor,
     resumeFeishuOperation,
     settleFeishuTerminalOperation
   }
