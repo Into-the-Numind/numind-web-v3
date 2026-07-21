@@ -172,6 +172,8 @@ export interface UserMessage extends BaseMessage {
 export interface AssistantMessage extends BaseMessage {
   type: 'assistant'
   markdown: string
+  /** Owning run for assistant steps replayed from a session snapshot. */
+  run_id?: number
   /** True while the SSE stream is still delivering tokens for this message */
   isStreaming?: boolean
   /** Accumulated reasoning/thinking text from thinking-model reasoning_delta events */

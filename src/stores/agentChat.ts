@@ -512,6 +512,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   let externalActionPollEpoch: number | null = null
   let removeExternalActionVisibilityListener: (() => void) | null = null
   const feishuResumeRequests = new Map<string, Promise<FeishuOperationResult>>()
+  const replayedDetachedAssistantKeys = new Set<string>()
 
   // Every route/session replacement advances this generation. Async work and
   // SSE callbacks capture it before crossing an await boundary; a result may
@@ -676,6 +677,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     activeSessionID = sessionID
     externalActionLiveRevision = 0
     externalActionSnapshotRequestSeq = 0
+    replayedDetachedAssistantKeys.clear()
     stopExternalActionPolling()
     sendingMessage.value = false
     cancelling.value = false
@@ -688,6 +690,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     activeSessionID = null
     externalActionLiveRevision = 0
     externalActionSnapshotRequestSeq = 0
+    replayedDetachedAssistantKeys.clear()
     stopExternalActionPolling()
   }
 
@@ -1414,6 +1417,53 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     appendFinalAnswer()
   }
 
+  /**
+   * Detached external-action continuations have no browser SSE response. The
+   * backend still runs them through RunStream and persists every completed
+   * assistant/reasoning step; merge those run-owned snapshot messages into the
+   * live timeline. The transcript ordinal makes repeated identical steps
+   * distinct, while the per-session key set keeps status polling idempotent.
+   */
+  const reconcileDetachedAssistantSnapshot = (
+    snapshotMessages: AgentMessage[],
+    runID: number
+  ): void => {
+    let runAssistantOrdinal = 0
+    for (const message of snapshotMessages) {
+      if (
+        (message.type !== 'assistant' && message.type !== 'final_answer') ||
+        message.run_id !== runID
+      ) {
+        continue
+      }
+      const ordinal = runAssistantOrdinal++
+      const markdown = message.markdown ?? ''
+      const reasoning = message.reasoning ?? ''
+      if (!markdown && !reasoning) continue
+      const key = `${runID}:${message.type}:${ordinal}:${markdown}:${reasoning}`
+      if (replayedDetachedAssistantKeys.has(key)) continue
+      replayedDetachedAssistantKeys.add(key)
+
+      const alreadyVisible = messages.value.some(
+        (existing) =>
+          (existing.type === 'assistant' || existing.type === 'final_answer') &&
+          existing.markdown === markdown &&
+          (existing.reasoning ?? '') === reasoning &&
+          (existing.type === 'final_answer'
+            ? existing.run_id === runID
+            : existing.run_id === runID ||
+              (existing as StreamingAssistantMessage)._run_id === runID)
+      )
+      if (alreadyVisible) continue
+      messages.value.push({
+        ...message,
+        id: uuid(),
+        run_id: runID,
+        ...(message.type === 'assistant' ? { isStreaming: false } : {})
+      })
+    }
+  }
+
   const refreshRunStatus = async (): Promise<void> => {
     if (!currentRun.value) return
     const epoch = activeSessionEpoch
@@ -1474,6 +1524,38 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       // status 'running' so isTerminal is already false, but guard explicitly so
       // this stays symmetric with reconcileFromDB if that mapping ever changes.
       const isWaiting = next.state_reason === 'waiting_for_user_choice'
+      const hasSettledExternalAction = messages.value.some(
+        (message) =>
+          message.type === 'external_action' &&
+          message.run_id === next.id &&
+          message.action_status !== 'pending'
+      )
+      // The external-card leg is detached from the browser SSE connection.
+      // Re-read its persisted streaming transcript on each 5s status tick so
+      // completed reasoning/text steps appear while it runs and the final tick
+      // retains the final answer's reasoning. Session/run/request fences prevent
+      // a late snapshot from mutating another chat.
+      if (!isWaiting && hasSettledExternalAction && next.session_id) {
+        try {
+          const requestedSessionID = String(next.session_id)
+          const snap = await api.getSessionSnapshot(requestedSessionID)
+          const snapshotSessionID = snap.session_id ?? snap.run?.session_id
+          const snapshotIsStale =
+            requestSeq !== runStatusRequestSeq ||
+            !isCurrentSessionEpoch(epoch) ||
+            currentRun.value?.id !== runID ||
+            snapshotSessionID !== requestedSessionID ||
+            (activeSessionID !== null &&
+              activeSessionID !== 'new' &&
+              snapshotSessionID !== activeSessionID)
+          if (!snapshotIsStale) {
+            reconcileDetachedAssistantSnapshot(snap.messages ?? [], next.id)
+          }
+        } catch {
+          // Best-effort replay; the next status tick retries and final_output is
+          // still reconciled authoritatively below.
+        }
+      }
       // answer-resume-lifecycle F4: a waiting resumed run must show its latest
       // interactive card. Live SSE covers the streaming first leg only; later
       // question_prompt and external_action yields are recovered from the
@@ -1510,6 +1592,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
             ) {
               return
             }
+            reconcileDetachedAssistantSnapshot(snap.messages ?? [], next.id)
             const interaction = [...(snap.messages ?? [])]
               .reverse()
               .find(
