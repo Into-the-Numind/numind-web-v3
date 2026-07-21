@@ -1782,6 +1782,96 @@ describe('agentChat — answer-resume lifecycle (dev run 148)', () => {
     expect(store.currentRun?.status).toBe('running')
   })
 
+  it('replays detached post-card reasoning and final output without duplicates', async () => {
+    const store = useAgentChatStore()
+    store.beginSession('sess-283')
+    const activeRun = {
+      id: 283,
+      session_id: 'sess-283',
+      status: 'running',
+      state_reason: 'ext_resume:lease-283',
+      created_at: '',
+      updated_at: ''
+    } as unknown as AgentRun
+    const completedRun = {
+      ...activeRun,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '素材已经完成加工并写入飞书。'
+    } as AgentRun
+    store.currentRun = activeRun
+    store.messages = [
+      {
+        id: 'external-action-283',
+        type: 'external_action',
+        run_id: 283,
+        operation_id: 'op-base',
+        session_id: 'auth-base',
+        phase: 'user_auth',
+        expires_at: futureExpiry(),
+        action_status: 'completed',
+        timestamp: ''
+      }
+    ] as never
+    vi.mocked(api.getRun).mockResolvedValueOnce(activeRun).mockResolvedValueOnce(completedRun)
+    vi.mocked(api.getSessionSnapshot)
+      .mockResolvedValueOnce({
+        session_id: 'sess-283',
+        agent_skill_id: 1,
+        messages: [
+          {
+            id: 'asst-step',
+            type: 'assistant',
+            run_id: 283,
+            markdown: '正在整理标签并准备写入。',
+            reasoning: '已经拿到 Base 信息，下一步批量写入记录。',
+            timestamp: ''
+          }
+        ]
+      } as never)
+      .mockResolvedValueOnce({
+        session_id: 'sess-283',
+        agent_skill_id: 1,
+        messages: [
+          {
+            id: 'asst-step-new-id',
+            type: 'assistant',
+            run_id: 283,
+            markdown: '正在整理标签并准备写入。',
+            reasoning: '已经拿到 Base 信息，下一步批量写入记录。',
+            timestamp: ''
+          },
+          {
+            id: 'final-283',
+            type: 'final_answer',
+            run_id: 283,
+            markdown: '素材已经完成加工并写入飞书。',
+            reasoning: '记录写入成功，准备汇总结果。',
+            timestamp: ''
+          }
+        ]
+      } as never)
+
+    await store.refreshRunStatus()
+    await store.refreshRunStatus()
+
+    expect(store.messages.filter((message) => message.type === 'assistant')).toEqual([
+      expect.objectContaining({
+        run_id: 283,
+        markdown: '正在整理标签并准备写入。',
+        reasoning: '已经拿到 Base 信息，下一步批量写入记录。',
+        isStreaming: false
+      })
+    ])
+    expect(store.messages.filter((message) => message.type === 'final_answer')).toEqual([
+      expect.objectContaining({
+        run_id: 283,
+        markdown: '素材已经完成加工并写入飞书。',
+        reasoning: '记录写入成功，准备汇总结果。'
+      })
+    ])
+  })
+
   it('injects the follow-up question card from the snapshot when a resumed run yields again (F4)', async () => {
     const store = useAgentChatStore()
     store.currentRun = { id: 148, status: 'running' } as AgentRun
