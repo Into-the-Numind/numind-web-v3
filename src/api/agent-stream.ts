@@ -22,6 +22,7 @@ import { buildApiUrl } from './sales'
 
 export const STREAM_AGENT_RUN_PATH = '/v1/agent-runs/stream'
 export const ANSWER_STREAM_PATH = (runId: number): string => `/v1/agent-runs/${runId}/answer-stream`
+export const RUN_EVENTS_PATH = (runId: number): string => `/v1/agent-runs/${runId}/events`
 
 // ---------------------------------------------------------------------------
 // Generic SSE frame parser (not coupled to SalesChatEvent)
@@ -32,18 +33,40 @@ export const ANSWER_STREAM_PATH = (runId: number): string => `/v1/agent-runs/${r
  * Returns the parsed object or null if the frame carries no data line.
  */
 export function parseAgentSseChunk<T = unknown>(chunk: string): T | null {
-  const line = chunk
-    .split('\n')
-    .map((item) => item.trim())
-    .find((item) => item.startsWith('data:'))
+  const lines = chunk.split('\n').map((item) => item.trim())
+  const line = lines.find((item) => item.startsWith('data:'))
   if (!line) return null
   const raw = line.slice(5).trim()
   if (!raw) return null
   try {
-    return JSON.parse(raw) as T
+    const parsed = JSON.parse(raw) as T
+    const cursorLine = lines.find((item) => item.startsWith('id:'))
+    const cursor = cursorLine?.slice(3).trim()
+    if (cursor && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      ;(parsed as Record<string, unknown>).transport_cursor = cursor
+    }
+    return parsed
   } catch {
     return null
   }
+}
+
+/** Compare Redis Stream IDs without coercing their 64-bit components to Number. */
+export function compareAgentStreamCursor(a: string, b: string): number {
+  if (a === b) return 0
+  const parse = (value: string): [string, string] | null => {
+    const parts = value.split('-')
+    if (parts.length !== 2 || !parts.every((part) => /^\d+$/.test(part))) return null
+    return [parts[0].replace(/^0+(?=\d)/, ''), parts[1].replace(/^0+(?=\d)/, '')]
+  }
+  const left = parse(a)
+  const right = parse(b)
+  if (!left || !right) return a < b ? -1 : 1
+  for (let i = 0; i < 2; i++) {
+    if (left[i].length !== right[i].length) return left[i].length < right[i].length ? -1 : 1
+    if (left[i] !== right[i]) return left[i] < right[i] ? -1 : 1
+  }
+  return 0
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +257,46 @@ export async function answerAndResumeStream(
     throw new Error('服务暂时不可用，请稍后再试。')
   }
 
+  await readAgentSSEStream(response, (chunk) => {
+    const event = parseAgentSseChunk<AgentStreamEvent>(chunk)
+    if (event) onEvent(event)
+  })
+}
+
+/**
+ * Attach to a run after an external-action card closed the original response.
+ * `after` is exclusive; the server replays missed entries and then stays open
+ * for live detached-continuation events.
+ */
+export async function streamAgentRunEvents(
+  runId: number,
+  after: string,
+  onEvent: (e: AgentStreamEvent) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const token = getToken()
+  if (!token) {
+    clearAuth()
+    throw new Error('未登录，请重新登录')
+  }
+  const query = after ? `?after=${encodeURIComponent(after)}` : ''
+  const response = await fetch(buildApiUrl(`${RUN_EVENTS_PATH(runId)}${query}`), {
+    method: 'GET',
+    headers: {
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${token}`
+    },
+    signal
+  })
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuth()
+      throw new Error('登录已过期，请重新登录。')
+    }
+    throw new Error(
+      response.status === 503 ? 'Agent 实时事件流暂时不可用' : '无法恢复 Agent 实时事件流'
+    )
+  }
   await readAgentSSEStream(response, (chunk) => {
     const event = parseAgentSseChunk<AgentStreamEvent>(chunk)
     if (event) onEvent(event)

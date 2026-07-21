@@ -427,9 +427,9 @@ watch(
 // state refreshes cannot create duplicate observers; terminal/session/unmount
 // cleanup below tears down the shared timers.
 watch(
-  () => store.isWaitingForAuth || store.isQueuedExternalContinuationActive,
-  (shouldObserve) => {
-    if (shouldObserve) {
+  () => [store.isWaitingForAuth || store.isQueuedExternalContinuationActive, isStreaming.value] as const,
+  ([shouldObserve, hasLiveStream]) => {
+    if (shouldObserve && !hasLiveStream) {
       narration.start()
       runCtrl.startStatusPolling()
     }

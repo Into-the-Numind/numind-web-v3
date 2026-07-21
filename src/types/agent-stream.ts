@@ -49,6 +49,8 @@ export interface AgentStreamEvent<T = unknown> {
   step?: number
   /** Type-specific payload — see payload interfaces below */
   data?: T
+  /** SSE `id:` transport cursor. Ordered across detached continuation legs. */
+  transport_cursor?: string
 }
 
 // ---------------------------------------------------------------------------
