@@ -5,7 +5,7 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: #fafafa;
+  background: #f7f7f4;
 }
 
 .ys-popup {
@@ -16,7 +16,21 @@ body {
 .ys-header {
   display: flex;
   align-items: center;
+  gap: 8px;
   margin-bottom: 14px;
+}
+
+.ys-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #161616;
+  color: #f7f7f4;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .ys-title {
@@ -26,8 +40,8 @@ body {
 }
 
 .ys-status-card {
-  background: #fff;
-  border: 1px solid #eee;
+  background: #fffffb;
+  border: 1px solid #e5e5df;
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 12px;
@@ -43,6 +57,12 @@ body {
 .ys-label {
   font-size: 13px;
   color: #6b7280;
+}
+
+.ys-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .ys-badge {
@@ -94,8 +114,8 @@ body {
 }
 
 .ys-btn--primary {
-  background: #ff2442;
-  color: #fff;
+  background: #161616;
+  color: #f7f7f4;
 }
 
 .ys-btn--ghost {

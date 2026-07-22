@@ -1,26 +1,21 @@
 /**
- * 有数口播稿视频采集 — content script
+ * 有数选题采集 — content script
  *
  * 职责：
  *  1. 小红书登录态检测（未登录 → 浮标禁用 + 提示）。
  *  2. 可拖动浮标「采集」按钮。
- *  3. 采集当前视频笔记详情 → 归一化为 NotePayload（调用 lib/parse.js）。
- *  4. 视频直链优先从页面 HTML 中的 window.__INITIAL_STATE__ 解析，HTML 扫描兜底。
+ *  3. 采集当前笔记详情 → 归一化为 NotePayload（调用 lib/parse.js）。
+ *  4. 视频直链通过注入 main world 读取 window.__INITIAL_STATE__（移植 plugin3.2.1 手法）。
  *  5. 消息发 background.js 完成上送；接收 background 的「未授权」通知切换浮标态。
  *
- * 仅采集公开视频内容；不做 OCR，不触碰飞书 / 卖家后端 / 抖音 / 识别码（原插件业务全部剔除）。
+ * 仅采集公开内容；不触碰飞书 / 卖家后端 / 抖音 / 识别码（原插件业务全部剔除）。
  */
 (function () {
   'use strict';
 
   const Parse = window.YouShuXhsParse;
   if (!Parse) {
-    console.error('[有数口播稿采集] lib/parse.js 未加载');
-    return;
-  }
-  const ScriptPayload = window.YouShuXhsScriptPayload;
-  if (!ScriptPayload) {
-    console.error('[有数口播稿采集] lib/script-payload.js 未加载');
+    console.error('[有数采集] lib/parse.js 未加载');
     return;
   }
 
@@ -173,7 +168,7 @@
     // 先通过 MAIN world bridge 读运行时 __INITIAL_STATE__，这是旧 Numind/plugin3.2.1 最可靠的视频来源。
     const runtime = await readPageRuntimeState(noteId);
 
-    // 再读页面已有 script/HTML 文本兜底，不主动请求、不拦截页面行为。
+    // 再读页面已有 script/HTML 文本、DOM video、resource entries 兜底，不主动请求、不拦截页面行为。
     const htmlText = document.documentElement ? document.documentElement.innerHTML : '';
     const state = runtime.state || Parse.extractInitialStateFromHtmlText(htmlText);
     const contextText = `${container.innerHTML || ''}\n${htmlText || ''}`;
@@ -221,9 +216,9 @@
     } else {
       unauthorized = false;
       floatingButton.textContent = '采集';
-      floatingButton.style.backgroundColor = '#ff2442';
+      floatingButton.style.backgroundColor = '#161616';
       floatingButton.disabled = false;
-      floatingButton.title = '采集当前视频笔记到口播稿工作台';
+      floatingButton.title = '采集当前笔记到有数选题库';
     }
   }
 
@@ -249,7 +244,7 @@
   }
   function onDragEnd() {
     isDragging = false;
-    if (floatingButton) floatingButton.style.cursor = 'default';
+    if (floatingButton) floatingButton.style.cursor = 'pointer';
   }
 
   function createFloatingButton() {
@@ -262,12 +257,12 @@
       top: '360px',
       right: '24px',
       padding: '10px 16px',
-      backgroundColor: '#ff2442',
-      color: '#fff',
-      border: 'none',
+      backgroundColor: '#161616',
+      color: '#f7f7f4',
+      border: '1px solid rgba(255,255,255,0.72)',
       borderRadius: '999px',
-      cursor: 'default',
-      boxShadow: '0 4px 14px rgba(255,36,66,0.35)',
+      cursor: 'pointer',
+      boxShadow: '0 8px 22px rgba(0,0,0,0.28)',
       userSelect: 'none',
       fontSize: '14px',
       fontWeight: '600'
@@ -321,24 +316,18 @@
     const toast = showToast('正在加载评论…', 0);
     try {
       await loadMoreComments();
-      toast.textContent = '正在采集当前视频笔记…';
+      toast.textContent = '正在采集当前笔记…';
       const result = await collectCurrentNote();
       if (!result.success) {
         toast.remove();
         showToast(result.error || '采集失败');
         return;
       }
-      const gate = ScriptPayload.validateForScriptUpload(result.payload);
-      if (!gate.ok) {
-        toast.remove();
-        showToast(gate.error || '当前只支持视频笔记');
-        return;
-      }
       toast.textContent = '采集完成，正在上送…';
       const resp = await sendToBackground(result.payload);
       toast.remove();
       if (resp && resp.success) {
-        showToast('已上送到口播稿工作台');
+        showToast('已上送到选题库');
       } else if (resp && resp.unauthorized) {
         setButtonState('unauthorized');
         showToast('授权已失效，请打开插件弹窗重新授权');

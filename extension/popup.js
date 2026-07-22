@@ -1,14 +1,16 @@
 /**
- * 有数口播稿视频采集 — popup
+ * 有数选题采集 — popup
  *
- * 展示授权状态；提供「打开口播稿工作台」「解除授权」。
+ * 展示授权状态 / 已采集数；提供「打开选题库」「解除授权」。
  * 授权 token 由有数 web 页通过 onMessageExternal 写入，popup 只读状态。
  */
 
-const YOUSHU_SCRIPT_WORKSPACE_URL = 'https://youshulab.com/script/';
+// 上线前替换为真实有数选题库地址。
+const YOUSHU_LIBRARY_URL = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/xhs';
 
 const els = {
   authStatus: document.getElementById('auth-status'),
+  collectedCount: document.getElementById('collected-count'),
   authHint: document.getElementById('auth-hint'),
   openLibrary: document.getElementById('open-library'),
   clearToken: document.getElementById('clear-token')
@@ -16,16 +18,18 @@ const els = {
 
 function renderStatus(status) {
   const authorized = !!(status && status.authorized);
+  const count = (status && Number(status.collectedCount)) || 0;
+  els.collectedCount.textContent = String(count);
 
   if (authorized) {
     els.authStatus.textContent = '已授权';
     els.authStatus.className = 'ys-badge ys-badge--ok';
-    els.authHint.textContent = '已连接有数账号，可在小红书视频笔记页点击浮标采集。';
+    els.authHint.textContent = '已连接有数账号，可在小红书笔记页点击浮标采集。';
   } else {
     els.authStatus.textContent = '未授权';
     els.authStatus.className = 'ys-badge ys-badge--off';
     els.authHint.textContent =
-      '请先在口播稿工作台网页登录并点击「连接采集插件」完成授权。';
+      '请先在有数选题库网页登录并点击「连接采集插件」完成授权。';
   }
 }
 
@@ -33,17 +37,17 @@ function loadStatus() {
   try {
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (resp) => {
       if (chrome.runtime.lastError) {
-        renderStatus({ authorized: false });
+        renderStatus({ authorized: false, collectedCount: 0 });
         return;
       }
-      renderStatus(resp || { authorized: false });
+      renderStatus(resp || { authorized: false, collectedCount: 0 });
     });
   } catch (_) {
-    renderStatus({ authorized: false });
+    renderStatus({ authorized: false, collectedCount: 0 });
   }
 }
 
-els.openLibrary.setAttribute('href', YOUSHU_SCRIPT_WORKSPACE_URL);
+els.openLibrary.setAttribute('href', YOUSHU_LIBRARY_URL);
 
 els.clearToken.addEventListener('click', () => {
   try {

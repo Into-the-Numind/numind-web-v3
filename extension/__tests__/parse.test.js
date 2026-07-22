@@ -24,11 +24,11 @@ const DETAIL_HTML = `
       </div>
     </div>
     <div class="note-content">
-      <div class="title">五分钟写出口播稿开头</div>
+      <div class="title">五分钟搞定爆款选题</div>
       <div class="note-text">
-        <span>今天分享一个我屡试不爽的口播稿方法</span>
+        <span>今天分享一个我屡试不爽的选题方法</span>
         <span>第一步先看评论区</span>
-        <a class="tag">#口播稿技巧</a>
+        <a class="tag">#选题技巧</a>
         <a class="tag">#自媒体</a>
       </div>
       <div class="date">编辑于 2026-06-01</div>
@@ -63,8 +63,8 @@ const INITIAL_STATE = {
         note: {
           noteId: NOTE_ID,
           type: 'video',
-          title: '五分钟写出口播稿开头',
-          desc: '今天分享一个我屡试不爽的口播稿方法',
+          title: '五分钟搞定爆款选题',
+          desc: '今天分享一个我屡试不爽的选题方法',
           time: 1748736000000, // 2025-06-01 (ms)
           interactInfo: {
             likedCount: '12000',
@@ -72,7 +72,7 @@ const INITIAL_STATE = {
             commentCount: '789',
             shareCount: '45'
           },
-          tagList: [{ name: '口播稿技巧' }, { name: '自媒体' }],
+          tagList: [{ name: '选题技巧' }, { name: '自媒体' }],
           user: { userId: 'u_777', nickname: '小红薯创作者' },
           cover: { urlPre: 'https://sns-img.xhscdn.com/cover_0.jpg' },
           video: {
@@ -114,13 +114,13 @@ describe('lib/parse.js — NotePayload 解析', () => {
   })
 
   it('提取标题与正文', () => {
-    expect(payload.title).toBe('五分钟写出口播稿开头')
+    expect(payload.title).toBe('五分钟搞定爆款选题')
     expect(payload.content).toContain('屡试不爽')
     expect(payload.content).toContain('评论区')
   })
 
   it('提取标签数组（去 # 去"作者"）', () => {
-    expect(payload.tags).toEqual(expect.arrayContaining(['口播稿技巧', '自媒体']))
+    expect(payload.tags).toEqual(expect.arrayContaining(['选题技巧', '自媒体']))
     expect(payload.tags).not.toContain('作者')
   })
 
@@ -146,14 +146,7 @@ describe('lib/parse.js — NotePayload 解析', () => {
 
   it('提取评论（作者/正文/点赞），≤10 条', () => {
     expect(payload.comments.length).toBe(2)
-    expect(payload.comments[0]).toMatchObject({
-      author: '评论用户A',
-      text: '学到了，谢谢分享',
-      likes: 88,
-      nickname: '评论用户A',
-      content: '学到了，谢谢分享',
-      like: 88
-    })
+    expect(payload.comments[0]).toMatchObject({ author: '评论用户A', text: '学到了，谢谢分享', likes: 88 })
     expect(payload.comments.length).toBeLessThanOrEqual(10)
   })
 
@@ -289,11 +282,10 @@ describe('lib/parse.js — 评论回复嵌套（.parent-comment 分组）', () =
     `
     const comments = Parse.parseComments(box, 100)
     expect(comments.length).toBe(2)
-    expect(comments[0]).toMatchObject({ author: '楼主A', text: '顶层评论A', nickname: '楼主A', content: '顶层评论A' })
+    expect(comments[0]).toMatchObject({ author: '楼主A', text: '顶层评论A' })
     expect(comments[0].replies.length).toBe(2)
-    expect(comments[0].replies[0]).toMatchObject({ author: '回复者X', text: '回复A-1', nickname: '回复者X', content: '回复A-1' })
+    expect(comments[0].replies[0]).toMatchObject({ author: '回复者X', text: '回复A-1' })
     expect(comments[1].author).toBe('楼主B')
-    expect(comments[1].nickname).toBe('楼主B')
     expect(comments[1].replies.length).toBe(0)
   })
 })
