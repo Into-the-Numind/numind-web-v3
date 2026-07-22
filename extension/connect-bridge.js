@@ -8,7 +8,12 @@
     var d = e.data;
     if (d && d.type === 'NUMIND_XHS_EXT_TOKEN' && typeof d.token === 'string' && d.token) {
       try {
-        chrome.runtime.sendMessage({ type: 'YOUSHU_SET_TOKEN', token: d.token });
+        chrome.runtime.sendMessage({
+          type: 'YOUSHU_SET_TOKEN',
+          token: d.token,
+          expires_at: d.expires_at || '',
+          origin: window.location.origin
+        });
       } catch (err) { /* 插件上下文失效时静默 */ }
     }
   });

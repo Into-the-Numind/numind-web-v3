@@ -10,15 +10,43 @@
  * 安全：token 只存本地；externally_connectable 已在 manifest 限定到精确有数 web 域名。
  */
 
-// 上线前替换为真实有数配置。
-const YOUSHU_API_BASE = 'https://YOUSHU_API_DOMAIN_PLACEHOLDER';
-const YOUSHU_NOTES_ENDPOINT = `${YOUSHU_API_BASE}/v1/xhs/notes`;
-// onMessageExternal 仅信任此精确 origin（与 manifest.externally_connectable 对齐）。
-const YOUSHU_WEB_ORIGIN = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER';
-
 const TOKEN_KEY = 'youshu_ext_token';
 const COLLECTED_COUNT_KEY = 'youshu_collected_count';
+const API_BASE_KEY = 'youshu_api_base';
+const WEB_ORIGIN_KEY = 'youshu_web_origin';
 const MAX_NOTES_PER_REQUEST = 50;
+const DEFAULT_WEB_ORIGIN = 'http://49.233.219.254:9200';
+const TRUSTED_WEB_ORIGINS = new Set([
+  'https://youshu.asia',
+  'http://49.233.219.254:9200',
+  'http://localhost:5173',
+  'http://localhost:9200',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:9200',
+  'http://127.0.0.1:3000'
+]);
+
+function originFromUrl(value) {
+  if (!value || typeof value !== 'string') return '';
+  try {
+    return new URL(value).origin;
+  } catch (_) {
+    return '';
+  }
+}
+
+function trustedOriginFromMessage(message, sender) {
+  const explicit = originFromUrl((message && message.origin) || '');
+  const senderOrigin = originFromUrl((sender && (sender.origin || sender.url)) || '');
+  const origin = explicit || senderOrigin;
+  return TRUSTED_WEB_ORIGINS.has(origin) ? origin : '';
+}
+
+function apiBaseForOrigin(origin) {
+  const trusted = TRUSTED_WEB_ORIGINS.has(origin) ? origin : DEFAULT_WEB_ORIGIN;
+  return `${trusted}/api`;
+}
 
 function getToken() {
   return new Promise((resolve) => {
@@ -31,6 +59,29 @@ function getToken() {
 function setToken(token) {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [TOKEN_KEY]: String(token || '') }, () => resolve());
+  });
+}
+
+function setAuthContext(token, origin) {
+  const webOrigin = TRUSTED_WEB_ORIGINS.has(origin) ? origin : DEFAULT_WEB_ORIGIN;
+  return new Promise((resolve) => {
+    chrome.storage.local.set(
+      {
+        [TOKEN_KEY]: String(token || ''),
+        [WEB_ORIGIN_KEY]: webOrigin,
+        [API_BASE_KEY]: apiBaseForOrigin(webOrigin)
+      },
+      () => resolve()
+    );
+  });
+}
+
+function getApiBase() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([API_BASE_KEY], (res) => {
+      const value = res && typeof res[API_BASE_KEY] === 'string' ? res[API_BASE_KEY] : '';
+      resolve(value || apiBaseForOrigin(DEFAULT_WEB_ORIGIN));
+    });
   });
 }
 
@@ -66,7 +117,7 @@ async function handleUnauthorized(tabId) {
 
 /** 上送笔记到有数后端。 */
 async function uploadNotes(notes, tabId) {
-  const token = await getToken();
+  const [token, apiBase] = await Promise.all([getToken(), getApiBase()]);
   if (!token) {
     await handleUnauthorized(tabId);
     return { success: false, unauthorized: true, error: '尚未授权，请打开插件弹窗授权有数账号' };
@@ -78,7 +129,7 @@ async function uploadNotes(notes, tabId) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25000);
   try {
-    const resp = await fetch(YOUSHU_NOTES_ENDPOINT, {
+    const resp = await fetch(`${apiBase}/v1/xhs/notes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -146,12 +197,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     Promise.all([
       getToken(),
       new Promise((r) =>
+        chrome.storage.local.get([WEB_ORIGIN_KEY], (res) =>
+          r((res && res[WEB_ORIGIN_KEY]) || DEFAULT_WEB_ORIGIN)
+        )
+      ),
+      new Promise((r) =>
         chrome.storage.local.get([COLLECTED_COUNT_KEY], (res) =>
           r((res && Number(res[COLLECTED_COUNT_KEY])) || 0)
         )
       )
-    ]).then(([token, count]) => {
-      sendResponse({ authorized: !!token, collectedCount: count });
+    ]).then(([token, webOrigin, count]) => {
+      sendResponse({ authorized: !!token, collectedCount: count, webOrigin });
     });
     return true;
   }
@@ -163,7 +219,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // 授权页桥接(connect-bridge.js content script)转发来的 token。
   if (message.type === 'YOUSHU_SET_TOKEN' && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
-    setToken(message.token).then(() => sendResponse({ success: true }));
+    const origin = trustedOriginFromMessage(message, sender);
+    if (!origin) {
+      sendResponse({ success: false, error: 'origin not allowed' });
+      return false;
+    }
+    setAuthContext(message.token, origin).then(() => sendResponse({ success: true }));
     return true;
   }
 
@@ -175,15 +236,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // 必须校验 sender.origin === 精确有数域名，否则丢弃。
 // ---------------------------------------------------------------------------
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  const origin = sender && sender.origin ? sender.origin : '';
-  if (origin !== YOUSHU_WEB_ORIGIN) {
+  const origin = trustedOriginFromMessage(message, sender);
+  if (!origin) {
     console.warn('[有数采集] 拒绝来自非法 origin 的外部消息:', origin);
     sendResponse && sendResponse({ success: false, error: 'origin not allowed' });
     return false;
   }
 
-  if (message && message.type === 'YOUSHU_SET_TOKEN' && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
-    setToken(message.token).then(() => {
+  if (message && (message.type === 'YOUSHU_SET_TOKEN' || message.type === 'NUMIND_XHS_EXT_TOKEN') && typeof message.token === 'string' && message.token.length > 0 && message.token.length <= 4096) {
+    setAuthContext(message.token, origin).then(() => {
       // 广播授权成功，已打开的小红书标签页浮标恢复可用
       try {
         chrome.tabs.query({ url: '*://*.xiaohongshu.com/*' }, (tabs) => {

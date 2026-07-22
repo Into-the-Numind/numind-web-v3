@@ -130,11 +130,14 @@ contains "${EXTENSION_SOURCE_DIR}/manifest.json" '"name": "有数选题采集"' 
 contains "${EXTENSION_SOURCE_DIR}/background.js" "${EXPECTED_NOTES_PATH}" "source background targets collector notes endpoint"
 contains "${EXTENSION_SOURCE_DIR}/background.js" "const TOKEN_KEY = 'youshu_ext_token'" "source background uses collector token key"
 contains "${EXTENSION_SOURCE_DIR}/connect-bridge.js" "NUMIND_XHS_EXT_TOKEN" "source bridge accepts collector auth token message"
+contains "${EXTENSION_SOURCE_DIR}/manifest.json" '"http://49.233.219.254/*"' "source manifest allows dev web origin"
+contains "${EXTENSION_SOURCE_DIR}/background.js" "http://49.233.219.254:9200" "source background can target dev API origin"
 contains "${EXTENSION_SOURCE_DIR}/content.js" "YOUSHU_XHS_READ_PAGE_STATE_REQUEST" "source content asks MAIN world bridge for runtime state"
 contains "${EXTENSION_SOURCE_DIR}/lib/parse.js" "extractVideoUrlFromResourceEntries" "source parser can use performance video resources"
 contains "${EXTENSION_SOURCE_DIR}/lib/parse.js" "extractVideoUrlFromDom" "source parser can use DOM video fallback"
 contains "${EXTENSION_SOURCE_DIR}/popup.js" "有数选题库" "source popup points users to the topic library"
 absent_in_files "collector source contains no script-plugin markers" 'xhs-script|口播稿|youshu_xhs_script|script-payload|youshulab\.com/script' "${source_files[@]}"
+absent_in_files "collector source contains no unreplaced placeholders" 'YOUSHU_(WEB|API)_DOMAIN_PLACEHOLDER|PLACEHOLDER_EXTENSION_ID' "${source_files[@]}"
 
 for entry in "${required_entries[@]}"; do
   if unzip -p "${PACKAGE_ZIP}" "${entry}" >/dev/null 2>&1; then
@@ -148,10 +151,14 @@ zip_contains "manifest.json" '"name": "有数选题采集"' "packaged manifest k
 zip_contains "background.js" "${EXPECTED_NOTES_PATH}" "packaged background targets collector notes endpoint"
 zip_contains "background.js" "const TOKEN_KEY = 'youshu_ext_token'" "packaged background uses collector token key"
 zip_contains "connect-bridge.js" "NUMIND_XHS_EXT_TOKEN" "packaged bridge accepts collector auth token message"
+zip_contains "manifest.json" '"http://49.233.219.254/*"' "packaged manifest allows dev web origin"
+zip_contains "background.js" "http://49.233.219.254:9200" "packaged background can target dev API origin"
 zip_contains "page-state-bridge.js" "YOUSHU_XHS_READ_PAGE_STATE_REQUEST" "packaged bridge can read runtime state"
 zip_contains "lib/parse.js" "extractVideoUrlFromResourceEntries" "packaged parser can use performance video resources"
 zip_absent "manifest.json" 'xhs-script|口播稿|youshulab\.com' "packaged manifest contains no script-plugin markers"
 zip_absent "background.js" 'xhs-script|youshu_xhs_script|YOUSHU_SCRIPT|youshulab\.com/script' "packaged background contains no script-plugin markers"
+zip_absent "manifest.json" 'YOUSHU_(WEB|API)_DOMAIN_PLACEHOLDER|PLACEHOLDER_EXTENSION_ID' "packaged manifest contains no unreplaced placeholders"
+zip_absent "background.js" 'YOUSHU_(WEB|API)_DOMAIN_PLACEHOLDER|PLACEHOLDER_EXTENSION_ID' "packaged background contains no unreplaced placeholders"
 
 if [[ "${failures}" -ne 0 ]]; then
   printf '\nXHS collector extension package check failed with %s issue(s).\n' "${failures}" >&2

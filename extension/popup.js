@@ -5,8 +5,7 @@
  * 授权 token 由有数 web 页通过 onMessageExternal 写入，popup 只读状态。
  */
 
-// 上线前替换为真实有数选题库地址。
-const YOUSHU_LIBRARY_URL = 'https://YOUSHU_WEB_DOMAIN_PLACEHOLDER/xhs';
+const DEFAULT_LIBRARY_URL = 'http://49.233.219.254:9200/xhs';
 
 const els = {
   authStatus: document.getElementById('auth-status'),
@@ -19,7 +18,9 @@ const els = {
 function renderStatus(status) {
   const authorized = !!(status && status.authorized);
   const count = (status && Number(status.collectedCount)) || 0;
+  const libraryUrl = status && status.webOrigin ? `${status.webOrigin}/xhs` : DEFAULT_LIBRARY_URL;
   els.collectedCount.textContent = String(count);
+  els.openLibrary.setAttribute('href', libraryUrl);
 
   if (authorized) {
     els.authStatus.textContent = '已授权';
@@ -47,7 +48,7 @@ function loadStatus() {
   }
 }
 
-els.openLibrary.setAttribute('href', YOUSHU_LIBRARY_URL);
+els.openLibrary.setAttribute('href', DEFAULT_LIBRARY_URL);
 
 els.clearToken.addEventListener('click', () => {
   try {
