@@ -50,6 +50,10 @@ echo "  Mode    : $MODE"
 echo "  Build   : $SSH_TARGET:$BUILD_REPO_PATH"
 echo "==============================================="
 
+echo
+echo "--- [0/3] validate XHS collector extension package ---"
+bash scripts/check_xhs_extension_package.sh
+
 do_rsync() {
   echo
   echo "--- [1/3] rsync code to build server ---"
