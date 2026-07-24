@@ -258,7 +258,7 @@ const menuItems = computed(() => {
   }
 
   items.push({ path: '/knowledge', title: '知识库', icon: 'knowledge' })
-  items.push({ path: '/xhs', title: '小红书选题库', icon: 'xhs' })
+  items.push({ path: '/xhs', title: '选题库', icon: 'xhs' })
   // 竞品监控暂时隐藏（开发中，未对用户开放）
   // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
 

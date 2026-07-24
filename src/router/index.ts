@@ -307,7 +307,7 @@ const routes: RouteRecordRaw[] = [
     path: '/xhs',
     name: 'xhs-topic-list',
     component: () => import('@/views/xhs/XhsTopicList.vue'),
-    meta: { title: '小红书选题库', requiresAuth: true }
+    meta: { title: '选题库', requiresAuth: true }
   },
   {
     path: '/xhs/install',
