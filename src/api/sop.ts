@@ -1,6 +1,8 @@
 import request from './request'
 import type { SopReplayFile } from '@/views/sop/types'
 
+const SOP_UPLOAD_TIMEOUT_MS = 120000
+
 /**
  * 回看态上传文件类型。单一真相在 @/views/sop/types 的 SopReplayFile，此处 re-export
  * 以便 api 消费方就近引用，避免两处声明 drift。
@@ -152,7 +154,8 @@ export const uploadImageForOCR = async (
   form.append('run_id', String(runId))
   form.append('node_id', String(nodeId))
   const res = await request.post('/v1/ali/vision/analyze', form, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: SOP_UPLOAD_TIMEOUT_MS
   })
   return (res as unknown as { data: VisionAnalyzeResponse }).data
 }
@@ -176,7 +179,8 @@ export const uploadFileForText = async (
   form.append('run_id', String(runId))
   form.append('node_id', String(nodeId))
   const res = await request.post('/v1/pdf/convert-to-text', form, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: SOP_UPLOAD_TIMEOUT_MS
   })
   // 后端 core.WriteResponse(c, nil, text) 把 text 放在 data 字段
   const data = (res as unknown as { data: string }).data
