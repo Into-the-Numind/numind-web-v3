@@ -16,7 +16,7 @@
       <div class="page-header">
         <div class="header-left">
           <h2 class="page-title">知识库</h2>
-          <p class="page-desc">管理知识库文档，为智能体提供专业知识</p>
+          <p class="page-desc">管理知识库文档，为 AI 智能体提供专业知识</p>
         </div>
         <AppButton variant="hero" @click="showCreateModal = true">+ 新建知识库</AppButton>
       </div>
@@ -40,7 +40,7 @@
           </svg>
         </div>
         <div class="empty-title">暂无知识库</div>
-        <div class="empty-desc">创建知识库并上传文档，为智能体提供专业知识</div>
+        <div class="empty-desc">创建知识库并上传文档，为 AI 智能体提供专业知识</div>
       </div>
 
       <!-- 数据表格 -->
@@ -216,7 +216,7 @@ async function handleCreate() {
 function handleDelete(id: number) {
   confirmAction.value = {
     title: '确认删除',
-    message: '确认删除该知识库？关联的智能体将自动解除绑定。此操作不可恢复。',
+    message: '确认删除该知识库？关联的 AI 智能体将自动解除绑定。此操作不可恢复。',
     variant: 'danger',
     confirmText: '删除',
     successMsg: '已删除',

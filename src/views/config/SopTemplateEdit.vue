@@ -18,7 +18,7 @@
 
       <div class="content-center">
         <div class="page-header">
-          <h2 class="page-title">{{ isCreate ? '新建SOP模板' : '编辑SOP模板' }}</h2>
+          <h2 class="page-title">{{ isCreate ? '新建 AI 工作流' : '编辑 AI 工作流' }}</h2>
         </div>
 
         <!-- 基本信息卡片 -->
@@ -27,8 +27,8 @@
           <div class="meta-fields">
             <AppInput
               v-model="form.name"
-              label="模板名称"
-              placeholder="请输入SOP模板名称"
+              label="工作流名称"
+              placeholder="请输入 AI 工作流名称"
               :error="errors.name"
               @blur="validateName"
             />
@@ -341,7 +341,7 @@ async function loadDetail() {
   try {
     const detail = await store.fetchSopTemplateDetail(editId.value)
     if (!detail) {
-      loadError.value = 'SOP模板不存在'
+      loadError.value = 'AI 工作流不存在'
       return
     }
     form.name = detail.name
@@ -534,7 +534,7 @@ async function handleSave() {
       }
     }
 
-    notifications.success(isCreate.value ? 'SOP模板已创建' : '已保存')
+    notifications.success(isCreate.value ? 'AI 工作流已创建' : '已保存')
     router.push('/config/sop-templates')
   } catch {
     notifications.error('保存失败，请重试')

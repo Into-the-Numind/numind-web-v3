@@ -16,11 +16,11 @@
         <!-- 头部 -->
         <div class="page-header">
           <div class="header-left">
-            <h2 class="page-title">AI 助手</h2>
-            <p class="page-desc">创建和管理 AI 助手，为客户提供智能对话服务</p>
+            <h2 class="page-title">AI 问答助手</h2>
+            <p class="page-desc">创建和管理 AI 问答助手，为客户提供智能对话服务</p>
           </div>
           <AppButton variant="hero" @click="router.push('/config/chatbots/new/edit')">
-            + 新建 AI 助手
+            + 新建 AI 问答助手
           </AppButton>
         </div>
 
@@ -45,17 +45,17 @@
               <path d="M9 13v2" />
             </svg>
           </div>
-          <div class="empty-title">暂无 AI 助手</div>
-          <div class="empty-desc">创建第一个 AI 助手，开始为客户提供智能对话服务</div>
+          <div class="empty-title">暂无 AI 问答助手</div>
+          <div class="empty-desc">创建第一个 AI 问答助手，开始为客户提供智能对话服务</div>
           <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
-            新建 AI 助手
+            新建 AI 问答助手
           </AppButton>
         </div>
 
         <!-- 工具卡片 -->
         <template v-else>
           <div class="list-toolbar">
-            <div class="status-filter" aria-label="AI 助手状态筛选">
+            <div class="status-filter" aria-label="AI 问答助手状态筛选">
               <button
                 v-for="option in statusOptions"
                 :key="option.value"
@@ -91,7 +91,7 @@
               </div>
             </article>
           </div>
-          <div v-else class="card-empty">没有匹配的 AI 助手</div>
+          <div v-else class="card-empty">没有匹配的 AI 问答助手</div>
         </template>
       </div>
     </template>

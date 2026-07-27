@@ -16,11 +16,11 @@
         <!-- 头部 -->
         <div class="page-header">
           <div class="header-left">
-            <h2 class="page-title">SOP</h2>
-            <p class="page-desc">创建和管理标准作业流程模板</p>
+            <h2 class="page-title">AI 工作流</h2>
+            <p class="page-desc">创建和管理 AI 工作流模板</p>
           </div>
           <AppButton variant="hero" @click="router.push('/config/sop-templates/new/edit')">
-            + 新建 SOP 模板
+            + 新建 AI 工作流
           </AppButton>
         </div>
 
@@ -44,17 +44,17 @@
               <path d="M16 13h-2" />
             </svg>
           </div>
-          <div class="empty-title">暂无 SOP 模板</div>
-          <div class="empty-desc">创建第一个 SOP 模板，标准化您的业务流程</div>
+          <div class="empty-title">暂无 AI 工作流</div>
+          <div class="empty-desc">创建第一个 AI 工作流，标准化您的业务流程</div>
           <AppButton size="sm" @click="router.push('/config/sop-templates/new/edit')">
-            新建SOP模板
+            新建 AI 工作流
           </AppButton>
         </div>
 
         <!-- 工具卡片 -->
         <template v-else>
           <div class="list-toolbar">
-            <div class="status-filter" aria-label="SOP 状态筛选">
+            <div class="status-filter" aria-label="AI 工作流状态筛选">
               <button
                 v-for="option in statusOptions"
                 :key="option.value"
@@ -77,7 +77,7 @@
                 </span>
               </div>
               <p class="tool-card__desc">
-                {{ tpl.description || '标准作业流程模板' }}
+                {{ tpl.description || 'AI 工作流模板' }}
               </p>
               <div class="tool-card__meta">
                 <span>创建时间</span>
@@ -93,7 +93,7 @@
               </div>
             </article>
           </div>
-          <div v-else class="card-empty">没有匹配的 SOP 模板</div>
+          <div v-else class="card-empty">没有匹配的 AI 工作流</div>
         </template>
       </div>
     </template>

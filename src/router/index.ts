@@ -128,22 +128,22 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'chatbots',
         component: () => import('@/views/config/ChatbotList.vue'),
-        meta: { title: 'AI 助手', requiresAuth: true, requiresParent: true }
+        meta: { title: 'AI 问答助手', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'chatbots/:id/edit',
         component: () => import('@/views/config/ChatbotEdit.vue'),
-        meta: { title: '编辑智能体', requiresAuth: true, requiresParent: true }
+        meta: { title: '编辑 AI 问答助手', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'sop-templates',
         component: () => import('@/views/config/SopTemplateList.vue'),
-        meta: { title: 'SOP', requiresAuth: true, requiresParent: true }
+        meta: { title: 'AI 工作流', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'sop-templates/:id/edit',
         component: () => import('@/views/config/SopTemplateEdit.vue'),
-        meta: { title: '编辑 SOP 模板', requiresAuth: true, requiresParent: true }
+        meta: { title: '编辑 AI 工作流', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'knowledge-bases',
@@ -160,7 +160,7 @@ const routes: RouteRecordRaw[] = [
         path: 'agents',
         name: 'config-agents',
         component: () => import('@/views/config/agents/AgentList.vue'),
-        meta: { title: '智能体', requiresAuth: true, requiresParent: true }
+        meta: { title: 'AI 智能体', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'agents/new',
@@ -170,7 +170,7 @@ const routes: RouteRecordRaw[] = [
         // 收到 undefined 会落入 edit 分支 PATCH /v1/agent/skills/undefined → 400。
         // 仍接受 ?from=template:N / ?from=copy:N（AgentBuilder 内部解析）。
         props: { mode: 'create' },
-        meta: { title: '创建助手', requiresAuth: true, requiresParent: true }
+        meta: { title: '创建 AI 智能体', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'agents/new/from-template',
@@ -186,21 +186,21 @@ const routes: RouteRecordRaw[] = [
         // falls into the edit branch, and PATCHes /v1/agent/skills/undefined → 400.
         // The /edit route is wrapped by AgentEdit.vue which explicitly passes mode="edit".
         props: { mode: 'create' },
-        meta: { title: '创建助手', requiresAuth: true, requiresParent: true }
+        meta: { title: '创建 AI 智能体', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'agents/:id',
         name: 'config-agents-detail',
         component: () => import('@/views/config/agents/AgentDetail.vue'),
         props: true,
-        meta: { title: '助手详情', requiresAuth: true, requiresParent: true }
+        meta: { title: 'AI 智能体详情', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'agents/:id/edit',
         name: 'config-agents-edit',
         component: () => import('@/views/config/agents/AgentEdit.vue'),
         props: true,
-        meta: { title: '编辑助手', requiresAuth: true, requiresParent: true }
+        meta: { title: '编辑 AI 智能体', requiresAuth: true, requiresParent: true }
       },
       // 我的技能 (agent-mode-v2-skill-as-artifact, 2026-05-24)
       // skill-3tier-visibility T4: 技能 CRUD 路由对子账户开放（仅 requiresAuth，无 requiresParent）——
@@ -409,12 +409,12 @@ router.beforeEach(async (to) => {
     }
     if (!userStore.isParentUser) {
       // T10 reviewer P2: 路径分支文案 — marketplace 路径使用 marketplace 措辞,
-      // 其它父账户专属路径仍用 "AI 助手配置..." 默认。避免子账户看到混淆提示.
+      // 其它父账户专属路径仍用配置中心措辞。避免子账户看到混淆提示.
       const msg = to.path.startsWith('/marketplace')
         ? '技能市场仅父账户可访问'
         : to.path.startsWith('/customers')
           ? '客户管理仅父账户可访问'
-          : 'AI 助手配置仅父账户可访问'
+          : '配置中心仅父账户可访问'
       useNotificationsStore().info(msg)
       return { path: '/' }
     }

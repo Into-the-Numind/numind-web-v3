@@ -55,9 +55,9 @@ async function fetchList() {
   } catch (e: unknown) {
     const status = errorStatus(e)
     if (status === HTTP_CHILD_ACCOUNT_FORBIDDEN) {
-      listError.value = '仅父账户可配置 AI 助手，请联系机构主'
+      listError.value = '仅父账户可配置 AI 智能体，请联系机构主'
     } else if (status === 404) {
-      listError.value = '智能体不存在或已被下架'
+      listError.value = 'AI 智能体不存在或已被下架'
     } else {
       listError.value = errorMessage(e, '加载失败')
     }
@@ -82,15 +82,15 @@ function goEdit(id: number) {
       <!-- Page header -->
       <div class="page-header">
         <div class="header-left">
-          <h2 class="page-title">智能体</h2>
-          <p class="page-desc">创建和管理多步骤智能体，为学员提供自主 SOP 执行服务</p>
+          <h2 class="page-title">AI 智能体</h2>
+          <p class="page-desc">创建和管理多步骤 AI 智能体，为学员提供自主 AI 工作流执行服务</p>
         </div>
         <div class="header-right">
           <AppButton variant="secondary" @click="router.push('/config/agents/new/from-template')">
             从模板库选
           </AppButton>
           <AppButton variant="hero" @click="router.push('/config/agents/new')">
-            + 新建智能体
+            + 新建 AI 智能体
           </AppButton>
         </div>
       </div>
@@ -108,8 +108,8 @@ function goEdit(id: number) {
 
       <!-- Toolbar -->
       <div class="list-toolbar">
-        <AppInput v-model="searchTerm" placeholder="搜索智能体" class="search-input" />
-        <div class="status-filter" aria-label="智能体状态筛选">
+        <AppInput v-model="searchTerm" placeholder="搜索 AI 智能体" class="search-input" />
+        <div class="status-filter" aria-label="AI 智能体状态筛选">
           <button
             v-for="option in statusOptions"
             :key="option.value"
@@ -148,7 +148,7 @@ function goEdit(id: number) {
               {{ agent.is_active ? '已启用' : '已下架' }}
             </span>
           </div>
-          <p class="tool-card__desc">{{ agent.description || '多步骤智能体' }}</p>
+          <p class="tool-card__desc">{{ agent.description || '多步骤 AI 智能体' }}</p>
           <div class="tool-card__meta-grid">
             <div class="tool-card__meta">
               <span>版本</span>
@@ -165,7 +165,7 @@ function goEdit(id: number) {
         </article>
       </div>
 
-      <div v-else-if="!listError" class="card-empty">暂无智能体</div>
+      <div v-else-if="!listError" class="card-empty">暂无 AI 智能体</div>
     </div>
   </div>
 </template>
