@@ -91,17 +91,14 @@ function isActive(path: string) {
 <style scoped>
 .config-layout {
   width: 100%;
-  height: 100%;
-  margin: -36px -40px;
-  width: calc(100% + 80px);
-  height: calc(100% + 72px);
-  padding: 32px 40px 40px;
-  overflow-y: auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
 }
 
 .config-page-header {
-  max-width: 1200px;
-  margin: 0 auto 22px;
+  width: min(100%, 1480px);
 }
 
 .config-title {
@@ -118,30 +115,30 @@ function isActive(path: string) {
   margin: 7px 0 0;
   color: var(--text-secondary);
   font-size: 14px;
+  line-height: var(--line-height-normal);
 }
 
 .config-shell {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: min(100%, 1480px);
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: var(--space-xl);
   align-items: start;
 }
 
 .config-nav {
   position: sticky;
-  top: 0;
-  padding: 10px;
+  top: var(--space-xl);
+  padding: var(--space-md);
   background: var(--surface);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
 
 .config-nav-section + .config-nav-section {
-  padding-top: 10px;
-  margin-top: 10px;
+  padding-top: var(--space-md);
+  margin-top: var(--space-md);
   border-top: 1px solid var(--divider);
 }
 
@@ -150,16 +147,16 @@ function isActive(path: string) {
 }
 
 .config-nav-label {
-  padding: 10px 10px 6px;
+  padding: var(--space-sm) var(--space-md) var(--space-sm);
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
 }
 
 .config-nav-item {
-  min-height: 40px;
-  padding: 0 10px;
-  border-radius: var(--radius-sm);
+  min-height: 42px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   color: var(--text-secondary);
@@ -171,7 +168,7 @@ function isActive(path: string) {
 }
 
 .config-nav-item + .config-nav-item {
-  margin-top: 2px;
+  margin-top: var(--space-xs);
 }
 
 .config-nav-item:hover {
@@ -198,7 +195,7 @@ function isActive(path: string) {
     position: static;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: var(--space-sm);
   }
 
   .config-nav-section + .config-nav-section {
@@ -210,14 +207,44 @@ function isActive(path: string) {
 
 @media (max-width: 720px) {
   .config-layout {
-    margin: -24px -20px;
-    width: calc(100% + 40px);
-    height: calc(100% + 48px);
-    padding: 24px 20px 32px;
+    gap: var(--space-lg);
   }
 
   .config-nav {
-    grid-template-columns: 1fr;
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    padding: var(--space-sm);
+    scrollbar-width: none;
+  }
+
+  .config-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .config-nav-section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex: 0 0 auto;
+  }
+
+  .config-nav-section + .config-nav-section {
+    padding-top: 0;
+    padding-left: var(--space-sm);
+    margin-top: 0;
+    border-top: 0;
+    border-left: 1px solid var(--divider);
+  }
+
+  .config-nav-label {
+    padding: 0 var(--space-xs);
+    white-space: nowrap;
+  }
+
+  .config-nav-item {
+    min-height: 36px;
+    white-space: nowrap;
   }
 }
 </style>

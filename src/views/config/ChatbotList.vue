@@ -12,101 +12,103 @@
     </div>
 
     <template v-else>
-      <!-- 头部 -->
-      <div class="page-header">
-        <div class="header-left">
-          <h2 class="page-title">AI 助手</h2>
-          <p class="page-desc">创建和管理 AI 助手，为客户提供智能对话服务</p>
-        </div>
-        <AppButton variant="hero" @click="router.push('/config/chatbots/new/edit')">
-          + 新建 AI 助手
-        </AppButton>
-      </div>
-
-      <!-- 空状态 -->
-      <div v-if="store.chatbots.length === 0" class="empty-state">
-        <div class="empty-illustration">
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 8V4H8" />
-            <rect width="16" height="12" x="4" y="8" rx="2" />
-            <path d="M2 14h2" />
-            <path d="M20 14h2" />
-            <path d="M15 13v2" />
-            <path d="M9 13v2" />
-          </svg>
-        </div>
-        <div class="empty-title">暂无 AI 助手</div>
-        <div class="empty-desc">创建第一个 AI 助手，开始为客户提供智能对话服务</div>
-        <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
-          新建 AI 助手
-        </AppButton>
-      </div>
-
-      <!-- 数据表格 -->
-      <template v-else>
-        <div class="list-toolbar">
-          <div class="status-filter" aria-label="AI 助手状态筛选">
-            <button
-              v-for="option in statusOptions"
-              :key="option.value"
-              type="button"
-              class="filter-chip"
-              :class="{ active: statusFilter === option.value }"
-              @click="statusFilter = option.value"
-            >
-              {{ option.label }}
-            </button>
+      <div class="config-list-panel">
+        <!-- 头部 -->
+        <div class="page-header">
+          <div class="header-left">
+            <h2 class="page-title">AI 助手</h2>
+            <p class="page-desc">创建和管理 AI 助手，为客户提供智能对话服务</p>
           </div>
+          <AppButton variant="hero" @click="router.push('/config/chatbots/new/edit')">
+            + 新建 AI 助手
+          </AppButton>
         </div>
 
-        <div class="table-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="col-left">名称</th>
-                <th>状态</th>
-                <th>创建时间</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="bot in filteredChatbots" :key="bot.id">
-                <td class="cell-name" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
-                  {{ bot.name }}
-                </td>
-                <td>
-                  <span class="status-badge" :class="'status--' + bot.status">
-                    {{ statusLabel(bot.status) }}
-                  </span>
-                </td>
-                <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
-                <td class="col-action">
-                  <div class="action-group">
-                    <button
-                      class="action-link"
-                      @click="router.push(`/config/chatbots/${bot.id}/edit`)"
-                    >
-                      编辑
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="filteredChatbots.length === 0">
-                <td colspan="4" class="table-empty">没有匹配的 AI 助手</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- 空状态 -->
+        <div v-if="store.chatbots.length === 0" class="empty-state">
+          <div class="empty-illustration">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 8V4H8" />
+              <rect width="16" height="12" x="4" y="8" rx="2" />
+              <path d="M2 14h2" />
+              <path d="M20 14h2" />
+              <path d="M15 13v2" />
+              <path d="M9 13v2" />
+            </svg>
+          </div>
+          <div class="empty-title">暂无 AI 助手</div>
+          <div class="empty-desc">创建第一个 AI 助手，开始为客户提供智能对话服务</div>
+          <AppButton size="sm" @click="router.push('/config/chatbots/new/edit')">
+            新建 AI 助手
+          </AppButton>
         </div>
-      </template>
+
+        <!-- 数据表格 -->
+        <template v-else>
+          <div class="list-toolbar">
+            <div class="status-filter" aria-label="AI 助手状态筛选">
+              <button
+                v-for="option in statusOptions"
+                :key="option.value"
+                type="button"
+                class="filter-chip"
+                :class="{ active: statusFilter === option.value }"
+                @click="statusFilter = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-left">名称</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="bot in filteredChatbots" :key="bot.id">
+                  <td class="cell-name" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
+                    {{ bot.name }}
+                  </td>
+                  <td>
+                    <span class="status-badge" :class="'status--' + bot.status">
+                      {{ statusLabel(bot.status) }}
+                    </span>
+                  </td>
+                  <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
+                  <td class="col-action">
+                    <div class="action-group">
+                      <button
+                        class="action-link"
+                        @click="router.push(`/config/chatbots/${bot.id}/edit`)"
+                      >
+                        编辑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredChatbots.length === 0">
+                  <td colspan="4" class="table-empty">没有匹配的 AI 助手</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
     </template>
   </div>
 </template>
@@ -165,6 +167,17 @@ onMounted(loadData)
   width: 100%;
 }
 
+.config-list-panel {
+  overflow: hidden;
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.98), hsla(150, 12%, 98%, 0.92));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.72);
+}
+
 /* ── Loading & Error ── */
 
 .loading-state {
@@ -207,8 +220,11 @@ onMounted(loadData)
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
+  align-items: center;
+  gap: var(--space-xl);
+  margin: 0;
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  border-bottom: 1px solid var(--divider);
 }
 
 .header-left {
@@ -221,20 +237,24 @@ onMounted(loadData)
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .page-desc {
   font-size: 0.8125rem;
   color: var(--text-muted);
+  line-height: var(--line-height-normal);
 }
 
 /* ── Toolbar ── */
 
 .list-toolbar {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
+  justify-content: flex-start;
+  padding: var(--space-lg) var(--space-xl);
+  margin: 0;
+  border-bottom: 1px solid var(--divider);
+  background: hsla(150, 15%, 98%, 0.45);
 }
 
 .status-filter {
@@ -274,7 +294,7 @@ onMounted(loadData)
 
 .empty-state {
   text-align: center;
-  padding: 80px 0;
+  padding: 72px var(--space-xl);
 }
 
 .empty-illustration {
@@ -305,18 +325,12 @@ onMounted(loadData)
 /* ── Table Card ── */
 
 .table-card {
-  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
-  border: 1px solid hsla(155, 30%, 90%, 0.7);
-  border-radius: 20px;
-  box-shadow:
-    0 2px 12px hsl(150 15% 0% / 0.05),
-    0 0 0 1px hsl(155 20% 92% / 0.3),
-    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .data-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -434,5 +448,22 @@ onMounted(loadData)
 .action-link:hover {
   color: var(--accent-hover);
   background: var(--accent-ultra-soft);
+}
+
+@media (max-width: 720px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .list-toolbar {
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .page-header,
+  .empty-state {
+    padding-right: var(--space-lg);
+    padding-left: var(--space-lg);
+  }
 }
 </style>
