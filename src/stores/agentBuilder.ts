@@ -17,14 +17,12 @@ import {
   deleteAgent,
   listAgentHistory,
   restoreAgent,
-  listSkillTemplates,
   type ListAgentsParams
 } from '@/api/agentBuilder'
 import {
   normalizeQuestionnaire,
   type Agent,
   type AgentHistory,
-  type SkillTemplate,
   type CreateAgentPayload,
   type PatchAgentPayload
 } from '@/types/agentBuilder'
@@ -54,11 +52,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
   const history = ref<AgentHistory[]>([])
   const historyLoading = ref(false)
   const historyError = ref('')
-
-  // --- Templates state ---
-  const templates = ref<SkillTemplate[]>([])
-  const templatesLoading = ref(false)
-  const templatesError = ref('')
 
   // --- Shared saving flag (create/update/restore/softDelete) ---
   const saving = ref(false)
@@ -164,19 +157,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     }
   }
 
-  async function fetchTemplates() {
-    templatesLoading.value = true
-    templatesError.value = ''
-    try {
-      templates.value = await listSkillTemplates()
-    } catch (e) {
-      templatesError.value = (e as Error).message || '加载模板失败'
-      throw e
-    } finally {
-      templatesLoading.value = false
-    }
-  }
-
   // Pinia setup-syntax stores need an explicit reset (no auto $reset).
   function $reset() {
     list.value = []
@@ -189,9 +169,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     history.value = []
     historyLoading.value = false
     historyError.value = ''
-    templates.value = []
-    templatesLoading.value = false
-    templatesError.value = ''
     saving.value = false
   }
 
@@ -207,9 +184,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     history,
     historyLoading,
     historyError,
-    templates,
-    templatesLoading,
-    templatesError,
     saving,
     // getters
     isEmpty,
@@ -221,7 +195,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     softDelete,
     fetchHistory,
     restore,
-    fetchTemplates,
     $reset
   }
 })

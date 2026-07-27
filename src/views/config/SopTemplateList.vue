@@ -24,6 +24,22 @@
           </AppButton>
         </div>
 
+        <div class="list-toolbar">
+          <AppInput v-model="searchTerm" placeholder="搜索 AI 工作流" class="search-input" />
+          <div class="status-filter" aria-label="AI 工作流状态筛选">
+            <button
+              v-for="option in statusOptions"
+              :key="option.value"
+              type="button"
+              class="filter-chip"
+              :class="{ active: statusFilter === option.value }"
+              @click="statusFilter = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+
         <!-- 空状态 -->
         <div v-if="store.sopTemplates.length === 0" class="empty-state">
           <div class="empty-illustration">
@@ -53,21 +69,6 @@
 
         <!-- 工具卡片 -->
         <template v-else>
-          <div class="list-toolbar">
-            <div class="status-filter" aria-label="AI 工作流状态筛选">
-              <button
-                v-for="option in statusOptions"
-                :key="option.value"
-                type="button"
-                class="filter-chip"
-                :class="{ active: statusFilter === option.value }"
-                @click="statusFilter = option.value"
-              >
-                {{ option.label }}
-              </button>
-            </div>
-          </div>
-
           <div v-if="filteredTemplates.length > 0" class="tool-card-grid">
             <article
               v-for="tpl in filteredTemplates"
@@ -125,6 +126,7 @@ import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
+import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { Trash2 } from 'lucide-vue-next'
 import type { ConfigSopTemplate } from '@/types/config'
@@ -133,6 +135,7 @@ const router = useRouter()
 const store = useConfigStore()
 const notifications = useNotificationsStore()
 const error = ref('')
+const searchTerm = ref('')
 type SopPublishStatus = 'draft' | 'published'
 const statusFilter = ref<SopPublishStatus | 'all'>('all')
 const confirmVisible = ref(false)
@@ -145,8 +148,13 @@ const statusOptions: Array<{ value: SopPublishStatus | 'all'; label: string }> =
 ]
 
 const filteredTemplates = computed(() => {
-  if (statusFilter.value === 'all') return store.sopTemplates
-  return store.sopTemplates.filter((tpl) => tpl.publish_status === statusFilter.value)
+  const term = searchTerm.value.trim().toLowerCase()
+  return store.sopTemplates.filter((tpl) => {
+    const statusMatched = statusFilter.value === 'all' || tpl.publish_status === statusFilter.value
+    if (!statusMatched) return false
+    if (!term) return true
+    return [tpl.name, tpl.description].some((value) => (value || '').toLowerCase().includes(term))
+  })
 })
 
 const deleteMessage = computed(() => {
@@ -281,9 +289,17 @@ onMounted(loadData)
 
 .list-toolbar {
   display: flex;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 0 0 var(--space-lg);
   margin: 0;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 320px;
 }
 
 .status-filter {
@@ -480,7 +496,7 @@ onMounted(loadData)
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  color: var(--text);
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
@@ -502,7 +518,13 @@ onMounted(loadData)
   }
 
   .list-toolbar {
+    align-items: stretch;
+    flex-direction: column;
     padding: 0 0 var(--space-lg);
+  }
+
+  .search-input {
+    max-width: none;
   }
 
   .tool-card-grid {

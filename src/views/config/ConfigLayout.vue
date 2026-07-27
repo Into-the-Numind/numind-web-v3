@@ -121,7 +121,7 @@ function isActive(path: string) {
 .config-shell {
   width: min(100%, 1480px);
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
+  grid-template-columns: 144px minmax(0, 1fr);
   gap: var(--space-xl);
   align-items: start;
 }
