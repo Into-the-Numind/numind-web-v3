@@ -19,8 +19,7 @@ vi.mock('@/api/agentBuilder', () => ({
   createAgent: vi.fn(),
   patchAgent: vi.fn(),
   listAgentHistory: vi.fn(),
-  restoreAgent: vi.fn(),
-  listSkillTemplates: vi.fn()
+  restoreAgent: vi.fn()
 }))
 
 // ---- Toast mock ----

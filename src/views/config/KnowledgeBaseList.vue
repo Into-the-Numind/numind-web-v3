@@ -2,7 +2,13 @@
   <div class="kb-list">
     <!-- 加载状态 -->
     <div v-if="store.loading" class="loading-state">
-      <div v-for="i in 4" :key="i" class="skeleton-row"></div>
+      <div class="tool-card-grid">
+        <div v-for="i in 4" :key="i" class="tool-card tool-card--loading">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--short"></div>
+        </div>
+      </div>
     </div>
 
     <!-- 错误状态 -->
@@ -19,6 +25,10 @@
           <p class="page-desc">管理知识库文档，为 AI 智能体提供专业知识</p>
         </div>
         <AppButton variant="hero" @click="showCreateModal = true">+ 新建知识库</AppButton>
+      </div>
+
+      <div class="list-toolbar">
+        <AppInput v-model="searchTerm" placeholder="搜索知识库" class="search-input" />
       </div>
 
       <!-- 空状态 -->
@@ -43,41 +53,41 @@
         <div class="empty-desc">创建知识库并上传文档，为 AI 智能体提供专业知识</div>
       </div>
 
-      <!-- 数据表格 -->
-      <div v-else class="table-card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th class="col-left">名称</th>
-              <th>文档数</th>
-              <th>创建时间</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="kb in store.knowledgeBases" :key="kb.id">
-              <td class="cell-name" @click="router.push(`/config/knowledge-bases/${kb.id}`)">
-                {{ kb.name }}
-              </td>
-              <td class="cell-secondary">{{ kb.doc_count ?? '-' }}</td>
-              <td class="cell-secondary">{{ formatDate(kb.created_at) }}</td>
-              <td class="col-action">
-                <div class="action-group">
-                  <button
-                    class="action-link"
-                    @click="router.push(`/config/knowledge-bases/${kb.id}`)"
-                  >
-                    查看详情
-                  </button>
-                  <button class="action-link action--danger" @click="handleDelete(kb.id)">
-                    删除
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- 知识库卡片 -->
+      <template v-else>
+        <div v-if="filteredKnowledgeBases.length > 0" class="tool-card-grid">
+          <article
+            v-for="kb in filteredKnowledgeBases"
+            :key="kb.id"
+            class="tool-card"
+            role="button"
+            tabindex="0"
+            @click="goDetail(kb.id)"
+            @keydown.enter.prevent="goDetail(kb.id)"
+            @keydown.space.prevent="goDetail(kb.id)"
+          >
+            <div class="tool-card__top">
+              <h3 class="tool-card__title">{{ kb.name }}</h3>
+              <span class="status-badge">{{ kb.doc_count ?? 0 }} 文档</span>
+            </div>
+            <p class="tool-card__desc">{{ kb.description || '知识库文档资产' }}</p>
+            <div class="tool-card__footer">
+              <span class="tool-card__date">{{ formatDate(kb.created_at) }}</span>
+              <button
+                class="delete-action"
+                type="button"
+                :aria-label="`删除 ${kb.name}`"
+                title="删除"
+                @click.stop="handleDelete(kb)"
+                @keydown.stop
+              >
+                <Trash2 :size="15" stroke-width="2" />
+              </button>
+            </div>
+          </article>
+        </div>
+        <div v-else class="card-empty">没有匹配的知识库</div>
+      </template>
     </template>
 
     <ConfirmModal
@@ -134,18 +144,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
 import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import { Trash2 } from 'lucide-vue-next'
+import type { KnowledgeBase } from '@/types/config'
 
 const router = useRouter()
 const store = useConfigStore()
 const notifications = useNotificationsStore()
 const error = ref('')
+const searchTerm = ref('')
 const showCreateModal = ref(false)
 const creating = ref(false)
 
@@ -168,10 +181,22 @@ const createErrors = reactive({
   name: ''
 })
 
+const filteredKnowledgeBases = computed(() => {
+  const term = searchTerm.value.trim().toLowerCase()
+  if (!term) return store.knowledgeBases
+  return store.knowledgeBases.filter((kb) =>
+    [kb.name, kb.description].some((value) => (value || '').toLowerCase().includes(term))
+  )
+})
+
 function formatDate(iso: string): string {
   if (!iso) return '-'
   const d = new Date(iso)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function goDetail(id: number) {
+  router.push(`/config/knowledge-bases/${id}`)
 }
 
 function validateCreateName() {
@@ -213,14 +238,14 @@ async function handleCreate() {
   }
 }
 
-function handleDelete(id: number) {
+function handleDelete(kb: KnowledgeBase) {
   confirmAction.value = {
     title: '确认删除',
-    message: '确认删除该知识库？关联的 AI 智能体将自动解除绑定。此操作不可恢复。',
+    message: `确认删除「${kb.name}」？关联的 AI 智能体将自动解除绑定。此操作不可恢复。`,
     variant: 'danger',
     confirmText: '删除',
     successMsg: '已删除',
-    action: () => store.removeKnowledgeBase(id)
+    action: () => store.removeKnowledgeBase(kb.id)
   }
   confirmVisible.value = true
 }
@@ -247,17 +272,7 @@ onMounted(loadData)
 /* ── Loading & Error ── */
 
 .loading-state {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   padding: 24px 0;
-}
-
-.skeleton-row {
-  height: 48px;
-  background: var(--surface-tint);
-  border-radius: var(--radius-md);
-  animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -286,8 +301,10 @@ onMounted(loadData)
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
+  align-items: center;
+  gap: var(--space-xl);
+  margin: 0;
+  padding: 0 0 var(--space-lg);
 }
 
 .header-left {
@@ -300,12 +317,30 @@ onMounted(loadData)
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .page-desc {
   font-size: 0.8125rem;
   color: var(--text-muted);
+  line-height: var(--line-height-normal);
+}
+
+/* ── Toolbar ── */
+
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0 0 var(--space-lg);
+  margin: 0;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 320px;
 }
 
 /* ── Empty State ── */
@@ -340,114 +375,153 @@ onMounted(loadData)
   margin-bottom: 24px;
 }
 
-/* ── Table Card ── */
+/* ── Cards ── */
 
-.table-card {
-  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
-  border: 1px solid hsla(155, 30%, 90%, 0.7);
-  border-radius: 20px;
-  box-shadow:
-    0 2px 12px hsl(150 15% 0% / 0.05),
-    0 0 0 1px hsl(155 20% 92% / 0.3),
-    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
-  overflow: hidden;
+.tool-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 288px);
+  gap: var(--space-md);
+  justify-content: start;
+  padding: 0;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.data-table th {
-  text-align: center;
-  padding: 14px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: hsl(155, 15%, 50%);
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid hsl(155, 20%, 93%);
-  white-space: nowrap;
-  background: hsla(150, 15%, 98%, 0.5);
-}
-
-.data-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid hsl(155, 20%, 95%);
-  color: hsl(155, 15%, 25%);
-  vertical-align: middle;
-  text-align: center;
-}
-
-.data-table tbody tr {
-  transition: background 0.15s;
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.data-table tbody tr:hover td {
-  background: hsl(155, 20%, 98%);
-}
-
-.data-table td.cell-name {
-  font-weight: 600;
-  color: hsl(155, 25%, 18%);
-  text-align: left;
-  cursor: pointer;
-}
-
-.cell-name:hover {
-  color: var(--accent);
-}
-
-.data-table th.col-left {
-  text-align: left;
-}
-
-.cell-secondary {
-  font-size: 13px;
-  font-weight: 500;
-  color: hsl(155, 15%, 35%);
-}
-
-.data-table th.col-action,
-.data-table td.col-action {
-  text-align: right;
-}
-
-/* ── Action Links ── */
-
-.action-group {
+.tool-card {
+  width: 288px;
+  min-height: 146px;
+  appearance: none;
   display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.action-link {
-  background: none;
-  border: none;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid hsl(158, 50%, 78%);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
-  font-size: 0.8125rem;
-  color: var(--accent-link);
-  padding: 4px 8px;
+  text-align: left;
+  transition:
+    background var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
+}
+
+.tool-card:hover {
+  border-color: hsl(158, 50%, 78%);
+  background: var(--surface);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.08),
+    0 0 0 1px hsl(158 40% 80% / 0.5);
+  transform: translateY(-3px);
+}
+
+.tool-card:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.tool-card--loading {
+  justify-content: center;
+}
+
+.tool-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.tool-card__title {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  color: hsl(155, 25%, 18%);
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+}
+
+.tool-card__desc {
+  min-height: 34px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+}
+
+.tool-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: auto;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--divider);
+}
+
+.tool-card__date {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.status-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.delete-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--text);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.action-link:hover {
-  color: var(--accent-hover);
-  background: var(--accent-ultra-soft);
-}
-
-.action--danger {
-  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
-}
-
-.action--danger:hover {
+.delete-action:hover {
   color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
-  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger-soft token */
+}
+
+.card-empty {
+  padding: var(--space-3xl) var(--space-xl);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-tint);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line--title {
+  width: 50%;
+  height: 16px;
+}
+
+.skeleton-line--short {
+  width: 70%;
 }
 
 /* ── Modal ── */
@@ -549,6 +623,26 @@ onMounted(loadData)
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-focus);
+}
+
+@media (max-width: 720px) {
+  .page-header,
+  .list-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-input {
+    max-width: none;
+  }
+
+  .tool-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-card {
+    width: 100%;
+  }
 }
 
 /* ── Transitions ── */

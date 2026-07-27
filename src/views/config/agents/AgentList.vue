@@ -113,9 +113,6 @@ async function confirmDelete() {
           <p class="page-desc">创建和管理多步骤 AI 智能体，为学员提供自主 AI 工作流执行服务</p>
         </div>
         <div class="header-right">
-          <AppButton variant="secondary" @click="router.push('/config/agents/new/from-template')">
-            从模板库选
-          </AppButton>
           <AppButton variant="hero" @click="router.push('/config/agents/new')">
             + 新建 AI 智能体
           </AppButton>
@@ -494,7 +491,7 @@ async function confirmDelete() {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  color: var(--text);
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);

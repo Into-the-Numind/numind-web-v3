@@ -121,23 +121,6 @@ export interface AgentHistory {
 }
 
 // ============================================================
-// SkillTemplate — 内置模板（GET /v1/agent/skill-templates）
-// ============================================================
-
-export interface SkillTemplate {
-  id: number
-  name: string
-  description: string
-  icon_url: string
-  welcome_message: string
-  starters: string[]
-  questionnaire_answers: QuestionnaireAnswers
-  tool_flags: ToolFlags
-  daily_credit_cap: number | null
-  created_at: string
-}
-
-// ============================================================
 // API Request payloads
 // ============================================================
 

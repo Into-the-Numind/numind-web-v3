@@ -20,8 +20,7 @@ vi.mock('@/api/agentBuilder', () => ({
   patchAgent: vi.fn(),
   deleteAgent: vi.fn(),
   listAgentHistory: vi.fn(),
-  restoreAgent: vi.fn(),
-  listSkillTemplates: vi.fn()
+  restoreAgent: vi.fn()
 }))
 
 // ── Toast mock ──────────────────────────────────────────────────────────────
@@ -40,7 +39,7 @@ vi.mock('vue-router', async (importOriginal) => {
 // ── Import AFTER vi.mock ────────────────────────────────────────────────────
 import AgentBuilder from '@/views/config/agents/AgentBuilder.vue'
 import * as agentApi from '@/api/agentBuilder'
-import type { Agent, SkillTemplate } from '@/types/agentBuilder'
+import type { Agent } from '@/types/agentBuilder'
 
 // ── Router ──────────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -76,22 +75,6 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     created_by: 1,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
-    ...overrides
-  }
-}
-
-function makeTemplate(overrides: Partial<SkillTemplate> = {}): SkillTemplate {
-  return {
-    id: 99,
-    name: '模板助手',
-    description: '这是模板助手的描述信息，超过十字',
-    icon_url: 'lucide:Sparkles',
-    welcome_message: '你好，我是模板助手，超过二十字符的欢迎语占位文本',
-    starters: ['示例问题一', '示例问题二'],
-    questionnaire_answers: {},
-    tool_flags: {},
-    daily_credit_cap: null,
-    created_at: '2026-01-01T00:00:00Z',
     ...overrides
   }
 }
@@ -221,56 +204,6 @@ describe('AgentBuilder — create mode (scratch)', () => {
     const callArg = vi.mocked(agentApi.createAgent).mock.calls[0]?.[0]
     expect(callArg?.system_prompt).toBe('你是一个客服助手，态度友好。')
     expect(callArg).not.toHaveProperty('questionnaire_answers')
-  })
-})
-
-describe('AgentBuilder — create mode (from template)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('calls fetchTemplates and prefills form from template', async () => {
-    const template = makeTemplate({ id: 1, name: '模板助手' })
-    vi.mocked(agentApi.listSkillTemplates).mockResolvedValue([template])
-
-    const wrapper = await mountBuilder({
-      query: { from: 'template:1' }
-    })
-
-    expect(agentApi.listSkillTemplates).toHaveBeenCalled()
-    const form = wrapper.findComponent({ name: 'AgentForm' })
-    expect((form.props('modelValue') as { name: string }).name).toBe('模板助手')
-  })
-
-  it('passes source_template_id to createAgent when saving from template', async () => {
-    const template = makeTemplate({ id: 7 })
-    const saved = makeAgent({ id: 50, source_template_id: 7 })
-    vi.mocked(agentApi.listSkillTemplates).mockResolvedValue([template])
-    vi.mocked(agentApi.createAgent).mockResolvedValue(saved)
-
-    const wrapper = await mountBuilder({ query: { from: 'template:7' } })
-
-    const form = wrapper.findComponent({ name: 'AgentForm' })
-    await form.vm.$emit(
-      'update:modelValue',
-      validFormState({
-        name: template.name,
-        icon_url: template.icon_url,
-        description: template.description,
-        welcome_message: template.welcome_message,
-        starters: template.starters
-      })
-    )
-    await flushPromises()
-
-    const saveBtn = wrapper
-      .findAllComponents({ name: 'AppButton' })
-      .find((b) => b.text().includes('保存'))
-    await saveBtn!.trigger('click')
-    await flushPromises()
-
-    const callArg = vi.mocked(agentApi.createAgent).mock.calls[0]?.[0]
-    expect(callArg?.source_template_id).toBe(7)
   })
 })
 

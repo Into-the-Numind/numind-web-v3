@@ -14,7 +14,6 @@ import request from './request'
 import type {
   Agent,
   AgentHistory,
-  SkillTemplate,
   CreateAgentPayload,
   PatchAgentPayload,
   ListResponse
@@ -65,10 +64,4 @@ export const listAgentHistory = async (id: number): Promise<ListResponse<AgentHi
 export const restoreAgent = async (id: number, version: number): Promise<Agent> => {
   const res = await request.post(`/v1/agent/skills/${id}/restore/${version}`)
   return (res as unknown as { data: Agent }).data
-}
-
-// 8. GET /v1/agent/skill-templates — Built-in templates (no pagination)
-export const listSkillTemplates = async (): Promise<SkillTemplate[]> => {
-  const res = await request.get('/v1/agent/skill-templates')
-  return (res as unknown as { data: SkillTemplate[] }).data
 }

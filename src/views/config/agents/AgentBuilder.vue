@@ -27,7 +27,6 @@ function goBack() {
 interface Props {
   mode: 'create' | 'edit'
   agentId?: number
-  fromTemplateId?: number
   fromCopyId?: number
 }
 
@@ -76,17 +75,6 @@ const isDirty = computed(() => JSON.stringify(form) !== initialFormSnapshot.valu
 
 // ── Resolve `from` query param for create mode ─────────────────────────────
 
-function resolvedFromTemplateId(): number | null {
-  // Props take precedence; fall back to route.query.from = "template:N"
-  if (props.fromTemplateId != null) return props.fromTemplateId
-  const from = route.query.from as string | undefined
-  if (from && from.startsWith('template:')) {
-    const n = parseInt(from.slice('template:'.length), 10)
-    return Number.isFinite(n) ? n : null
-  }
-  return null
-}
-
 function resolvedFromCopyId(): number | null {
   if (props.fromCopyId != null) return props.fromCopyId
   const from = route.query.from as string | undefined
@@ -127,28 +115,9 @@ async function initForm() {
       }
     } else {
       // Create mode
-      const templateId = resolvedFromTemplateId()
       const copyId = resolvedFromCopyId()
 
-      if (templateId != null) {
-        // From template: prefill all fields from template
-        if (store.templates.length === 0) {
-          await store.fetchTemplates()
-        }
-        const template = store.templates.find((t) => t.id === templateId)
-        if (template) {
-          Object.assign(form, {
-            name: template.name,
-            icon_url: template.icon_url || 'lucide:Bot',
-            description: template.description,
-            welcome_message: template.welcome_message,
-            system_prompt: '',
-            starters: [...(template.starters ?? [])],
-            tool_flags: { ...(template.tool_flags ?? {}) },
-            daily_credit_cap: template.daily_credit_cap
-          })
-        }
-      } else if (copyId != null) {
+      if (copyId != null) {
         // From copy: fetch source agent, clone with "- 副本" suffix
         await store.fetchOne(copyId)
         const source = store.current
@@ -222,10 +191,9 @@ async function handleSave() {
 
   try {
     if (props.mode === 'create') {
-      const templateId = resolvedFromTemplateId()
       const payload: CreateAgentPayload = {
         ...formToPayload(),
-        source_template_id: templateId ?? null
+        source_template_id: null
       }
       const saved = await store.create(payload)
       // Reset dirty snapshot BEFORE navigating so the leave-guard doesn't fire.
