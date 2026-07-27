@@ -117,12 +117,12 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true
     },
     children: [
-      // 父账户落 chatbots（默认配置首页）；子账户只能访问 skills，落 skills。
+      // 父账户默认落首页工具第一项（AI 工作流）；子账户只能访问 skills，落 skills。
       {
         path: '',
         redirect: () => {
           const us = useUserStore()
-          return us.isParentUser ? '/config/chatbots' : '/config/skills'
+          return us.isParentUser ? '/config/sop-templates' : '/config/skills'
         }
       },
       {

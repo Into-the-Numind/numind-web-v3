@@ -5,17 +5,23 @@ import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import type { Agent } from '@/types/agentBuilder'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { formatDate } from '@/utils/datetime'
 import { HTTP_CHILD_ACCOUNT_FORBIDDEN, errorMessage, errorStatus } from '@/constants/agentErrno'
+import { useNotificationsStore } from '@/stores/notifications'
+import { Trash2 } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
 const store = useAgentBuilderStore()
+const notifications = useNotificationsStore()
 
 const searchTerm = ref('')
 const listError = ref('')
 type AgentStatusFilter = 'all' | 'active' | 'inactive'
 const statusFilter = ref<AgentStatusFilter>('all')
+const confirmVisible = ref(false)
+const pendingDelete = ref<Agent | null>(null)
 
 const statusOptions: Array<{ value: AgentStatusFilter; label: string }> = [
   { value: 'all', label: '全部' },
@@ -33,6 +39,10 @@ const attachSkillId = computed(() => {
 const attachSkillName = computed(() => {
   const v = route.query.skill_name
   return (Array.isArray(v) ? v[0] : v) || ''
+})
+const deleteMessage = computed(() => {
+  const name = pendingDelete.value?.name ?? '该 AI 智能体'
+  return `确认删除「${name}」？删除后将无法恢复。`
 })
 
 const filtered = computed<Agent[]>(() => {
@@ -74,6 +84,23 @@ function goEdit(id: number) {
   }
   router.push(`/config/agents/${id}/edit`)
 }
+
+function requestDelete(agent: Agent) {
+  pendingDelete.value = agent
+  confirmVisible.value = true
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) return
+  const target = pendingDelete.value
+  try {
+    await store.softDelete(target.id)
+    notifications.success('AI 智能体已删除')
+  } catch {
+    notifications.error('删除失败，请重试')
+  }
+  pendingDelete.value = null
+}
 </script>
 
 <template>
@@ -98,8 +125,8 @@ function goEdit(id: number) {
       <!-- Marketplace 装载流程引导条 -->
       <div v-if="attachSkillId" class="attach-banner">
         <span class="attach-banner__text">
-          正在为技能<strong>「{{ attachSkillName || '订阅技能' }}」</strong>选择 Agent：点击下方任一
-          Agent 的「编辑」，进入后会自动装载。
+          正在为技能<strong>「{{ attachSkillName || '订阅技能' }}」</strong>选择
+          Agent：点击下方任一卡片，进入后会自动装载。
         </span>
         <AppButton variant="secondary" size="sm" @click="router.push('/config/agents')"
           >取消</AppButton
@@ -138,7 +165,16 @@ function goEdit(id: number) {
       </div>
 
       <div v-else-if="filtered.length > 0" class="tool-card-grid">
-        <article v-for="agent in filtered" :key="agent.id" class="tool-card">
+        <article
+          v-for="agent in filtered"
+          :key="agent.id"
+          class="tool-card"
+          role="button"
+          tabindex="0"
+          @click="goEdit(agent.id)"
+          @keydown.enter.prevent="goEdit(agent.id)"
+          @keydown.space.prevent="goEdit(agent.id)"
+        >
           <div class="tool-card__top">
             <h3 class="tool-card__title">{{ agent.name }}</h3>
             <span
@@ -151,13 +187,31 @@ function goEdit(id: number) {
           <p class="tool-card__desc">{{ agent.description || '多步骤 AI 智能体' }}</p>
           <div class="tool-card__footer">
             <span class="tool-card__date">{{ formatDate(agent.updated_at) }}</span>
-            <button class="action-link" @click="goEdit(agent.id)">编辑</button>
+            <button
+              class="delete-action"
+              type="button"
+              :aria-label="`删除 ${agent.name}`"
+              title="删除"
+              @click.stop="requestDelete(agent)"
+              @keydown.stop
+            >
+              <Trash2 :size="15" stroke-width="2" />
+            </button>
           </div>
         </article>
       </div>
 
       <div v-else-if="!listError" class="card-empty">暂无 AI 智能体</div>
     </div>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      title="确认删除"
+      :message="deleteMessage"
+      variant="danger"
+      confirm-text="删除"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -314,31 +368,45 @@ function goEdit(id: number) {
 /* Tool cards */
 .tool-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, 288px);
   gap: var(--space-md);
+  justify-content: start;
   padding: 0;
 }
 
 .tool-card {
+  width: 288px;
   min-height: 146px;
+  appearance: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-lg);
   background: var(--surface);
-  border: 1px solid hsl(155 24% 91% / 0.9);
+  border: 1px solid hsl(158, 50%, 78%);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
+  cursor: pointer;
+  text-align: left;
   transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    background var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
 }
 
 .tool-card:hover {
-  border-color: hsl(160 45% 82% / 0.9);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: hsl(158, 50%, 78%);
+  background: var(--surface);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.08),
+    0 0 0 1px hsl(158 40% 80% / 0.5);
+  transform: translateY(-3px);
+}
+
+.tool-card:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .tool-card--loading {
@@ -419,20 +487,26 @@ function goEdit(id: number) {
   }
 }
 
-.action-link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  color: var(--accent-link);
-  padding: 4px 8px;
+.delete-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.action-link:hover {
-  color: var(--accent-hover);
-  background: var(--accent-ultra-soft);
+.delete-action:hover {
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger-soft token */
 }
 
 @media (max-width: 720px) {
@@ -463,6 +537,10 @@ function goEdit(id: number) {
 
   .tool-card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tool-card {
+    width: 100%;
   }
 }
 </style>

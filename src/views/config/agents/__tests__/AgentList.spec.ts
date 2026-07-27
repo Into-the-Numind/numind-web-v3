@@ -250,22 +250,58 @@ describe('AgentList.vue', () => {
   })
 
   // ----------------------------------------------------------------
-  // 10. Card action only keeps edit
+  // 10. Card click opens edit page
   // ----------------------------------------------------------------
-  it('only shows edit in the action column', async () => {
+  it('opens edit page when the card is clicked', async () => {
     ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockResolvedValue({
       list: [makeAgent({ id: 5, name: '可编辑助手' })],
       total: 1
     })
 
+    const pushSpy = vi.spyOn(router, 'push').mockResolvedValue(undefined)
     const wrapper = await mountView()
-    const actionTexts = wrapper.findAll('.action-link').map((button) => button.text())
+    await wrapper.find('.tool-card').trigger('click')
 
-    expect(actionTexts).toEqual(['编辑'])
+    expect(pushSpy).toHaveBeenCalledWith('/config/agents/5/edit')
+    pushSpy.mockRestore()
   })
 
   // ----------------------------------------------------------------
-  // 11. Retry button re-invokes listAgents
+  // 11. Card action is delete icon with ConfirmModal
+  // ----------------------------------------------------------------
+  it('opens delete confirmation and deletes after confirm', async () => {
+    ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockResolvedValue({
+      list: [makeAgent({ id: 5, name: '可删除助手' })],
+      total: 1
+    })
+
+    const pushSpy = vi.spyOn(router, 'push').mockResolvedValue(undefined)
+    const wrapper = await mountView()
+    const deleteButton = wrapper.find('.delete-action')
+
+    expect(deleteButton.exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('编辑')
+
+    await deleteButton.trigger('click')
+    await flushPromises()
+
+    expect(pushSpy).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('确认删除')
+    expect(document.body.textContent).toContain('可删除助手')
+    expect(agentApi.deleteAgent).not.toHaveBeenCalled()
+
+    const confirmButton = document.body.querySelector('.confirm-btn--danger')
+    expect(confirmButton).toBeTruthy()
+    confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+
+    expect(agentApi.deleteAgent).toHaveBeenCalledWith(5)
+    expect(toastSpy.success).toHaveBeenCalledWith('AI 智能体已删除')
+    pushSpy.mockRestore()
+  })
+
+  // ----------------------------------------------------------------
+  // 12. Retry button re-invokes listAgents
   // ----------------------------------------------------------------
   it('retry button calls listAgents again after an error', async () => {
     const err = Object.assign(new Error('timeout'), {
