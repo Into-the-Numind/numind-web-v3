@@ -250,7 +250,7 @@ export interface QuestionPromptMessage extends BaseMessage {
   /**
    * feishu-integration (T13): classifies WHY the run paused so the card can pick
    * the right UI. 'question' (default/absent) → the interactive Q&A card; 'auth'
-   * → a third-party authorization card (URL + QR). Mirrors the backend
+   * → a third-party authorization card. Mirrors the backend
    * YieldPayload.PauseType (yield_error.go) carried onto both the live SSE
    * question_prompt event and the reloaded snapshot card (synthesizeQuestionPrompt).
    * Absent on ordinary question prompts (omitempty), so legacy cards are unchanged.
@@ -258,8 +258,8 @@ export interface QuestionPromptMessage extends BaseMessage {
   pause_type?: 'question' | 'auth'
   /**
    * feishu-integration (T13): the third-party authorization URL, present only
-   * when pause_type === 'auth'. The auth card renders it as a copyable link + QR
-   * code; the user authorizes in their browser and the run resumes server-side
+   * when pause_type === 'auth'. The Feishu action card presents the server-owned
+   * authorization action; the user authorizes in their browser and the run resumes server-side
    * (the OAuth callback calls biz.Answer), detected here via status polling.
    */
   auth_url?: string
