@@ -9,7 +9,7 @@
     :disabled="disabled || loading"
     @click="handleClick"
   >
-    <span v-if="loading" class="app-button__spinner">⏳</span>
+    <span v-if="loading" class="app-button__spinner" aria-hidden="true" />
     <slot />
   </button>
 </template>
@@ -43,7 +43,7 @@ function handleClick(event: MouseEvent) {
   justify-content: center;
   gap: var(--space-2);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--agent-radius-control, var(--radius-md));
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -128,6 +128,11 @@ function handleClick(event: MouseEvent) {
 }
 
 .app-button__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 

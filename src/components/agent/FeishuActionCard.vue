@@ -343,7 +343,7 @@ function handleRefresh(): void {
   padding-left: calc(var(--space-xl) + var(--space-xs));
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--agent-radius-card, 10px);
   box-shadow: var(--shadow-card);
   color: var(--text);
 }
@@ -370,7 +370,7 @@ function handleRefresh(): void {
   height: 36px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--agent-radius-control, 8px);
   background: var(--accent-ultra-soft);
   color: var(--primary);
 }
@@ -385,7 +385,6 @@ function handleRefresh(): void {
 .feishu-action-card__title {
   margin: 0;
   color: var(--text);
-  font-family: var(--font-heading);
   font-size: var(--text-lg);
   line-height: var(--line-height-tight);
 }
@@ -402,7 +401,7 @@ function handleRefresh(): void {
 .feishu-action-card__error {
   margin-top: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
+  border-radius: var(--agent-radius-inner, 8px);
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
 }
@@ -428,7 +427,7 @@ function handleRefresh(): void {
   margin-top: var(--space-lg);
   padding: var(--space-md);
   border: 1px solid hsl(160 60% 88%);
-  border-radius: var(--radius-sm);
+  border-radius: var(--agent-radius-inner, 8px);
   background: linear-gradient(180deg, hsl(160 60% 96%), hsl(160 55% 98%));
 }
 
@@ -468,7 +467,7 @@ function handleRefresh(): void {
   gap: var(--space-xs);
   box-sizing: border-box;
   padding: 0 var(--space-md);
-  border-radius: var(--radius-md);
+  border-radius: var(--agent-radius-control, 8px);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);

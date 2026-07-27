@@ -67,8 +67,7 @@ vi.mock('@/api/agent', () => ({
     agent_run_ids: [],
     last_active_at: '',
     status: 'completed' as const
-  })),
-  getSupportContact: vi.fn(async () => ({ wechat: 'x' }))
+  }))
 }))
 
 // ─── useAgentStream mock ───────────────────────────────────────────────────
