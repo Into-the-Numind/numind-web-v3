@@ -88,85 +88,87 @@ function goEdit(id: number) {
 
 <template>
   <div class="agent-list">
-    <!-- Page header -->
-    <div class="page-header">
-      <div class="header-left">
-        <h2 class="page-title">智能体</h2>
-        <p class="page-desc">创建和管理多步骤智能体，为学员提供自主 SOP 执行服务</p>
+    <div class="config-list-panel">
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="header-left">
+          <h2 class="page-title">智能体</h2>
+          <p class="page-desc">创建和管理多步骤智能体，为学员提供自主 SOP 执行服务</p>
+        </div>
+        <div class="header-right">
+          <AppButton variant="secondary" @click="router.push('/config/agents/new/from-template')">
+            从模板库选
+          </AppButton>
+          <AppButton variant="hero" @click="router.push('/config/agents/new')">
+            + 新建智能体
+          </AppButton>
+        </div>
       </div>
-      <div class="header-right">
-        <AppButton variant="secondary" @click="router.push('/config/agents/new/from-template')">
-          从模板库选
-        </AppButton>
-        <AppButton variant="hero" @click="router.push('/config/agents/new')">
-          + 新建智能体
-        </AppButton>
-      </div>
-    </div>
 
-    <!-- Marketplace 装载流程引导条 -->
-    <div v-if="attachSkillId" class="attach-banner">
-      <span class="attach-banner__text">
-        正在为技能<strong>「{{ attachSkillName || '订阅技能' }}」</strong>选择 Agent：点击下方任一
-        Agent 的「编辑」，进入后会自动装载。
-      </span>
-      <AppButton variant="secondary" size="sm" @click="router.push('/config/agents')"
-        >取消</AppButton
-      >
-    </div>
-
-    <!-- Toolbar -->
-    <div class="list-toolbar">
-      <AppInput v-model="searchTerm" placeholder="搜索智能体" class="search-input" />
-      <div class="status-filter" aria-label="智能体状态筛选">
-        <button
-          v-for="option in statusOptions"
-          :key="option.value"
-          type="button"
-          class="filter-chip"
-          :class="{ active: statusFilter === option.value }"
-          @click="statusFilter = option.value"
+      <!-- Marketplace 装载流程引导条 -->
+      <div v-if="attachSkillId" class="attach-banner">
+        <span class="attach-banner__text">
+          正在为技能<strong>「{{ attachSkillName || '订阅技能' }}」</strong>选择 Agent：点击下方任一
+          Agent 的「编辑」，进入后会自动装载。
+        </span>
+        <AppButton variant="secondary" size="sm" @click="router.push('/config/agents')"
+          >取消</AppButton
         >
-          {{ option.label }}
-        </button>
       </div>
-    </div>
 
-    <!-- Error banner（500 / 503 / 403 等 — 含重试按钮） -->
-    <div v-if="listError" class="agent-list__error-banner">
-      <p class="error-text">{{ listError }}</p>
-      <AppButton variant="secondary" size="sm" @click="fetchList">重试</AppButton>
-    </div>
+      <!-- Toolbar -->
+      <div class="list-toolbar">
+        <AppInput v-model="searchTerm" placeholder="搜索智能体" class="search-input" />
+        <div class="status-filter" aria-label="智能体状态筛选">
+          <button
+            v-for="option in statusOptions"
+            :key="option.value"
+            type="button"
+            class="filter-chip"
+            :class="{ active: statusFilter === option.value }"
+            @click="statusFilter = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
 
-    <!-- 管理端列表（ui-ux.md §1 hard rule：必须用 DataTable，不可用 raw table）。
+      <!-- Error banner（500 / 503 / 403 等 — 含重试按钮） -->
+      <div v-if="listError" class="agent-list__error-banner">
+        <p class="error-text">{{ listError }}</p>
+        <AppButton variant="secondary" size="sm" @click="fetchList">重试</AppButton>
+      </div>
+
+      <!-- 管理端列表（ui-ux.md §1 hard rule：必须用 DataTable，不可用 raw table）。
          不传 :total —— 列表是 client-side filter（searchTerm），page_size=20 已覆盖全部行；
          未来切服务端分页时再补 :total + @update:page。 -->
-    <DataTable
-      variant="card"
-      :columns="columns"
-      :data="filtered"
-      :loading="store.loading"
-      empty-text="暂无智能体"
-      :clickable="true"
-      @row-click="(row: Agent) => goEdit(row.id)"
-    >
-      <template #cell-name="{ row }">
-        <span class="name-wrapper">
-          {{ row.name }}
-        </span>
-      </template>
-      <template #cell-status="{ row }">
-        <span class="status-badge" :class="row.is_active ? 'status--active' : 'status--inactive'">
-          {{ row.is_active ? '已启用' : '已下架' }}
-        </span>
-      </template>
-      <template #cell-updated_at="{ row }">{{ formatDate(row.updated_at) }}</template>
-      <template #cell-actions="{ row }">
-        <div class="action-group">
-          <button class="action-link" @click.stop="goEdit(row.id)">编辑</button>
-        </div>
-      </template>
-    </DataTable>
+      <DataTable
+        variant="card"
+        :columns="columns"
+        :data="filtered"
+        :loading="store.loading"
+        empty-text="暂无智能体"
+        :clickable="true"
+        @row-click="(row: Agent) => goEdit(row.id)"
+      >
+        <template #cell-name="{ row }">
+          <span class="name-wrapper">
+            {{ row.name }}
+          </span>
+        </template>
+        <template #cell-status="{ row }">
+          <span class="status-badge" :class="row.is_active ? 'status--active' : 'status--inactive'">
+            {{ row.is_active ? '已启用' : '已下架' }}
+          </span>
+        </template>
+        <template #cell-updated_at="{ row }">{{ formatDate(row.updated_at) }}</template>
+        <template #cell-actions="{ row }">
+          <div class="action-group">
+            <button class="action-link" @click.stop="goEdit(row.id)">编辑</button>
+          </div>
+        </template>
+      </DataTable>
+    </div>
   </div>
 </template>
 
@@ -175,12 +177,26 @@ function goEdit(id: number) {
   width: 100%;
 }
 
+.config-list-panel {
+  overflow: hidden;
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.98), hsla(150, 12%, 98%, 0.92));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.72);
+}
+
 /* Page header */
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
+  align-items: center;
+  gap: var(--space-xl);
+  margin: 0;
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  border-bottom: 1px solid var(--divider);
 }
 
 .header-left {
@@ -193,12 +209,13 @@ function goEdit(id: number) {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .page-desc {
   font-size: 0.8125rem;
   color: var(--text-muted);
+  line-height: var(--line-height-normal);
 }
 
 .header-right {
@@ -208,12 +225,15 @@ function goEdit(id: number) {
 
 /* Search bar */
 .list-toolbar {
-  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  padding: var(--space-lg) var(--space-xl);
+  margin: 0;
+  border-bottom: 1px solid var(--divider);
+  background: hsla(150, 15%, 98%, 0.45);
 }
 
 .search-input {
@@ -261,7 +281,7 @@ function goEdit(id: number) {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  margin-bottom: 16px;
+  margin: var(--space-lg) var(--space-xl) 0;
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: var(--radius-md);
@@ -273,10 +293,32 @@ function goEdit(id: number) {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  margin-bottom: 16px;
+  margin: var(--space-lg) var(--space-xl) 0;
   background: hsla(152, 55%, 96%, 0.9);
   border: 1px solid hsla(152, 45%, 80%, 0.8);
   border-radius: var(--radius-md);
+}
+
+:deep(.data-table-wrapper) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:deep(.data-table-wrapper--card) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:deep(.data-table-container) {
+  overflow-x: auto;
+}
+
+:deep(.data-table) {
+  min-width: 760px;
 }
 
 .attach-banner__text {
@@ -338,5 +380,32 @@ function goEdit(id: number) {
 .action-link:hover {
   color: var(--accent-hover);
   background: var(--accent-ultra-soft);
+}
+
+@media (max-width: 720px) {
+  .page-header,
+  .header-right,
+  .list-toolbar,
+  .attach-banner,
+  .agent-list__error-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-header,
+  .list-toolbar {
+    padding-right: var(--space-lg);
+    padding-left: var(--space-lg);
+  }
+
+  .attach-banner,
+  .agent-list__error-banner {
+    margin-right: var(--space-lg);
+    margin-left: var(--space-lg);
+  }
+
+  .search-input {
+    max-width: none;
+  }
 }
 </style>

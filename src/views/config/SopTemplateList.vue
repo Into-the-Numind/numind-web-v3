@@ -12,100 +12,105 @@
     </div>
 
     <template v-else>
-      <!-- 头部 -->
-      <div class="page-header">
-        <div class="header-left">
-          <h2 class="page-title">SOP</h2>
-          <p class="page-desc">创建和管理标准作业流程模板</p>
-        </div>
-        <AppButton variant="hero" @click="router.push('/config/sop-templates/new/edit')">
-          + 新建 SOP 模板
-        </AppButton>
-      </div>
-
-      <!-- 空状态 -->
-      <div v-if="store.sopTemplates.length === 0" class="empty-state">
-        <div class="empty-illustration">
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-            <path d="M10 13H8" />
-            <path d="M16 17H8" />
-            <path d="M16 13h-2" />
-          </svg>
-        </div>
-        <div class="empty-title">暂无 SOP 模板</div>
-        <div class="empty-desc">创建第一个 SOP 模板，标准化您的业务流程</div>
-        <AppButton size="sm" @click="router.push('/config/sop-templates/new/edit')">
-          新建SOP模板
-        </AppButton>
-      </div>
-
-      <!-- 数据表格 -->
-      <template v-else>
-        <div class="list-toolbar">
-          <div class="status-filter" aria-label="SOP 状态筛选">
-            <button
-              v-for="option in statusOptions"
-              :key="option.value"
-              type="button"
-              class="filter-chip"
-              :class="{ active: statusFilter === option.value }"
-              @click="statusFilter = option.value"
-            >
-              {{ option.label }}
-            </button>
+      <div class="config-list-panel">
+        <!-- 头部 -->
+        <div class="page-header">
+          <div class="header-left">
+            <h2 class="page-title">SOP</h2>
+            <p class="page-desc">创建和管理标准作业流程模板</p>
           </div>
+          <AppButton variant="hero" @click="router.push('/config/sop-templates/new/edit')">
+            + 新建 SOP 模板
+          </AppButton>
         </div>
 
-        <div class="table-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="col-left">名称</th>
-                <th>状态</th>
-                <th>创建时间</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="tpl in filteredTemplates" :key="tpl.id">
-                <td class="cell-name" @click="router.push(`/config/sop-templates/${tpl.id}/edit`)">
-                  {{ tpl.name }}
-                </td>
-                <td>
-                  <span class="status-badge" :class="'status--' + tpl.publish_status">
-                    {{ statusLabel(tpl.publish_status) }}
-                  </span>
-                </td>
-                <td class="cell-secondary">{{ formatDate(tpl.created_at) }}</td>
-                <td class="col-action">
-                  <div class="action-group">
-                    <button
-                      class="action-link"
-                      @click="router.push(`/config/sop-templates/${tpl.id}/edit`)"
-                    >
-                      编辑
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="filteredTemplates.length === 0">
-                <td colspan="4" class="table-empty">没有匹配的 SOP 模板</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- 空状态 -->
+        <div v-if="store.sopTemplates.length === 0" class="empty-state">
+          <div class="empty-illustration">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+              <path d="M10 13H8" />
+              <path d="M16 17H8" />
+              <path d="M16 13h-2" />
+            </svg>
+          </div>
+          <div class="empty-title">暂无 SOP 模板</div>
+          <div class="empty-desc">创建第一个 SOP 模板，标准化您的业务流程</div>
+          <AppButton size="sm" @click="router.push('/config/sop-templates/new/edit')">
+            新建SOP模板
+          </AppButton>
         </div>
-      </template>
+
+        <!-- 数据表格 -->
+        <template v-else>
+          <div class="list-toolbar">
+            <div class="status-filter" aria-label="SOP 状态筛选">
+              <button
+                v-for="option in statusOptions"
+                :key="option.value"
+                type="button"
+                class="filter-chip"
+                :class="{ active: statusFilter === option.value }"
+                @click="statusFilter = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-left">名称</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="tpl in filteredTemplates" :key="tpl.id">
+                  <td
+                    class="cell-name"
+                    @click="router.push(`/config/sop-templates/${tpl.id}/edit`)"
+                  >
+                    {{ tpl.name }}
+                  </td>
+                  <td>
+                    <span class="status-badge" :class="'status--' + tpl.publish_status">
+                      {{ statusLabel(tpl.publish_status) }}
+                    </span>
+                  </td>
+                  <td class="cell-secondary">{{ formatDate(tpl.created_at) }}</td>
+                  <td class="col-action">
+                    <div class="action-group">
+                      <button
+                        class="action-link"
+                        @click="router.push(`/config/sop-templates/${tpl.id}/edit`)"
+                      >
+                        编辑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredTemplates.length === 0">
+                  <td colspan="4" class="table-empty">没有匹配的 SOP 模板</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
     </template>
   </div>
 </template>
@@ -164,6 +169,17 @@ onMounted(loadData)
   width: 100%;
 }
 
+.config-list-panel {
+  overflow: hidden;
+  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.98), hsla(150, 12%, 98%, 0.92));
+  border: 1px solid hsla(155, 30%, 90%, 0.7);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 2px 12px hsl(150 15% 0% / 0.05),
+    0 0 0 1px hsl(155 20% 92% / 0.3),
+    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.72);
+}
+
 /* ── Loading & Error ── */
 
 .loading-state {
@@ -206,8 +222,11 @@ onMounted(loadData)
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
+  align-items: center;
+  gap: var(--space-xl);
+  margin: 0;
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  border-bottom: 1px solid var(--divider);
 }
 
 .header-left {
@@ -220,20 +239,24 @@ onMounted(loadData)
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .page-desc {
   font-size: 0.8125rem;
   color: var(--text-muted);
+  line-height: var(--line-height-normal);
 }
 
 /* ── Toolbar ── */
 
 .list-toolbar {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
+  justify-content: flex-start;
+  padding: var(--space-lg) var(--space-xl);
+  margin: 0;
+  border-bottom: 1px solid var(--divider);
+  background: hsla(150, 15%, 98%, 0.45);
 }
 
 .status-filter {
@@ -273,7 +296,7 @@ onMounted(loadData)
 
 .empty-state {
   text-align: center;
-  padding: 80px 0;
+  padding: 72px var(--space-xl);
 }
 
 .empty-illustration {
@@ -304,18 +327,12 @@ onMounted(loadData)
 /* ── Table Card ── */
 
 .table-card {
-  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.95), hsla(150, 12%, 98%, 0.9));
-  border: 1px solid hsla(155, 30%, 90%, 0.7);
-  border-radius: 20px;
-  box-shadow:
-    0 2px 12px hsl(150 15% 0% / 0.05),
-    0 0 0 1px hsl(155 20% 92% / 0.3),
-    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.6);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .data-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -433,5 +450,22 @@ onMounted(loadData)
 .action-link:hover {
   color: var(--accent-hover);
   background: var(--accent-ultra-soft);
+}
+
+@media (max-width: 720px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .list-toolbar {
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .page-header,
+  .empty-state {
+    padding-right: var(--space-lg);
+    padding-left: var(--space-lg);
+  }
 }
 </style>
