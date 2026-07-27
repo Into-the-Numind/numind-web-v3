@@ -2,18 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import type { ExternalActionMessage } from '@/types/agent'
 
-vi.mock('qrcode', () => ({
-  default: {
-    toDataURL: vi.fn(() => Promise.resolve('data:image/png;base64,feishu-qr'))
-  }
-}))
-
-vi.mock('@/utils/clipboard', () => ({
-  copyText: vi.fn(() => Promise.resolve(true))
-}))
-
-import QRCode from 'qrcode'
-import { copyText } from '@/utils/clipboard'
 import FeishuActionCard from '../FeishuActionCard.vue'
 
 const AUTH_URL =
@@ -48,7 +36,6 @@ describe('FeishuActionCard', () => {
   it.each([
     ['create_app', '创建个人应用', '为你的有数账号创建一个独立飞书自建应用'],
     ['app_scope', '等待管理员批准', '这项能力需要飞书管理员批准'],
-    ['user_auth', '授权并继续', '请授权本次任务需要的文档权限'],
     ['confirmation', '正在继续原任务', '旧版确认步骤已取消']
   ] as const)('renders the precise %s phase copy', async (phase, heading, description) => {
     const wrapper = mountCard({ action: createAction({ phase, url: undefined }) })
@@ -58,21 +45,26 @@ describe('FeishuActionCard', () => {
     expect(wrapper.text()).toContain(description)
   })
 
-  it('shows, copies, and QR-encodes the exact same complete URL bytes', async () => {
+  it('renders the simplified user authorization card', async () => {
     const wrapper = mountCard()
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="feishu-url"]').text()).toBe(AUTH_URL)
+    expect(wrapper.get('[data-testid="feishu-phase"]').text()).toBe('飞书授权')
+    expect(wrapper.find('[data-testid="feishu-url"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="feishu-copy-link"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain(AUTH_URL)
+    expect(wrapper.text()).not.toContain('请授权本次任务需要的文档权限')
+    expect(wrapper.text()).not.toContain('复制链接')
+    expect(wrapper.text()).not.toContain('扫码打开')
+    expect(wrapper.text()).not.toContain('或在浏览器打开完整链接')
+    expect(wrapper.text()).not.toContain('请在链接有效期内完成此步骤')
+    expect(wrapper.text()).not.toContain('我已完成，继续')
     expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('href')).toBe(AUTH_URL)
-    expect(QRCode.toDataURL).toHaveBeenCalledWith(AUTH_URL, expect.any(Object))
-
-    await wrapper.get('[data-testid="feishu-copy-link"]').trigger('click')
-    await flushPromises()
-    expect(copyText).toHaveBeenCalledWith(AUTH_URL)
-    expect(wrapper.get('[data-testid="feishu-copy-link"]').text()).toContain('已复制')
+    expect(wrapper.get('[data-testid="feishu-open-link"]').text()).toContain('打开链接')
+    expect(wrapper.get('[data-testid="feishu-continue"]').text()).toContain('确认继续')
   })
 
-  it('regenerates the QR code when the server replaces the current opaque URL', async () => {
+  it('keeps the open action current when the server replaces the opaque URL', async () => {
     const wrapper = mountCard()
     await flushPromises()
     const freshURL = `${AUTH_URL}&refresh=2`
@@ -80,8 +72,7 @@ describe('FeishuActionCard', () => {
     await wrapper.setProps({ action: createAction({ url: freshURL }) })
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="feishu-url"]').text()).toBe(freshURL)
-    expect(QRCode.toDataURL).toHaveBeenLastCalledWith(freshURL, expect.any(Object))
+    expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('href')).toBe(freshURL)
   })
 
   it.each([
@@ -112,7 +103,7 @@ describe('FeishuActionCard', () => {
   })
 
   it.each(['authorization_rejected', 'authorization_expired', 'authorization_updated'] as const)(
-    'regenerates the QR for a %s replacement',
+    'points the open link at a %s replacement',
     async (noticeCode) => {
       const wrapper = mountCard()
       await flushPromises()
@@ -127,7 +118,6 @@ describe('FeishuActionCard', () => {
       })
       await flushPromises()
 
-      expect(QRCode.toDataURL).toHaveBeenLastCalledWith(freshURL, expect.any(Object))
       expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('href')).toBe(freshURL)
     }
   )
