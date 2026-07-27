@@ -70,7 +70,16 @@
           </div>
 
           <div v-if="filteredChatbots.length > 0" class="tool-card-grid">
-            <article v-for="bot in filteredChatbots" :key="bot.id" class="tool-card">
+            <article
+              v-for="bot in filteredChatbots"
+              :key="bot.id"
+              class="tool-card"
+              role="button"
+              tabindex="0"
+              @click="goEdit(bot.id)"
+              @keydown.enter.prevent="goEdit(bot.id)"
+              @keydown.space.prevent="goEdit(bot.id)"
+            >
               <div class="tool-card__top">
                 <h3 class="tool-card__title">{{ bot.name }}</h3>
                 <span class="status-badge" :class="'status--' + bot.status">
@@ -82,8 +91,15 @@
               </p>
               <div class="tool-card__footer">
                 <span class="tool-card__date">{{ formatDate(bot.created_at) }}</span>
-                <button class="action-link" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
-                  编辑
+                <button
+                  class="delete-action"
+                  type="button"
+                  :aria-label="`删除 ${bot.name}`"
+                  title="删除"
+                  @click.stop="requestDelete(bot)"
+                  @keydown.stop
+                >
+                  <Trash2 :size="15" stroke-width="2" />
                 </button>
               </div>
             </article>
@@ -92,6 +108,15 @@
         </template>
       </div>
     </template>
+
+    <ConfirmModal
+      v-model="confirmVisible"
+      title="确认删除"
+      :message="deleteMessage"
+      variant="danger"
+      confirm-text="删除"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -99,13 +124,19 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
+import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
-import type { ChatbotStatus } from '@/types/config'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import { Trash2 } from 'lucide-vue-next'
+import type { ChatbotConfig, ChatbotStatus } from '@/types/config'
 
 const router = useRouter()
 const store = useConfigStore()
+const notifications = useNotificationsStore()
 const error = ref('')
 const statusFilter = ref<ChatbotStatus | 'all'>('all')
+const confirmVisible = ref(false)
+const pendingDelete = ref<ChatbotConfig | null>(null)
 
 const statusOptions: Array<{ value: ChatbotStatus | 'all'; label: string }> = [
   { value: 'all', label: '全部' },
@@ -117,6 +148,32 @@ const filteredChatbots = computed(() => {
   if (statusFilter.value === 'all') return store.chatbots
   return store.chatbots.filter((bot) => bot.status === statusFilter.value)
 })
+
+const deleteMessage = computed(() => {
+  const name = pendingDelete.value?.name ?? '该 AI 问答助手'
+  return `确认删除「${name}」？删除后将无法恢复。`
+})
+
+function goEdit(id: number) {
+  router.push(`/config/chatbots/${id}/edit`)
+}
+
+function requestDelete(bot: ChatbotConfig) {
+  pendingDelete.value = bot
+  confirmVisible.value = true
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) return
+  const target = pendingDelete.value
+  const ok = await store.removeChatbot(target.id)
+  if (ok) {
+    notifications.success('AI 问答助手已删除')
+  } else {
+    notifications.error('删除失败，请重试')
+  }
+  pendingDelete.value = null
+}
 
 function statusLabel(status: ChatbotStatus): string {
   const map: Record<ChatbotStatus, string> = {
@@ -298,31 +355,45 @@ onMounted(loadData)
 
 .tool-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, 288px);
   gap: var(--space-md);
+  justify-content: start;
   padding: 0;
 }
 
 .tool-card {
+  width: 288px;
   min-height: 146px;
+  appearance: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-lg);
   background: var(--surface);
-  border: 1px solid hsl(155 24% 91% / 0.9);
+  border: 1px solid hsl(158, 50%, 78%);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
+  cursor: pointer;
+  text-align: left;
   transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    background var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
 }
 
 .tool-card:hover {
-  border-color: hsl(160 45% 82% / 0.9);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: hsl(158, 50%, 78%);
+  background: var(--surface);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.08),
+    0 0 0 1px hsl(158 40% 80% / 0.5);
+  transform: translateY(-3px);
+}
+
+.tool-card:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .tool-card__top {
@@ -402,28 +473,26 @@ onMounted(loadData)
   color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
 }
 
-/* ── Action Links ── */
-
-.action-group {
-  display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.action-link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  color: var(--accent-link);
-  padding: 4px 8px;
+.delete-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.action-link:hover {
-  color: var(--accent-hover);
-  background: var(--accent-ultra-soft);
+.delete-action:hover {
+  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
+  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger-soft token */
 }
 
 @media (max-width: 720px) {
@@ -438,6 +507,10 @@ onMounted(loadData)
 
   .tool-card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tool-card {
+    width: 100%;
   }
 }
 </style>
