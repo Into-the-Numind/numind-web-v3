@@ -91,14 +91,13 @@ describe('AgentList.vue', () => {
   // ----------------------------------------------------------------
   it('shows empty state text when list is empty and not loading', async () => {
     const wrapper = await mountView()
-    // 文案已统一改为"智能体"；空态由 DataTable 的 empty-text prop 渲染
     expect(wrapper.text()).toContain('暂无智能体')
   })
 
   // ----------------------------------------------------------------
-  // 2. Loading skeleton — DataTable receives :loading="true" before API resolves
+  // 2. Loading skeleton — card grid shows loading cards before API resolves
   // ----------------------------------------------------------------
-  it('passes loading=true to DataTable while API is pending', async () => {
+  it('shows card skeletons while API is pending', async () => {
     // Make listAgents hang indefinitely so loading stays true
     ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}))
 
@@ -110,9 +109,7 @@ describe('AgentList.vue', () => {
     // Do NOT flushPromises — let the API call stay pending
     await wrapper.vm.$nextTick()
 
-    const dataTable = wrapper.findComponent({ name: 'DataTable' })
-    expect(dataTable.exists()).toBe(true)
-    expect(dataTable.props('loading')).toBe(true)
+    expect(wrapper.findAll('.tool-card--loading')).toHaveLength(4)
 
     document.body.innerHTML = ''
   })
@@ -149,7 +146,7 @@ describe('AgentList.vue', () => {
   })
 
   // ----------------------------------------------------------------
-  // 5. Success — DataTable renders rows
+  // 5. Success — card grid renders agents
   // ----------------------------------------------------------------
   it('renders agent rows when API returns agents', async () => {
     ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -253,7 +250,7 @@ describe('AgentList.vue', () => {
   })
 
   // ----------------------------------------------------------------
-  // 10. Action column only keeps edit
+  // 10. Card action only keeps edit
   // ----------------------------------------------------------------
   it('only shows edit in the action column', async () => {
     ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockResolvedValue({

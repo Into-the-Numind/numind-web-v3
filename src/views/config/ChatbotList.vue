@@ -52,7 +52,7 @@
           </AppButton>
         </div>
 
-        <!-- 数据表格 -->
+        <!-- 工具卡片 -->
         <template v-else>
           <div class="list-toolbar">
             <div class="status-filter" aria-label="AI 助手状态筛选">
@@ -69,44 +69,29 @@
             </div>
           </div>
 
-          <div class="table-card">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th class="col-left">名称</th>
-                  <th>状态</th>
-                  <th>创建时间</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="bot in filteredChatbots" :key="bot.id">
-                  <td class="cell-name" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
-                    {{ bot.name }}
-                  </td>
-                  <td>
-                    <span class="status-badge" :class="'status--' + bot.status">
-                      {{ statusLabel(bot.status) }}
-                    </span>
-                  </td>
-                  <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
-                  <td class="col-action">
-                    <div class="action-group">
-                      <button
-                        class="action-link"
-                        @click="router.push(`/config/chatbots/${bot.id}/edit`)"
-                      >
-                        编辑
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="filteredChatbots.length === 0">
-                  <td colspan="4" class="table-empty">没有匹配的 AI 助手</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="filteredChatbots.length > 0" class="tool-card-grid">
+            <article v-for="bot in filteredChatbots" :key="bot.id" class="tool-card">
+              <div class="tool-card__top">
+                <h3 class="tool-card__title">{{ bot.name }}</h3>
+                <span class="status-badge" :class="'status--' + bot.status">
+                  {{ statusLabel(bot.status) }}
+                </span>
+              </div>
+              <p class="tool-card__desc">
+                {{ bot.description || '客户智能对话服务' }}
+              </p>
+              <div class="tool-card__meta">
+                <span>创建时间</span>
+                <strong>{{ formatDate(bot.created_at) }}</strong>
+              </div>
+              <div class="tool-card__footer">
+                <button class="action-link" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
+                  编辑
+                </button>
+              </div>
+            </article>
           </div>
+          <div v-else class="card-empty">没有匹配的 AI 助手</div>
         </template>
       </div>
     </template>
@@ -322,86 +307,96 @@ onMounted(loadData)
   margin-bottom: 24px;
 }
 
-/* ── Table Card ── */
+/* ── Tool Cards ── */
 
-.table-card {
-  overflow-x: auto;
+.tool-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-md);
+  padding: var(--space-xl);
 }
 
-.data-table {
-  width: 100%;
-  min-width: 640px;
-  border-collapse: collapse;
-  font-size: 14px;
+.tool-card {
+  min-height: 178px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid hsl(155 24% 91% / 0.9);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
-.data-table th {
-  text-align: center;
-  padding: 14px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: hsl(155, 15%, 50%);
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid hsl(155, 20%, 93%);
-  white-space: nowrap;
-  background: hsla(150, 15%, 98%, 0.5);
+.tool-card:hover {
+  border-color: hsl(160 45% 82% / 0.9);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
-.data-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid hsl(155, 20%, 95%);
-  color: hsl(155, 15%, 25%);
-  vertical-align: middle;
-  text-align: center;
+.tool-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
 }
 
-.data-table tbody tr {
-  transition: background 0.15s;
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.data-table tbody tr:hover td {
-  background: hsl(155, 20%, 98%);
-}
-
-.table-empty {
-  padding: 40px 16px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.data-table td.cell-name {
-  font-weight: 600;
+.tool-card__title {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
   color: hsl(155, 25%, 18%);
-  text-align: left;
-  cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
 }
 
-.cell-name:hover {
-  color: var(--accent);
+.tool-card__desc {
+  min-height: 42px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
 }
 
-.data-table th.col-left {
-  text-align: left;
+.tool-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: auto;
+  padding-top: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  border-top: 1px solid var(--divider);
 }
 
-.cell-secondary {
-  font-size: 13px;
-  font-weight: 500;
-  color: hsl(155, 15%, 35%);
+.tool-card__meta strong {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
-.data-table th.col-action,
-.data-table td.col-action {
-  text-align: right;
+.tool-card__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.card-empty {
+  padding: var(--space-3xl) var(--space-xl);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
 }
 
 /* ── Status Badge ── */
 
 .status-badge {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
@@ -409,6 +404,7 @@ onMounted(loadData)
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .status--draft {
@@ -458,6 +454,11 @@ onMounted(loadData)
 
   .list-toolbar {
     padding: var(--space-md) var(--space-lg);
+  }
+
+  .tool-card-grid {
+    grid-template-columns: 1fr;
+    padding: var(--space-lg);
   }
 
   .page-header,

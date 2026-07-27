@@ -5,7 +5,6 @@ import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import type { Agent } from '@/types/agentBuilder'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
-import DataTable, { type Column } from '@/components/common/DataTable.vue'
 import { formatDate } from '@/utils/datetime'
 import { HTTP_CHILD_ACCOUNT_FORBIDDEN, errorMessage, errorStatus } from '@/constants/agentErrno'
 
@@ -48,15 +47,6 @@ const filtered = computed<Agent[]>(() => {
     return a.name.toLowerCase().includes(term) || a.description.toLowerCase().includes(term)
   })
 })
-
-const columns: Column[] = [
-  { key: 'name', title: '名称', align: 'left' },
-  { key: 'description', title: '描述', align: 'left' },
-  { key: 'status', title: '状态' },
-  { key: 'version', title: '版本' },
-  { key: 'updated_at', title: '更新时间' },
-  { key: 'actions', title: '', align: 'right' }
-]
 
 async function fetchList() {
   listError.value = ''
@@ -139,35 +129,43 @@ function goEdit(id: number) {
         <AppButton variant="secondary" size="sm" @click="fetchList">重试</AppButton>
       </div>
 
-      <!-- 管理端列表（ui-ux.md §1 hard rule：必须用 DataTable，不可用 raw table）。
-         不传 :total —— 列表是 client-side filter（searchTerm），page_size=20 已覆盖全部行；
-         未来切服务端分页时再补 :total + @update:page。 -->
-      <DataTable
-        variant="card"
-        :columns="columns"
-        :data="filtered"
-        :loading="store.loading"
-        empty-text="暂无智能体"
-        :clickable="true"
-        @row-click="(row: Agent) => goEdit(row.id)"
-      >
-        <template #cell-name="{ row }">
-          <span class="name-wrapper">
-            {{ row.name }}
-          </span>
-        </template>
-        <template #cell-status="{ row }">
-          <span class="status-badge" :class="row.is_active ? 'status--active' : 'status--inactive'">
-            {{ row.is_active ? '已启用' : '已下架' }}
-          </span>
-        </template>
-        <template #cell-updated_at="{ row }">{{ formatDate(row.updated_at) }}</template>
-        <template #cell-actions="{ row }">
-          <div class="action-group">
-            <button class="action-link" @click.stop="goEdit(row.id)">编辑</button>
+      <div v-if="store.loading" class="tool-card-grid">
+        <div v-for="i in 4" :key="i" class="tool-card tool-card--loading">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--short"></div>
+        </div>
+      </div>
+
+      <div v-else-if="filtered.length > 0" class="tool-card-grid">
+        <article v-for="agent in filtered" :key="agent.id" class="tool-card">
+          <div class="tool-card__top">
+            <h3 class="tool-card__title">{{ agent.name }}</h3>
+            <span
+              class="status-badge"
+              :class="agent.is_active ? 'status--active' : 'status--inactive'"
+            >
+              {{ agent.is_active ? '已启用' : '已下架' }}
+            </span>
           </div>
-        </template>
-      </DataTable>
+          <p class="tool-card__desc">{{ agent.description || '多步骤智能体' }}</p>
+          <div class="tool-card__meta-grid">
+            <div class="tool-card__meta">
+              <span>版本</span>
+              <strong>v{{ agent.version }}</strong>
+            </div>
+            <div class="tool-card__meta">
+              <span>更新时间</span>
+              <strong>{{ formatDate(agent.updated_at) }}</strong>
+            </div>
+          </div>
+          <div class="tool-card__footer">
+            <button class="action-link" @click="goEdit(agent.id)">编辑</button>
+          </div>
+        </article>
+      </div>
+
+      <div v-else-if="!listError" class="card-empty">暂无智能体</div>
     </div>
   </div>
 </template>
@@ -299,28 +297,6 @@ function goEdit(id: number) {
   border-radius: var(--radius-md);
 }
 
-:deep(.data-table-wrapper) {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-:deep(.data-table-wrapper--card) {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-:deep(.data-table-container) {
-  overflow-x: auto;
-}
-
-:deep(.data-table) {
-  min-width: 760px;
-}
-
 .attach-banner__text {
   font-size: 14px;
   color: #065f46;
@@ -332,14 +308,8 @@ function goEdit(id: number) {
   margin: 0;
 }
 
-/* Name cell */
-.name-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .status-badge {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
@@ -347,6 +317,7 @@ function goEdit(id: number) {
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .status--active {
@@ -359,11 +330,124 @@ function goEdit(id: number) {
   color: #6b7280;
 }
 
-/* Action group */
-.action-group {
+/* Tool cards */
+.tool-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.tool-card {
+  min-height: 190px;
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid hsl(155 24% 91% / 0.9);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.tool-card:hover {
+  border-color: hsl(160 45% 82% / 0.9);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.tool-card--loading {
+  justify-content: center;
+}
+
+.tool-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.tool-card__title {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  color: hsl(155, 25%, 18%);
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+}
+
+.tool-card__desc {
+  min-height: 42px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+}
+
+.tool-card__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-top: auto;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--divider);
+}
+
+.tool-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.tool-card__meta strong {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.tool-card__footer {
+  display: flex;
   justify-content: flex-end;
+}
+
+.card-empty {
+  padding: var(--space-3xl) var(--space-xl);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-tint);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line--title {
+  width: 50%;
+  height: 16px;
+}
+
+.skeleton-line--short {
+  width: 70%;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .action-link {
@@ -406,6 +490,15 @@ function goEdit(id: number) {
 
   .search-input {
     max-width: none;
+  }
+
+  .tool-card-grid {
+    grid-template-columns: 1fr;
+    padding: var(--space-lg);
+  }
+
+  .tool-card__meta-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
