@@ -3,7 +3,7 @@
  *
  * Strategy: mock @/api/agent (API layer), let real Pinia store run.
  * setActivePinia(createPinia()) called inside mountView per test.
- * attachTo: document.body so Teleport (ConfirmModal) renders correctly.
+ * attachTo: document.body keeps router-linked controls mounted consistently in jsdom.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -30,7 +30,6 @@ vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => toastSpy
 // Import AFTER vi.mock so we get the mocked versions
 import AgentList from '@/views/config/agents/AgentList.vue'
 import * as agentApi from '@/api/agentBuilder'
-import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 // ---- Router ----
 const router = createRouter({
@@ -215,61 +214,61 @@ describe('AgentList.vue', () => {
   })
 
   // ----------------------------------------------------------------
-  // 8. Clicking 下架 opens ConfirmModal with danger=true and agent name in title
+  // 8. List request includes inactive agents so status filter can work
   // ----------------------------------------------------------------
-  it('opens ConfirmModal with danger when 下架 is clicked', async () => {
+  it('requests inactive agents for status filtering', async () => {
+    await mountView()
+
+    expect(agentApi.listAgents).toHaveBeenCalledWith({
+      page: 1,
+      page_size: 20,
+      include_inactive: true
+    })
+  })
+
+  // ----------------------------------------------------------------
+  // 9. Status filter switches between active and inactive agents
+  // ----------------------------------------------------------------
+  it('filters list by active status', async () => {
     ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockResolvedValue({
-      list: [makeAgent({ id: 5, name: '待下架助手' })],
-      total: 1
+      list: [
+        makeAgent({ id: 1, name: '启用助手', is_active: true }),
+        makeAgent({ id: 2, name: '下架助手', is_active: false })
+      ],
+      total: 2
     })
 
     const wrapper = await mountView()
 
-    // ConfirmModal should be hidden initially (ConfirmModal 用 v-model API)
-    const modal = wrapper.findComponent(ConfirmModal)
-    expect(modal.props('modelValue')).toBe(false)
+    expect(wrapper.text()).toContain('启用助手')
+    expect(wrapper.text()).toContain('下架助手')
 
-    // Click the 下架 button in the action column
-    const dangerBtns = wrapper.findAll('button').filter((b) => b.text().includes('下架'))
-    expect(dangerBtns.length).toBeGreaterThan(0)
-    await dangerBtns[0].trigger('click')
+    const inactiveBtn = wrapper.findAll('button').find((b) => b.text() === '已下架')
+    expect(inactiveBtn).toBeDefined()
+    await inactiveBtn!.trigger('click')
     await wrapper.vm.$nextTick()
 
-    // ConfirmModal should now be open with variant='danger' and agent name in title
-    expect(modal.props('modelValue')).toBe(true)
-    expect(modal.props('variant')).toBe('danger')
-    expect(modal.props('title')).toContain('待下架助手')
-    expect(modal.props('title')).toContain('确认下架')
+    expect(wrapper.text()).not.toContain('启用助手')
+    expect(wrapper.text()).toContain('下架助手')
   })
 
   // ----------------------------------------------------------------
-  // 9. Confirming 下架 calls deleteAgent and shows success toast
+  // 10. Action column only keeps edit
   // ----------------------------------------------------------------
-  it('calls deleteAgent with correct id when confirm is clicked', async () => {
+  it('only shows edit in the action column', async () => {
     ;(agentApi.listAgents as ReturnType<typeof vi.fn>).mockResolvedValue({
-      list: [makeAgent({ id: 42, name: '要删除的助手' })],
+      list: [makeAgent({ id: 5, name: '可编辑助手' })],
       total: 1
     })
 
     const wrapper = await mountView()
+    const actionTexts = wrapper.findAll('.action-link').map((button) => button.text())
 
-    // Open the confirm modal by clicking 下架
-    const dangerBtns = wrapper.findAll('button').filter((b) => b.text().includes('下架'))
-    await dangerBtns[0].trigger('click')
-    await wrapper.vm.$nextTick()
-
-    // Trigger the confirm emit on the ConfirmModal component (bypasses Teleport DOM)
-    const modal = wrapper.findComponent(ConfirmModal)
-    expect(modal.props('modelValue')).toBe(true)
-    await modal.vm.$emit('confirm')
-    await flushPromises()
-
-    expect(agentApi.deleteAgent).toHaveBeenCalledWith(42)
-    expect(toastSpy.success).toHaveBeenCalledWith('已下架')
+    expect(actionTexts).toEqual(['编辑'])
   })
 
   // ----------------------------------------------------------------
-  // 10. Retry button re-invokes listAgents
+  // 11. Retry button re-invokes listAgents
   // ----------------------------------------------------------------
   it('retry button calls listAgents again after an error', async () => {
     const err = Object.assign(new Error('timeout'), {

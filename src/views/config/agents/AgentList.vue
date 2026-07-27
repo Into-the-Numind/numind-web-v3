@@ -5,19 +5,24 @@ import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import type { Agent } from '@/types/agentBuilder'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
-import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import DataTable, { type Column } from '@/components/common/DataTable.vue'
-import { useNotificationsStore } from '@/stores/notifications'
 import { formatDate } from '@/utils/datetime'
 import { HTTP_CHILD_ACCOUNT_FORBIDDEN, errorMessage, errorStatus } from '@/constants/agentErrno'
 
 const router = useRouter()
 const route = useRoute()
 const store = useAgentBuilderStore()
-const notifications = useNotificationsStore()
 
 const searchTerm = ref('')
 const listError = ref('')
+type AgentStatusFilter = 'all' | 'active' | 'inactive'
+const statusFilter = ref<AgentStatusFilter>('all')
+
+const statusOptions: Array<{ value: AgentStatusFilter; label: string }> = [
+  { value: 'all', label: '全部' },
+  { value: 'active', label: '已启用' },
+  { value: 'inactive', label: '已下架' }
+]
 
 // Marketplace "装载到 Agent" flow: arrives here with ?attach_skill so the operator
 // picks which Agent to load a subscribed Skill into. Picking an agent carries the
@@ -31,23 +36,23 @@ const attachSkillName = computed(() => {
   return (Array.isArray(v) ? v[0] : v) || ''
 })
 
-const confirmVisible = ref(false)
-const confirmTitle = ref('')
-const confirmMessage = ref('')
-const pendingAgent = ref<Agent | null>(null)
-const processing = ref(false)
-
 const filtered = computed<Agent[]>(() => {
   const term = searchTerm.value.toLowerCase()
-  if (!term) return store.list
-  return store.list.filter(
-    (a) => a.name.toLowerCase().includes(term) || a.description.toLowerCase().includes(term)
-  )
+  return store.list.filter((a) => {
+    const statusMatched =
+      statusFilter.value === 'all' ||
+      (statusFilter.value === 'active' && a.is_active) ||
+      (statusFilter.value === 'inactive' && !a.is_active)
+    if (!statusMatched) return false
+    if (!term) return true
+    return a.name.toLowerCase().includes(term) || a.description.toLowerCase().includes(term)
+  })
 })
 
 const columns: Column[] = [
   { key: 'name', title: '名称', align: 'left' },
   { key: 'description', title: '描述', align: 'left' },
+  { key: 'status', title: '状态' },
   { key: 'version', title: '版本' },
   { key: 'updated_at', title: '更新时间' },
   { key: 'actions', title: '', align: 'right' }
@@ -56,7 +61,7 @@ const columns: Column[] = [
 async function fetchList() {
   listError.value = ''
   try {
-    await store.fetchList({ page: 1, page_size: 20 })
+    await store.fetchList({ page: 1, page_size: 20, include_inactive: true })
   } catch (e: unknown) {
     const status = errorStatus(e)
     if (status === HTTP_CHILD_ACCOUNT_FORBIDDEN) {
@@ -78,44 +83,6 @@ function goEdit(id: number) {
     return
   }
   router.push(`/config/agents/${id}/edit`)
-}
-
-function goDetail(id: number) {
-  router.push(`/config/agents/${id}`)
-}
-
-function derive(agent: Agent) {
-  router.push(`/config/agents/new?from=copy:${agent.id}`)
-}
-
-// 下架（软删除）：store.softDelete 把 is_active 置 false，历史会话保留
-function confirmTakedown(agent: Agent) {
-  pendingAgent.value = agent
-  confirmTitle.value = `确认下架「${agent.name}」？`
-  confirmMessage.value =
-    '下架后：\n- 学员将无法启动新会话\n- 历史会话仍可查看\n- 如需恢复请联系运营'
-  confirmVisible.value = true
-}
-
-async function executeTakedown() {
-  if (!pendingAgent.value || processing.value) return
-  processing.value = true
-  try {
-    await store.softDelete(pendingAgent.value.id)
-    notifications.success('已下架')
-  } catch (e: unknown) {
-    notifications.error(errorMessage(e, '下架失败'))
-  } finally {
-    processing.value = false
-    // ConfirmModal v-model 已经会在 confirm/cancel emit 后通过 update:modelValue 把 confirmVisible 置 false
-    pendingAgent.value = null
-    void fetchList()
-  }
-}
-
-function cancelTakedown() {
-  // ConfirmModal v-model 自动关闭，这里只清理 pending state
-  pendingAgent.value = null
 }
 </script>
 
@@ -148,9 +115,21 @@ function cancelTakedown() {
       >
     </div>
 
-    <!-- Search bar -->
-    <div class="search-bar">
+    <!-- Toolbar -->
+    <div class="list-toolbar">
       <AppInput v-model="searchTerm" placeholder="搜索智能体" class="search-input" />
+      <div class="status-filter" aria-label="智能体状态筛选">
+        <button
+          v-for="option in statusOptions"
+          :key="option.value"
+          type="button"
+          class="filter-chip"
+          :class="{ active: statusFilter === option.value }"
+          @click="statusFilter = option.value"
+        >
+          {{ option.label }}
+        </button>
+      </div>
     </div>
 
     <!-- Error banner（500 / 503 / 403 等 — 含重试按钮） -->
@@ -169,38 +148,25 @@ function cancelTakedown() {
       :loading="store.loading"
       empty-text="暂无智能体"
       :clickable="true"
-      @row-click="(row: Agent) => goDetail(row.id)"
+      @row-click="(row: Agent) => goEdit(row.id)"
     >
       <template #cell-name="{ row }">
         <span class="name-wrapper">
           {{ row.name }}
         </span>
       </template>
+      <template #cell-status="{ row }">
+        <span class="status-badge" :class="row.is_active ? 'status--active' : 'status--inactive'">
+          {{ row.is_active ? '已启用' : '已下架' }}
+        </span>
+      </template>
       <template #cell-updated_at="{ row }">{{ formatDate(row.updated_at) }}</template>
       <template #cell-actions="{ row }">
         <div class="action-group">
           <button class="action-link" @click.stop="goEdit(row.id)">编辑</button>
-          <button class="action-link" @click.stop="goDetail(row.id)">详情</button>
-          <button class="action-link" @click.stop="derive(row)">派生</button>
-          <button class="action-link action--danger" @click.stop="confirmTakedown(row)">
-            下架
-          </button>
         </div>
       </template>
     </DataTable>
-
-    <!-- 确认下架弹窗（v-model 双向绑定 —— ConfirmModal 在 Esc/overlay/confirm/cancel
-         emit update:modelValue=false，父级 confirmVisible 自动同步关闭） -->
-    <ConfirmModal
-      v-model="confirmVisible"
-      :title="confirmTitle"
-      :message="confirmMessage"
-      variant="danger"
-      confirm-text="确认下架"
-      cancel-text="取消"
-      @confirm="executeTakedown"
-      @cancel="cancelTakedown"
-    />
   </div>
 </template>
 
@@ -241,15 +207,51 @@ function cancelTakedown() {
 }
 
 /* Search bar */
-.search-bar {
+.list-toolbar {
   margin-bottom: 16px;
   display: flex;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .search-input {
   width: 100%;
   max-width: 320px;
+}
+
+.status-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.filter-chip:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.filter-chip.active {
+  color: var(--primary-hover);
+  border-color: hsl(160 55% 82%);
+  background: var(--accent-soft);
+  font-weight: 600;
 }
 
 /* Error banner */
@@ -295,6 +297,26 @@ function cancelTakedown() {
   gap: 6px;
 }
 
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.status--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.status--inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 /* Action group */
 .action-group {
   display: flex;
@@ -316,14 +338,5 @@ function cancelTakedown() {
 .action-link:hover {
   color: var(--accent-hover);
   background: var(--accent-ultra-soft);
-}
-
-.action--danger {
-  color: #ef4444;
-}
-
-.action--danger:hover {
-  color: #dc2626;
-  background: #fef2f2;
 }
 </style>

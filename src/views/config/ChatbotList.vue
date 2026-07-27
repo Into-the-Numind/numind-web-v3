@@ -52,97 +52,87 @@
       </div>
 
       <!-- 数据表格 -->
-      <div v-else class="table-card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th class="col-left">名称</th>
-              <th>状态</th>
-              <th>创建时间</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="bot in store.chatbots" :key="bot.id">
-              <td class="cell-name" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
-                {{ bot.name }}
-              </td>
-              <td>
-                <span class="status-badge" :class="'status--' + bot.status">
-                  {{ statusLabel(bot.status) }}
-                </span>
-              </td>
-              <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
-              <td class="col-action">
-                <div class="action-group">
-                  <button
-                    class="action-link"
-                    @click="router.push(`/config/chatbots/${bot.id}/edit`)"
-                  >
-                    编辑
-                  </button>
-                  <button class="action-link" @click="router.push(`/chatbot/${bot.id}`)">
-                    测试对话
-                  </button>
-                  <button
-                    v-if="bot.status !== 'published'"
-                    class="action-link action--publish"
-                    @click="handlePublish(bot.id)"
-                  >
-                    发布
-                  </button>
-                  <button
-                    v-if="bot.status === 'published'"
-                    class="action-link action--offline"
-                    @click="handleOffline(bot.id)"
-                  >
-                    下线
-                  </button>
-                  <button class="action-link action--danger" @click="handleDelete(bot.id)">
-                    删除
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </template>
+      <template v-else>
+        <div class="list-toolbar">
+          <div class="status-filter" aria-label="AI 助手状态筛选">
+            <button
+              v-for="option in statusOptions"
+              :key="option.value"
+              type="button"
+              class="filter-chip"
+              :class="{ active: statusFilter === option.value }"
+              @click="statusFilter = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
 
-    <ConfirmModal
-      v-model="confirmVisible"
-      :title="confirmAction?.title ?? ''"
-      :message="confirmAction?.message ?? ''"
-      :variant="confirmAction?.variant ?? 'default'"
-      :confirm-text="confirmAction?.confirmText ?? '确认'"
-      @confirm="onConfirm"
-    />
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-left">名称</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="bot in filteredChatbots" :key="bot.id">
+                <td class="cell-name" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
+                  {{ bot.name }}
+                </td>
+                <td>
+                  <span class="status-badge" :class="'status--' + bot.status">
+                    {{ statusLabel(bot.status) }}
+                  </span>
+                </td>
+                <td class="cell-secondary">{{ formatDate(bot.created_at) }}</td>
+                <td class="col-action">
+                  <div class="action-group">
+                    <button
+                      class="action-link"
+                      @click="router.push(`/config/chatbots/${bot.id}/edit`)"
+                    >
+                      编辑
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="filteredChatbots.length === 0">
+                <td colspan="4" class="table-empty">没有匹配的 AI 助手</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '@/stores/config'
-import { useNotificationsStore } from '@/stores/notifications'
 import AppButton from '@/components/common/AppButton.vue'
-import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import type { ChatbotStatus } from '@/types/config'
 
 const router = useRouter()
 const store = useConfigStore()
-const notifications = useNotificationsStore()
 const error = ref('')
+const statusFilter = ref<ChatbotStatus | 'all'>('all')
 
-const confirmVisible = ref(false)
-const confirmAction = ref<{
-  title: string
-  message: string
-  variant: 'default' | 'danger'
-  confirmText: string
-  successMsg?: string
-  action: () => Promise<unknown>
-} | null>(null)
+const statusOptions: Array<{ value: ChatbotStatus | 'all'; label: string }> = [
+  { value: 'all', label: '全部' },
+  { value: 'published', label: '已发布' },
+  { value: 'draft', label: '未发布' }
+]
+
+const filteredChatbots = computed(() => {
+  if (statusFilter.value === 'all') return store.chatbots
+  return store.chatbots.filter((bot) => bot.status === statusFilter.value)
+})
 
 function statusLabel(status: ChatbotStatus): string {
   const map: Record<ChatbotStatus, string> = {
@@ -164,53 +154,6 @@ async function loadData() {
     await store.fetchChatbots()
   } catch {
     error.value = '加载失败，请重试'
-  }
-}
-
-function handlePublish(id: number) {
-  confirmAction.value = {
-    title: '确认发布',
-    message: '确认发布该 AI 助手？',
-    variant: 'default',
-    confirmText: '发布',
-    successMsg: '已发布',
-    action: () => store.setChatbotStatus(id, 'published')
-  }
-  confirmVisible.value = true
-}
-
-function handleOffline(id: number) {
-  confirmAction.value = {
-    title: '确认下线',
-    message: '确认下线该 AI 助手？下线后用户将无法使用。',
-    variant: 'danger',
-    confirmText: '下线',
-    successMsg: '已下线',
-    action: () => store.setChatbotStatus(id, 'draft')
-  }
-  confirmVisible.value = true
-}
-
-function handleDelete(id: number) {
-  confirmAction.value = {
-    title: '确认删除',
-    message: '确认删除该 AI 助手？此操作不可恢复。',
-    variant: 'danger',
-    confirmText: '删除',
-    successMsg: '已删除',
-    action: () => store.removeChatbot(id)
-  }
-  confirmVisible.value = true
-}
-
-async function onConfirm() {
-  if (confirmAction.value) {
-    try {
-      await confirmAction.value.action()
-      notifications.success(confirmAction.value.successMsg ?? '操作成功')
-    } catch {
-      notifications.error('操作失败，请重试')
-    }
   }
 }
 
@@ -284,6 +227,47 @@ onMounted(loadData)
 .page-desc {
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+/* ── Toolbar ── */
+
+.list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.status-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.filter-chip:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.filter-chip.active {
+  color: var(--primary-hover);
+  border-color: hsl(160 55% 82%);
+  background: var(--accent-soft);
+  font-weight: 600;
 }
 
 /* ── Empty State ── */
@@ -369,6 +353,12 @@ onMounted(loadData)
   background: hsl(155, 20%, 98%);
 }
 
+.table-empty {
+  padding: 40px 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .data-table td.cell-name {
   font-weight: 600;
   color: hsl(155, 25%, 18%);
@@ -444,32 +434,5 @@ onMounted(loadData)
 .action-link:hover {
   color: var(--accent-hover);
   background: var(--accent-ultra-soft);
-}
-
-.action--publish {
-  color: var(--accent);
-}
-
-.action--publish:hover {
-  color: var(--accent-hover);
-  background: var(--accent-ultra-soft);
-}
-
-.action--offline {
-  color: #d97706; /* TODO(admin-rebrand): replace with --warning token */
-}
-
-.action--offline:hover {
-  color: #b45309; /* TODO(admin-rebrand): replace with --warning token */
-  background: #fffbeb; /* TODO(admin-rebrand): replace with --warning token */
-}
-
-.action--danger {
-  color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
-}
-
-.action--danger:hover {
-  color: #dc2626; /* TODO(admin-rebrand): replace with --danger token */
-  background: #fef2f2; /* TODO(admin-rebrand): replace with --danger token */
 }
 </style>
