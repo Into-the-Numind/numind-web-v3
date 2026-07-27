@@ -80,11 +80,8 @@
               <p class="tool-card__desc">
                 {{ bot.description || '客户智能对话服务' }}
               </p>
-              <div class="tool-card__meta">
-                <span>创建时间</span>
-                <strong>{{ formatDate(bot.created_at) }}</strong>
-              </div>
               <div class="tool-card__footer">
+                <span class="tool-card__date">{{ formatDate(bot.created_at) }}</span>
                 <button class="action-link" @click="router.push(`/config/chatbots/${bot.id}/edit`)">
                   编辑
                 </button>
@@ -153,14 +150,7 @@ onMounted(loadData)
 }
 
 .config-list-panel {
-  overflow: hidden;
-  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.98), hsla(150, 12%, 98%, 0.92));
-  border: 1px solid hsla(155, 30%, 90%, 0.7);
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 2px 12px hsl(150 15% 0% / 0.05),
-    0 0 0 1px hsl(155 20% 92% / 0.3),
-    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.72);
+  overflow: visible;
 }
 
 /* ── Loading & Error ── */
@@ -208,8 +198,7 @@ onMounted(loadData)
   align-items: center;
   gap: var(--space-xl);
   margin: 0;
-  padding: var(--space-xl) var(--space-xl) var(--space-lg);
-  border-bottom: 1px solid var(--divider);
+  padding: 0 0 var(--space-lg);
 }
 
 .header-left {
@@ -236,10 +225,8 @@ onMounted(loadData)
 .list-toolbar {
   display: flex;
   justify-content: flex-start;
-  padding: var(--space-lg) var(--space-xl);
+  padding: 0 0 var(--space-lg);
   margin: 0;
-  border-bottom: 1px solid var(--divider);
-  background: hsla(150, 15%, 98%, 0.45);
 }
 
 .status-filter {
@@ -313,14 +300,14 @@ onMounted(loadData)
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-md);
-  padding: var(--space-xl);
+  padding: 0;
 }
 
 .tool-card {
-  min-height: 178px;
+  min-height: 146px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   padding: var(--space-lg);
   background: var(--surface);
   border: 1px solid hsl(155 24% 91% / 0.9);
@@ -356,34 +343,27 @@ onMounted(loadData)
 }
 
 .tool-card__desc {
-  min-height: 42px;
+  min-height: 34px;
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
 }
 
-.tool-card__meta {
+.tool-card__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
   margin-top: auto;
   padding-top: var(--space-sm);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
   border-top: 1px solid var(--divider);
 }
 
-.tool-card__meta strong {
+.tool-card__date {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: 600;
-}
-
-.tool-card__footer {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .card-empty {
@@ -453,18 +433,11 @@ onMounted(loadData)
   }
 
   .list-toolbar {
-    padding: var(--space-md) var(--space-lg);
+    padding: 0 0 var(--space-lg);
   }
 
   .tool-card-grid {
     grid-template-columns: 1fr;
-    padding: var(--space-lg);
-  }
-
-  .page-header,
-  .empty-state {
-    padding-right: var(--space-lg);
-    padding-left: var(--space-lg);
   }
 }
 </style>

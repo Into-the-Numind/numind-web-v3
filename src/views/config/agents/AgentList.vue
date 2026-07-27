@@ -149,17 +149,8 @@ function goEdit(id: number) {
             </span>
           </div>
           <p class="tool-card__desc">{{ agent.description || '多步骤 AI 智能体' }}</p>
-          <div class="tool-card__meta-grid">
-            <div class="tool-card__meta">
-              <span>版本</span>
-              <strong>v{{ agent.version }}</strong>
-            </div>
-            <div class="tool-card__meta">
-              <span>更新时间</span>
-              <strong>{{ formatDate(agent.updated_at) }}</strong>
-            </div>
-          </div>
           <div class="tool-card__footer">
+            <span class="tool-card__date">{{ formatDate(agent.updated_at) }}</span>
             <button class="action-link" @click="goEdit(agent.id)">编辑</button>
           </div>
         </article>
@@ -176,14 +167,7 @@ function goEdit(id: number) {
 }
 
 .config-list-panel {
-  overflow: hidden;
-  background: linear-gradient(160deg, hsla(0, 0%, 100%, 0.98), hsla(150, 12%, 98%, 0.92));
-  border: 1px solid hsla(155, 30%, 90%, 0.7);
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 2px 12px hsl(150 15% 0% / 0.05),
-    0 0 0 1px hsl(155 20% 92% / 0.3),
-    inset 0 1px 0 0 hsla(0, 0%, 100%, 0.72);
+  overflow: visible;
 }
 
 /* Page header */
@@ -193,8 +177,7 @@ function goEdit(id: number) {
   align-items: center;
   gap: var(--space-xl);
   margin: 0;
-  padding: var(--space-xl) var(--space-xl) var(--space-lg);
-  border-bottom: 1px solid var(--divider);
+  padding: 0 0 var(--space-lg);
 }
 
 .header-left {
@@ -228,10 +211,8 @@ function goEdit(id: number) {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: var(--space-lg) var(--space-xl);
+  padding: 0 0 var(--space-lg);
   margin: 0;
-  border-bottom: 1px solid var(--divider);
-  background: hsla(150, 15%, 98%, 0.45);
 }
 
 .search-input {
@@ -279,7 +260,7 @@ function goEdit(id: number) {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  margin: var(--space-lg) var(--space-xl) 0;
+  margin: 0 0 var(--space-lg);
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: var(--radius-md);
@@ -291,7 +272,7 @@ function goEdit(id: number) {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  margin: var(--space-lg) var(--space-xl) 0;
+  margin: 0 0 var(--space-lg);
   background: hsla(152, 55%, 96%, 0.9);
   border: 1px solid hsla(152, 45%, 80%, 0.8);
   border-radius: var(--radius-md);
@@ -335,14 +316,14 @@ function goEdit(id: number) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-md);
-  padding: var(--space-xl);
+  padding: 0;
 }
 
 .tool-card {
-  min-height: 190px;
+  min-height: 146px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   padding: var(--space-lg);
   background: var(--surface);
   border: 1px solid hsl(155 24% 91% / 0.9);
@@ -382,39 +363,27 @@ function goEdit(id: number) {
 }
 
 .tool-card__desc {
-  min-height: 42px;
+  min-height: 34px;
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
 }
 
-.tool-card__meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm);
+.tool-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   margin-top: auto;
   padding-top: var(--space-sm);
   border-top: 1px solid var(--divider);
 }
 
-.tool-card__meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
-.tool-card__meta strong {
+.tool-card__date {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: 600;
-}
-
-.tool-card__footer {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .card-empty {
@@ -478,14 +447,14 @@ function goEdit(id: number) {
 
   .page-header,
   .list-toolbar {
-    padding-right: var(--space-lg);
-    padding-left: var(--space-lg);
+    padding-right: 0;
+    padding-left: 0;
   }
 
   .attach-banner,
   .agent-list__error-banner {
-    margin-right: var(--space-lg);
-    margin-left: var(--space-lg);
+    margin-right: 0;
+    margin-left: 0;
   }
 
   .search-input {
@@ -493,11 +462,6 @@ function goEdit(id: number) {
   }
 
   .tool-card-grid {
-    grid-template-columns: 1fr;
-    padding: var(--space-lg);
-  }
-
-  .tool-card__meta-grid {
     grid-template-columns: 1fr;
   }
 }
