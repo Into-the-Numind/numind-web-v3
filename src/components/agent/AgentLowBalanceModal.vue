@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 
 interface Props {
@@ -33,18 +34,17 @@ const handleClose = (): void => {
       @click.self="handleClose"
     >
       <div class="modal-content">
+        <button class="close-button" type="button" aria-label="关闭" @click="handleClose">
+          <X aria-hidden="true" :size="18" />
+        </button>
+
         <div class="modal-header">
-          <h2 id="low-balance-title" class="modal-title">积分余额不足</h2>
+          <h2 id="low-balance-title" class="modal-title">积分不足</h2>
         </div>
 
         <p class="modal-body">
-          当前余额：<strong>{{ balance }}</strong> 积分。购买加量包后可继续完成本次任务。
+          当前余额：<strong>{{ balance }}</strong> 积分。
         </p>
-
-        <div class="option">
-          <p class="option-title">购买加量包</p>
-          <p class="option-desc">+600 积分 · ¥29.9 · 90 天有效</p>
-        </div>
 
         <div class="modal-footer">
           <AppButton @click="handlePurchase">购买加量包</AppButton>
@@ -58,7 +58,7 @@ const handleClose = (): void => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(17, 24, 39, 0.48);
   z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
@@ -67,10 +67,12 @@ const handleClose = (): void => {
 }
 
 .modal-content {
+  position: relative;
   background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #eeeff3);
   border-radius: var(--agent-radius-card, 10px);
   padding: 24px;
-  max-width: 420px;
+  max-width: 372px;
   width: 100%;
   box-shadow: var(--shadow-lg);
 }
@@ -83,44 +85,80 @@ const handleClose = (): void => {
 
 .modal-title {
   font-size: 18px;
-  font-weight: 600;
+  line-height: 26px;
+  font-weight: 650;
   color: var(--color-text, #1f2937);
   margin: 0;
+  padding-right: 42px;
 }
 
 .modal-body {
   font-size: 14px;
+  line-height: 22px;
   color: var(--color-text-muted, #4b5563);
-  margin: 0 0 16px;
+  margin: 0 0 22px;
 }
 
 .modal-body strong {
   color: var(--color-text, #1f2937);
+  font-weight: 650;
 }
 
-.option {
-  background: var(--color-surface-tint, #f9fafb);
-  border: 1px solid var(--color-border-light, #eeeff3);
-  border-radius: var(--agent-radius-inner, 8px);
-  padding: 14px 16px;
-}
-
-.option-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text, #1f2937);
-  margin: 0 0 4px;
-}
-
-.option-desc {
-  font-size: 13px;
+.close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--agent-radius-control, 8px);
+  background: transparent;
   color: var(--color-text-muted, #6b7280);
-  margin: 0 0 8px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.close-button:hover {
+  background: var(--color-surface-tint, #f9fafb);
+  border-color: var(--color-border-light, #eeeff3);
+  color: var(--color-text, #1f2937);
+}
+
+.close-button:focus-visible {
+  outline: 3px solid rgba(24, 183, 122, 0.22);
+  outline-offset: 2px;
 }
 
 .modal-footer {
-  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+.modal-footer :deep(.app-button) {
+  min-width: 112px;
+  border-radius: var(--agent-radius-control, 8px);
+  color: var(--color-primary-foreground, #fff);
+  font-weight: 600;
+}
+
+@media (max-width: 420px) {
+  .modal-content {
+    padding: 22px 20px 20px;
+  }
+
+  .modal-footer {
+    justify-content: stretch;
+  }
+
+  .modal-footer :deep(.app-button) {
+    width: 100%;
+  }
 }
 </style>

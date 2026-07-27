@@ -34,7 +34,7 @@
  *   [role="dialog"] .modal-title      — AgentBudgetExceededModal: "本次任务已用完 N 积分"
  *   [role="dialog"] .modal-meta       — AgentBudgetExceededModal: "当前余额：N 积分"
  *   [role="dialog"] .modal-actions    — AgentBudgetExceededModal: continue + stop buttons
- *   [role="dialog"] .modal-title (LowBalance) — AgentLowBalanceModal: "积分余额不够完成这次任务"
+ *   [role="dialog"] .modal-title (LowBalance) — AgentLowBalanceModal: "积分不足"
  *
  * NDF v2 #14/14 Phase B (web-v3 part 1)
  */
