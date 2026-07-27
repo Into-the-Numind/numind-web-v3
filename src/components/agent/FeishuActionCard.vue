@@ -7,10 +7,8 @@
  * a new chat message. AgentMessageItem owns the lifecycle-store calls.
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import QRCode from 'qrcode'
-import { Check, Copy, ExternalLink, RefreshCw, ShieldCheck } from 'lucide-vue-next'
+import { ExternalLink, RefreshCw, ShieldCheck } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
-import { copyText } from '@/utils/clipboard'
 import type { ExternalActionMessage } from '@/types/agent'
 
 interface Props {
@@ -41,7 +39,7 @@ const phaseContent = {
   },
   user_auth: {
     title: '授权并继续',
-    description: '请授权本次任务需要的文档权限。以后使用已授权能力时不会重复出现。'
+    description: ''
   },
   confirmation: {
     title: '正在继续原任务',
@@ -93,9 +91,9 @@ const canResume = computed<boolean>(
   () => current.value && !confirmation.value && (!!url.value || props.action.phase === 'app_scope')
 )
 const phase = computed(() => phaseContent[props.action.phase])
-const copied = ref(false)
-const qrDataUrl = ref('')
-let qrGeneration = 0
+const cardTitle = computed<string>(() =>
+  props.action.phase === 'user_auth' ? '飞书授权' : `飞书个人工作空间 · ${phase.value.title}`
+)
 const noticeText = computed<string>(() =>
   current.value && props.action.notice_code ? noticeContent[props.action.notice_code] : ''
 )
@@ -226,43 +224,10 @@ watch(
   { immediate: true }
 )
 
-watch(
-  [showsCurrentURL, url],
-  async ([shouldRenderURL]) => {
-    qrGeneration += 1
-    const generation = qrGeneration
-    if (!shouldRenderURL) {
-      qrDataUrl.value = ''
-      return
-    }
-    try {
-      const dataUrl = await QRCode.toDataURL(url.value, {
-        width: 176,
-        margin: 1,
-        color: { dark: '#1A1D26', light: '#FFFFFF' }
-      })
-      if (generation === qrGeneration) qrDataUrl.value = dataUrl
-    } catch {
-      if (generation === qrGeneration) qrDataUrl.value = ''
-    }
-  },
-  { immediate: true }
-)
-
 onBeforeUnmount(() => {
   if (expiryTimer) clearTimeout(expiryTimer)
   clearConfirmationRetry()
 })
-
-async function handleCopy(): Promise<void> {
-  if (!showsCurrentURL.value) return
-  if (await copyText(url.value)) {
-    copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 2_000)
-  }
-}
 
 function handleResume(): void {
   if (!canResume.value || interactionBusy.value) return
@@ -279,13 +244,12 @@ function handleRefresh(): void {
   <section class="feishu-action-card" data-testid="feishu-action-card" aria-label="飞书操作步骤">
     <div class="feishu-action-card__header">
       <span class="feishu-action-card__icon" aria-hidden="true"><ShieldCheck :size="18" /></span>
-      <div>
-        <p class="feishu-action-card__eyebrow">飞书个人工作空间</p>
-        <h3 data-testid="feishu-phase" class="feishu-action-card__title">{{ phase.title }}</h3>
-      </div>
+      <h3 data-testid="feishu-phase" class="feishu-action-card__title">{{ cardTitle }}</h3>
     </div>
 
-    <p class="feishu-action-card__description">{{ phase.description }}</p>
+    <p v-if="phase.description" class="feishu-action-card__description">
+      {{ phase.description }}
+    </p>
 
     <p
       v-if="noticeText"
@@ -301,48 +265,23 @@ function handleRefresh(): void {
     <p v-if="alertText" class="feishu-action-card__error" role="alert">{{ alertText }}</p>
 
     <template v-if="showsCurrentURL">
-      <div class="feishu-action-card__link-area">
-        <div class="feishu-action-card__qr" aria-label="飞书操作二维码">
-          <img
-            v-if="qrDataUrl"
-            :src="qrDataUrl"
-            alt="飞书操作二维码"
-            class="feishu-action-card__qr-image"
-          />
-          <span v-else class="feishu-action-card__qr-skeleton" aria-hidden="true" />
-          <span class="feishu-action-card__qr-caption">扫码打开</span>
+      <div class="feishu-action-card__action-band">
+        <div class="feishu-action-card__action-copy">
+          <strong>先去飞书完成授权</strong>
+          <p>打开上述链接，完成操作后点击继续。</p>
         </div>
-
-        <div class="feishu-action-card__link-content">
-          <p class="feishu-action-card__link-label">或在浏览器打开完整链接</p>
-          <code data-testid="feishu-url" class="feishu-action-card__url">{{ url }}</code>
-          <div class="feishu-action-card__link-actions">
-            <AppButton
-              data-testid="feishu-copy-link"
-              variant="secondary"
-              size="sm"
-              :disabled="busy"
-              aria-label="复制飞书链接"
-              @click="handleCopy"
-            >
-              <Check v-if="copied" :size="15" aria-hidden="true" />
-              <Copy v-else :size="15" aria-hidden="true" />
-              <span>{{ copied ? '已复制' : '复制链接' }}</span>
-            </AppButton>
-            <a
-              data-testid="feishu-open-link"
-              :href="url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="feishu-action-card__open-link"
-            >
-              <ExternalLink :size="15" aria-hidden="true" />
-              <span>打开链接</span>
-            </a>
-          </div>
-        </div>
+        <a
+          data-testid="feishu-open-link"
+          :href="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="feishu-action-card__open-link"
+          aria-label="打开飞书授权链接"
+        >
+          <ExternalLink :size="15" aria-hidden="true" />
+          <span>打开链接</span>
+        </a>
       </div>
-      <p class="feishu-action-card__expires">请在链接有效期内完成此步骤。</p>
     </template>
 
     <div
@@ -355,12 +294,11 @@ function handleRefresh(): void {
         size="sm"
         :loading="interactionBusy"
         :disabled="!canResume || interactionBusy"
-        aria-label="我已完成，继续原任务"
+        aria-label="确认继续"
         @click="handleResume"
       >
-        {{ interactionBusy ? '正在检查…' : '我已完成，继续' }}
+        {{ interactionBusy ? '正在检查…' : '确认继续' }}
       </AppButton>
-      <p class="feishu-action-card__control-hint">完成飞书页面操作后，继续原任务。</p>
       <AppButton
         v-if="showRefresh"
         data-testid="feishu-refresh"
@@ -395,17 +333,29 @@ function handleRefresh(): void {
 
 <style scoped>
 .feishu-action-card {
+  position: relative;
   box-sizing: border-box;
   width: 100%;
   max-width: 560px;
   min-width: 0;
   overflow: hidden;
   padding: var(--space-xl);
+  padding-left: calc(var(--space-xl) + var(--space-xs));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   color: var(--text);
+}
+
+.feishu-action-card::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--primary), hsl(160 65% 86%));
+  content: '';
 }
 
 .feishu-action-card__header {
@@ -425,26 +375,15 @@ function handleRefresh(): void {
   color: var(--primary);
 }
 
-.feishu-action-card__eyebrow,
 .feishu-action-card__description,
 .feishu-action-card__notice,
 .feishu-action-card__status,
-.feishu-action-card__error,
-.feishu-action-card__link-label,
-.feishu-action-card__expires,
-.feishu-action-card__control-hint,
-.feishu-action-card__qr-caption {
+.feishu-action-card__error {
   margin: 0;
 }
 
-.feishu-action-card__eyebrow {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  line-height: var(--line-height-normal);
-}
-
 .feishu-action-card__title {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
   color: var(--text);
   font-family: var(--font-heading);
   font-size: var(--text-lg);
@@ -480,88 +419,45 @@ function handleRefresh(): void {
   color: #ef4444;
 }
 
-.feishu-action-card__link-area {
+.feishu-action-card__action-band {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-lg);
-  min-width: 0;
-  margin-top: var(--space-lg);
-}
-
-.feishu-action-card__qr {
-  display: flex;
-  width: 176px;
-  max-width: 100%;
-  flex: 0 0 auto;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
-}
-
-.feishu-action-card__qr-image,
-.feishu-action-card__qr-skeleton {
-  box-sizing: border-box;
-  display: block;
-  width: 176px;
-  max-width: 100%;
-  aspect-ratio: 1;
-  border: 1px solid var(--border);
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid hsl(160 60% 88%);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: linear-gradient(180deg, hsl(160 60% 96%), hsl(160 55% 98%));
 }
 
-.feishu-action-card__qr-skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--surface-tint) 25%,
-    var(--surface-hover) 50%,
-    var(--surface-tint) 75%
-  );
-  background-size: 300% 100%;
-  animation: feishu-qr-shimmer 1.4s ease infinite;
+.feishu-action-card__action-copy {
+  min-width: 180px;
 }
 
-.feishu-action-card__qr-caption,
-.feishu-action-card__link-label,
-.feishu-action-card__expires,
-.feishu-action-card__control-hint {
+.feishu-action-card__action-copy strong {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-tight);
+}
+
+.feishu-action-card__action-copy p {
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-height-normal);
 }
 
-.feishu-action-card__link-content {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.feishu-action-card__url {
-  box-sizing: border-box;
-  display: block;
-  width: 100%;
-  min-width: 0;
-  padding: var(--space-sm);
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  white-space: normal;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  background: var(--surface-tint);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--line-height-normal);
-}
-
-.feishu-action-card__link-actions,
 .feishu-action-card__controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-sm);
+  margin-top: var(--space-lg);
 }
 
 .feishu-action-card__open-link {
@@ -573,53 +469,37 @@ function handleRefresh(): void {
   box-sizing: border-box;
   padding: 0 var(--space-md);
   border-radius: var(--radius-md);
-  background: var(--primary);
-  color: var(--primary-foreground);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font-size: var(--text-sm);
   font-weight: 500;
   text-decoration: none;
-  transition: background var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .feishu-action-card__open-link:hover {
-  background: var(--primary-hover);
-}
-
-.feishu-action-card__expires {
-  margin-top: var(--space-sm);
-}
-
-.feishu-action-card__controls {
-  margin-top: var(--space-lg);
-}
-
-@keyframes feishu-qr-shimmer {
-  from {
-    background-position: 100% 0;
-  }
-
-  to {
-    background-position: 0 0;
-  }
+  border-color: var(--primary);
+  background: var(--surface-hover);
+  color: var(--primary);
 }
 
 @media (max-width: 480px) {
   .feishu-action-card {
     padding: var(--space-lg);
+    padding-left: calc(var(--space-lg) + var(--space-xs));
   }
 
-  .feishu-action-card__link-area {
-    flex-direction: column;
+  .feishu-action-card__action-band {
+    align-items: flex-start;
+    justify-content: flex-start;
   }
 
-  .feishu-action-card__qr {
-    width: min(176px, 100%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .feishu-action-card__qr-skeleton {
-    animation: none;
+  .feishu-action-card__action-copy {
+    min-width: 100%;
   }
 }
 </style>
