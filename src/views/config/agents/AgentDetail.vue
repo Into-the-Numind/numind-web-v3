@@ -91,7 +91,7 @@ async function refetch() {
     <div v-else-if="store.current" class="agent-detail">
       <div class="back-link" @click="goBack">
         <ArrowLeft :size="16" />
-        <span>返回智能体列表</span>
+        <span>返回 AI 智能体列表</span>
       </div>
 
       <header class="detail-header">

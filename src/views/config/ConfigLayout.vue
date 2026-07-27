@@ -59,13 +59,13 @@ interface ConfigTab {
   childVisible?: boolean
 }
 
-// skill-3tier-visibility T4: AI 助手/SOP/知识库/智能体 路由均 requiresParent，仅父账户可访问 →
-// 全部标 parentOnly（之前 AI 助手/SOP/知识库 误标为非 parentOnly，子账户点了会被守卫弹回）。
+// skill-3tier-visibility T4: AI 问答助手/AI 工作流/知识库/AI 智能体 路由均 requiresParent，仅父账户可访问 →
+// 全部标 parentOnly（之前 AI 问答助手/AI 工作流/知识库 误标为非 parentOnly，子账户点了会被守卫弹回）。
 // Skill 标 childVisible，子账户也能看到并管理个人技能。
 const allTabs: ConfigTab[] = [
-  { label: 'SOP 工作流', path: '/config/sop-templates', group: 'tools', parentOnly: true },
-  { label: '智能体', path: '/config/agents', group: 'tools', parentOnly: true },
-  { label: 'AI 助手', path: '/config/chatbots', group: 'tools', parentOnly: true },
+  { label: 'AI 工作流', path: '/config/sop-templates', group: 'tools', parentOnly: true },
+  { label: 'AI 问答助手', path: '/config/chatbots', group: 'tools', parentOnly: true },
+  { label: 'AI 智能体', path: '/config/agents', group: 'tools', parentOnly: true },
   { label: '知识库', path: '/config/knowledge-bases', group: 'assets', parentOnly: true },
   { label: 'Skill', path: '/config/skills', group: 'assets', parentOnly: true, childVisible: true }
 ]

@@ -15,14 +15,16 @@
       <button class="back-link" @click="router.push('/config/chatbots')">&larr; 返回列表</button>
 
       <div class="content-center">
-        <h2 class="page-title">{{ paramId === 'new' ? '新建 AI 助手' : '编辑 AI 助手' }}</h2>
+        <h2 class="page-title">
+          {{ paramId === 'new' ? '新建 AI 问答助手' : '编辑 AI 问答助手' }}
+        </h2>
 
         <form class="edit-form" @submit.prevent="handleSubmit">
           <!-- 名称 -->
           <AppInput
             v-model="form.name"
             label="名称"
-            placeholder="请输入 AI 助手名称"
+            placeholder="请输入 AI 问答助手名称"
             :error="errors.name"
             @blur="validateName"
           />
@@ -44,7 +46,7 @@
             <label class="form-label"> 系统提示词 <span class="required">*</span> </label>
             <span class="form-hint">
               定义 AI
-              助手的身份、能力和行为规则。例如：「你是一名专业的产品顾问，擅长根据客户需求推荐合适的产品方案。请用简洁专业的语气回答。」
+              问答助手的身份、能力和行为规则。例如：「你是一名专业的产品顾问，擅长根据客户需求推荐合适的产品方案。请用简洁专业的语气回答。」
             </span>
             <textarea
               v-model="form.system_prompt"
@@ -79,7 +81,9 @@
                 </svg>
               </span>
               <span class="greeting-label">打招呼</span>
-              <span class="greeting-hint">开启后，用户首次打开会话时 AI 助手将主动发送这句话</span>
+              <span class="greeting-hint"
+                >开启后，用户首次打开会话时 AI 问答助手将主动发送这句话</span
+              >
             </label>
             <textarea
               v-model="form.greeting_message"
@@ -279,7 +283,7 @@ async function loadDetail() {
   try {
     const detail = await store.fetchChatbotDetail(editId.value)
     if (!detail) {
-      loadError.value = 'AI 助手不存在'
+      loadError.value = 'AI 问答助手不存在'
       return
     }
     form.name = detail.name
@@ -351,12 +355,12 @@ async function handleSubmit() {
         await saveVisibility(chatbotID)
       } catch {
         visibilityDirty.value = true
-        notifications.error('AI 助手已保存, 但可见范围更新失败. 请检查后重试')
+        notifications.error('AI 问答助手已保存, 但可见范围更新失败. 请检查后重试')
         return
       }
     }
 
-    notifications.success(wasCreate ? 'AI 助手已创建' : '已保存')
+    notifications.success(wasCreate ? 'AI 问答助手已创建' : '已保存')
     router.push('/config/chatbots')
   } catch {
     notifications.error('保存失败，请重试')

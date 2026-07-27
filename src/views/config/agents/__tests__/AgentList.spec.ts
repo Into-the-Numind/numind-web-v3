@@ -91,7 +91,7 @@ describe('AgentList.vue', () => {
   // ----------------------------------------------------------------
   it('shows empty state text when list is empty and not loading', async () => {
     const wrapper = await mountView()
-    expect(wrapper.text()).toContain('暂无智能体')
+    expect(wrapper.text()).toContain('暂无 AI 智能体')
   })
 
   // ----------------------------------------------------------------
@@ -142,7 +142,7 @@ describe('AgentList.vue', () => {
 
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('仅父账户可配置 AI 助手，请联系机构主')
+    expect(wrapper.text()).toContain('仅父账户可配置 AI 智能体，请联系机构主')
   })
 
   // ----------------------------------------------------------------
