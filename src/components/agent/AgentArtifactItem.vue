@@ -184,7 +184,7 @@ onUnmounted(() => {
   max-width: 440px;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--agent-radius-card, 10px);
   padding: 10px 12px;
 }
 
@@ -209,7 +209,7 @@ onUnmounted(() => {
   max-height: 320px;
   width: auto;
   height: auto;
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--agent-radius-inner, 8px);
   box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.06));
 }
 
@@ -235,7 +235,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--agent-radius-control, 8px);
   display: grid;
   place-items: center;
   background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
@@ -280,7 +280,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: var(--agent-radius-control, 8px);
   border: none;
   background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
   color: var(--color-primary, hsl(160, 72%, 40%));
@@ -301,7 +301,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.9);
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -326,6 +326,6 @@ onUnmounted(() => {
 .preview-img {
   max-width: 90vw;
   max-height: 90vh;
-  border-radius: 8px;
+  border-radius: var(--agent-radius-inner, 8px);
 }
 </style>

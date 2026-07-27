@@ -114,7 +114,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 9999;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,7 +134,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 .preview-img {
   max-width: 100%;
   max-height: 90vh;
-  border-radius: 12px;
+  border-radius: var(--agent-radius-inner, 8px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
   object-fit: contain;
 }

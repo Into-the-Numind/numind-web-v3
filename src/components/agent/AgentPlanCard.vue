@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, ListChecks } from 'lucide-vue-next'
 
 interface Props {
   steps: string[]
@@ -29,7 +29,10 @@ const toggle = (): void => {
 <template>
   <div class="plan-card">
     <button class="plan-header" @click="toggle" :aria-expanded="open">
-      <span class="plan-title">📋 我的计划</span>
+      <span class="plan-title">
+        <ListChecks :size="15" aria-hidden="true" />
+        我的计划
+      </span>
       <component :is="open ? ChevronUp : ChevronDown" :size="16" />
     </button>
     <ol v-if="open" class="plan-steps">
@@ -42,7 +45,7 @@ const toggle = (): void => {
 .plan-card {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
+  border-radius: var(--agent-radius-card, 10px);
   padding: 12px 16px;
 }
 

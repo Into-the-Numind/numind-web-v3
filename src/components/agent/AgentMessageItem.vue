@@ -679,7 +679,7 @@ const systemText = computed<string>(() => {
   background: var(--primary, #2563eb);
   color: white;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--agent-radius-card, 10px);
   border-bottom-right-radius: 4px;
   padding: 10px 14px;
 }
@@ -799,7 +799,7 @@ const systemText = computed<string>(() => {
 .msg-assistant .bubble {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: var(--agent-radius-card, 10px);
   padding: 10px 14px;
   max-width: 80%;
 }
@@ -853,7 +853,7 @@ const systemText = computed<string>(() => {
 .streaming-answer :deep(.markdown-body img) {
   max-width: 240px;
   max-height: 180px;
-  border-radius: 8px;
+  border-radius: var(--agent-radius-inner, 8px);
   cursor: zoom-in;
   border: 1px solid #e5e7eb;
   transition:
@@ -883,18 +883,18 @@ const systemText = computed<string>(() => {
 }
 
 .streaming-answer :deep(.markdown-body code) {
-  background: #f3f4f6;
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 12px;
-  color: #b91c1c;
+  color: var(--color-primary-hover, hsl(160, 72%, 34%));
 }
 
 .streaming-answer :deep(.markdown-body pre) {
   background: #1f2937;
   color: #f9fafb;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: var(--agent-radius-inner, 8px);
   overflow-x: auto;
   font-size: 12px;
 }
@@ -906,20 +906,35 @@ const systemText = computed<string>(() => {
 }
 
 .streaming-answer :deep(.markdown-body table) {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 12px 0;
   font-size: 13px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--agent-radius-inner, 8px);
+  overflow: hidden;
 }
 
 .streaming-answer :deep(.markdown-body th),
 .streaming-answer :deep(.markdown-body td) {
-  border: 1px solid #e5e7eb;
+  border: 0;
+  border-right: 1px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
   padding: 6px 12px;
   text-align: left;
 }
 
+.streaming-answer :deep(.markdown-body tr > *:last-child) {
+  border-right: 0;
+}
+
+.streaming-answer :deep(.markdown-body tbody tr:last-child td) {
+  border-bottom: 0;
+}
+
 .streaming-answer :deep(.markdown-body th) {
-  background: #f9fafb;
+  background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
+  color: var(--color-primary-hover, hsl(160, 72%, 34%));
 }
 
 .streaming-cursor {
@@ -967,7 +982,7 @@ const systemText = computed<string>(() => {
   background: transparent;
   color: var(--text-secondary, #5f6577);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--agent-radius-control, 8px);
   padding: 0;
 }
 .code-stream-toggle:hover {
@@ -985,7 +1000,7 @@ const systemText = computed<string>(() => {
   overflow: auto;
   background: #1f2937;
   color: #e5e7eb;
-  border-radius: 8px;
+  border-radius: var(--agent-radius-inner, 8px);
   padding: 10px 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
   font-size: 12px;

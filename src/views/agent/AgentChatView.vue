@@ -18,7 +18,6 @@ import AgentMessageList from '@/components/agent/AgentMessageList.vue'
 import AgentInputArea from '@/components/agent/AgentInputArea.vue'
 import AgentLowBalanceModal from '@/components/agent/AgentLowBalanceModal.vue'
 import { useDocumentsStore } from '@/stores/documents'
-import type { SupportContact } from '@/types/agent'
 
 // document-system：右侧文档编辑器面板（第三栏），懒加载以隔离 Milkdown 重依赖；
 // 仅当 documentsStore 有打开/加载/错误态时渲染（feature flag 关时卡片不可点→永不触发）。
@@ -55,7 +54,6 @@ const docPanelOpen = computed(
   () => !!documentsStore.current || documentsStore.loading || !!documentsStore.error
 )
 
-const supportContact = ref<SupportContact>({})
 const showLowBalance = ref(false)
 const sidebarOpen = ref(false)
 
@@ -68,9 +66,6 @@ const showFirstRun = computed(
 
 // Sum cycle + booster + trial pools via the store's totalRemain getter.
 const currentBalance = computed(() => creditsStore.totalRemain)
-const isMember = computed(
-  () => creditsStore.displayState === 'trial' || creditsStore.displayState === 'pro'
-)
 const canStop = computed(
   () =>
     !!store.currentRun &&
@@ -172,12 +167,8 @@ const handleReject = (reason: string): void => {
 }
 
 const handlePurchase = (): void => {
-  router.push({ name: 'credits' })
-}
-
-const handleTryDemoTask = async (text: string): Promise<void> => {
   showLowBalance.value = false
-  await handleSend(text)
+  router.push({ name: 'credits' })
 }
 
 const handleCloseLowBalance = (): void => {
@@ -323,14 +314,7 @@ onMounted(async () => {
   // it before any stream can start so a later route switch invalidates its SSE
   // callbacks just like a historical snapshot does.
   if (isNewSession.value) store.beginSession('new')
-  await Promise.all([
-    creditsStore.fetchBalance(),
-    loadCurrentAgent(),
-    store.fetchRecentSessions(),
-    api.getSupportContact().then((c) => {
-      supportContact.value = c
-    })
-  ])
+  await Promise.all([creditsStore.fetchBalance(), loadCurrentAgent(), store.fetchRecentSessions()])
 
   if (isNewSession.value) {
     const storedRunId = sessionStorage.getItem('agentChat:currentRunId')
@@ -587,10 +571,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
       <!-- Main Chat Area -->
       <main v-else class="main-stage">
         <!-- Header -->
-        <AgentChatHeader
-          :agent="store.currentAgent"
-          @toggle-sidebar="sidebarOpen = !sidebarOpen"
-        />
+        <AgentChatHeader :agent="store.currentAgent" @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
         <!-- 空状态（新会话无消息）：欢迎语 + 居中输入框 + 快捷开始（居中组合） -->
         <div v-if="showFirstRun" class="welcome-stage">
@@ -670,10 +651,7 @@ const handleRetrySnapshot = async (): Promise<void> => {
     <AgentLowBalanceModal
       :open="showLowBalance"
       :balance="currentBalance"
-      :is-member="isMember"
-      :support-contact="supportContact"
       @purchase="handlePurchase"
-      @try="handleTryDemoTask"
       @close="handleCloseLowBalance"
     />
 
@@ -732,6 +710,9 @@ body.agent-chat-route {
   --sidebar-width: 260px;
   --text-light: var(--text-muted);
   --bg: #ffffff;
+  --agent-radius-card: 10px;
+  --agent-radius-inner: 8px;
+  --agent-radius-control: 8px;
 
   margin: 0;
   padding: 0;

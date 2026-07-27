@@ -147,7 +147,7 @@ const copyText = async (): Promise<void> => {
   width: 100%;
   height: 120px;
   object-fit: cover;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--agent-radius-inner, 8px);
   box-shadow: var(--shadow-card, 0 1px 4px rgba(0, 0, 0, 0.04));
   cursor: pointer;
   display: block;
@@ -182,11 +182,6 @@ const copyText = async (): Promise<void> => {
   color: var(--color-text, #1f2937);
   font-weight: 600;
   line-height: 1.35;
-}
-
-.markdown-body :deep(h1),
-.markdown-body :deep(h2) {
-  font-family: var(--font-heading, Georgia, 'Songti SC', serif);
 }
 
 .markdown-body :deep(h1) {
@@ -250,7 +245,7 @@ const copyText = async (): Promise<void> => {
   border-left: 3px solid var(--color-accent-light, hsl(160, 70%, 68%));
   background: var(--color-accent-ultra-soft, hsl(160, 60%, 95%));
   color: var(--color-text-secondary, #4b5563);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--agent-radius-inner, 8px) var(--agent-radius-inner, 8px) 0;
 }
 
 .markdown-body :deep(blockquote p) {
@@ -277,7 +272,7 @@ const copyText = async (): Promise<void> => {
   background: #1f2937;
   color: #f9fafb;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: var(--agent-radius-inner, 8px);
   overflow-x: auto;
   font-size: 12px;
 }
@@ -289,16 +284,30 @@ const copyText = async (): Promise<void> => {
 }
 
 .markdown-body :deep(table) {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 12px 0;
   font-size: 13px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--agent-radius-inner, 8px);
+  overflow: hidden;
 }
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 0;
+  border-right: 1px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
   padding: 6px 12px;
   text-align: left;
+}
+
+.markdown-body :deep(tr > *:last-child) {
+  border-right: 0;
+}
+
+.markdown-body :deep(tbody tr:last-child td) {
+  border-bottom: 0;
 }
 
 /* 表头 (#5)：极淡翠绿底 + 深翠字 + 翠绿淡分隔线，绿色系但克制不刺眼。 */
@@ -321,7 +330,7 @@ const copyText = async (): Promise<void> => {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: var(--agent-radius-control, 8px);
   color: var(--text-muted, #6b7280);
   font-size: 13px;
   font-weight: 500;
@@ -348,7 +357,7 @@ const copyText = async (): Promise<void> => {
 .markdown-body :deep(img) {
   max-width: 240px;
   max-height: 180px;
-  border-radius: 8px;
+  border-radius: var(--agent-radius-inner, 8px);
   cursor: zoom-in;
   border: 1px solid #e5e7eb;
   transition:

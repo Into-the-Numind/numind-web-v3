@@ -142,7 +142,7 @@ describe('QuestionPrompt — multi-question navigation', () => {
     expect(wrapper.find('.question-prompt__option--btn.is-selected').text()).toContain('90天')
   })
 
-  it('marks a tab answered (☑) once its question has an answer', async () => {
+  it('marks a tab answered once its question has an answer', async () => {
     const wrapper = mountMulti()
     expect(wrapper.findAll('.question-prompt__tab')[0].classes()).not.toContain('is-answered')
     await wrapper.find('.question-prompt__option--btn').trigger('click')

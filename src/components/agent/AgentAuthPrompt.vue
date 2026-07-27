@@ -66,7 +66,7 @@
 import { ref, computed, watch } from 'vue'
 import QRCode from 'qrcode'
 import { copyText } from '@/utils/clipboard'
-import { ExternalLink, Copy, Check, ShieldCheck, ArrowRight } from 'lucide-vue-next'
+import { ExternalLink, Copy, Check, ShieldCheck, ArrowRight, Loader2 } from 'lucide-vue-next'
 
 interface Props {
   authUrl?: string
@@ -238,9 +238,12 @@ const handleContinue = (): void => {
             aria-label="我已完成，继续"
             @click="handleContinue"
           >
-            <span v-if="submitting" class="auth-prompt__continue-spinner" aria-hidden="true"
-              >⏳</span
-            >
+            <Loader2
+              v-if="submitting"
+              :size="15"
+              class="auth-prompt__continue-spinner"
+              aria-hidden="true"
+            />
             <ArrowRight v-else :size="15" />
             <span>{{ submitting ? '已完成，正在继续…' : '我已完成，继续' }}</span>
           </button>
@@ -260,7 +263,7 @@ const handleContinue = (): void => {
     var(--color-surface, #fff) 42%
   );
   border: 1px solid var(--color-accent-soft, hsl(160, 60%, 93%));
-  border-radius: var(--radius-lg, 16px);
+  border-radius: var(--agent-radius-card, 10px);
   padding: 18px;
   max-width: 480px;
   width: 100%;
@@ -325,7 +328,7 @@ const handleContinue = (): void => {
 .auth-prompt__qr-skeleton {
   width: 132px;
   height: 132px;
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--agent-radius-inner, 8px);
   background: #fff;
   border: 1px solid var(--color-border, #e5e7eb);
 }
@@ -379,7 +382,7 @@ const handleContinue = (): void => {
   color: var(--color-text, #1a1d26);
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 8px);
+  border-radius: var(--agent-radius-control, 8px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -395,7 +398,7 @@ const handleContinue = (): void => {
   color: var(--color-text-secondary, #5f6577);
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-sm, 8px);
+  border-radius: var(--agent-radius-control, 8px);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -418,7 +421,7 @@ const handleContinue = (): void => {
   background: var(--color-primary, hsl(160, 72%, 40%));
   color: #fff;
   border: none;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--agent-radius-control, 8px);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -457,7 +460,7 @@ const handleContinue = (): void => {
   background: var(--color-primary, hsl(160, 72%, 40%));
   color: #fff;
   border: none;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--agent-radius-control, 8px);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;

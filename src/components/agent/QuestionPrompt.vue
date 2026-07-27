@@ -24,7 +24,15 @@
 import { ref, reactive, computed } from 'vue'
 import type { AnswerItemPayload } from '@/api/agent'
 import type { QuestionPromptItem } from '@/types/agent'
-import { ChevronDown, ChevronUp, Sparkles, Check } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Sparkles,
+  Check
+} from 'lucide-vue-next'
 
 // Answered card is collapsed by default — click to expand and review the
 // questions + answers (keeps the transcript clean while staying revisitable).
@@ -179,7 +187,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
     </div>
 
     <!-- Question navigator (multi-question only): one chip per question showing
-         answered (☑) / pending (☐) status; click to revisit. A stepper, not an
+         answered / pending status; click to revisit. A stepper, not an
          ARIA tab widget, so role=group + aria-current rather than tablist/tab. -->
     <div
       v-if="isMulti && !answered"
@@ -202,9 +210,13 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         :aria-label="`第 ${i + 1} 题${isQuestionAnswered(i) ? '（已答）' : '（待答）'}`"
         @click="goTo(i)"
       >
-        <span class="question-prompt__tab-status" aria-hidden="true">{{
-          isQuestionAnswered(i) ? '☑' : '☐'
-        }}</span>
+        <span
+          class="question-prompt__tab-status"
+          :class="{ 'is-answered': isQuestionAnswered(i) }"
+          aria-hidden="true"
+        >
+          <Check v-if="isQuestionAnswered(i)" :size="10" />
+        </span>
         <span class="question-prompt__tab-index">Q{{ i + 1 }}</span>
       </button>
       <span class="question-prompt__progress">{{ answeredCount }}/{{ total }}</span>
@@ -221,7 +233,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         class="question-prompt__options question-prompt__options--multi"
       >
         <!-- 多选用 <button>（非 <label><input>）：jsdom 不实现 label-click，button @click 可靠；
-             aria-pressed 表达已选语义；视觉用 ☑/☐ 占位。 -->
+             aria-pressed 表达已选语义；视觉用小型 checkbox affordance。 -->
         <button
           v-for="opt in currentOptions"
           :key="opt.label"
@@ -233,9 +245,13 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
           @click="toggleOption(opt.label)"
           @keydown="handleKeydown($event, opt.label)"
         >
-          <span class="question-prompt__checkbox-visual" aria-hidden="true">{{
-            isSelected(opt.label) ? '☑' : '☐'
-          }}</span>
+          <span
+            class="question-prompt__checkbox-visual"
+            :class="{ 'is-checked': isSelected(opt.label) }"
+            aria-hidden="true"
+          >
+            <Check v-if="isSelected(opt.label)" :size="11" />
+          </span>
           <span class="question-prompt__option-label">{{ opt.label }}</span>
           <span v-if="opt.description" class="question-prompt__option-desc">{{
             opt.description
@@ -292,7 +308,8 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         :disabled="submitting"
         @click="goPrev"
       >
-        ← 上一题
+        <ArrowLeft :size="14" aria-hidden="true" />
+        上一题
       </button>
       <span class="question-prompt__nav-spacer" />
 
@@ -304,7 +321,8 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         :disabled="submitting"
         @click="goNext"
       >
-        下一题 →
+        下一题
+        <ArrowRight :size="14" aria-hidden="true" />
       </button>
 
       <!-- Last question (multi) or single question: submit directly (#1) -->
@@ -317,7 +335,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
         aria-label="提交回答"
         @click="submitAnswers"
       >
-        <span v-if="submitting" class="question-prompt__spinner" aria-hidden="true">⏳</span>
+        <Loader2 v-if="submitting" :size="14" class="question-prompt__spinner" aria-hidden="true" />
         <span>{{ submitting ? '提交中...' : '提交' }}</span>
       </button>
     </div>
@@ -374,7 +392,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
     var(--color-surface, #fff) 42%
   );
   border: 1px solid var(--color-accent-soft, hsl(160, 60%, 93%));
-  border-radius: var(--radius-lg, 16px);
+  border-radius: var(--agent-radius-card, 10px);
   padding: 18px;
   max-width: 480px;
   width: 100%;
@@ -449,14 +467,11 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   padding: 10px 12px;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
+  border-radius: var(--agent-radius-inner, 8px);
 }
 
-/* Recap question uses the brand serif — same calm "a person asked" tone as the
-   asking card's serif question, so answered + asking read as one design (#7). */
 .question-prompt__answered-q {
   margin: 0 0 4px;
-  font-family: var(--font-heading, Georgia, 'Songti SC', serif);
   font-size: 13.5px;
   font-weight: 600;
   color: var(--color-text, #1f2937);
@@ -501,7 +516,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   color: var(--color-text-muted, #6b7280);
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 999px;
+  border-radius: var(--agent-radius-control, 8px);
   cursor: pointer;
   transition:
     background 0.12s,
@@ -530,8 +545,21 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 }
 
 .question-prompt__tab-status {
-  font-size: 13px;
+  display: inline-grid;
+  width: 13px;
+  height: 13px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 3px;
   line-height: 1;
+}
+
+.question-prompt__tab-status.is-answered {
+  background: currentColor;
+}
+
+.question-prompt__tab-status.is-answered svg {
+  color: #fff;
 }
 
 .question-prompt__progress {
@@ -549,10 +577,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   margin-bottom: 8px;
 }
 
-/* Serif question — gives the prompt a calm, considered "a person is asking" tone
-   (matches the brand's serif headings). */
 .question-prompt__question {
-  font-family: var(--font-heading, Georgia, 'Songti SC', serif);
   font-size: 15.5px;
   font-weight: 600;
   color: var(--color-text, #1a1d26);
@@ -569,7 +594,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 
 /* Chip look shared by single-select and multi-select option buttons. */
 .question-prompt__chip {
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--agent-radius-control, 8px);
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e2e4ea);
   transition:
@@ -589,9 +614,18 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 }
 
 .question-prompt__chip.is-selected .question-prompt__option-label,
-.question-prompt__chip.is-selected .question-prompt__option-desc,
-.question-prompt__chip.is-selected .question-prompt__checkbox-visual {
+.question-prompt__chip.is-selected .question-prompt__option-desc {
   color: #fff;
+}
+
+.question-prompt__chip.is-selected .question-prompt__checkbox-visual {
+  border-color: rgba(255, 255, 255, 0.9);
+  color: #fff;
+}
+
+.question-prompt__chip.is-selected .question-prompt__checkbox-visual.is-checked {
+  background: #fff;
+  color: var(--color-primary, hsl(160, 72%, 40%));
 }
 
 /* Single-select chip: label (+ optional sub-line description) in a pill. Visual
@@ -613,7 +647,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   opacity: 0.6;
 }
 
-/* Multi-select chip: a ☑/☐ glyph + label in a pill. */
+/* Multi-select chip: a real checkbox affordance + label in a compact control. */
 .question-prompt__option--checkbox {
   display: inline-flex;
   align-items: center;
@@ -631,10 +665,22 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
 }
 
 .question-prompt__checkbox-visual {
+  display: inline-grid;
   flex-shrink: 0;
-  font-size: 15px;
-  line-height: 1;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 3px;
   color: var(--color-primary, hsl(160, 72%, 40%));
+}
+
+.question-prompt__checkbox-visual.is-checked {
+  background: currentColor;
+}
+
+.question-prompt__checkbox-visual.is-checked svg {
+  color: #fff;
 }
 
 .question-prompt__option-label {
@@ -659,7 +705,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--color-border, #e2e4ea);
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--agent-radius-inner, 8px);
   font-family: inherit;
   font-size: 13.5px;
   color: var(--color-text, #1a1d26);
@@ -700,7 +746,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--agent-radius-control, 8px);
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -733,7 +779,7 @@ const handleKeydown = (event: KeyboardEvent, label: string): void => {
   background: var(--color-primary, hsl(160, 72%, 40%));
   color: #fff;
   border: none;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--agent-radius-control, 8px);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
