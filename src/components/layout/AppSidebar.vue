@@ -229,6 +229,9 @@ const userStore = useUserStore()
 const { collapsed, toggle: toggleCollapsed } = useSidebarState()
 const animating = ref(false)
 
+const showMeetingCopilotHomeEntry = false
+const showSkillMarketplaceHomeEntry = false
+
 // org-branding：折叠态 logo-mark 取品牌名首字（Array.from 兼容代理对/emoji）
 const brandInitial = computed(() => Array.from(userStore.displayBrandName)[0] || '有')
 
@@ -262,15 +265,20 @@ const menuItems = computed(() => {
   // 竞品监控暂时隐藏（开发中，未对用户开放）
   // items.push({ path: '/monitor', title: '竞品监控', icon: 'monitor' })
 
-  // 会议副驾 (meeting-copilot) — 受 VITE_ENABLE_MEETING_COPILOT flag 控制
-  // (prod 默认不设 → 入口隐藏; 路由也未注册, 直达即 404)。
-  if (import.meta.env.VITE_ENABLE_MEETING_COPILOT === 'true') {
+  // 会议副驾 (meeting-copilot) — 代码与路由保留，首页功能栏先隐藏。
+  if (
+    showMeetingCopilotHomeEntry &&
+    import.meta.env.VITE_ENABLE_MEETING_COPILOT === 'true'
+  ) {
     items.push({ path: '/meeting', title: '会议副驾', icon: 'meeting' })
   }
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
-    items.push({ path: '/marketplace', title: '技能市场', icon: 'marketplace' })
+    // 技能市场代码保留，首页功能栏先隐藏。
+    if (showSkillMarketplaceHomeEntry) {
+      items.push({ path: '/marketplace', title: '技能市场', icon: 'marketplace' })
+    }
   } else {
     // skill-3tier-visibility T4: 子账户没有「配置中心」全入口，但可管理自己的个人技能。
     // 直接给一个「我的技能」入口指向 /config/skills（该路由已对子账户开放）。
