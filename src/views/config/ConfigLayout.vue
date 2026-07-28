@@ -1,6 +1,6 @@
 <template>
   <MainLayout>
-    <div class="config-layout">
+    <div v-if="showConfigChrome" class="config-layout">
       <div class="config-page-header">
         <h1 class="config-title">配置中心</h1>
         <p class="config-desc">管理首页可用工具，并维护它们可能会用到的知识库和 Skill。</p>
@@ -31,6 +31,10 @@
           <router-view />
         </main>
       </div>
+    </div>
+
+    <div v-else class="config-standalone">
+      <router-view />
     </div>
   </MainLayout>
 </template>
@@ -83,6 +87,9 @@ const tabGroups = computed(() => [
   { label: '能力资产', tabs: tabs.value.filter((t) => t.group === 'assets') }
 ])
 
+const hubPaths = new Set(allTabs.map((tab) => tab.path))
+const showConfigChrome = computed(() => hubPaths.has(route.path))
+
 function isActive(path: string) {
   return route.path.startsWith(path)
 }
@@ -121,7 +128,7 @@ function isActive(path: string) {
 .config-shell {
   width: min(100%, 1480px);
   display: grid;
-  grid-template-columns: 144px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
   gap: var(--space-xl);
   align-items: start;
 }
@@ -184,6 +191,15 @@ function isActive(path: string) {
 
 .config-content {
   min-width: 0;
+}
+
+.config-content :deep(.page-desc) {
+  display: none;
+}
+
+.config-standalone {
+  width: 100%;
+  min-height: 100%;
 }
 
 @media (max-width: 960px) {
