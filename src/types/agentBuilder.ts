@@ -121,8 +121,10 @@ export interface CreateAgentPayload {
   source_template_id?: number | null
 }
 
-// PATCH payload — 所有 optional；advanced_mode / is_active / parent_user_id 不可改
-export type PatchAgentPayload = Partial<Omit<CreateAgentPayload, 'source_template_id'>>
+// PATCH payload — 所有 optional；advanced_mode / parent_user_id 不可改
+export type PatchAgentPayload = Partial<Omit<CreateAgentPayload, 'source_template_id'>> & {
+  is_active?: boolean
+}
 
 // ============================================================
 // AgentFormState — Builder 表单内部 state shape
@@ -139,6 +141,7 @@ export interface AgentFormState {
   // tool_flags + cap 隐藏字段（v1 通过模板预设或保持默认）
   tool_flags: ToolFlags
   daily_credit_cap: number | null
+  is_active: boolean
 }
 
 /**
@@ -158,7 +161,8 @@ export function initialFormState(): AgentFormState {
       media: true,
       dangerous: true
     },
-    daily_credit_cap: null
+    daily_credit_cap: null,
+    is_active: true
   }
 }
 

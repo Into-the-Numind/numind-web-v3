@@ -1,4 +1,4 @@
-// Pinia store for parent-account Skill (artifact) CRUD + history + binding.
+// Pinia store for parent-account Skill (artifact) CRUD + binding.
 // Setup syntax (per numind-web-v3 CLAUDE.md §2 / .claude/rules/frontend-state.md).
 //
 // agent-mode-v2-skill-as-artifact (S4 T09).
@@ -16,9 +16,6 @@ import {
   getSkill,
   updateSkill,
   deleteSkill,
-  listSkillHistory,
-  restoreSkill,
-  listSkillAgents,
   attachSkillToAgent,
   detachSkillFromAgent,
   reorderAgentSkills,
@@ -27,8 +24,6 @@ import {
 } from '@/api/skill'
 import type {
   Skill,
-  SkillHistoryItem,
-  BoundAgentSummary,
   CreateSkillRequest,
   UpdateSkillRequest,
   ListSkillParams
@@ -46,22 +41,13 @@ export const useSkillStore = defineStore('skill', () => {
   const currentLoading = ref(false)
   const currentError = ref('')
 
-  // --- History state ---
-  const history = ref<SkillHistoryItem[]>([])
-  const historyLoading = ref(false)
-  const historyError = ref('')
-
-  // --- Bound agents (for Skill 详情页右上角 / 删除前级联提示) ---
-  const boundAgents = ref<BoundAgentSummary[]>([])
-  const boundAgentsLoading = ref(false)
-
   // --- 每个 Agent 已装载的 Skill 列表（SkillBindingPanel 用）
   //     keyed by agentID 避免多个 Agent 编辑器同时打开互相覆盖。
   const skillsByAgent = ref<Record<number, Skill[]>>({})
   const bindingLoading = ref(false)
   const bindingError = ref('')
 
-  // --- Shared saving flag (create/update/restore/remove/attach/detach/reorder) ---
+  // --- Shared saving flag (create/update/remove/attach/detach/reorder) ---
   const saving = ref(false)
 
   // --- Getter ---
@@ -134,45 +120,6 @@ export const useSkillStore = defineStore('skill', () => {
       return resp.affected_bindings
     } finally {
       saving.value = false
-    }
-  }
-
-  async function fetchHistory(id: number) {
-    historyLoading.value = true
-    historyError.value = ''
-    try {
-      const res = await listSkillHistory(id)
-      history.value = res.list ?? []
-    } catch (e) {
-      historyError.value = (e as Error).message || '加载历史失败'
-      throw e
-    } finally {
-      historyLoading.value = false
-    }
-  }
-
-  async function restore(id: number, version: number): Promise<Skill> {
-    saving.value = true
-    try {
-      const s = await restoreSkill(id, version)
-      current.value = s
-      // 刷新历史让新版本立刻出现在时间线顶部
-      await fetchHistory(id)
-      return s
-    } finally {
-      saving.value = false
-    }
-  }
-
-  async function fetchBoundAgents(id: number) {
-    boundAgentsLoading.value = true
-    try {
-      const res = await listSkillAgents(id)
-      // 后端空列表序列化为 list:null (numind-server controller 没归一空切片),
-      // store 兜底为 [] 防 SkillDetail.vue `boundAgents.length` 触发 null.length TypeError.
-      boundAgents.value = res.list ?? []
-    } finally {
-      boundAgentsLoading.value = false
     }
   }
 
@@ -260,11 +207,6 @@ export const useSkillStore = defineStore('skill', () => {
     current.value = null
     currentLoading.value = false
     currentError.value = ''
-    history.value = []
-    historyLoading.value = false
-    historyError.value = ''
-    boundAgents.value = []
-    boundAgentsLoading.value = false
     skillsByAgent.value = {}
     bindingLoading.value = false
     bindingError.value = ''
@@ -280,11 +222,6 @@ export const useSkillStore = defineStore('skill', () => {
     current,
     currentLoading,
     currentError,
-    history,
-    historyLoading,
-    historyError,
-    boundAgents,
-    boundAgentsLoading,
     skillsByAgent,
     bindingLoading,
     bindingError,
@@ -297,9 +234,6 @@ export const useSkillStore = defineStore('skill', () => {
     create,
     update,
     remove,
-    fetchHistory,
-    restore,
-    fetchBoundAgents,
     fetchAgentSkills,
     attach,
     detach,

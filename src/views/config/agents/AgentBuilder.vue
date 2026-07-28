@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
-import { ArrowLeft } from 'lucide-vue-next'
 import { useAgentBuilderStore } from '@/stores/agentBuilder'
 import { useNotificationsStore } from '@/stores/notifications'
 import { validateForm } from './components/validation'
@@ -105,7 +104,8 @@ async function initForm() {
             agent.system_prompt || agent.custom_skill_body || agent.generated_skill_body || '',
           starters: [...(agent.starters ?? [])],
           tool_flags: { ...(agent.tool_flags ?? {}) },
-          daily_credit_cap: agent.daily_credit_cap
+          daily_credit_cap: agent.daily_credit_cap,
+          is_active: agent.is_active
         })
       }
     } else {
@@ -127,7 +127,8 @@ async function initForm() {
               source.system_prompt || source.custom_skill_body || source.generated_skill_body || '',
             starters: [...(source.starters ?? [])],
             tool_flags: { ...(source.tool_flags ?? {}) },
-            daily_credit_cap: source.daily_credit_cap
+            daily_credit_cap: source.daily_credit_cap,
+            is_active: source.is_active
           })
         }
       } else {
@@ -160,7 +161,7 @@ function scrollToFirstError() {
 // ── formToPayload ──────────────────────────────────────────────────────────
 
 function formToPayload(): CreateAgentPayload {
-  return {
+  const payload: CreateAgentPayload = {
     name: form.name,
     description: form.description || undefined,
     icon_url: form.icon_url || undefined,
@@ -170,6 +171,7 @@ function formToPayload(): CreateAgentPayload {
     tool_flags: Object.keys(form.tool_flags).length > 0 ? { ...form.tool_flags } : undefined,
     daily_credit_cap: form.daily_credit_cap
   }
+  return payload
 }
 
 // ── Save handler ───────────────────────────────────────────────────────────
@@ -193,16 +195,19 @@ async function handleSave() {
       const saved = await store.create(payload)
       // Reset dirty snapshot BEFORE navigating so the leave-guard doesn't fire.
       initialFormSnapshot.value = JSON.stringify(form)
-      notifications.success('助手已创建，下面可以装载 skill 了')
-      // 留在同一形态的页面（编辑态），并就地激活「装载 skill」面板。
-      router.replace(`/config/agents/${saved.id}/edit`)
+      notifications.success(`AI 智能体「${saved.name}」已创建`)
+      router.push('/config/agents')
     } else if (props.mode === 'edit' && props.agentId != null) {
       // Edit mode (defensive: explicit mode check + agentId guard prevents
       // route misconfigs from PATCHing /v1/agent/skills/undefined → 400)
-      const payload: PatchAgentPayload = formToPayload()
+      const payload: PatchAgentPayload = {
+        ...formToPayload(),
+        is_active: form.is_active
+      }
       await store.update(props.agentId, payload)
       initialFormSnapshot.value = JSON.stringify(form)
       notifications.success('已保存')
+      router.push('/config/agents')
     } else {
       throw new Error(
         `AgentBuilder misconfigured: mode=${String(props.mode)}, agentId=${String(props.agentId)}; ` +
@@ -268,13 +273,11 @@ onBeforeUnmount(() => {
     <header class="agent-builder__header">
       <div class="agent-builder__header-inner">
         <div class="header-left">
-          <button class="back-btn" @click="goBack" title="返回">
-            <ArrowLeft :size="18" />
-          </button>
+          <button class="back-link" @click="goBack">&larr; 返回列表</button>
           <div class="header-titles">
             <h1 class="agent-builder__title">
-              <template v-if="mode === 'edit'">编辑：{{ form.name || '...' }}</template>
-              <template v-else>创建新助手</template>
+              <template v-if="mode === 'edit'">编辑 AI 智能体</template>
+              <template v-else>新建 AI 智能体</template>
             </h1>
             <p class="agent-builder__subtitle">
               <template v-if="mode === 'edit'">调整助手，保存即生效</template>
@@ -304,6 +307,7 @@ onBeforeUnmount(() => {
         <AgentForm
           :model-value="form"
           :errors="errors"
+          :show-status="mode === 'edit'"
           @update:model-value="Object.assign(form, $event)"
         />
 
@@ -361,8 +365,9 @@ onBeforeUnmount(() => {
 
 .header-left {
   display: flex;
-  align-items: center;
-  gap: var(--space-md);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
   min-width: 0;
   flex: 1;
 }
@@ -371,28 +376,20 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
+.back-link {
+  background: none;
+  border: none;
+  color: var(--accent-link);
   cursor: pointer;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-  flex-shrink: 0;
+  font-size: 0.875rem;
+  padding: 0;
+  display: inline-block;
+  text-align: left;
+  transition: color var(--transition-fast);
 }
 
-.back-btn:hover {
-  background: var(--accent-soft);
-  color: var(--primary-hover);
-  border-color: var(--accent-light);
+.back-link:hover {
+  color: var(--accent-hover);
 }
 
 .agent-builder__title {

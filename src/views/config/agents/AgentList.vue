@@ -25,8 +25,8 @@ const pendingDelete = ref<Agent | null>(null)
 
 const statusOptions: Array<{ value: AgentStatusFilter; label: string }> = [
   { value: 'all', label: '全部' },
-  { value: 'active', label: '已启用' },
-  { value: 'inactive', label: '已下架' }
+  { value: 'active', label: '已发布' },
+  { value: 'inactive', label: '未发布' }
 ]
 
 // Marketplace "装载到 Agent" flow: arrives here with ?attach_skill so the operator
@@ -176,9 +176,9 @@ async function confirmDelete() {
             <h3 class="tool-card__title">{{ agent.name }}</h3>
             <span
               class="status-badge"
-              :class="agent.is_active ? 'status--active' : 'status--inactive'"
+              :class="agent.is_active ? 'status--published' : 'status--draft'"
             >
-              {{ agent.is_active ? '已启用' : '已下架' }}
+              {{ agent.is_active ? '已发布' : '未发布' }}
             </span>
           </div>
           <p class="tool-card__desc">{{ agent.description || '多步骤 AI 智能体' }}</p>
@@ -352,12 +352,12 @@ async function confirmDelete() {
   white-space: nowrap;
 }
 
-.status--active {
+.status--published {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.status--inactive {
+.status--draft {
   background: #f3f4f6;
   color: #6b7280;
 }

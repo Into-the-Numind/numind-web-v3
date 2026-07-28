@@ -21,8 +21,6 @@ import request from './request'
 import type {
   Skill,
   SkillListResponse,
-  SkillHistoryListResponse,
-  SkillBoundAgentsResponse,
   CreateSkillRequest,
   UpdateSkillRequest,
   ListSkillParams,
@@ -49,12 +47,8 @@ export const listSkills = async (params: ListSkillParams = {}): Promise<SkillLis
 // 后端返回 shape (controller skill_artifact.go:163):
 //   { code, message, data: { skill: {...}, bound_agents: [...] } }
 //
-// 这里只 return skill 主体. bound_agents 在 store 里通过单独 fetchBoundAgents
-// (走 /v1/skills/:id/agents) 加载, 与本接口解耦 (避免 store.current shape 混乱).
-//
-// 之前 bug: 直接 return res.data, 让 store.current = {skill, bound_agents}
-// → SkillDetail.vue 访问 store.current.allowed_tools.length 触发 TypeError.
-// 见 e2e/skill-detail-shape.spec.ts 回归测试.
+// 这里只 return skill 主体，避免 store.current 被写成 {skill, bound_agents}
+// 这种包装对象，导致编辑器读取字段时拿不到真实 Skill。
 export const getSkill = async (id: number): Promise<Skill> => {
   const res = await request.get(`/v1/skills/${id}`)
   return (res as unknown as { data: { skill: Skill; bound_agents: unknown[] } }).data.skill
@@ -70,24 +64,6 @@ export const updateSkill = async (id: number, payload: UpdateSkillRequest): Prom
 export const deleteSkill = async (id: number): Promise<DeleteSkillResponse> => {
   const res = await request.delete(`/v1/skills/${id}`)
   return (res as unknown as { data: DeleteSkillResponse }).data
-}
-
-// 6. GET /v1/skills/:id/history — 版本历史（按 version desc）
-export const listSkillHistory = async (id: number): Promise<SkillHistoryListResponse> => {
-  const res = await request.get(`/v1/skills/${id}/history`)
-  return (res as unknown as { data: SkillHistoryListResponse }).data
-}
-
-// 7. POST /v1/skills/:id/restore/:version — 回滚到指定版本（创建新版本）
-export const restoreSkill = async (id: number, version: number): Promise<Skill> => {
-  const res = await request.post(`/v1/skills/${id}/restore/${version}`)
-  return (res as unknown as { data: Skill }).data
-}
-
-// 8. GET /v1/skills/:id/agents — 装载该 Skill 的 Agent 列表
-export const listSkillAgents = async (id: number): Promise<SkillBoundAgentsResponse> => {
-  const res = await request.get(`/v1/skills/${id}/agents`)
-  return (res as unknown as { data: SkillBoundAgentsResponse }).data
 }
 
 // 9. POST /v1/agents/:id/skills — 装载 Skill 到 Agent

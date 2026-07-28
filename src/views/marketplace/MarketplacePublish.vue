@@ -83,7 +83,7 @@ async function publish() {
 }
 
 function goBack() {
-  router.push(`/config/skills/${skillID.value}`)
+  router.push('/config/skills')
 }
 </script>
 

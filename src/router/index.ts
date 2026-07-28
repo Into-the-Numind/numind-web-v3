@@ -221,8 +221,10 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'skills/:id',
         name: 'config-skills-detail',
-        component: () => import('@/views/config/skills/SkillDetail.vue'),
-        meta: { title: '技能详情', requiresAuth: true }
+        redirect: (to) => {
+          const rawId = Array.isArray(to.params.id) ? to.params.id[0] : to.params.id
+          return `/config/skills/${String(rawId)}/edit`
+        }
       },
       {
         path: 'skills/:id/edit',
@@ -230,12 +232,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/config/skills/SkillEditor.vue'),
         props: { mode: 'edit' },
         meta: { title: '编辑技能', requiresAuth: true }
-      },
-      {
-        path: 'skills/:id/history',
-        name: 'config-skills-history',
-        component: () => import('@/views/config/skills/SkillHistory.vue'),
-        meta: { title: '技能历史', requiresAuth: true }
       }
     ]
   },

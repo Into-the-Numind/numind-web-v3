@@ -92,31 +92,10 @@ export interface BoundAgentSummary {
   icon_url: string
 }
 
-/** 版本历史条目（GET /v1/skills/:id/history 返回） */
-export interface SkillHistoryItem {
-  id: number
-  skill_id: number
-  version: number
-  snapshot: Skill // 后端 datatypes.JSON 序列化的完整 row
-  diff_summary: string // 后端 ComputeDiffSummary 算的简短中文摘要
-  created_by: number
-  created_at: string
-}
-
 /** Skill 列表/详情 list response */
 export interface SkillListResponse {
   list: Skill[]
   total: number
-}
-
-/** Skill 历史 list response */
-export interface SkillHistoryListResponse {
-  list: SkillHistoryItem[]
-}
-
-/** Skill 装载 Agent 列表 response（GET /v1/skills/:id/agents） */
-export interface SkillBoundAgentsResponse {
-  list: BoundAgentSummary[]
 }
 
 // ============================================================

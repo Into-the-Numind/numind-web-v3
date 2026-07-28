@@ -4,12 +4,11 @@
   Skill 是独立于 AI 智能体的复用能力资产：
     - 同一个 Skill 可以装载到多个 AI 智能体
     - 删除 Skill 会级联软删所有 binding
-    - 版本历史保留，回滚创建新版本
 -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { History, Lightbulb, Pencil, Trash2 } from 'lucide-vue-next'
+import { Lightbulb, Trash2 } from 'lucide-vue-next'
 import { useSkillStore } from '@/stores/skill'
 import { useUserStore } from '@/stores/user'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -123,14 +122,6 @@ function goEdit(skill: Skill) {
   router.push(`/config/skills/${skill.id}/edit`)
 }
 
-function goView(skill: Skill) {
-  router.push(`/config/skills/${skill.id}`)
-}
-
-function goHistory(skill: Skill) {
-  router.push(`/config/skills/${skill.id}/history`)
-}
-
 function canEdit(skill: Skill) {
   return skill.can_edit !== false
 }
@@ -167,10 +158,9 @@ function confirmDelete(skill: Skill) {
   if (bindCount > 0) {
     confirmMessage.value =
       `该 Skill 当前已装载到 ${bindCount} 个 AI 智能体。\n` +
-      `删除后会自动从这些 AI 智能体卸载，且学员无法再使用此技能。\n` +
-      `版本历史会保留，但需重新创建才能再装载。`
+      `删除后会自动从这些 AI 智能体卸载，且学员无法再使用此技能。`
   } else {
-    confirmMessage.value = '该 Skill 当前没有装载到任何 AI 智能体，可放心删除。版本历史会保留。'
+    confirmMessage.value = '该 Skill 当前没有装载到任何 AI 智能体。'
   }
   confirmVisible.value = true
 }
@@ -251,9 +241,9 @@ function cancelDelete() {
         class="tool-card skill-card"
         role="button"
         tabindex="0"
-        @click="goView(skill)"
-        @keydown.enter.prevent="goView(skill)"
-        @keydown.space.prevent="goView(skill)"
+        @click="goEdit(skill)"
+        @keydown.enter.prevent="goEdit(skill)"
+        @keydown.space.prevent="goEdit(skill)"
       >
         <div class="tool-card__top">
           <h3 class="tool-card__title">{{ skill.name }}</h3>
@@ -274,33 +264,11 @@ function cancelDelete() {
 
         <div class="skill-card__meta">
           <span>装载 {{ skill.bound_agent_count ?? 0 }} 个</span>
-          <span>v{{ skill.version }}</span>
         </div>
 
         <div class="tool-card__footer">
           <span class="tool-card__date">{{ formatDateTime(skill.updated_at) }}</span>
           <div class="card-actions">
-            <button
-              v-if="canEdit(skill)"
-              class="icon-action"
-              type="button"
-              :aria-label="`编辑 ${skill.name}`"
-              title="编辑"
-              @click.stop="goEdit(skill)"
-              @keydown.stop
-            >
-              <Pencil :size="15" stroke-width="2" />
-            </button>
-            <button
-              class="icon-action"
-              type="button"
-              :aria-label="`查看 ${skill.name} 的版本`"
-              title="版本"
-              @click.stop="goHistory(skill)"
-              @keydown.stop
-            >
-              <History :size="15" stroke-width="2" />
-            </button>
             <button
               v-if="canEdit(skill)"
               class="delete-action"
@@ -462,7 +430,7 @@ function cancelDelete() {
 
 .tool-card {
   width: 288px;
-  min-height: 162px;
+  height: 138px;
   appearance: none;
   display: flex;
   flex-direction: column;
@@ -517,11 +485,15 @@ function cancelDelete() {
 }
 
 .tool-card__desc {
-  min-height: 34px;
+  min-height: 0;
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .skill-card__badges,
@@ -563,7 +535,6 @@ function cancelDelete() {
   flex: 0 0 auto;
 }
 
-.icon-action,
 .delete-action {
   width: 28px;
   height: 28px;
@@ -579,11 +550,6 @@ function cancelDelete() {
   transition:
     background var(--transition-fast),
     color var(--transition-fast);
-}
-
-.icon-action:hover {
-  color: var(--primary-hover);
-  background: var(--accent-ultra-soft);
 }
 
 .delete-action:hover {
