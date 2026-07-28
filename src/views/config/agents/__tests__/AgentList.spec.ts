@@ -237,7 +237,7 @@ describe('AgentList.vue', () => {
     expect(wrapper.text()).toContain('启用助手')
     expect(wrapper.text()).toContain('下架助手')
 
-    const inactiveBtn = wrapper.findAll('button').find((b) => b.text() === '已下架')
+    const inactiveBtn = wrapper.findAll('button').find((b) => b.text() === '未发布')
     expect(inactiveBtn).toBeDefined()
     await inactiveBtn!.trigger('click')
     await wrapper.vm.$nextTick()

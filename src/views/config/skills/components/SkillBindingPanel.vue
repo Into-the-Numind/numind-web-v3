@@ -172,8 +172,8 @@ function onDragEnd() {
 }
 
 // ---------- Navigation ----------
-function goSkillDetail(skill: Skill) {
-  router.push(`/config/skills/${skill.id}`)
+function goSkillEdit(skill: Skill) {
+  router.push(`/config/skills/${skill.id}/edit`)
 }
 </script>
 
@@ -218,7 +218,7 @@ function goSkillDetail(skill: Skill) {
         <span class="binding-card__handle" aria-label="拖拽排序">⋮⋮</span>
         <div class="binding-card__icon">{{ skill.name.charAt(0) || 'S' }}</div>
         <div class="binding-card__main">
-          <a class="binding-card__name" @click.prevent="goSkillDetail(skill)">
+          <a class="binding-card__name" @click.prevent="goSkillEdit(skill)">
             {{ skill.name }}
           </a>
           <div class="binding-card__desc">{{ skill.description || '—' }}</div>

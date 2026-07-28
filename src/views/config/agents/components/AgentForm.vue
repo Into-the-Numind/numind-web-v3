@@ -6,10 +6,12 @@ interface Props {
   modelValue: AgentFormState
   readonly?: boolean
   errors?: Record<string, string>
+  showStatus?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
+  showStatus: false,
   errors: () => ({})
 })
 
@@ -38,6 +40,14 @@ const welcomeMessage = computed({
   set: (v) => patchField('welcome_message', v)
 })
 
+const isActive = computed({
+  get: () => props.modelValue.is_active,
+  set: (v) => patchField('is_active', v)
+})
+
+const MAX_NAME_LEN = 20
+const MAX_DESCRIPTION_LEN = 20
+const MAX_WELCOME_LEN = 500
 // 与后端 SystemPromptMaxLen 对齐（64KB）— biz/skill/service.go SystemPromptMaxLen。
 const MAX_SYSTEM_PROMPT_LEN = 65536
 
@@ -49,6 +59,40 @@ const systemPrompt = computed({
 
 <template>
   <div class="agent-form" :class="{ 'agent-form--readonly': readonly }">
+    <section v-if="showStatus" class="card">
+      <header class="card__head">
+        <h2 class="card__title">发布状态</h2>
+        <p class="card__desc">控制这个 AI 智能体是否出现在用户首页。</p>
+      </header>
+
+      <div class="status-options" role="radiogroup" aria-label="AI 智能体发布状态">
+        <button
+          type="button"
+          class="status-option"
+          :class="{ 'status-option--active': isActive }"
+          :disabled="readonly"
+          role="radio"
+          :aria-checked="isActive"
+          @click="isActive = true"
+        >
+          <span class="status-option__title">已发布</span>
+          <span class="status-option__desc">用户首页可见，可被使用</span>
+        </button>
+        <button
+          type="button"
+          class="status-option"
+          :class="{ 'status-option--active': !isActive }"
+          :disabled="readonly"
+          role="radio"
+          :aria-checked="!isActive"
+          @click="isActive = false"
+        >
+          <span class="status-option__title">未发布</span>
+          <span class="status-option__desc">暂不展示在用户首页</span>
+        </button>
+      </div>
+    </section>
+
     <!-- ── 区块 1：基本信息 ─────────────────────────────────────────────── -->
     <section class="card">
       <header class="card__head">
@@ -58,13 +102,17 @@ const systemPrompt = computed({
 
       <!-- 助手名字 -->
       <div class="field" data-question="name">
-        <label class="field__label">助手名字<span class="field__req">*</span></label>
+        <div class="field__head">
+          <label class="field__label">助手名字<span class="field__req">*</span></label>
+          <span class="field__limit">{{ (name ?? '').length }} / {{ MAX_NAME_LEN }}</span>
+        </div>
         <input
           type="text"
           class="field__input"
           :class="{ 'field__input--error': errors['name'] }"
           :value="name"
           :disabled="readonly"
+          :maxlength="MAX_NAME_LEN"
           placeholder="2-20 字，不能全是数字"
           @input="name = ($event.target as HTMLInputElement).value"
         />
@@ -73,14 +121,19 @@ const systemPrompt = computed({
 
       <!-- 一句话描述（选填） -->
       <div class="field" data-question="description">
-        <label class="field__label">一句话描述<span class="field__optional">（选填）</span></label>
+        <div class="field__head">
+          <label class="field__label">一句话描述<span class="field__optional">（选填）</span></label>
+          <span class="field__limit">
+            {{ (description ?? '').length }} / {{ MAX_DESCRIPTION_LEN }}
+          </span>
+        </div>
         <input
           type="text"
           class="field__input"
           :class="{ 'field__input--error': errors['description'] }"
           :value="description"
           :disabled="readonly"
-          maxlength="20"
+          :maxlength="MAX_DESCRIPTION_LEN"
           placeholder="最多 20 字，描述助手的核心功能"
           @input="description = ($event.target as HTMLInputElement).value"
         />
@@ -89,12 +142,18 @@ const systemPrompt = computed({
 
       <!-- 欢迎语（选填） -->
       <div class="field" data-question="welcome_message">
-        <label class="field__label">欢迎语<span class="field__optional">（选填）</span></label>
+        <div class="field__head">
+          <label class="field__label">欢迎语<span class="field__optional">（选填）</span></label>
+          <span class="field__limit">
+            {{ (welcomeMessage ?? '').length }} / {{ MAX_WELCOME_LEN }}
+          </span>
+        </div>
         <textarea
           class="field__textarea"
           :class="{ 'field__input--error': errors['welcome_message'] }"
           :value="welcomeMessage"
           :disabled="readonly"
+          :maxlength="MAX_WELCOME_LEN"
           rows="3"
           placeholder="最多 500 字，用户打开助手时看到的第一句话"
           @input="welcomeMessage = ($event.target as HTMLTextAreaElement).value"
@@ -105,13 +164,10 @@ const systemPrompt = computed({
       </div>
     </section>
 
-    <!-- ── 区块 2：行为指引（核心） ─────────────────────────────────────── -->
-    <section class="card card--prompt" data-question="system_prompt">
+    <!-- ── 区块 2：行为指引 ─────────────────────────────────────────────── -->
+    <section class="card" data-question="system_prompt">
       <header class="card__head">
-        <div class="card__title-row">
-          <h2 class="card__title">行为指引</h2>
-          <span class="card__badge">核心</span>
-        </div>
+        <h2 class="card__title">行为指引</h2>
         <p class="card__desc">
           定义助手的身份、职责与规则——这是助手的灵魂。写得越具体，表现越稳定。
         </p>
@@ -157,21 +213,10 @@ const systemPrompt = computed({
   padding: var(--space-xl);
 }
 
-/* 核心区块：左缘翠绿条带，与品牌主色呼应 */
-.card--prompt {
-  border-left: 3px solid var(--primary);
-}
-
 .card__head {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-}
-
-.card__title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
 
 .card__title {
@@ -179,18 +224,6 @@ const systemPrompt = computed({
   font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text);
-}
-
-.card__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent-link);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
 }
 
 .card__desc {
@@ -221,10 +254,24 @@ const systemPrompt = computed({
   gap: var(--space-sm);
 }
 
+.field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
 .field__label {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
+}
+
+.field__limit {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .field__label--sr {
@@ -308,6 +355,58 @@ const systemPrompt = computed({
   color: #ef4444;
 }
 
+.status-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.status-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-height: 72px;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.status-option:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.status-option--active {
+  border-color: hsl(160 55% 82%);
+  background: var(--accent-soft);
+  color: var(--primary-hover);
+  box-shadow: 0 0 0 1px hsl(160 50% 88% / 0.8);
+}
+
+.status-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.status-option__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.status-option__desc {
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
+}
+
 /* ── 只读态：弱化阴影，卡片骨架保持一致 ─────────────────────────────── */
 .agent-form--readonly .card {
   box-shadow: var(--shadow-sm);
@@ -316,6 +415,10 @@ const systemPrompt = computed({
 @media (max-width: 560px) {
   .card {
     padding: var(--space-lg);
+  }
+
+  .status-options {
+    grid-template-columns: 1fr;
   }
 }
 </style>

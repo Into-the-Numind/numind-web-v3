@@ -42,6 +42,24 @@
                 rows="2"
               ></textarea>
             </div>
+            <div v-if="!isCreate" class="form-group">
+              <label class="form-label">状态</label>
+              <div class="status-options" role="radiogroup" aria-label="AI 工作流发布状态">
+                <button
+                  v-for="option in statusOptions"
+                  :key="option.value"
+                  type="button"
+                  class="status-option"
+                  :class="{ 'status-option--active': form.publishStatus === option.value }"
+                  role="radio"
+                  :aria-checked="form.publishStatus === option.value"
+                  @click="form.publishStatus = option.value"
+                >
+                  <span class="status-option__title">{{ option.label }}</span>
+                  <span class="status-option__desc">{{ option.desc }}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -216,6 +234,8 @@ interface LocalNode {
   sort: number
 }
 
+type PublishStatus = 'draft' | 'published'
+
 const route = useRoute()
 const router = useRouter()
 const store = useConfigStore()
@@ -235,8 +255,14 @@ let localIdCounter = 0
 const form = reactive({
   name: '',
   description: '',
-  trailingChatEnabled: true
+  trailingChatEnabled: true,
+  publishStatus: 'draft' as PublishStatus
 })
+
+const statusOptions: Array<{ value: PublishStatus; label: string; desc: string }> = [
+  { value: 'published', label: '已发布', desc: '用户首页可见，可被使用' },
+  { value: 'draft', label: '未发布', desc: '暂不展示在用户首页' }
+]
 
 const errors = reactive({
   name: ''
@@ -347,6 +373,7 @@ async function loadDetail() {
     form.name = detail.name
     form.description = detail.description ?? ''
     form.trailingChatEnabled = detail.trailing_chat_enabled !== false
+    form.publishStatus = detail.publish_status === 'published' ? 'published' : 'draft'
     if (detail.nodes) {
       nodes.value = detail.nodes
         .sort((a, b) => a.sort - b.sort)
@@ -437,6 +464,7 @@ async function handleSave() {
   saving.value = true
   try {
     let templateId = editId.value
+    const wasCreate = isCreate.value
 
     if (isCreate.value) {
       const created = await store.addSopTemplate({
@@ -511,6 +539,14 @@ async function handleSave() {
       await store.sortNodes(templateId, sortItems)
     }
 
+    if (!wasCreate) {
+      const statusSaved = await store.setSopTemplateStatus(templateId, form.publishStatus)
+      if (!statusSaved) {
+        notifications.error('状态保存失败，请重试')
+        return
+      }
+    }
+
     initialFormState.value = JSON.stringify({
       ...form,
       nodes: nodes.value.map((n) => ({
@@ -534,7 +570,7 @@ async function handleSave() {
       }
     }
 
-    notifications.success(isCreate.value ? 'AI 工作流已创建' : '已保存')
+    notifications.success(wasCreate ? 'AI 工作流已创建' : '已保存')
     router.push('/config/sop-templates')
   } catch {
     notifications.error('保存失败，请重试')
@@ -715,6 +751,53 @@ onBeforeRouteLeave(() => {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.status-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.status-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-height: 72px;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.status-option:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.status-option--active {
+  border-color: hsl(160 55% 82%);
+  background: var(--accent-soft);
+  color: var(--primary-hover);
+  box-shadow: 0 0 0 1px hsl(160 50% 88% / 0.8);
+}
+
+.status-option__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.status-option__desc {
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
 }
 
 .form-textarea {

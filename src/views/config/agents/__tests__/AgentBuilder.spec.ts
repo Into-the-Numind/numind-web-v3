@@ -4,8 +4,8 @@
  * Strategy: mock @/api/agentBuilder (API layer) + vue-router + useToast.
  * Real Pinia store runs with mocked API underneath.
  * Covers: init modes, validation gate (incl. required system_prompt), save
- * success, payload shape (no questionnaire_answers), post-create navigation
- * to the edit page (inline 装载 skill).
+ * success, payload shape (no questionnaire_answers), post-save navigation
+ * back to the list page.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -44,6 +44,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: { template: '<div/>' } },
+    { path: '/config/agents', component: { template: '<div/>' } },
     { path: '/config/agents/builder', component: { template: '<div/>' } },
     { path: '/config/agents/:id', component: { template: '<div/>' } },
     { path: '/config/agents/:id/edit', component: { template: '<div/>' } }
@@ -128,9 +129,9 @@ describe('AgentBuilder — create mode (scratch)', () => {
     vi.clearAllMocks()
   })
 
-  it("renders title '创建新助手' in create mode", async () => {
+  it("renders title '新建 AI 智能体' in create mode", async () => {
     const wrapper = await mountBuilder()
-    expect(wrapper.text()).toContain('创建新助手')
+    expect(wrapper.text()).toContain('新建 AI 智能体')
   })
 
   it('shows validation errors when save clicked with empty form', async () => {
@@ -160,7 +161,7 @@ describe('AgentBuilder — create mode (scratch)', () => {
     expect(wrapper.text()).toContain('请输入提示词')
   })
 
-  it('calls store.create and navigates to the edit page (inline 装载 skill) on valid save', async () => {
+  it('calls store.create and navigates back to the list page on valid save', async () => {
     const saved = makeAgent({ id: 42, name: '新建助手' })
     vi.mocked(agentApi.createAgent).mockResolvedValue(saved)
 
@@ -178,7 +179,7 @@ describe('AgentBuilder — create mode (scratch)', () => {
     await flushPromises()
 
     expect(agentApi.createAgent).toHaveBeenCalled()
-    expect(router.currentRoute.value.path).toBe('/config/agents/42/edit')
+    expect(router.currentRoute.value.path).toBe('/config/agents')
   })
 
   it('create payload includes system_prompt and NO questionnaire_answers', async () => {
@@ -227,7 +228,7 @@ describe('AgentBuilder — edit mode', () => {
     vi.clearAllMocks()
   })
 
-  it("renders '编辑：...' title and fetches agent", async () => {
+  it("renders '编辑 AI 智能体' title and fetches agent", async () => {
     const agent = makeAgent({ id: 10, name: '被编辑助手' })
     vi.mocked(agentApi.getAgent).mockResolvedValue(agent)
 
@@ -236,7 +237,7 @@ describe('AgentBuilder — edit mode', () => {
     })
 
     expect(agentApi.getAgent).toHaveBeenCalledWith(10)
-    expect(wrapper.text()).toContain('编辑：被编辑助手')
+    expect(wrapper.text()).toContain('编辑 AI 智能体')
   })
 
   it('seeds system_prompt from generated_skill_body for old questionnaire agents', async () => {
@@ -273,7 +274,11 @@ describe('AgentBuilder — edit mode', () => {
     await saveBtn!.trigger('click')
     await flushPromises()
 
-    expect(agentApi.patchAgent).toHaveBeenCalledWith(10, expect.any(Object))
+    expect(agentApi.patchAgent).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ is_active: true })
+    )
+    expect(router.currentRoute.value.path).toBe('/config/agents')
   })
 
   it('does NOT show advanced-mode link in create mode', async () => {
@@ -310,7 +315,7 @@ describe('AgentBuilder — after create', () => {
     vi.clearAllMocks()
   })
 
-  it('navigates to the edit page (inline 装载 skill) and toasts success after create', async () => {
+  it('navigates to the list page and toasts success after create', async () => {
     const saved = makeAgent({ id: 88 })
     vi.mocked(agentApi.createAgent).mockResolvedValue(saved)
 
@@ -326,7 +331,7 @@ describe('AgentBuilder — after create', () => {
     await saveBtn!.trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/config/agents/88/edit')
+    expect(router.currentRoute.value.path).toBe('/config/agents')
     expect(toastSpy.success).toHaveBeenCalled()
   })
 })

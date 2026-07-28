@@ -12,7 +12,7 @@
  *     TypeError: Cannot read properties of undefined (reading 'length')
  *   - Vue 渲染整个 template 区域炸成空 (<!---->)
  *
- * 期望: 访问已存在 skill 的详情页应能正常渲染 — 至少 "返回列表" 按钮 + h2 skill 名可见.
+ * 期望: 访问旧详情 URL 应直接重定向到编辑页，且主内容不是空白。
  *
  * NDF Rule 11 — Bug-from-Customer 强制规则: 这是 fix commit 之前先 commit 的失败复现测试,
  * fix 后必须 PASS, 永久留库做回归保护.
@@ -25,7 +25,7 @@ const PASSWORD = process.env.E2E_PASSWORD ?? ''
 
 if (!USERNAME) throw new Error('E2E_USERNAME required')
 
-test('skill detail page renders without TypeError (regression for /config/skills/:id blank)', async ({
+test('legacy skill detail URL redirects to editor without blank page', async ({
   page
 }) => {
   const pageErrors: string[] = []
@@ -53,10 +53,10 @@ test('skill detail page renders without TypeError (regression for /config/skills
   expect(body.code, 'GET /v1/skills failed').toBe(0)
   expect(body.data.list.length, 'no skills in this account; cannot test detail').toBeGreaterThan(0)
   const skillId = body.data.list[0].id as number
-  const skillName = body.data.list[0].name as string
 
-  // navigate to detail page
+  // navigate to legacy detail URL
   await page.goto(`/config/skills/${skillId}`, { waitUntil: 'networkidle' })
+  await expect(page).toHaveURL(new RegExp(`/config/skills/${skillId}/edit$`), { timeout: 5_000 })
 
   // assertion 1: no TypeError errors in console / pageerror
   const errorMsgs = [...pageErrors, ...consoleErrors].filter(
@@ -64,7 +64,7 @@ test('skill detail page renders without TypeError (regression for /config/skills
   )
   expect(errorMsgs, `unexpected TypeError on detail page: ${errorMsgs.join('\n')}`).toHaveLength(0)
 
-  // assertion 2: main content区域不是空（有 h2 skill 名 + 返回按钮）
-  await expect(page.locator('.skill-detail__title-block h2')).toBeVisible({ timeout: 5_000 })
-  await expect(page.locator('.skill-detail__title-block h2')).toHaveText(skillName)
+  // assertion 2: main content 区域不是空（编辑页标题可见）
+  await expect(page.locator('.skill-editor__title')).toBeVisible({ timeout: 5_000 })
+  await expect(page.locator('.skill-editor__title')).toContainText('编辑 Skill')
 })

@@ -41,6 +41,25 @@
             ></textarea>
           </div>
 
+          <div v-if="!isCreate" class="form-group">
+            <label class="form-label">状态</label>
+            <div class="status-options" role="radiogroup" aria-label="AI 问答助手发布状态">
+              <button
+                v-for="option in statusOptions"
+                :key="option.value"
+                type="button"
+                class="status-option"
+                :class="{ 'status-option--active': form.status === option.value }"
+                role="radio"
+                :aria-checked="form.status === option.value"
+                @click="form.status = option.value"
+              >
+                <span class="status-option__title">{{ option.label }}</span>
+                <span class="status-option__desc">{{ option.desc }}</span>
+              </button>
+            </div>
+          </div>
+
           <!-- 系统提示词 -->
           <div class="form-group">
             <label class="form-label"> 系统提示词 <span class="required">*</span> </label>
@@ -154,7 +173,7 @@ import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import VisibilityScopeCard from '@/components/VisibilityScopeCard.vue'
 import { getChatbotVisibility, putChatbotVisibility, type VisibilityValue } from '@/api/visibility'
-import type { KnowledgeBase } from '@/types/config'
+import type { ChatbotStatus, KnowledgeBase } from '@/types/config'
 
 const route = useRoute()
 const router = useRouter()
@@ -179,8 +198,14 @@ const form = reactive({
   description: '',
   system_prompt: '',
   greeting_enabled: false,
-  greeting_message: ''
+  greeting_message: '',
+  status: 'draft' as ChatbotStatus
 })
+
+const statusOptions: Array<{ value: ChatbotStatus; label: string; desc: string }> = [
+  { value: 'published', label: '已发布', desc: '用户首页可见，可被使用' },
+  { value: 'draft', label: '未发布', desc: '暂不展示在用户首页' }
+]
 
 const errors = reactive({
   name: '',
@@ -291,6 +316,7 @@ async function loadDetail() {
     form.system_prompt = detail.system_prompt ?? ''
     form.greeting_enabled = detail.greeting_enabled ?? false
     form.greeting_message = detail.greeting_message ?? ''
+    form.status = detail.status === 'published' ? 'published' : 'draft'
     if (detail.knowledge_bases) {
       selectedKbIds.value = new Set(detail.knowledge_bases.map((kb) => kb.id))
     }
@@ -347,7 +373,13 @@ async function handleSubmit() {
 
     if (!savedOk) return
 
-    initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
+    if (!wasCreate) {
+      const statusSaved = await store.setChatbotStatus(chatbotID, form.status)
+      if (!statusSaved) {
+        notifications.error('状态保存失败，请重试')
+        return
+      }
+    }
 
     // 第二阶段: 可见范围保存 (visibility 独立端点, 错误隔离不回滚主体)
     if (visibilityLoaded.value && (visibilityChanged() || visibilityDirty.value)) {
@@ -359,6 +391,8 @@ async function handleSubmit() {
         return
       }
     }
+
+    initialFormState.value = JSON.stringify({ ...form, kbs: [...selectedKbIds.value] })
 
     notifications.success(wasCreate ? 'AI 问答助手已创建' : '已保存')
     router.push('/config/chatbots')
@@ -578,6 +612,53 @@ onBeforeRouteLeave(() => {
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+.status-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.status-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-height: 72px;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.status-option:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.status-option--active {
+  border-color: hsl(160 55% 82%);
+  background: var(--accent-soft);
+  color: var(--primary-hover);
+  box-shadow: 0 0 0 1px hsl(160 50% 88% / 0.8);
+}
+
+.status-option__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.status-option__desc {
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
 }
 
 .field-error {

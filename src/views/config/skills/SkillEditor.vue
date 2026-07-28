@@ -6,7 +6,7 @@
     - 编辑器变化 → debounce 300ms → parseFrontmatter → 更新表单
     - 表单变化 → serializeFrontmatter → 更新编辑器
     - isFormDriven flag 防死循环（任一端 emit 时锁定另一端的 watch）
-    - 保存时仅发送 { name, description, when_to_use, allowed_tools, body_md }
+    - 保存时仅发送 { name, description, when_to_use, body_md }
       —— 不发 frontmatter 原始 YAML（后端单列存）
 
   ADR-2 大小限制：
@@ -78,8 +78,6 @@ const frontmatterForm = ref<Frontmatter>({
 })
 const bodyMd = ref('')
 const parseError = ref<string | null>(null)
-// 工具白名单文本（逗号分隔）便于表单输入
-const allowedToolsText = ref('')
 
 // 同步循环 guard
 let isFormDriven = false // 表单 → 编辑器更新中
@@ -90,7 +88,8 @@ let parseTimer: ReturnType<typeof setTimeout> | null = null
 const saving = ref(false)
 const initialContent = ref('')
 const leaveConfirmVisible = ref(false)
-let pendingNavigation: (() => void) | null = null
+const pendingNavigationPath = ref<string | null>(null)
+let forceLeave = false
 
 // ---------- Computed ----------
 const bodyBytes = computed(() => new Blob([bodyMd.value]).size)
@@ -140,7 +139,6 @@ async function loadForEdit() {
     allowed_tools: s.allowed_tools || []
   }
   bodyMd.value = s.body_md
-  allowedToolsText.value = (s.allowed_tools || []).join(', ')
   // 编辑模式：用已有 visibility 预填（official 不在可编辑范围，回退 institution）。
   visibility.value = s.visibility === 'sub_user' ? 'sub_user' : 'institution'
   // 子账户即便编辑机构技能也无权改为非 sub_user（理论上 can_edit gate 已拦），强制兜底。
@@ -160,7 +158,6 @@ function initEmpty() {
 name:
 description:
 when_to_use:
-allowed_tools: []
 ---
 
 # 在这里描述你的 Skill
@@ -199,7 +196,6 @@ watch(rawContent, () => {
           when_to_use: parsed.frontmatter.when_to_use || '',
           allowed_tools: parsed.frontmatter.allowed_tools || []
         }
-        allowedToolsText.value = (parsed.frontmatter.allowed_tools || []).join(', ')
         queueMicrotask(() => {
           isEditorDriven = false
         })
@@ -221,11 +217,6 @@ watch(rawContent, () => {
 // ---------- 表单 → 编辑器 ----------
 function onFormChange() {
   if (isEditorDriven) return
-  // allowedToolsText → frontmatterForm.allowed_tools
-  frontmatterForm.value.allowed_tools = allowedToolsText.value
-    .split(',')
-    .map((t) => t.trim())
-    .filter((t) => !!t)
   isFormDriven = true
   rawContent.value = serializeFrontmatter(frontmatterForm.value, bodyMd.value)
   queueMicrotask(() => {
@@ -237,8 +228,7 @@ watch(
   () => [
     frontmatterForm.value.name,
     frontmatterForm.value.description,
-    frontmatterForm.value.when_to_use,
-    allowedToolsText.value
+    frontmatterForm.value.when_to_use
   ],
   onFormChange
 )
@@ -255,22 +245,21 @@ async function onSave() {
       name: frontmatterForm.value.name.trim(),
       description: frontmatterForm.value.description?.trim() || '',
       when_to_use: frontmatterForm.value.when_to_use?.trim() || '',
-      allowed_tools: frontmatterForm.value.allowed_tools || [],
       body_md: bodyMd.value,
       source_type: 'custom',
       // skill-3tier-visibility T4: 父账户传所选 visibility；子账户恒 'sub_user'（后端也会强制）。
       visibility: isParent.value ? visibility.value : 'sub_user'
     }
     if (props.mode === 'create') {
-      const created = await store.create(payload)
+      await store.create(payload)
       notifications.success('Skill 已创建')
       initialContent.value = rawContent.value // mark clean so navigation 不阻塞
-      router.replace(`/config/skills/${created.id}`)
+      router.push('/config/skills')
     } else if (skillId.value) {
-      const updated = await store.update(skillId.value, payload)
-      notifications.success(`已保存（v${updated.version}）`)
+      await store.update(skillId.value, payload)
+      notifications.success('已保存')
       initialContent.value = rawContent.value
-      router.push(`/config/skills/${skillId.value}`)
+      router.push('/config/skills')
     }
   } catch (e) {
     notifications.error((e as Error).message || '保存失败')
@@ -280,11 +269,7 @@ async function onSave() {
 }
 
 function onCancel() {
-  if (props.mode === 'edit' && skillId.value) {
-    router.push(`/config/skills/${skillId.value}`)
-  } else {
-    router.push('/config/skills')
-  }
+  requestNavigate('/config/skills')
 }
 
 // 跳转到发布页 (agent-mode-v2-skill-marketplace T10).
@@ -304,28 +289,37 @@ function handleBeforeUnload(e: BeforeUnloadEvent) {
 onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnload))
 
-onBeforeRouteLeave((_to, _from, next) => {
+function requestNavigate(path: string) {
   if (isDirty.value) {
-    pendingNavigation = () => next()
+    pendingNavigationPath.value = path
     leaveConfirmVisible.value = true
-    next(false)
   } else {
-    next()
+    router.push(path)
   }
+}
+
+onBeforeRouteLeave((to) => {
+  if (!forceLeave && isDirty.value) {
+    pendingNavigationPath.value = to.fullPath
+    leaveConfirmVisible.value = true
+    return false
+  }
+  return true
 })
 
 function confirmLeave() {
   leaveConfirmVisible.value = false
-  if (pendingNavigation) {
-    const fn = pendingNavigation
-    pendingNavigation = null
-    fn()
-  }
+  const target = pendingNavigationPath.value || '/config/skills'
+  pendingNavigationPath.value = null
+  forceLeave = true
+  router.push(target).finally(() => {
+    forceLeave = false
+  })
 }
 
 function cancelLeave() {
   leaveConfirmVisible.value = false
-  pendingNavigation = null
+  pendingNavigationPath.value = null
 }
 
 // 格式化 KB 显示
@@ -344,9 +338,6 @@ function formatBytes(n: number): string {
         <div class="header-titles">
           <h1 class="skill-editor__title">
             {{ mode === 'create' ? '新建 Skill' : '编辑 Skill' }}
-            <span v-if="mode === 'edit' && store.current" class="skill-editor__version">
-              v{{ store.current.version }}
-            </span>
           </h1>
           <p class="skill-editor__subtitle">
             用 Markdown + frontmatter 定义可复用的技能资产，左侧编辑器与右侧表单实时同步。
@@ -464,18 +455,6 @@ function formatBytes(n: number): string {
             />
           </div>
 
-          <!-- 允许的工具 -->
-          <div class="field">
-            <label class="field__label"
-              >允许的工具<span class="field__optional">（逗号分隔）</span></label
-            >
-            <AppInput
-              v-model="allowedToolsText"
-              placeholder="例：web_search, bash_exec, code_sandbox"
-            />
-            <p class="field__hint">运行时调用会临时合并到 Agent 工具白名单。</p>
-          </div>
-
           <div v-if="validationHints.length > 0" class="field-hints">
             <p v-for="(h, i) in validationHints" :key="i">{{ h }}</p>
           </div>
@@ -530,12 +509,6 @@ function formatBytes(n: number): string {
   font-weight: 700;
   color: var(--text);
   line-height: var(--line-height-tight);
-}
-
-.skill-editor__version {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
 }
 
 .skill-editor__subtitle {
