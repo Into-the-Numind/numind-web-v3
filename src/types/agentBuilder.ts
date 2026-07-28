@@ -106,21 +106,6 @@ export interface Agent {
 }
 
 // ============================================================
-// AgentDefinitionHistory — 历史快照（含 changes_summary）
-// 后端源: biz/skill/versioning.go
-// ============================================================
-
-export interface AgentHistory {
-  id: number
-  agent_id: number
-  version: number
-  snapshot: Agent // 后端 datatypes.JSON 序列化的完整 row
-  changes_summary: string // 后端 ComputeChangesSummary 生成的中文摘要
-  created_by: number
-  created_at: string
-}
-
-// ============================================================
 // API Request payloads
 // ============================================================
 

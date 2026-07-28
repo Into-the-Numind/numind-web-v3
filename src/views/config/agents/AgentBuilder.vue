@@ -14,12 +14,7 @@ import AppButton from '@/components/common/AppButton.vue'
 import SkillBindingPanel from '@/views/config/skills/components/SkillBindingPanel.vue'
 
 function goBack() {
-  if (props.mode === 'edit' && props.agentId != null) {
-    router.push(`/config/agents/${props.agentId}`)
-  } else {
-    // 创建态返回到助手列表（旧实现误指向本页自身）
-    router.push('/config/agents')
-  }
+  router.push('/config/agents')
 }
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -352,10 +347,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-/* ── 顶栏：非 sticky、透明、底部分隔线 ─────────────────────────────────── */
-.agent-builder__header {
-  border-bottom: 1px solid var(--border);
-}
+/* ── 顶栏：非 sticky、透明 ─────────────────────────────────────────────── */
 
 .agent-builder__header-inner {
   max-width: 820px;

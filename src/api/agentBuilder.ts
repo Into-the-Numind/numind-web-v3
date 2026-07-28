@@ -1,4 +1,4 @@
-// API wrappers for /v1/agent/skills/* (8 endpoints, user_token middleware).
+// API wrappers for /v1/agent/skills/* (5 endpoints, user_token middleware).
 // Backend: numind-server feature #5 agent-mode-skill-system (merged e05498b6).
 // Parent-account only — child accounts receive HTTP 403 from backend biz layer.
 //
@@ -13,7 +13,6 @@
 import request from './request'
 import type {
   Agent,
-  AgentHistory,
   CreateAgentPayload,
   PatchAgentPayload,
   ListResponse
@@ -52,16 +51,4 @@ export const patchAgent = async (id: number, payload: PatchAgentPayload): Promis
 // 5. DELETE /v1/agent/skills/:id — Soft delete (is_active=false)
 export const deleteAgent = async (id: number): Promise<void> => {
   await request.delete(`/v1/agent/skills/${id}`)
-}
-
-// 6. GET /v1/agent/skills/:id/history — Version history (sorted desc)
-export const listAgentHistory = async (id: number): Promise<ListResponse<AgentHistory>> => {
-  const res = await request.get(`/v1/agent/skills/${id}/history`)
-  return (res as unknown as { data: ListResponse<AgentHistory> }).data
-}
-
-// 7. POST /v1/agent/skills/:id/restore/:version — Restore (creates new version)
-export const restoreAgent = async (id: number, version: number): Promise<Agent> => {
-  const res = await request.post(`/v1/agent/skills/${id}/restore/${version}`)
-  return (res as unknown as { data: Agent }).data
 }

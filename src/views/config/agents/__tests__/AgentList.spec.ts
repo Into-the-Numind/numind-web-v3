@@ -17,9 +17,7 @@ vi.mock('@/api/agentBuilder', () => ({
   deleteAgent: vi.fn(),
   getAgent: vi.fn(),
   createAgent: vi.fn(),
-  patchAgent: vi.fn(),
-  listAgentHistory: vi.fn(),
-  restoreAgent: vi.fn()
+  patchAgent: vi.fn()
 }))
 
 // ---- Toast mock ----

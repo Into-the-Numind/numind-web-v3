@@ -184,10 +184,10 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'agents/:id',
-        name: 'config-agents-detail',
-        component: () => import('@/views/config/agents/AgentDetail.vue'),
-        props: true,
-        meta: { title: 'AI 智能体详情', requiresAuth: true, requiresParent: true }
+        redirect: (to) => {
+          const rawId = Array.isArray(to.params.id) ? to.params.id[0] : to.params.id
+          return { path: `/config/agents/${String(rawId)}/edit`, query: to.query }
+        }
       },
       {
         path: 'agents/:id/edit',
