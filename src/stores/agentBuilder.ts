@@ -1,10 +1,10 @@
-// Pinia store for parent-account agent (Skill) CRUD, history, restore.
+// Pinia store for parent-account agent (Skill) CRUD.
 // Setup syntax (per numind-web-v3 CLAUDE.md §2).
 // Relocated from numind-admin-web/src/stores/agent.ts in agent-mode-configurator-relocate (2026-05-22).
 //
 // Student-facing agent chat store is src/stores/agentChat.ts (do NOT confuse).
 //
-// Single store covers 9 backend endpoints; not split to avoid cross-store coupling.
+// Single store covers the parent-account Agent configurator endpoints.
 // State updates are optimistic for softDelete (last-write-wins acceptable v1).
 
 import { defineStore } from 'pinia'
@@ -15,14 +15,11 @@ import {
   createAgent,
   patchAgent,
   deleteAgent,
-  listAgentHistory,
-  restoreAgent,
   type ListAgentsParams
 } from '@/api/agentBuilder'
 import {
   normalizeQuestionnaire,
   type Agent,
-  type AgentHistory,
   type CreateAgentPayload,
   type PatchAgentPayload
 } from '@/types/agentBuilder'
@@ -48,12 +45,7 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
   const currentLoading = ref(false)
   const currentError = ref('')
 
-  // --- History state ---
-  const history = ref<AgentHistory[]>([])
-  const historyLoading = ref(false)
-  const historyError = ref('')
-
-  // --- Shared saving flag (create/update/restore/softDelete) ---
+  // --- Shared saving flag (create/update/softDelete) ---
   const saving = ref(false)
 
   // --- Getter ---
@@ -130,33 +122,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     }
   }
 
-  async function fetchHistory(id: number) {
-    historyLoading.value = true
-    historyError.value = ''
-    try {
-      const res = await listAgentHistory(id)
-      history.value = res.list
-    } catch (e) {
-      historyError.value = (e as Error).message || '加载历史失败'
-      throw e
-    } finally {
-      historyLoading.value = false
-    }
-  }
-
-  async function restore(id: number, version: number): Promise<Agent> {
-    saving.value = true
-    try {
-      const a = normalizeAgent(await restoreAgent(id, version))
-      current.value = a
-      // Refresh history so new restored version shows up immediately.
-      await fetchHistory(id)
-      return a
-    } finally {
-      saving.value = false
-    }
-  }
-
   // Pinia setup-syntax stores need an explicit reset (no auto $reset).
   function $reset() {
     list.value = []
@@ -166,9 +131,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     current.value = null
     currentLoading.value = false
     currentError.value = ''
-    history.value = []
-    historyLoading.value = false
-    historyError.value = ''
     saving.value = false
   }
 
@@ -181,9 +143,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     current,
     currentLoading,
     currentError,
-    history,
-    historyLoading,
-    historyError,
     saving,
     // getters
     isEmpty,
@@ -193,8 +152,6 @@ export const useAgentBuilderStore = defineStore('agentBuilder', () => {
     create,
     update,
     softDelete,
-    fetchHistory,
-    restore,
     $reset
   }
 })
