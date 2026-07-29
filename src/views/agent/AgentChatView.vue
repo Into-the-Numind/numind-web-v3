@@ -109,6 +109,7 @@ const handleSelectStarter = (text: string): void => {
 
 const handleStop = async (): Promise<void> => {
   if (!canStop.value) return
+  const runID = store.currentRun?.id
   const used = store.currentRun?.credits_used ?? 0
 
   // The input stop control must always end the local stream immediately. The
@@ -122,6 +123,12 @@ const handleStop = async (): Promise<void> => {
     await runCtrl.cancel()
   } catch (err) {
     notifications.error(`取消任务失败：${(err as Error)?.message ?? '请重试'}`)
+    return
+  }
+  const reconciledStatus =
+    runID !== undefined && store.currentRun?.id === runID ? store.currentRun.status : undefined
+  if (reconciledStatus && reconciledStatus !== 'cancelled') {
+    notifications.info('任务已结束，输入框已恢复')
     return
   }
   notifications.info(`已取消任务 · 本次消耗 ${used} 积分`)

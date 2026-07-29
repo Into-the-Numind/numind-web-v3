@@ -48,7 +48,7 @@ const phaseContent = {
 } as const
 
 const noticeContent = {
-  authorization_pending: '尚未检测到授权完成，请完成后再继续。',
+  authorization_pending: '尚未收到飞书授权完成信号。若飞书显示无需授权，请重新生成链接后再试。',
   authorization_processing: '正在确认授权状态，请稍候。',
   authorization_rejected: '本次授权未通过，已生成新的授权链接。',
   authorization_expired: '原链接已过期，已生成新的授权链接。',
@@ -84,8 +84,13 @@ const url = computed<string>(() => props.action.url ?? '')
 const showsCurrentURL = computed<boolean>(() => current.value && !confirmation.value && !!url.value)
 const missingLink = computed<boolean>(() => current.value && !confirmation.value && !url.value)
 const restartRequired = computed<boolean>(() => props.action.phase === 'app_scope' && expired.value)
+const retryableAuthorizationNotice = computed<boolean>(
+  () => props.action.notice_code === 'authorization_pending'
+)
 const showRefresh = computed<boolean>(
-  () => refreshableAuthorizationPhase.value && (expired.value || missingLink.value)
+  () =>
+    refreshableAuthorizationPhase.value &&
+    (expired.value || missingLink.value || retryableAuthorizationNotice.value)
 )
 const canResume = computed<boolean>(
   () => current.value && !confirmation.value && (!!url.value || props.action.phase === 'app_scope')

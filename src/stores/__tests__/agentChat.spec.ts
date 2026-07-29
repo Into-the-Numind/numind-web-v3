@@ -424,6 +424,32 @@ describe('agentChat store', () => {
     expect(last.type === 'system' && last.system_subtype).toBe('cancelled')
   })
 
+  it('cancelCurrent reconciles a run that already reached terminal state on the server', async () => {
+    const store = useAgentChatStore()
+    await store.startNewRun(1, 'hi')
+    vi.mocked(api.cancelRun).mockRejectedValueOnce(
+      new Error('Agent run is already in a terminal state and cannot be cancelled.')
+    )
+    vi.mocked(api.getRun).mockResolvedValueOnce({
+      id: 999,
+      session_id: 999,
+      status: 'completed',
+      state_reason: 'completed',
+      final_output: '任务已经完成。',
+      credits_used: 12,
+      created_at: '',
+      updated_at: ''
+    } as never)
+
+    await expect(store.cancelCurrent()).resolves.toBeUndefined()
+
+    expect(store.currentRun).toMatchObject({ id: 999, status: 'completed' })
+    expect(store.messages.some((m) => m.type === 'system' && m.system_subtype === 'cancelled')).toBe(
+      false
+    )
+    expect(store.isRunning).toBe(false)
+  })
+
   it('toolGroups aggregates events by tool_call_id', async () => {
     const store = useAgentChatStore()
     await store.startNewRun(1, 'hi')
