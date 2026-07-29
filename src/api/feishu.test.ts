@@ -383,6 +383,24 @@ describe('personal Feishu workspace API', () => {
     expect(mockedRequest.post).toHaveBeenCalledWith('/v1/feishu/actions/session-1/refresh')
   })
 
+  it('accepts a refresh action that escalates user auth to full connection rebuild', async () => {
+    mockedRequest.post.mockResolvedValue({
+      data: {
+        action: {
+          operation_id: 'op-1',
+          session_id: 'session-create-app',
+          phase: 'create_app',
+          url: 'https://open.feishu.cn/page/cli?state=reconnect',
+          expires_at: '2026-07-15T00:00:00Z'
+        }
+      }
+    })
+
+    await expect(refreshFeishuAction('session-stale')).resolves.toMatchObject({
+      action: { operation_id: 'op-1', session_id: 'session-create-app', phase: 'create_app' }
+    })
+  })
+
   it('normalizes a manual refresh action whose wire response omits operation_id', async () => {
     mockedRequest.post.mockResolvedValue({
       data: {

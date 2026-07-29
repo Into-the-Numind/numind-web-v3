@@ -76,7 +76,7 @@ describe('FeishuActionCard', () => {
   })
 
   it.each([
-    ['authorization_pending', '尚未收到飞书授权完成信号。若飞书显示无需授权，请重新生成链接后再试。'],
+    ['authorization_pending', '尚未收到服务器侧飞书连接完成信号。若飞书显示无需授权，请重新生成连接步骤。'],
     ['authorization_processing', '正在确认授权状态，请稍候。'],
     ['authorization_rejected', '本次授权未通过，已生成新的授权链接。'],
     ['authorization_expired', '原链接已过期，已生成新的授权链接。'],
@@ -111,6 +111,18 @@ describe('FeishuActionCard', () => {
 
     expect(wrapper.emitted('refresh')).toEqual([['session-1']])
     expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('labels the create-app link as a connection rebuild instead of authorization', () => {
+    const wrapper = mountCard({
+      action: createAction({ phase: 'create_app', url: 'https://open.feishu.cn/page/cli' })
+    })
+
+    expect(wrapper.text()).toContain('先去飞书创建个人应用')
+    expect(wrapper.text()).toContain('完成连接重建后点击继续')
+    expect(wrapper.get('[data-testid="feishu-open-link"]').attributes('aria-label')).toBe(
+      '打开飞书连接页面'
+    )
   })
 
   it.each(['authorization_rejected', 'authorization_expired', 'authorization_updated'] as const)(
