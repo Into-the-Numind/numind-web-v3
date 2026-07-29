@@ -26,13 +26,11 @@ esac
 
 VITE_API_BASE_URL="/api"
 
-# notification-center 铃铛：dev/qa 开，prod 留空(=隐藏，保持休眠隔离不影响打 tag)
-VITE_ENABLE_NOTIFICATIONS=""
-if [ "$ENV" = "dev" ] || [ "$ENV" = "qa" ]; then VITE_ENABLE_NOTIFICATIONS="true"; fi
+# notification-center 铃铛：Dev 已验收，dev/qa/prod 全部编译开启。
+VITE_ENABLE_NOTIFICATIONS="true"
 
-# document-system「打开编辑」入口：dev/qa 开，prod 留空(=隐藏，休眠隔离不影响打 tag)
-VITE_ENABLE_DOCUMENT_SYSTEM=""
-if [ "$ENV" = "dev" ] || [ "$ENV" = "qa" ]; then VITE_ENABLE_DOCUMENT_SYSTEM="true"; fi
+# document-system「打开编辑」入口：Dev 已验收，dev/qa/prod 全部编译开启。
+VITE_ENABLE_DOCUMENT_SYSTEM="true"
 
 # meeting-copilot「会议副驾」入口：dev/qa 开，prod 留空(=隐藏，休眠隔离不影响打 tag)
 VITE_ENABLE_MEETING_COPILOT=""

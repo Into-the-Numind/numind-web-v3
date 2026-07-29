@@ -4,9 +4,9 @@ FROM node:18-alpine AS builder
 # 构建参数
 ARG VITE_APP_ENV=production
 ARG VITE_API_BASE_URL
-# notification-center 铃铛显隐：dev/qa 传 true 开，prod 不传=隐藏（保持休眠隔离）
+# notification-center 铃铛显隐：dev/qa/prod 均由构建脚本传 true。
 ARG VITE_ENABLE_NOTIFICATIONS
-# document-system「打开编辑」入口显隐：dev/qa 传 true 开，prod 不传=隐藏（休眠隔离）
+# document-system「打开编辑」入口显隐：dev/qa/prod 均由构建脚本传 true。
 ARG VITE_ENABLE_DOCUMENT_SYSTEM
 # meeting-copilot「会议副驾」入口显隐：dev/qa 传 true 开，prod 不传=隐藏（休眠隔离）
 ARG VITE_ENABLE_MEETING_COPILOT
