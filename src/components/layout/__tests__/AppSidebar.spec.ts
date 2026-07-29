@@ -70,15 +70,18 @@ describe('AppSidebar homepage entries', () => {
     expect(wrapper.find('a[href="/meeting"]').exists()).toBe(false)
   })
 
-  it('keeps the child personal skills entry visible', async () => {
+  it('hides configuration and skill entries for child users', async () => {
     const wrapper = await mountSidebar({
       id: 2,
       username: 'child',
       parent_user_id: 1
     })
 
-    expect(wrapper.text()).toContain('我的技能')
+    expect(wrapper.text()).not.toContain('配置中心')
+    expect(wrapper.text()).not.toContain('我的技能')
     expect(wrapper.text()).not.toContain('技能市场')
     expect(wrapper.text()).not.toContain('会议副驾')
+    expect(wrapper.find('a[href="/config"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/config/skills"]').exists()).toBe(false)
   })
 })
