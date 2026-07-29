@@ -76,7 +76,7 @@ describe('FeishuActionCard', () => {
   })
 
   it.each([
-    ['authorization_pending', '尚未检测到授权完成，请完成后再继续。'],
+    ['authorization_pending', '尚未收到飞书授权完成信号。若飞书显示无需授权，请重新生成链接后再试。'],
     ['authorization_processing', '正在确认授权状态，请稍候。'],
     ['authorization_rejected', '本次授权未通过，已生成新的授权链接。'],
     ['authorization_expired', '原链接已过期，已生成新的授权链接。'],
@@ -100,6 +100,17 @@ describe('FeishuActionCard', () => {
 
     await wrapper.setProps({ action: createAction(), busy: true })
     expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('offers a fresh link when authorization remains pending after the user returns', async () => {
+    const wrapper = mountCard({
+      action: createAction({ notice_code: 'authorization_pending' })
+    })
+
+    await wrapper.get('[data-testid="feishu-refresh"]').trigger('click')
+
+    expect(wrapper.emitted('refresh')).toEqual([['session-1']])
+    expect(wrapper.get('[data-testid="feishu-continue"]').attributes('disabled')).toBeUndefined()
   })
 
   it.each(['authorization_rejected', 'authorization_expired', 'authorization_updated'] as const)(
