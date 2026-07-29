@@ -61,6 +61,15 @@
               </button>
               <button
                 role="tab"
+                :aria-selected="activeTab === 'weekly'"
+                class="grant-tab"
+                :class="{ active: activeTab === 'weekly' }"
+                @click="activeTab = 'weekly'"
+              >
+                周度会员
+              </button>
+              <button
+                role="tab"
                 :aria-selected="activeTab === 'trial'"
                 class="grant-tab"
                 :class="{ active: activeTab === 'trial' }"
@@ -112,6 +121,35 @@
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 该账户已使用过体验会员，不可重复赠送
+              </div>
+            </div>
+
+            <!-- Weekly Tab Content -->
+            <div v-if="activeTab === 'weekly'" class="grant-tab-content" role="tabpanel">
+              <div class="grant-product-card weekly-card">
+                <div class="grant-product-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4" />
+                    <path d="M8 2v4" />
+                    <path d="M3 10h18" />
+                    <path d="M9 16l2 2 4-5" />
+                  </svg>
+                </div>
+                <div class="grant-product-info">
+                  <div class="grant-product-name">周度会员</div>
+                  <div class="grant-product-desc">500 积分 · 有效期 7 天</div>
+                </div>
+                <div class="grant-product-price">¥25</div>
               </div>
             </div>
 
@@ -241,7 +279,7 @@
 
           <!-- Footer -->
           <div class="modal-footer">
-            <div v-if="activeTab === 'monthly'" class="total-line">
+            <div v-if="activeTab === 'monthly' || activeTab === 'weekly'" class="total-line">
               <span class="total-label">合计</span>
               <span class="total-amount">¥{{ total }}</span>
             </div>
@@ -288,7 +326,9 @@ const emit = defineEmits<{
 }>()
 
 // ── State ───────────────────────────────────────────────────────────
-const activeTab = ref<'trial' | 'monthly'>('monthly')
+type GrantProductType = 'trial' | 'weekly' | 'monthly'
+
+const activeTab = ref<GrantProductType>('monthly')
 const months = ref(12)
 const expanded = ref(false)
 const loading = ref(false)
@@ -302,6 +342,7 @@ const customTotal = computed(() => {
 })
 
 const total = computed(() => {
+  if (activeTab.value === 'weekly') return 25
   if (months.value === 12) return 949
   return months.value * 99
 })
@@ -355,7 +396,7 @@ async function handleSubmit() {
   errorMsg.value = ''
 
   try {
-    const body: { product_type: 'trial' | 'monthly'; months?: number } = {
+    const body: { product_type: GrantProductType; months?: number } = {
       product_type: activeTab.value
     }
     if (activeTab.value === 'monthly') {
@@ -365,22 +406,39 @@ async function handleSubmit() {
     const res = await grantMembership(props.childId, body, idempotencyKey)
     const data = res.data
 
-    const toastMessages: Record<string, string> = {
-      trial_granted: `已为 ${props.childName} 开通体验包，3 天有效期`,
-      sub_granted: `已为 ${props.childName} 开通 Pro ${data.months ?? months.value} 个月，${formatDate(data.expires_at)} 到期`,
-      sub_renewed: `已为 ${props.childName} 续费 Pro ${data.months ?? months.value} 个月，新到期日 ${formatDate(data.expires_at)}`
-    }
+    const toastMsg = buildToastMessage(data)
 
     emit('update:open', false)
     emit('success', {
       ...data,
-      _toastMsg: toastMessages[data.event_type] ?? '操作成功'
+      _toastMsg: toastMsg
     } as GrantResponse & { _toastMsg: string })
   } catch (e: unknown) {
     errorMsg.value = e instanceof Error ? e.message : '开通失败，请重试'
   } finally {
     loading.value = false
   }
+}
+
+function buildToastMessage(data: GrantResponse): string {
+  if (data.event_type === 'trial_granted') {
+    return `已为 ${props.childName} 开通体验包，3 天有效期`
+  }
+  if (data.product_type === 'weekly') {
+    const prefix = data.event_type === 'sub_renewed' ? '续费' : '开通'
+    const expiry = formatDate(data.expires_at)
+    if (data.event_type === 'sub_renewed') {
+      return `已为 ${props.childName} ${prefix}周度会员，新到期日 ${expiry}`
+    }
+    return `已为 ${props.childName} ${prefix}周度会员，${expiry} 到期`
+  }
+  if (data.event_type === 'sub_renewed') {
+    return `已为 ${props.childName} 续费 Pro ${data.months ?? months.value} 个月，新到期日 ${formatDate(data.expires_at)}`
+  }
+  if (data.event_type === 'sub_granted') {
+    return `已为 ${props.childName} 开通 Pro ${data.months ?? months.value} 个月，${formatDate(data.expires_at)} 到期`
+  }
+  return '操作成功'
 }
 </script>
 
@@ -562,6 +620,25 @@ async function handleSubmit() {
   font-size: 12px;
   color: hsl(155, 12%, 50%);
   margin-bottom: 4px;
+}
+
+.grant-product-card.weekly-card {
+  align-items: center;
+  border-color: hsl(188, 42%, 82%);
+  background: hsl(188, 36%, 97%);
+}
+
+.weekly-card .grant-product-icon {
+  background: hsl(188, 48%, 90%);
+  color: hsl(188, 58%, 32%);
+}
+
+.grant-product-price {
+  margin-left: auto;
+  font-size: 22px;
+  font-weight: 700;
+  color: hsl(188, 58%, 32%);
+  line-height: 1;
 }
 
 /* Trial used warning */

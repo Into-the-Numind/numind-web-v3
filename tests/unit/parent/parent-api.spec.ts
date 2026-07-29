@@ -5,7 +5,8 @@
  *   1. listChildren 打正确的 GET /v1/users/children
  *   2. grantChildMembership 打正确的 POST，URL 带 child_id，body 是 req
  *   3. trial 不传 months 也被序列化到 body
- *   4. monthly 带 months=1..12
+ *   4. weekly 不传 months
+ *   5. monthly 带 months=1..12
  *
  * 采用 vi.mock('@/api/request') 的方式拦截 axios 调用，验证请求参数。
  */
@@ -75,6 +76,18 @@ describe('grantChildMembership', () => {
       product_type: 'monthly',
       months: 3,
       reason: '季度会员'
+    })
+  })
+
+  it('weekly 类型：POST 不带 months', async () => {
+    postMock.mockResolvedValue({ code: 0, message: 'ok', data: {} })
+    await grantChildMembership(8, {
+      product_type: 'weekly',
+      reason: '周度体验'
+    })
+    expect(postMock).toHaveBeenCalledWith('/v1/users/children/8/grant-membership', {
+      product_type: 'weekly',
+      reason: '周度体验'
     })
   })
 
