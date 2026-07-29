@@ -18,7 +18,7 @@ import { createDiagnostics } from './helpers/diagnose'
 interface ActionFixture {
   operation_id: string
   session_id: string
-  phase: 'user_auth' | 'confirmation'
+  phase: 'create_app' | 'app_scope' | 'user_auth' | 'confirmation'
   expires_at: string
   url?: string
 }
@@ -1202,6 +1202,49 @@ test.describe('personal Feishu workspace', () => {
     await expect
       .poll(() => capture.resumeBodies)
       .toEqual([{ action: 'user_completed', session_id: refreshedAction.session_id }])
+    expect(capture.ordinaryAnswerRequests).toHaveLength(0)
+  })
+
+  test('mobile: an expired authorization link can refresh into a full connection rebuild', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const expiredAction: ActionFixture = {
+      ...FUTURE_ACTION,
+      operation_id: 'feishu-operation-e2e-304',
+      session_id: 'feishu-auth-session-e2e-304',
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
+      url: 'https://open.feishu.cn/open-apis/authen/v1/authorize?state=stale-e2e-304'
+    }
+    const rebuildAction: ActionFixture = {
+      operation_id: expiredAction.operation_id,
+      session_id: 'feishu-auth-session-e2e-304-rebuild',
+      phase: 'create_app',
+      expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+      url: 'https://open.feishu.cn/page/cli?state=rebuild-e2e-304'
+    }
+    const capture = await installLifecycleMocks(page, 304, expiredAction, rebuildAction)
+
+    await openAgentConversation(page, '重新连接飞书后继续原任务')
+
+    const card = page.getByTestId('feishu-action-card')
+    await expect(card).toBeVisible()
+    await card.getByTestId('feishu-refresh').click()
+
+    await expect.poll(() => capture.refreshBodies).toEqual([null])
+    await expect(card).toContainText('飞书个人工作空间 · 创建个人应用')
+    await expect(card).toContainText('先去飞书创建个人应用')
+    await expect(card).toContainText('完成连接重建后点击继续')
+    await expect(card.getByTestId('feishu-open-link')).toHaveAttribute('href', rebuildAction.url)
+    await expect(card.getByTestId('feishu-open-link')).toHaveAttribute(
+      'aria-label',
+      '打开飞书连接页面'
+    )
+
+    await card.getByTestId('feishu-continue').click()
+    await expect
+      .poll(() => capture.resumeBodies)
+      .toEqual([{ action: 'user_completed', session_id: rebuildAction.session_id }])
     expect(capture.ordinaryAnswerRequests).toHaveLength(0)
   })
 

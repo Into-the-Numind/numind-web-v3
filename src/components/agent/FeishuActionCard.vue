@@ -48,7 +48,7 @@ const phaseContent = {
 } as const
 
 const noticeContent = {
-  authorization_pending: '尚未收到飞书授权完成信号。若飞书显示无需授权，请重新生成链接后再试。',
+  authorization_pending: '尚未收到服务器侧飞书连接完成信号。若飞书显示无需授权，请重新生成连接步骤。',
   authorization_processing: '正在确认授权状态，请稍候。',
   authorization_rejected: '本次授权未通过，已生成新的授权链接。',
   authorization_expired: '原链接已过期，已生成新的授权链接。',
@@ -99,6 +99,28 @@ const phase = computed(() => phaseContent[props.action.phase])
 const cardTitle = computed<string>(() =>
   props.action.phase === 'user_auth' ? '飞书授权' : `飞书个人工作空间 · ${phase.value.title}`
 )
+const actionBandContent = computed(() => {
+  switch (props.action.phase) {
+    case 'create_app':
+      return {
+        title: '先去飞书创建个人应用',
+        description: '打开飞书官方页面，完成连接重建后点击继续。',
+        label: '打开飞书连接页面'
+      }
+    case 'app_scope':
+      return {
+        title: '先去飞书完成管理员批准',
+        description: '打开飞书官方页面，批准后回到这里继续。',
+        label: '打开飞书批准页面'
+      }
+    default:
+      return {
+        title: '先去飞书完成授权',
+        description: '打开飞书官方页面，完成操作后点击继续。',
+        label: '打开飞书授权链接'
+      }
+  }
+})
 const noticeText = computed<string>(() =>
   current.value && props.action.notice_code ? noticeContent[props.action.notice_code] : ''
 )
@@ -272,8 +294,8 @@ function handleRefresh(): void {
     <template v-if="showsCurrentURL">
       <div class="feishu-action-card__action-band">
         <div class="feishu-action-card__action-copy">
-          <strong>先去飞书完成授权</strong>
-          <p>打开上述链接，完成操作后点击继续。</p>
+          <strong>{{ actionBandContent.title }}</strong>
+          <p>{{ actionBandContent.description }}</p>
         </div>
         <a
           data-testid="feishu-open-link"
@@ -281,7 +303,7 @@ function handleRefresh(): void {
           target="_blank"
           rel="noopener noreferrer"
           class="feishu-action-card__open-link"
-          aria-label="打开飞书授权链接"
+          :aria-label="actionBandContent.label"
         >
           <ExternalLink :size="15" aria-hidden="true" />
           <span>打开链接</span>
