@@ -86,24 +86,33 @@
               :class="{ disabled: hasUsedTrial }"
               role="tabpanel"
             >
-              <div class="grant-product-card trial-card">
-                <div class="grant-product-icon">
+              <div class="hero-card selected simple-plan-card trial-plan-card">
+                <span class="hero-radio filled">
                   <svg
                     viewBox="0 0 24 24"
-                    width="20"
-                    height="20"
+                    width="11"
+                    height="11"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="1.5"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                   >
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
+                </span>
+                <div class="hero-top">
+                  <div class="hero-label">
+                    <div class="hero-title">体验会员</div>
+                    <div class="hero-monthly">200 积分 · 有效期 3 天</div>
+                  </div>
+                  <div class="hero-price">
+                    <div class="hero-now">¥9.9</div>
+                  </div>
                 </div>
-                <div class="grant-product-info">
-                  <div class="grant-product-name">体验会员</div>
-                  <div class="grant-product-desc">200 积分 · 有效期 3 天</div>
+                <div class="hero-savings">
+                  <span class="save-pill">3 天</span>
+                  <span class="save-text">包含 <strong>200 积分</strong></span>
                 </div>
               </div>
 
@@ -126,30 +135,34 @@
 
             <!-- Weekly Tab Content -->
             <div v-if="activeTab === 'weekly'" class="grant-tab-content" role="tabpanel">
-              <div class="grant-product-card weekly-card">
-                <div class="grant-product-icon">
+              <div class="hero-card selected simple-plan-card weekly-plan-card">
+                <span class="hero-radio filled">
                   <svg
                     viewBox="0 0 24 24"
-                    width="20"
-                    height="20"
+                    width="11"
+                    height="11"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="1.5"
+                    stroke-width="3"
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   >
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M16 2v4" />
-                    <path d="M8 2v4" />
-                    <path d="M3 10h18" />
-                    <path d="M9 16l2 2 4-5" />
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
+                </span>
+                <div class="hero-top">
+                  <div class="hero-label">
+                    <div class="hero-title">周度会员</div>
+                    <div class="hero-monthly">500 积分 · 有效期 7 天</div>
+                  </div>
+                  <div class="hero-price">
+                    <div class="hero-now">¥25</div>
+                  </div>
                 </div>
-                <div class="grant-product-info">
-                  <div class="grant-product-name">周度会员</div>
-                  <div class="grant-product-desc">500 积分 · 有效期 7 天</div>
+                <div class="hero-savings">
+                  <span class="save-pill">7 天</span>
+                  <span class="save-text">包含 <strong>500 积分</strong></span>
                 </div>
-                <div class="grant-product-price">¥25</div>
               </div>
             </div>
 
@@ -279,11 +292,10 @@
 
           <!-- Footer -->
           <div class="modal-footer">
-            <div v-if="activeTab === 'monthly' || activeTab === 'weekly'" class="total-line">
+            <div class="total-line">
               <span class="total-label">合计</span>
               <span class="total-amount">¥{{ total }}</span>
             </div>
-            <div v-else class="total-line-placeholder"></div>
             <div class="footer-btns">
               <button type="button" class="btn-cancel" :disabled="loading" @click="handleClose">
                 取消
@@ -342,6 +354,7 @@ const customTotal = computed(() => {
 })
 
 const total = computed(() => {
+  if (activeTab.value === 'trial') return 9.9
   if (activeTab.value === 'weekly') return 25
   if (months.value === 12) return 949
   return months.value * 99
@@ -586,61 +599,6 @@ function buildToastMessage(data: GrantResponse): string {
   pointer-events: none;
 }
 
-/* Trial product card (used by trial tab only) */
-.grant-product-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1.5px solid hsl(155, 30%, 90%);
-  border-radius: 12px;
-  background: hsl(155, 25%, 98%);
-}
-
-.grant-product-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: hsl(158, 50%, 90%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: hsl(158, 60%, 35%);
-  flex-shrink: 0;
-}
-
-.grant-product-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: hsl(155, 30%, 15%);
-  margin-bottom: 3px;
-}
-
-.grant-product-desc {
-  font-size: 12px;
-  color: hsl(155, 12%, 50%);
-  margin-bottom: 4px;
-}
-
-.grant-product-card.weekly-card {
-  align-items: center;
-  border-color: hsl(188, 42%, 82%);
-  background: hsl(188, 36%, 97%);
-}
-
-.weekly-card .grant-product-icon {
-  background: hsl(188, 48%, 90%);
-  color: hsl(188, 58%, 32%);
-}
-
-.grant-product-price {
-  margin-left: auto;
-  font-size: 22px;
-  font-weight: 700;
-  color: hsl(188, 58%, 32%);
-  line-height: 1;
-}
-
 /* Trial used warning */
 .grant-used-warning {
   display: flex;
@@ -690,6 +648,23 @@ function buildToastMessage(data: GrantResponse): string {
   border-color: hsl(160, 60%, 60%);
 }
 
+.simple-plan-card {
+  cursor: default;
+  min-height: 132px;
+}
+
+.simple-plan-card .hero-top {
+  min-height: 50px;
+}
+
+.simple-plan-card .hero-now {
+  font-size: 28px;
+}
+
+.simple-plan-card .hero-savings {
+  margin-top: 8px;
+}
+
 /* Deal badge */
 .deal-badge {
   position: absolute;
@@ -701,7 +676,7 @@ function buildToastMessage(data: GrantResponse): string {
   font-weight: 800;
   padding: 6px 12px 7px;
   border-radius: 8px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   box-shadow: 0 4px 10px hsl(160 72% 40% / 0.35);
   transform: rotate(2deg);
   z-index: 2;
@@ -745,7 +720,7 @@ function buildToastMessage(data: GrantResponse): string {
   font-size: 16px;
   font-weight: 700;
   color: hsl(155, 30%, 15%);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .hero-monthly {
@@ -774,7 +749,7 @@ function buildToastMessage(data: GrantResponse): string {
   font-weight: 700;
   color: hsl(160, 72%, 40%);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .hero-card:not(.selected) .hero-now {
@@ -1001,22 +976,18 @@ function buildToastMessage(data: GrantResponse): string {
   gap: 2px;
 }
 
-.total-line-placeholder {
-  flex: 1;
-}
-
 .total-label {
   font-size: 11px;
   color: hsl(155, 10%, 55%);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 .total-amount {
   font-size: 18px;
   font-weight: 700;
   color: hsl(160, 72%, 40%);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .footer-btns {
