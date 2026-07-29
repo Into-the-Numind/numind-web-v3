@@ -38,133 +38,94 @@
 
     <div
       v-else
-      class="fc-card"
+      class="fc-card fc-card--summary"
       :class="{ 'fc-card--connected': store.connected }"
       :data-testid="store.connected ? 'feishu-connection-success' : 'feishu-connection-empty'"
     >
-      <span class="fc-icon" :class="store.connected ? 'fc-icon--active' : 'fc-icon--muted'" aria-hidden="true">
-        <ShieldCheck :size="20" />
-      </span>
-
-      <div class="fc-body">
-        <div class="fc-title-row">
-          <div>
-            <p class="fc-eyebrow">个人工作空间</p>
-            <h3 class="fc-title">飞书</h3>
-          </div>
-          <span class="fc-status-pill" :class="`fc-status-pill--${statusTone}`">
-            {{ statusLabel }}
+      <div class="fc-summary">
+        <div class="fc-main">
+          <span class="fc-icon" :class="store.connected ? 'fc-icon--active' : 'fc-icon--muted'" aria-hidden="true">
+            <ShieldCheck :size="20" />
           </span>
-        </div>
-
-        <template v-if="store.connected">
-          <p class="fc-desc">已连接你的个人飞书工作空间。文档、多维表格和知识库将在首次使用时按需授权，不包含消息发送。</p>
-        </template>
-
-        <template v-else>
-          <p class="fc-desc">{{ stateDescription }}</p>
-          <p class="fc-hint">
-            直接在 AI 助手中提出飞书任务即可开始；首次使用时按需授权，不包含消息发送。
-          </p>
-        </template>
-
-        <p v-if="store.appIdMasked" class="fc-meta">应用 ID：{{ store.appIdMasked }}</p>
-
-        <div v-if="store.activeAction" class="fc-manual-action" data-testid="feishu-manual-action">
-          <p class="fc-manual-title">{{ manualActionTitle }}</p>
-          <p class="fc-manual-desc">在飞书官方页面完成当前步骤后，回到这里继续。无需提供 App ID 或 App Secret。</p>
-          <div class="fc-manual-controls">
-            <a
-              v-if="manualActionUrl"
-              class="fc-action-link"
-              data-testid="feishu-open-action"
-              :href="manualActionUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              打开飞书完成授权
-            </a>
-            <AppButton
-              v-if="manualActionUrl"
-              variant="secondary"
-              size="sm"
-              data-testid="feishu-manual-continue"
-              :loading="store.connecting"
-              @click="handleManualContinue"
-            >
-              我已完成，继续
-            </AppButton>
-            <AppButton
-              v-else
-              variant="secondary"
-              size="sm"
-              data-testid="feishu-manual-restore"
-              :loading="store.refreshingAction"
-              @click="handleRestoreAction"
-            >
-              恢复授权步骤
-            </AppButton>
+          <div class="fc-identity">
+            <h3 class="fc-title">飞书</h3>
+            <span class="fc-status-pill" :class="`fc-status-pill--${statusTone}`">
+              {{ statusLabel }}
+            </span>
           </div>
         </div>
 
-        <ul v-if="showCapabilities" class="fc-capabilities" aria-label="飞书能力状态">
-          <li
-            v-for="domain in capabilityDomains"
-            :key="domain.key"
-            class="fc-capability"
-            :data-testid="`feishu-capability-${domain.key}`"
-          >
-            <span>{{ domain.label }}</span>
-            <span class="fc-capability-state" :class="`fc-capability-state--${capabilityState(domain.key)}`">
-              {{ capabilityLabel(domain.key) }}
-            </span>
-          </li>
-        </ul>
-      </div>
-
-      <div class="fc-actions">
-        <AppButton
-          v-if="store.state === 'disconnecting'"
-          variant="secondary"
-          size="sm"
-          data-testid="feishu-refresh-disconnecting"
-          :loading="store.loading"
-          @click="reload"
-        >
-          刷新状态
-        </AppButton>
-
-        <template v-else-if="store.connected">
+        <div class="fc-actions">
           <AppButton
+            v-if="store.state === 'disconnecting'"
             variant="secondary"
             size="sm"
-            data-testid="feishu-reauthorize"
-            :loading="store.connecting"
-            @click="handleConnect"
+            data-testid="feishu-refresh-disconnecting"
+            :loading="store.loading"
+            @click="reload"
           >
-            重新授权
+            刷新状态
+          </AppButton>
+
+          <template v-else-if="canReauthorize">
+            <AppButton
+              variant="secondary"
+              size="sm"
+              data-testid="feishu-reauthorize"
+              :loading="store.connecting"
+              @click="handleConnect"
+            >
+              重新授权
+            </AppButton>
+            <AppButton
+              v-if="store.connected"
+              variant="text"
+              size="sm"
+              data-testid="feishu-unbind"
+              :loading="store.disconnecting"
+              @click="confirmVisible = true"
+            >
+              解绑
+            </AppButton>
+          </template>
+        </div>
+      </div>
+
+      <div v-if="store.activeAction" class="fc-manual-action" data-testid="feishu-manual-action">
+        <p class="fc-manual-title">{{ manualActionTitle }}</p>
+        <p class="fc-manual-desc">在飞书官方页面完成当前步骤后，回到这里继续。</p>
+        <div class="fc-manual-controls">
+          <a
+            v-if="manualActionUrl"
+            class="fc-action-link"
+            data-testid="feishu-open-action"
+            :href="manualActionUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            打开飞书完成授权
+          </a>
+          <AppButton
+            v-if="manualActionUrl"
+            variant="secondary"
+            size="sm"
+            data-testid="feishu-manual-continue"
+            :loading="store.connecting"
+            @click="handleManualContinue"
+          >
+            我已完成，继续
           </AppButton>
           <AppButton
-            variant="text"
+            v-else
+            variant="secondary"
             size="sm"
-            data-testid="feishu-unbind"
-            :loading="store.disconnecting"
-            @click="confirmVisible = true"
+            data-testid="feishu-manual-restore"
+            :loading="store.refreshingAction"
+            @click="handleRestoreAction"
           >
-            解绑
+            恢复授权步骤
           </AppButton>
-        </template>
-
-        <AppButton
-          v-else-if="!store.activeAction && !store.inAgentFlow"
-          variant="primary"
-          size="sm"
-          :data-testid="actionTestId"
-          :loading="store.connecting"
-          @click="handleConnect"
-        >
-          {{ actionLabel }}
-        </AppButton>
+        </div>
       </div>
     </div>
 
@@ -186,19 +147,13 @@ import AppButton from '@/components/common/AppButton.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { useFeishuStore } from '@/stores/feishu'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { FeishuCapabilityDomain, FeishuCapabilityState, FeishuConnectionState } from '@/api/feishu'
+import type { FeishuConnectionState } from '@/api/feishu'
 import { isOfficialFeishuActionURL } from '@/utils/feishuActionUrl'
 
 const store = useFeishuStore()
 const notifications = useNotificationsStore()
 const confirmVisible = ref(false)
 const initialized = ref(false)
-
-const capabilityDomains: { key: FeishuCapabilityDomain; label: string }[] = [
-  { key: 'docs', label: '文档' },
-  { key: 'base', label: '多维表格' },
-  { key: 'wiki', label: '知识库' }
-]
 
 const statusLabels: Record<FeishuConnectionState, string> = {
   none: '未连接',
@@ -212,40 +167,16 @@ const statusLabels: Record<FeishuConnectionState, string> = {
   disconnecting: '正在解绑'
 }
 
-const stateDescriptions: Partial<Record<FeishuConnectionState, string>> = {
-  creating_app: '个人飞书应用正在创建，请在当前页面完成显示的步骤。',
-  app_ready: '个人飞书应用已准备好，请继续完成授权。',
-  waiting_app_approval: '应用正在等待飞书管理员批准，批准后在当前页面继续。',
-  waiting_user_auth: '正在等待你的飞书授权，请在当前页面完成后继续。',
-  reauth_required: '此前的飞书授权已失效，请重新授权。',
-  error: '连接状态暂时异常，请稍后重试。',
-  disconnecting: '正在安全删除有数保存的飞书连接资料。'
-}
-
 const showLoading = computed(() => store.loading && !initialized.value)
 const showError = computed(() => Boolean(store.error) && !store.loading)
-const showCapabilities = computed(() => store.connected || store.state !== 'none')
 const statusLabel = computed(() => statusLabels[store.state])
-const statusTone = computed(() => (store.connected ? 'active' : store.state === 'error' ? 'error' : 'muted'))
-const stateDescription = computed(() =>
-  store.inAgentFlow
-    ? 'AI 助手中已有一个飞书授权步骤，请完成已有授权卡片；这里不会重复创建连接。'
-    : stateDescriptions[store.state] ?? '让 AI 帮你创建个人飞书应用并完成需要的授权。'
-)
-const actionLabel = computed(() => {
-  if (store.state === 'reauth_required') return '重新授权'
-  if (['creating_app', 'app_ready', 'waiting_app_approval', 'waiting_user_auth'].includes(store.state)) {
-    return '继续连接'
-  }
-  return '连接飞书'
+const statusTone = computed(() => {
+  if (store.connected) return 'active'
+  if (store.state === 'error') return 'error'
+  if (store.state === 'reauth_required') return 'warning'
+  return 'muted'
 })
-const actionTestId = computed(() => {
-  if (store.state === 'reauth_required') return 'feishu-reauthorize'
-  if (['creating_app', 'app_ready', 'waiting_app_approval', 'waiting_user_auth'].includes(store.state)) {
-    return 'feishu-continue-connection'
-  }
-  return 'feishu-connect'
-})
+const canReauthorize = computed(() => store.connected || store.state === 'reauth_required')
 const manualActionUrl = computed(() => {
   const action = store.activeAction
   if (!action || !('url' in action) || !action.url) return ''
@@ -260,22 +191,6 @@ const manualActionTitle = computed(() => {
     default: return '继续飞书连接'
   }
 })
-
-function capabilityState(domain: FeishuCapabilityDomain): FeishuCapabilityState {
-  return store.capabilities[domain].state
-}
-
-function capabilityLabel(domain: FeishuCapabilityDomain): string {
-  const labels: Record<FeishuCapabilityState, string> = {
-    unknown: '尚未验证',
-    available: '可用',
-    needs_app_scope: '等待应用权限',
-    needs_user_scope: '需要授权',
-    revoked: '已撤销',
-    resource_denied: '资源未授权'
-  }
-  return labels[capabilityState(domain)]
-}
 
 async function reload(): Promise<void> {
   await store.fetchStatus()
@@ -363,12 +278,37 @@ onMounted(() => {
   box-shadow: var(--shadow-card);
 }
 
-.fc-card--connected {
-  border-color: var(--accent-light);
-}
-
 .fc-card--error {
   border-color: rgb(239 68 68 / 34%); /* TODO(admin-rebrand): replace with --danger token */
+}
+
+.fc-card--summary {
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+.fc-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-lg);
+}
+
+.fc-main,
+.fc-identity {
+  display: flex;
+  align-items: center;
+}
+
+.fc-main {
+  min-width: 0;
+  gap: var(--space-md);
+}
+
+.fc-identity {
+  gap: var(--space-sm);
 }
 
 .fc-icon {
@@ -401,21 +341,6 @@ onMounted(() => {
   min-width: 0;
 }
 
-.fc-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin-bottom: var(--space-sm);
-}
-
-.fc-eyebrow {
-  margin: 0 0 var(--space-xs);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  line-height: var(--line-height-tight);
-}
-
 .fc-title {
   margin: 0;
   color: var(--text);
@@ -425,8 +350,7 @@ onMounted(() => {
 }
 
 .fc-desc,
-.fc-hint,
-.fc-meta {
+.fc-manual-desc {
   margin: 0;
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
@@ -434,7 +358,7 @@ onMounted(() => {
 
 .fc-manual-action {
   padding: var(--space-md);
-  margin-top: var(--space-lg);
+  width: 100%;
   background: var(--accent-soft);
   border: 1px solid var(--accent-light);
   border-radius: var(--radius-sm);
@@ -486,19 +410,7 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-.fc-hint,
-.fc-meta {
-  margin-top: var(--space-sm);
-  color: var(--text-muted);
-}
-
-.fc-meta {
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
-}
-
-.fc-status-pill,
-.fc-capability-state {
+.fc-status-pill {
   flex: 0 0 auto;
   border-radius: var(--radius-pill);
   font-size: var(--text-xs);
@@ -510,59 +422,32 @@ onMounted(() => {
   padding: 3px var(--space-sm);
 }
 
-.fc-status-pill--active,
-.fc-capability-state--available {
+.fc-status-pill--active {
   color: var(--accent-link);
   background: var(--accent-soft);
 }
 
-.fc-status-pill--muted,
-.fc-capability-state--unknown,
-.fc-capability-state--needs_app_scope,
-.fc-capability-state--needs_user_scope,
-.fc-capability-state--resource_denied {
+.fc-status-pill--warning {
+  color: #a16207;
+  background: #fef7df;
+}
+
+.fc-status-pill--muted {
   color: var(--text-secondary);
   background: var(--surface-tint);
 }
 
-.fc-status-pill--error,
-.fc-capability-state--revoked {
+.fc-status-pill--error {
   color: #ef4444; /* TODO(admin-rebrand): replace with --danger token */
   background: rgb(239 68 68 / 8%); /* TODO(admin-rebrand): replace with --danger token */
-}
-
-.fc-capabilities {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-  padding: 0;
-  margin: var(--space-lg) 0 0;
-  list-style: none;
-}
-
-.fc-capability {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  background: var(--surface-tint);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-}
-
-.fc-capability-state {
-  padding: 2px 6px;
 }
 
 .fc-actions {
   display: flex;
   flex: 0 0 auto;
-  flex-direction: column;
-  align-items: stretch;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--space-sm);
 }
 
@@ -614,14 +499,15 @@ onMounted(() => {
     padding: var(--space-lg);
   }
 
+  .fc-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .fc-actions {
     width: 100%;
     flex-direction: row;
-    justify-content: flex-end;
-  }
-
-  .fc-capabilities {
-    grid-template-columns: 1fr;
+    justify-content: flex-start;
   }
 }
 
