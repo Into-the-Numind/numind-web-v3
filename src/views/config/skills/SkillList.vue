@@ -262,10 +262,6 @@ function cancelDelete() {
 
         <p class="tool-card__desc">{{ skill.description || '可复用的 Skill 能力资产' }}</p>
 
-        <div class="skill-card__meta">
-          <span>装载 {{ skill.bound_agent_count ?? 0 }} 个</span>
-        </div>
-
         <div class="tool-card__footer">
           <span class="tool-card__date">{{ formatDateTime(skill.updated_at) }}</span>
           <div class="card-actions">
@@ -496,18 +492,11 @@ function cancelDelete() {
   -webkit-line-clamp: 2;
 }
 
-.skill-card__badges,
-.skill-card__meta {
+.skill-card__badges {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
-}
-
-.skill-card__meta {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
 }
 
 .tool-card__footer {
