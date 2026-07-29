@@ -8,6 +8,7 @@
  *   T4: event_type=trial_granted → 正确 toast 文案 via emit 'success'
  *   T5: event_type=sub_granted/sub_renewed → 正确 toast 文案
  *   T6: weekly 提交不带 months，toast 显示周度会员
+ *   T7: weekly/trial 视觉结构与 Pro hero card 统一，trial 显示金额
  *
  * 注意：组件使用 <Teleport to="body">，需要 attachTo: document.body，
  * 并通过 document.querySelector 查找 teleport 内元素。
@@ -323,6 +324,43 @@ describe('GrantMembershipModal', () => {
     expect(toastMsg).toContain('周九')
     expect(toastMsg).toContain('周度会员')
     expect(toastMsg).toContain('2026-08-05')
+
+    wrapper.unmount()
+  })
+
+  it('T7: weekly and trial tabs use hero card layout and trial shows price', async () => {
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '吴十',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    const tabs = Array.from(document.querySelectorAll('[role="tab"]')) as HTMLButtonElement[]
+    const weeklyTab = tabs.find((el) => (el.textContent ?? '').includes('周度会员'))
+    expect(weeklyTab).toBeTruthy()
+    weeklyTab!.click()
+    await wrapper.vm.$nextTick()
+
+    let card = document.querySelector('.hero-card.simple-plan-card')
+    expect(card).not.toBeNull()
+    expect(document.querySelector('.grant-product-card')).toBeNull()
+    expect(card!.textContent ?? '').toContain('周度会员')
+    expect(card!.textContent ?? '').toContain('¥25')
+    expect(document.body.textContent ?? '').toContain('合计¥25')
+
+    const trialTab = tabs.find((el) => (el.textContent ?? '').includes('体验会员'))
+    expect(trialTab).toBeTruthy()
+    trialTab!.click()
+    await wrapper.vm.$nextTick()
+
+    card = document.querySelector('.hero-card.simple-plan-card')
+    expect(card).not.toBeNull()
+    expect(document.querySelector('.grant-product-card')).toBeNull()
+    expect(card!.textContent ?? '').toContain('体验会员')
+    expect(card!.textContent ?? '').toContain('¥9.9')
+    expect(document.body.textContent ?? '').toContain('合计¥9.9')
 
     wrapper.unmount()
   })
