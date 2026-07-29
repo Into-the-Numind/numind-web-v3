@@ -109,21 +109,15 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/config',
     component: () => import('@/views/config/ConfigLayout.vue'),
-    // skill-3tier-visibility T4: 父路由不再整体 requiresParent —— 子账户需能访问
-    // /config/skills（个人技能管理）。父账户专属性下沉到各非 skills 子路由（它们各自
-    // 仍带 requiresParent: true）。skills 子路由仅 requiresAuth，允许子账户进入。
     meta: {
       title: '配置中心',
-      requiresAuth: true
+      requiresAuth: true,
+      requiresParent: true
     },
     children: [
-      // 父账户默认落首页工具第一项（AI 工作流）；子账户只能访问 skills，落 skills。
       {
         path: '',
-        redirect: () => {
-          const us = useUserStore()
-          return us.isParentUser ? '/config/sop-templates' : '/config/skills'
-        }
+        redirect: '/config/sop-templates'
       },
       {
         path: 'chatbots',
@@ -196,14 +190,11 @@ const routes: RouteRecordRaw[] = [
         props: true,
         meta: { title: '编辑 AI 智能体', requiresAuth: true, requiresParent: true }
       },
-      // 我的技能 (agent-mode-v2-skill-as-artifact, 2026-05-24)
-      // skill-3tier-visibility T4: 技能 CRUD 路由对子账户开放（仅 requiresAuth，无 requiresParent）——
-      // 子账户可管理自己的个人级技能。官方模板库（skills/templates，导入为机构技能）仍父账户专属。
       {
         path: 'skills',
         name: 'config-skills',
         component: () => import('@/views/config/skills/SkillList.vue'),
-        meta: { title: 'Skill', requiresAuth: true }
+        meta: { title: 'Skill', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'skills/templates',
@@ -216,7 +207,7 @@ const routes: RouteRecordRaw[] = [
         name: 'config-skills-new',
         component: () => import('@/views/config/skills/SkillEditor.vue'),
         props: { mode: 'create' },
-        meta: { title: '新建技能', requiresAuth: true }
+        meta: { title: '新建技能', requiresAuth: true, requiresParent: true }
       },
       {
         path: 'skills/:id',
@@ -231,7 +222,7 @@ const routes: RouteRecordRaw[] = [
         name: 'config-skills-edit',
         component: () => import('@/views/config/skills/SkillEditor.vue'),
         props: { mode: 'edit' },
-        meta: { title: '编辑技能', requiresAuth: true }
+        meta: { title: '编辑技能', requiresAuth: true, requiresParent: true }
       }
     ]
   },
