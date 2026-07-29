@@ -29,13 +29,14 @@ export function listChildren(): Promise<ApiResponse<ChildUser[]>> {
   return request.get('/v1/users/children')
 }
 
-/** 会员产品类型：trial = 体验包，monthly = 月度会员。 */
-export type MembershipProductType = 'trial' | 'monthly'
+/** 会员产品类型：trial = 体验包，weekly = 周度会员，monthly = 月度会员。 */
+export type MembershipProductType = 'trial' | 'weekly' | 'monthly'
 
 /**
  * 帮子账户开通会员的请求体。
  *
  * - `product_type='trial'`：体验会员，固定 3 天有效期，不使用 months
+ * - `product_type='weekly'`：周度会员，固定 7 天有效期，不使用 months
  * - `product_type='monthly'`：高级会员，months 必填（1-12）
  * - `reason`：开通原因，可选，进 action_log 供 B2B 月度结算报表审计
  */
@@ -77,11 +78,12 @@ export function grantChildMembership(
  */
 export interface GrantResponse {
   child_user_id: number
-  product_type: string // "trial" or "monthly"
+  product_type: MembershipProductType
   event_id: number
   event_type: string // "trial_granted" / "sub_granted" / "sub_renewed"
   expires_at: string
   months?: number
+  days?: number
 }
 
 /**
@@ -115,7 +117,7 @@ export interface ParentBillingDetail {
   child_nickname: string
   /** 产品类型：trial = 体验包，monthly = 月度会员。 */
   product_type: MembershipProductType
-  /** 开通月数；trial 时为 0。 */
+  /** 开通月数；trial/weekly 时为 0。 */
   months: number
   /** 金额，单位：分（cents）。 */
   amount_cents: number

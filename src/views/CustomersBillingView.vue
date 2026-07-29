@@ -25,7 +25,7 @@ const loading = ref(false)
 const error = ref('')
 
 // ── filter (#1) + search (#2) + sort (#3) ─────────────────────────────
-type TypeFilter = 'all' | 'monthly' | 'trial'
+type TypeFilter = 'all' | 'monthly' | 'weekly' | 'trial'
 const typeFilter = ref<TypeFilter>('all')
 const searchQuery = ref('')
 
@@ -37,11 +37,11 @@ function yuan(cents: number): string {
   return `¥${(cents / 100).toFixed(2)}`
 }
 function durationLabel(d: ParentBillingDetail): string {
+  if (d.product_type === 'weekly') return '7 天'
   return d.product_type === 'trial' ? '3 天' : `${d.months} 个月`
 }
 function productLabel(t: string): string {
-  // trial/monthly 是当前唯一两种；未知类型如实回显而非误标为「月订阅」。
-  return t === 'trial' ? '体验包' : t === 'monthly' ? '月订阅' : t
+  return t === 'trial' ? '体验包' : t === 'weekly' ? '周度会员' : t === 'monthly' ? '月订阅' : t
 }
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('zh-CN', {
@@ -56,7 +56,7 @@ function sortValueFor(d: ParentBillingDetail, key: SortKey): number | string {
     case 'child':
       return (d.child_username || '').toLowerCase()
     case 'type':
-      return d.product_type === 'trial' ? 0 : 1 // 体验包 < 月订阅
+      return d.product_type === 'trial' ? 0 : d.product_type === 'weekly' ? 1 : 2
     case 'months':
       return d.months
     case 'amount':
@@ -371,6 +371,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
             </button>
             <button :class="{ active: typeFilter === 'monthly' }" @click="typeFilter = 'monthly'">
               月订阅
+            </button>
+            <button :class="{ active: typeFilter === 'weekly' }" @click="typeFilter = 'weekly'">
+              周度会员
             </button>
             <button :class="{ active: typeFilter === 'trial' }" @click="typeFilter = 'trial'">
               体验包
@@ -1079,6 +1082,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 .product-badge.monthly {
   background: var(--accent-soft);
   color: hsl(158, 64%, 32%);
+}
+
+.product-badge.weekly {
+  background: hsl(188, 44%, 93%);
+  color: hsl(188, 58%, 32%);
 }
 
 /* Cell styles */

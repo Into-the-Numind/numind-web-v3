@@ -1,12 +1,13 @@
 /**
  * GrantMembershipModal 单元测试 (Plan §Task 20)
  *
- * 覆盖 5 个 case：
+ * 覆盖 6 个 case：
  *   T1: hasUsedTrial=true → trial tab 内容置灰 + 提交按钮禁用
  *   T2: Pro tab 月数选择更新显示价格
  *   T3: 提交 trial 时带 Idempotency-Key header（UUID 格式）
  *   T4: event_type=trial_granted → 正确 toast 文案 via emit 'success'
  *   T5: event_type=sub_granted/sub_renewed → 正确 toast 文案
+ *   T6: weekly 提交不带 months，toast 显示周度会员
  *
  * 注意：组件使用 <Teleport to="body">，需要 attachTo: document.body，
  * 并通过 document.querySelector 查找 teleport 内元素。
@@ -50,11 +51,16 @@ function mountModal(props: {
   })
 }
 
-function makeGrantResp(eventType: string, expiresAt = '2026-07-29T23:59:59Z', months = 3) {
+function makeGrantResp(
+  eventType: string,
+  expiresAt = '2026-07-29T23:59:59Z',
+  months = 3,
+  productType?: 'trial' | 'weekly' | 'monthly'
+) {
   return {
     data: {
       child_user_id: 42,
-      product_type: eventType === 'trial_granted' ? 'trial' : 'monthly',
+      product_type: productType ?? (eventType === 'trial_granted' ? 'trial' : 'monthly'),
       event_id: 1,
       event_type: eventType,
       expires_at: expiresAt,
@@ -276,6 +282,47 @@ describe('GrantMembershipModal', () => {
     expect(toastMsg).toContain('孙八')
     expect(toastMsg).toContain('续费')
     expect(toastMsg).toContain('2027-01-29')
+
+    wrapper.unmount()
+  })
+
+  it('T6: weekly submit sends product_type only and emits weekly toast', async () => {
+    grantMock.mockResolvedValue(
+      makeGrantResp('sub_granted', '2026-08-05T23:59:59Z', 0, 'weekly')
+    )
+
+    const wrapper = mountModal({
+      open: true,
+      childId: 42,
+      childName: '周九',
+      hasUsedTrial: false
+    })
+    await wrapper.vm.$nextTick()
+
+    const weeklyTab = Array.from(document.querySelectorAll('[role="tab"]')).find((el) =>
+      (el.textContent ?? '').includes('周度会员')
+    ) as HTMLButtonElement
+    expect(weeklyTab).not.toBeNull()
+    weeklyTab.click()
+    await wrapper.vm.$nextTick()
+
+    const submitBtn = document.querySelector(
+      '[data-testid="grant-submit-btn"]'
+    ) as HTMLButtonElement
+    submitBtn.click()
+    await flushPromises()
+
+    expect(grantMock).toHaveBeenCalledOnce()
+    const [, body] = grantMock.mock.calls[0]
+    expect(body).toEqual({ product_type: 'weekly' })
+
+    const successEmits = wrapper.emitted('success')
+    expect(successEmits).toBeTruthy()
+    const emittedResp = (successEmits![0] as [Record<string, unknown>])[0]
+    const toastMsg = (emittedResp as { _toastMsg: string })._toastMsg
+    expect(toastMsg).toContain('周九')
+    expect(toastMsg).toContain('周度会员')
+    expect(toastMsg).toContain('2026-08-05')
 
     wrapper.unmount()
   })
