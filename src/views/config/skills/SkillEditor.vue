@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 import { useSkillStore } from '@/stores/skill'
 import { useUserStore } from '@/stores/user'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -332,16 +333,17 @@ function formatBytes(n: number): string {
 
 <template>
   <div class="skill-editor">
-    <!-- Masthead 顶栏（与 agent 配置页统一：默认 sans 标题 + 底部分隔线） -->
+    <!-- Masthead 顶栏（与 agent 配置页统一：默认 sans 标题） -->
     <header class="skill-editor__header">
       <div class="skill-editor__header-inner">
         <div class="header-titles">
+          <AppButton variant="text" size="sm" class="skill-editor__back" @click="onCancel">
+            <ArrowLeft :size="16" aria-hidden="true" />
+            返回列表
+          </AppButton>
           <h1 class="skill-editor__title">
             {{ mode === 'create' ? '新建 Skill' : '编辑 Skill' }}
           </h1>
-          <p class="skill-editor__subtitle">
-            用 Markdown + frontmatter 定义可复用的技能资产，左侧编辑器与右侧表单实时同步。
-          </p>
         </div>
         <div class="skill-editor__actions">
           <!-- 发布到市场：仅 edit 模式可见，跳转 /marketplace/publish/:skill_id 走两步发布 -->
@@ -483,11 +485,6 @@ function formatBytes(n: number): string {
   min-height: 100%;
 }
 
-/* ── Masthead 顶栏（对齐 agent 配置页：非 sticky、底部分隔线、默认 sans 标题） ── */
-.skill-editor__header {
-  border-bottom: 1px solid var(--border);
-}
-
 .skill-editor__header-inner {
   display: flex;
   align-items: center;
@@ -500,6 +497,13 @@ function formatBytes(n: number): string {
   min-width: 0;
 }
 
+.skill-editor__back {
+  margin: 0 0 var(--space-sm);
+  padding-left: 0;
+  padding-right: var(--space-sm);
+  color: var(--text-secondary);
+}
+
 .skill-editor__title {
   margin: 0;
   display: flex;
@@ -509,12 +513,6 @@ function formatBytes(n: number): string {
   font-weight: 700;
   color: var(--text);
   line-height: var(--line-height-tight);
-}
-
-.skill-editor__subtitle {
-  margin: 2px 0 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
 }
 
 .skill-editor__actions {
@@ -727,10 +725,6 @@ function formatBytes(n: number): string {
 @media (max-width: 560px) {
   .skill-editor__header-inner {
     padding: 0 var(--space-lg) var(--space-md);
-  }
-
-  .skill-editor__subtitle {
-    display: none;
   }
 
   .skill-editor__main {
