@@ -336,6 +336,14 @@ function isTerminalStatus(status?: AgentRunStatus): boolean {
   return status != null && TERMINAL_STATUSES.includes(status)
 }
 
+function isAlreadyTerminalCancelError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return (
+    message.includes('FailedOperation.AgentRunNotCancellable') ||
+    message.includes('Agent run is already in a terminal state and cannot be cancelled')
+  )
+}
+
 function statusFromTerminalReason(reason?: string): AgentRunStatus {
   switch (reason) {
     case 'completed':
@@ -1796,6 +1804,18 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         system_subtype: 'cancelled',
         timestamp: new Date().toISOString()
       })
+    } catch (error) {
+      if (isAlreadyTerminalCancelError(error)) {
+        await refreshRunStatus()
+        if (
+          !isCurrentSessionEpoch(epoch) ||
+          currentRun.value?.id !== runID ||
+          isTerminalStatus(currentRun.value.status)
+        ) {
+          return
+        }
+      }
+      throw error
     } finally {
       if (isCurrentSessionEpoch(epoch)) cancelling.value = false
     }
