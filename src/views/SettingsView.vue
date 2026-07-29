@@ -87,9 +87,8 @@
         </div>
       </div>
 
-      <!-- Section: 账号连接（feishu-integration T12）
-           FeishuConnection 自托管异步 4 状态（loading/empty+CTA/error/success+解绑）；
-           解绑走内部 ConfirmModal。状态由 useFeishuStore 在组件 onMounted 自行拉取。 -->
+      <!-- Section: 账号连接
+           FeishuConnection 只展示飞书状态；授权/重新授权必须从 Agent 任务中触发。 -->
       <div class="settings-section">
         <div class="section-label">账号连接</div>
         <FeishuConnection />
