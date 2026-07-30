@@ -215,7 +215,7 @@ const { collapsed, toggle: toggleCollapsed } = useSidebarState()
 const animating = ref(false)
 
 const showMeetingCopilotHomeEntry = false
-const showSkillMarketplaceHomeEntry = true
+const showSkillMarketplaceHomeEntry = false
 
 // org-branding：折叠态 logo-mark 取品牌名首字（Array.from 兼容代理对/emoji）
 const brandInitial = computed(() => Array.from(userStore.displayBrandName)[0] || '有')
