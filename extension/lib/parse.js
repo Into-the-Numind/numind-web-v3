@@ -130,7 +130,7 @@
 
   /**
    * 从一条 note 对象里取视频直链。
-   * 优先路径：note.video.media.stream.h264/h265/av1[*].master_url；
+   * 优先路径：note.video.media.stream.h264/h265/h266/av1[*].master_url；
    * 兜底兼容小红书页面偶发的 video/media/stream 扁平字段变化。
    */
   function pickVideoUrlFromNote(note) {
@@ -147,7 +147,19 @@
       }
       return '';
     };
-    return tryCodec(stream.h264) || tryCodec(stream.h265) || tryCodec(stream.av1) || direct || pickFirstDirectUrl(stream);
+    return (
+      tryCodec(stream.h264) ||
+      tryCodec(stream.h265) ||
+      tryCodec(stream.h266) ||
+      tryCodec(stream.av1) ||
+      direct ||
+      pickFirstDirectUrl(stream)
+    );
+  }
+
+  function noteFromStateWrapper(wrapper) {
+    if (!wrapper || typeof wrapper !== 'object') return null;
+    return wrapper.note || wrapper.noteData || wrapper.note_data || wrapper.data || wrapper;
   }
 
   /**
@@ -160,21 +172,29 @@
     if (!state || typeof state !== 'object') return null;
     const noteRoot = state.note;
     if (noteRoot) {
-      if (noteId && noteRoot.noteDetailMap && noteRoot.noteDetailMap[noteId]) {
-        const wrap = noteRoot.noteDetailMap[noteId];
-        if (wrap && wrap.note) return wrap.note;
+      const detailMap = noteRoot.noteDetailMap || noteRoot.note_detail_map;
+      if (noteId && detailMap && detailMap[noteId]) {
+        const note = noteFromStateWrapper(detailMap[noteId]);
+        if (note) return note;
+      }
+      if (noteId && detailMap) {
+        const keys = Object.keys(detailMap);
+        for (const key of keys) {
+          const note = noteFromStateWrapper(detailMap[key]);
+          if (note && (note.noteId === noteId || note.id === noteId || note.note_id === noteId)) return note;
+        }
       }
       if (noteRoot.currentNoteId && noteRoot.note) {
         if (!noteId || noteRoot.currentNoteId === noteId) return noteRoot.note;
       }
       // noteDetailMap 只有一条时直接取
-      if (noteRoot.noteDetailMap) {
-        const keys = Object.keys(noteRoot.noteDetailMap);
-        if (keys.length === 1 && noteRoot.noteDetailMap[keys[0]]) {
-          return noteRoot.noteDetailMap[keys[0]].note || null;
+      if (detailMap) {
+        const keys = Object.keys(detailMap);
+        if (!noteId && keys.length === 1 && detailMap[keys[0]]) {
+          return noteFromStateWrapper(detailMap[keys[0]]);
         }
-        if (noteId && noteRoot.noteDetailMap[noteId]) {
-          return noteRoot.noteDetailMap[noteId].note || null;
+        if (noteId && detailMap[noteId]) {
+          return noteFromStateWrapper(detailMap[noteId]);
         }
       }
     }
@@ -549,6 +569,7 @@
         segment.includes('"h264"') ||
         segment.includes('"h265"') ||
         segment.includes('"av1"') ||
+        segment.includes('"h266"') ||
         segment.includes('master_url') ||
         segment.includes('masterUrl') ||
         /"type"\s*:\s*"video"/.test(segment);
@@ -626,7 +647,7 @@
           const idx = html.indexOf(anchor, pos);
           if (idx < 0) break;
           const segment = html.slice(idx, idx + 25000);
-          const preload = segment.match(/h5VideoPreloadInfo=([^&"'<>\\s]+)/);
+          const preload = segment.match(/h5VideoPreloadInfo=([^&"'<>\s]+)/);
           if (preload) {
             try {
               const decoded = decodeURIComponent(preload[1].replace(/\+/g, '%20'));
@@ -725,24 +746,48 @@
 
   function extractInitialStateFromHtmlText(html) {
     if (!html || typeof html !== 'string') return null;
-    const marker = 'window.__INITIAL_STATE__';
-    let pos = 0;
-    while (pos < html.length) {
-      const idx = html.indexOf(marker, pos);
-      if (idx < 0) return null;
-      const eq = html.indexOf('=', idx + marker.length);
-      if (eq < 0) return null;
-      const objectText = extractBalancedJSONObject(html, eq + 1);
-      if (objectText) {
-        try {
-          return JSON.parse(objectText);
-        } catch (_) {
-          // Continue scanning; some pages keep non-JSON assignments before SSR state.
+    const markers = ['window.__INITIAL_STATE__', 'window.__SETUP_SERVER_STATE__'];
+    for (const marker of markers) {
+      let pos = 0;
+      while (pos < html.length) {
+        const idx = html.indexOf(marker, pos);
+        if (idx < 0) break;
+        const eq = html.indexOf('=', idx + marker.length);
+        if (eq < 0) break;
+        const objectText = extractBalancedJSONObject(html, eq + 1);
+        if (objectText) {
+          try {
+            return JSON.parse(objectText);
+          } catch (_) {
+            // Continue scanning; some pages keep non-JSON assignments before SSR state.
+          }
         }
+        pos = idx + marker.length;
       }
-      pos = idx + marker.length;
     }
     return null;
+  }
+
+  function extractVideoUrlFromFetchedNoteHtml(html, pageUrl) {
+    const noteId = getNoteIdFromUrl(pageUrl || '');
+    if (!noteId) return '';
+    return extractVideoUrlFromHtmlText(html || '', noteId);
+  }
+
+  function normalizeVideoImages(noteType, domCover, domImages, stateCover) {
+    if (noteType !== 'video') {
+      return {
+        cover: domCover || stateCover || '',
+        images: domImages && domImages.length ? domImages : (domCover || stateCover ? [domCover || stateCover] : [])
+      };
+    }
+    // 视频笔记没有多图语义；小红书视频弹层 DOM 常混入推荐/播放器 swiper 图片。
+    // 只保留当前 note state 的封面；没有 state 封面时最多保留 DOM 推断的单张封面，避免把几十张杂图镜像到 COS。
+    const cover = stateCover || domCover || '';
+    return {
+      cover,
+      images: cover ? [cover] : []
+    };
   }
 
   /** 相对链接转绝对（小红书域）。 */
@@ -869,6 +914,7 @@
       else if (isDirectStreamUrl(stateVideo)) videoUrl = stateVideo;
       else if (isDirectStreamUrl(domVideo)) videoUrl = domVideo;
     }
+    const normalizedImages = normalizeVideoImages(noteType, domCover, domImages, sf.cover_url || '');
 
     const payload = {
       xhs_note_id: noteId || '',
@@ -876,8 +922,8 @@
       title: domTitle || sf.title || '',
       content: domContent || sf.content || '',
       tags: domTags && domTags.length ? domTags : (sf.tags || []),
-      cover_url: domCover || sf.cover_url || '',
-      images: domImages.length ? domImages : (domCover ? [domCover] : []),
+      cover_url: normalizedImages.cover,
+      images: normalizedImages.images,
       note_url: url || '',
       published_at: domPublishedAt || sf.published_at || '',
       video_url: videoUrl || '',
@@ -937,6 +983,7 @@
     extractNoteEmbeddedHtmlSegments,
     extractVideoUrlFromNoteDetailMapInHtml,
     extractVideoUrlFromHtmlText,
+    extractVideoUrlFromFetchedNoteHtml,
     pickPreferredVideoUrl,
     isLikelyVideoResourceUrl,
     extractVideoUrlFromResourceEntries,
