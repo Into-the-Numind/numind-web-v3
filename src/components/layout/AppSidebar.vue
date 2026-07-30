@@ -215,7 +215,7 @@ const { collapsed, toggle: toggleCollapsed } = useSidebarState()
 const animating = ref(false)
 
 const showMeetingCopilotHomeEntry = false
-const showSkillMarketplaceHomeEntry = false
+const showSkillMarketplaceHomeEntry = true
 
 // org-branding：折叠态 logo-mark 取品牌名首字（Array.from 兼容代理对/emoji）
 const brandInitial = computed(() => Array.from(userStore.displayBrandName)[0] || '有')
@@ -260,7 +260,6 @@ const menuItems = computed(() => {
 
   if (userStore.isParentUser) {
     items.push({ path: '/config', title: '配置中心', icon: 'config' })
-    // 技能市场代码保留，首页功能栏先隐藏。
     if (showSkillMarketplaceHomeEntry) {
       items.push({ path: '/marketplace', title: '技能市场', icon: 'marketplace' })
     }
