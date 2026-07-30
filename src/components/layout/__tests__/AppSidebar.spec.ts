@@ -57,7 +57,7 @@ describe('AppSidebar homepage entries', () => {
     localStorage.clear()
   })
 
-  it('shows skill marketplace and hides meeting copilot entries for parent users', async () => {
+  it('hides skill marketplace and meeting copilot entries for parent users', async () => {
     const wrapper = await mountSidebar({
       id: 1,
       username: 'parent',
@@ -65,9 +65,9 @@ describe('AppSidebar homepage entries', () => {
     })
 
     expect(wrapper.text()).toContain('配置中心')
-    expect(wrapper.text()).toContain('技能市场')
+    expect(wrapper.text()).not.toContain('技能市场')
     expect(wrapper.text()).not.toContain('会议副驾')
-    expect(wrapper.find('a[href="/marketplace"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/marketplace"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/meeting"]').exists()).toBe(false)
   })
 
@@ -84,5 +84,6 @@ describe('AppSidebar homepage entries', () => {
     expect(wrapper.text()).not.toContain('会议副驾')
     expect(wrapper.find('a[href="/config"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/config/skills"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/marketplace"]').exists()).toBe(false)
   })
 })
