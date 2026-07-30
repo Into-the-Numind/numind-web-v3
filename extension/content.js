@@ -133,6 +133,28 @@
     }
   }
 
+  async function fetchVideoUrlFromNotePage(pageUrl, noteId) {
+    if (!pageUrl || !/xiaohongshu\.com/i.test(pageUrl)) return '';
+    const id = noteId || Parse.getNoteIdFromUrl(pageUrl);
+    if (!id) return '';
+    if (typeof fetch !== 'function') return '';
+    try {
+      const response = await fetch(pageUrl, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store'
+      });
+      if (!response || !response.ok) return '';
+      const html = await response.text();
+      const u = Parse.extractVideoUrlFromFetchedNoteHtml
+        ? Parse.extractVideoUrlFromFetchedNoteHtml(html, pageUrl)
+        : Parse.extractVideoUrlFromHtmlText(html, id);
+      return Parse.isDirectStreamUrl(u) ? u : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   async function pollVideoUrlFromLoadedPage(noteId, container, collectStartMs, contextText) {
     for (let i = 0; i < 12; i++) {
       const domVideoUrl = Parse.extractVideoUrlFromDom ? Parse.extractVideoUrlFromDom(container) : '';
@@ -168,7 +190,7 @@
     // 先通过 MAIN world bridge 读运行时 __INITIAL_STATE__，这是旧 Numind/plugin3.2.1 最可靠的视频来源。
     const runtime = await readPageRuntimeState(noteId);
 
-    // 再读页面已有 script/HTML 文本、DOM video、resource entries 兜底，不主动请求、不拦截页面行为。
+    // 再读页面已有 script/HTML 文本、DOM video、resource entries 兜底。
     const htmlText = document.documentElement ? document.documentElement.innerHTML : '';
     const state = runtime.state || Parse.extractInitialStateFromHtmlText(htmlText);
     const contextText = `${container.innerHTML || ''}\n${htmlText || ''}`;
@@ -186,7 +208,8 @@
     });
 
     if (payload.note_type === 'video' && !payload.video_url) {
-      const lateVideoUrl = await pollVideoUrlFromLoadedPage(noteId, container, collectStartMs, contextText);
+      const fetchedVideoUrl = await fetchVideoUrlFromNotePage(url, noteId);
+      const lateVideoUrl = fetchedVideoUrl || await pollVideoUrlFromLoadedPage(noteId, container, collectStartMs, contextText);
       if (lateVideoUrl) {
         videoUrl = lateVideoUrl;
         payload = Parse.parseNoteDetail({ container, state, url, videoUrl });

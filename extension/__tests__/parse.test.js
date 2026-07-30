@@ -321,6 +321,13 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
     const blobHtml = '<script>{"h264":[{"master_url":"blob:https://www.xiaohongshu.com/abc"}]}</script>'
     expect(Parse.extractVideoUrlFromHtmlText(blobHtml, '')).toBe('')
   })
+  it('可解析重新 fetch 当前笔记页 HTML 里的 video_feed 预加载视频', () => {
+    const fetchedHtml = `
+      <a href="/explore/${NOTE_ID}?h5VideoPreloadInfo=%7B%22h266%22%3A%5B%7B%22master_url%22%3A%22https%3A%5C%2F%5C%2Fsns-video.xhscdn.com%5C%2Ffetched_259.mp4%3Fsign%3Dfetched%22%7D%5D%7D"></a>`
+    expect(Parse.extractVideoUrlFromFetchedNoteHtml(fetchedHtml, NOTE_URL)).toBe(
+      'https://sns-video.xhscdn.com/fetched_259.mp4?sign=fetched'
+    )
+  })
 })
 
 describe('lib/parse.js — 视频地址兜底解析', () => {
