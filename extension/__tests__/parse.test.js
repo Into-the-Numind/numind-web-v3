@@ -324,6 +324,36 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
 })
 
 describe('lib/parse.js — 视频地址兜底解析', () => {
+  it('state 视频流字段新增 h266 时仍可取到直链', () => {
+    const state = {
+      note: {
+        currentNoteId: 'vidh266',
+        noteDetailMap: {
+          vidh266: {
+            note: {
+              noteId: 'vidh266',
+              type: 'video',
+              video: {
+                media: {
+                  stream: {
+                    h266: [
+                      {
+                        master_url: 'https://sns-video.xhscdn.com/vidh266_259.mp4?sign=h266'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(Parse.extractVideoUrlFromState(state, 'vidh266')).toBe(
+      'https://sns-video.xhscdn.com/vidh266_259.mp4?sign=h266'
+    )
+  })
+
   it('state 路径变化时仍可从 video.url 取到直链', () => {
     const state = {
       note: {
@@ -399,6 +429,47 @@ describe('lib/parse.js — 视频地址兜底解析', () => {
     expect(Parse.extractVideoUrlFromResourceEntries(entries, '', { contextText })).toBe(
       'https://sns-video.xhscdn.com/stream/current-video-file-bbbbbbbbbbbbbbbbbbbb_259.mp4?sign=current'
     )
+  })
+})
+
+describe('lib/parse.js — 视频页图片污染回归', () => {
+  it('视频笔记无直链时不把页面杂散 swiper 图片当作正文图片入库', () => {
+    const wrap = document.createElement('div')
+    wrap.innerHTML = `
+      <div class="note-detail-container">
+        <div class="media-container">
+          <video class="xgplayer-video" src="blob:https://www.xiaohongshu.com/no-direct-url"></video>
+        </div>
+        <div class="swiper-wrapper">
+          <div class="swiper-slide" data-index="0"><img src="https://sns-img.xhscdn.com/recommend_0.jpg"></div>
+          <div class="swiper-slide" data-index="1"><img src="https://sns-img.xhscdn.com/recommend_1.jpg"></div>
+          <div class="swiper-slide" data-index="2"><img src="https://sns-img.xhscdn.com/recommend_2.jpg"></div>
+        </div>
+      </div>`
+    const state = {
+      note: {
+        currentNoteId: 'vidwithouturl',
+        noteDetailMap: {
+          vidwithouturl: {
+            note: {
+              noteId: 'vidwithouturl',
+              type: 'video',
+              cover: { url: 'https://sns-img.xhscdn.com/current_video_cover.jpg' },
+              video: {}
+            }
+          }
+        }
+      }
+    }
+    const payload = Parse.parseNoteDetail({
+      container: wrap.querySelector('.note-detail-container'),
+      state,
+      url: 'https://www.xiaohongshu.com/explore/vidwithouturl'
+    })
+    expect(payload.note_type).toBe('video')
+    expect(payload.video_url).toBe('')
+    expect(payload.cover_url).toBe('https://sns-img.xhscdn.com/current_video_cover.jpg')
+    expect(payload.images).toEqual(['https://sns-img.xhscdn.com/current_video_cover.jpg'])
   })
 })
 
