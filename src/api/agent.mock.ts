@@ -13,6 +13,7 @@ import type {
   RecentSession,
   SupportContact,
   UploadResponse,
+  AttachmentStatusResponse,
   AgentRunStatus
 } from '@/types/agent'
 
@@ -435,4 +436,11 @@ export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
     mime_type: file.type,
     created_at: new Date().toISOString()
   }
+}
+
+export const getAttachmentStatus = async (
+  attachmentId: number
+): Promise<AttachmentStatusResponse> => {
+  await delay(300)
+  return { id: attachmentId, fallback_ready: true }
 }

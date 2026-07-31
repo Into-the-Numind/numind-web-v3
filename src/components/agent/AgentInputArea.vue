@@ -41,21 +41,18 @@ const REJECT_MIME = ['application/x-msdownload', 'application/x-executable']
 const canSend = computed(() => {
   const hasText = text.value.trim().length > 0
   const hasReadyUploads = props.attachments.some(
-    (att) => att.status !== 'uploading' && att.status !== 'error'
+    (att) => att.status == null || att.status === 'success'
   )
   const hasUnreadyUploads = props.attachments.some(
-    (att) => att.status === 'uploading' || att.status === 'error'
+    (att) => att.status === 'uploading' || att.status === 'processing' || att.status === 'error'
   )
   return (hasText || hasReadyUploads) && !hasUnreadyUploads && !props.sending && !props.disabled
 })
 
 const attachmentKey = (att: UploadResponse): string => att.client_id || att.url
 
-const attachmentStatusLabel = (att: UploadResponse): string => {
-  if (att.status === 'uploading') return '处理中...'
-  if (att.status === 'error') return '上传失败'
-  return ''
-}
+const isAttachmentSpinning = (att: UploadResponse): boolean =>
+  att.status === 'uploading' || att.status === 'processing'
 
 const inputBudget = computed(() => getInputBudgetState(text.value))
 
@@ -177,21 +174,9 @@ onMounted(() => {
           class="attachment-item"
           :class="`attachment-item--${att.status ?? 'success'}`"
         >
-          <LoaderCircle
-            v-if="att.status === 'uploading'"
-            :size="14"
-            class="attachment-icon attachment-icon--spin"
-          />
+          <LoaderCircle v-if="isAttachmentSpinning(att)" :size="14" class="attachment-icon attachment-icon--spin" />
           <FileText v-else :size="14" class="attachment-icon" />
           <span class="attachment-name" :title="att.filename">{{ att.filename }}</span>
-          <span
-            v-if="attachmentStatusLabel(att)"
-            class="attachment-status"
-            :class="{ 'attachment-status--error': att.status === 'error' }"
-            :title="att.error_message || attachmentStatusLabel(att)"
-          >
-            {{ attachmentStatusLabel(att) }}
-          </span>
           <button
             class="attachment-remove"
             :aria-label="`移除 ${att.filename}`"
@@ -340,7 +325,8 @@ onMounted(() => {
   max-width: min(280px, 100%);
 }
 
-.attachment-item--uploading {
+.attachment-item--uploading,
+.attachment-item--processing {
   background: rgba(37, 167, 105, 0.08);
   border-color: rgba(37, 167, 105, 0.24);
 }
@@ -355,7 +341,8 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.attachment-item--uploading .attachment-icon {
+.attachment-item--uploading .attachment-icon,
+.attachment-item--processing .attachment-icon {
   color: var(--primary);
 }
 
@@ -374,18 +361,6 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-
-.attachment-status {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.attachment-status--error {
-  color: #ef4444;
 }
 
 .attachment-remove {

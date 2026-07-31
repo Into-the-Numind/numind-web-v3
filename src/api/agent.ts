@@ -12,7 +12,8 @@ import type {
   EstimateResponse,
   RecentSession,
   SupportContact,
-  UploadResponse
+  UploadResponse,
+  AttachmentStatusResponse
 } from '@/types/agent'
 
 /** One question's answer in the multi-question answer payload. */
@@ -136,6 +137,16 @@ export const uploadAttachment = async (file: File): Promise<UploadResponse> => {
   const { data } = await request.post<UploadResponse>('/v1/agent-attachments', form, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
+  return data
+}
+
+export const getAttachmentStatus = async (
+  attachmentId: number
+): Promise<AttachmentStatusResponse> => {
+  if (useMock()) return mock.getAttachmentStatus(attachmentId)
+  const { data } = await request.get<AttachmentStatusResponse>(
+    `/v1/agent-attachments/${attachmentId}/status`
+  )
   return data
 }
 
