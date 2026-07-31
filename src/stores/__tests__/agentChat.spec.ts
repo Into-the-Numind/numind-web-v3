@@ -36,6 +36,7 @@ vi.mock('@/api/agent', () => ({
   fetchNarrationEvents: vi.fn(async (): Promise<NarrationEvent[]> => []),
   cancelRun: vi.fn(async () => ({ run_id: 999, status: 'cancelled' as const })),
   uploadAttachment: vi.fn(),
+  getAttachmentStatus: vi.fn(async () => ({ id: 1, fallback_ready: true })),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 1,
     agent_skill_id: 1,
@@ -698,10 +699,15 @@ describe('agentChat store', () => {
 
   it('uploadAttachment shows a pending attachment immediately while upload is in flight', async () => {
     let resolveUpload!: (value: Awaited<ReturnType<typeof api.uploadAttachment>>) => void
+    let resolveStatus!: (value: Awaited<ReturnType<typeof api.getAttachmentStatus>>) => void
     const uploadPromise = new Promise<Awaited<ReturnType<typeof api.uploadAttachment>>>((resolve) => {
       resolveUpload = resolve
     })
+    const statusPromise = new Promise<Awaited<ReturnType<typeof api.getAttachmentStatus>>>((resolve) => {
+      resolveStatus = resolve
+    })
     vi.mocked(api.uploadAttachment).mockReturnValueOnce(uploadPromise)
+    vi.mocked(api.getAttachmentStatus).mockReturnValueOnce(statusPromise)
 
     const store = useAgentChatStore()
     const pending = store.uploadAttachment(new File(['x'], 'a.pdf', { type: 'application/pdf' }))
@@ -722,6 +728,16 @@ describe('agentChat store', () => {
       mime_type: 'application/pdf',
       created_at: '2026-05-22T10:00:00Z'
     })
+    await flushPromises()
+
+    expect(store.attachments[0]).toMatchObject({
+      id: 1,
+      url: 'https://cos.example/agent-attachments/1/x-a.pdf',
+      status: 'processing',
+      client_id: expect.stringMatching(/^upload-/)
+    })
+
+    resolveStatus({ id: 1, fallback_ready: true })
     await pending
 
     expect(store.attachments[0]).toMatchObject({
@@ -852,6 +868,16 @@ describe('agentChat store', () => {
           created_at: '',
           status: 'uploading',
           client_id: 'upload-pending'
+        },
+        {
+          id: 8,
+          url: 'https://cos.example/agent-attachments/1/processing.pdf',
+          filename: 'processing.pdf',
+          size: 1,
+          mime_type: 'application/pdf',
+          created_at: '',
+          status: 'processing',
+          client_id: 'upload-processing'
         },
         {
           id: 0,
