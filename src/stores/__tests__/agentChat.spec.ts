@@ -696,6 +696,35 @@ describe('agentChat store', () => {
     expect(store.attachments.length).toBe(1)
   })
 
+  it('uploadAttachment shows a pending attachment immediately while upload is in flight', async () => {
+    let resolveUpload!: (value: Awaited<ReturnType<typeof api.uploadAttachment>>) => void
+    const uploadPromise = new Promise<Awaited<ReturnType<typeof api.uploadAttachment>>>((resolve) => {
+      resolveUpload = resolve
+    })
+    vi.mocked(api.uploadAttachment).mockReturnValueOnce(uploadPromise)
+
+    const store = useAgentChatStore()
+    const pending = store.uploadAttachment(new File(['x'], 'a.pdf', { type: 'application/pdf' }))
+
+    expect(store.attachments).toHaveLength(1)
+    expect(store.attachments[0]).toMatchObject({
+      filename: 'a.pdf',
+      size: 1,
+      mime_type: 'application/pdf',
+      status: 'uploading'
+    })
+
+    resolveUpload({
+      id: 1,
+      url: 'https://cos.example/agent-attachments/1/x-a.pdf',
+      filename: 'a.pdf',
+      size: 1,
+      mime_type: 'application/pdf',
+      created_at: '2026-05-22T10:00:00Z'
+    })
+    await pending
+  })
+
   it('startNewRun sends persisted attachment_ids in createRun payload', async () => {
     const store = useAgentChatStore()
 
