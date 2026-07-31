@@ -99,8 +99,8 @@ const label = computed<string>(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* fallback icon color; the per-state rules below override it (active + done →
-     emerald, error → soft amber), so this only shows if a state has no rule. */
+  /* fallback icon color; the per-state rules below override it with the shared
+     brand green for active, done, and continuation notices. */
   color: var(--text-muted, #8b90a0);
 }
 /* the currently-running line draws the eye in the brand accent (same emerald as
@@ -114,7 +114,7 @@ const label = computed<string>(() => {
   color: var(--primary, hsl(160, 72%, 40%));
 }
 .tl-line.error .tl-ic {
-  color: #b7791f;
+  color: var(--primary, hsl(160, 72%, 40%));
 }
 .tl-txt {
   color: var(--text, #1a1d26);
