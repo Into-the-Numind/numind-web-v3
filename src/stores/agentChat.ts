@@ -2650,15 +2650,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           tc.current_state = recoverable ? 'progress' : 'error'
           // A recoverable error is an internal correction attempt: keep it in a
           // live, neutral state and do not persist the raw error as a user-facing
-          // failure. Legacy and explicit non-recoverable errors retain the
-          // terminal red treatment.
+          // failure. Legacy and explicit non-recoverable errors still settle the
+          // tool, but the visible copy stays calm and process-oriented.
           tc.error_message = recoverable ? undefined : payload.error
           tc.events.push({
             run_id: e.run_id,
             tool_call_id: payload.tool_call_id,
             tool_name: tc.tool_name,
             state: recoverable ? 'progress' : 'error',
-            message: recoverable ? '正在调整执行方式' : '执行出错',
+            message: recoverable ? '正在调整执行方式' : '正在继续处理',
             timestamp: e.ts
           })
         })

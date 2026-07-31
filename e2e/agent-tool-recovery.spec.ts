@@ -125,7 +125,7 @@ function completedAfterUnclassifiedToolErrorStream(runId: number): string {
   ].join('')
 }
 
-test('recoverable Feishu correction stays professional and never renders as a red failure', async ({ page }) => {
+test('recoverable Feishu correction stays professional and never renders as a failure notice', async ({ page }) => {
   const runId = 226
   const diag = createDiagnostics(page)
   await page.addInitScript(() => localStorage.setItem('token', 'e2e-agent-recovery-token'))
@@ -205,10 +205,10 @@ test('recoverable Feishu correction stays professional and never renders as a re
 
   await expect(page.locator('.tool-timeline').first()).toContainText('调整执行方式')
   await expect(page.locator('.tl-line.error')).toHaveCount(0)
-  await expect(page.getByText('执行出错')).toHaveCount(0)
+  await expect(page.getByText('正在继续处理')).toHaveCount(0)
 })
 
-test('a completed Agent run reconciles an unclassified intermediate Feishu error as recovered', async ({
+test('a completed Agent run keeps an intermediate Feishu error as a soft continuation notice', async ({
   page
 }) => {
   const runId = 241
@@ -311,12 +311,12 @@ test('a completed Agent run reconciles an unclassified intermediate Feishu error
   await page.locator('textarea').first().press('Enter')
 
   await expect(page.locator('.msg-final')).toContainText('飞书知识库已经创建完成。')
-  await expect(page.locator('.tl-line.error')).toHaveCount(0)
+  await expect(page.locator('.tl-line.error')).toHaveCount(1)
+  await expect(page.getByText('正在继续处理')).toBeVisible()
   await expect(page.getByText('操作失败，稍后再试一下')).toHaveCount(0)
-  await expect(page.getByText('已自动调整并继续')).toBeVisible()
 })
 
-test('hard Feishu terminal failure remains visibly red and never becomes a green success', async ({ page }) => {
+test('hard Feishu terminal failure remains a soft notice and never becomes a green success', async ({ page }) => {
   const runId = 229
   await page.addInitScript(() => localStorage.setItem('token', 'e2e-agent-hard-failure-token'))
   await setupAgentMocks(page)
@@ -383,7 +383,7 @@ test('hard Feishu terminal failure remains visibly red and never becomes a green
   await page.locator('textarea').first().press('Enter')
 
   await expect(page.locator('.tl-line.error')).toHaveCount(1)
-  await expect(page.getByText('执行出错')).toBeVisible()
+  await expect(page.getByText('正在继续处理')).toBeVisible()
   await expect(page.locator('.tl-line.done')).toHaveCount(0)
   await expect(page.locator('textarea').first()).toBeEnabled()
 })

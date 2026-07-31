@@ -674,8 +674,8 @@ describe('applyStreamEvent', () => {
     expect(tc?.events.length).toBe(2)
     expect(tc?.events[1].state).toBe('error')
     // VISIBLE message must be a neutral friendly line, never the raw error, and
-    // must NOT claim the run was skipped/continued (a tool error terminates it).
-    expect(tc?.events[1].message).toBe('执行出错')
+    // must stay calm and process-oriented rather than looking like a program crash.
+    expect(tc?.events[1].message).toBe('正在继续处理')
     expect(tc?.events[1].message).not.toContain('timed out')
   })
 
