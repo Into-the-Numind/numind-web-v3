@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AgentToolCallItem from '../AgentToolCallItem.vue'
-import { Loader2, AlertCircle, Search, Check } from 'lucide-vue-next'
+import { Loader2, Info, Search, Check } from 'lucide-vue-next'
 import type { ToolCallAggregate, NarrationState } from '@/types/agent'
 
 const ev = (state: NarrationState, message: string, tool = 'web_search') => ({
@@ -67,11 +67,12 @@ describe('AgentToolCallItem — flat timeline line', () => {
     expect(w.findComponent(Check).exists()).toBe(true)
   })
 
-  it('shows an alert icon on error', () => {
+  it('shows a soft info icon on error', () => {
     const w = mount(AgentToolCallItem, {
-      props: { group: grp('error', [ev('use', '正在搜索：X'), ev('error', '搜索中断')]) }
+      props: { group: grp('error', [ev('use', '正在搜索：X'), ev('error', '正在继续处理')]) }
     })
-    expect(w.findComponent(AlertCircle).exists()).toBe(true)
+    expect(w.findComponent(Info).exists()).toBe(true)
+    expect(w.find('.tl-txt').text()).toBe('正在继续处理')
     expect(w.find('.tl-line').classes()).toContain('error')
   })
 
@@ -123,7 +124,7 @@ describe('AgentToolCallItem — flat timeline line', () => {
     expect(w.find('.tl-txt').text()).toBe('已写入 3 个区块')
   })
 
-  it('recoverable correction stays active and never renders a red alert', () => {
+  it('recoverable correction stays active and never renders an error notice', () => {
     const w = mount(AgentToolCallItem, {
       props: {
         group: grp(
@@ -140,7 +141,7 @@ describe('AgentToolCallItem — flat timeline line', () => {
     expect(w.find('.tl-line').classes()).toContain('active')
     expect(w.find('.tl-line').classes()).not.toContain('error')
     expect(w.findComponent(Loader2).exists()).toBe(true)
-    expect(w.findComponent(AlertCircle).exists()).toBe(false)
+    expect(w.findComponent(Info).exists()).toBe(false)
   })
 
   // 问题5b: the redundant flowing dots were removed — an active tool line shows the

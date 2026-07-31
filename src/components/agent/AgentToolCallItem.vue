@@ -3,13 +3,13 @@
  * One line in the agent process timeline (Manus-style). Each tool call renders as
  * a single compact line: [state icon] [activity] that TRANSITIONS IN PLACE — while
  * running it shows the "use" activity + a spinner; once done it shows the "result"
- * message + a green checkmark; an error shows an alert. One tool call = one line:
+ * message + a green checkmark; a failed step shows a soft info marker. One tool call = one line:
  * it never spawns a second "已…" row, and never leaves a spinner stuck on a
  * completed run. No card, no badge, no per-line timer.
  */
 import { computed } from 'vue'
 import type { ToolCallAggregate, NarrationState } from '@/types/agent'
-import { Loader2, AlertCircle, Check } from 'lucide-vue-next'
+import { Loader2, Info, Check } from 'lucide-vue-next'
 
 interface Props {
   group: ToolCallAggregate
@@ -30,16 +30,17 @@ const isDone = computed<boolean>(() => !isActive.value && !isError.value)
 // newest 'use'/'progress' activity (问题四 — a long tool that emits progress events
 // updates in place instead of freezing on the first line, e.g. "加载技能：docx-author");
 // once done/errored it shows the result/error text ("已加载技能：docx-author"). A
-// leading presentation emoji (📚/📖/⚠ baked into older templates) and a leading "正在"
-// are stripped — the timeline owns the icon (lucide, in .tl-ic), so a message emoji
-// would duplicate it AND break the no-emoji rule. Falls back across events, then the
-// tool name.
+// leading presentation emoji (📚/📖/⚠ baked into older templates) is always stripped.
+// For non-error lines, a leading "正在" is also stripped because the spinner already
+// owns the liveness signal. Error/notice copy keeps it when product wants a warmer
+// in-progress phrase ("正在继续处理"). Falls back across events, then the tool name.
 const EMOJI_PREFIX = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}]\s*)+/u
 const label = computed<string>(() => {
   const first = props.group.events[0]
   const latest = props.group.events[props.group.events.length - 1]
   const base = latest?.message || first?.message || props.group.tool_name
-  return base.replace(EMOJI_PREFIX, '').replace(/^正在\s*/, '')
+  const text = base.replace(EMOJI_PREFIX, '')
+  return isError.value ? text : text.replace(/^正在\s*/, '')
 })
 </script>
 
@@ -47,7 +48,7 @@ const label = computed<string>(() => {
   <div class="tl-line" :class="{ active: isActive, error: isError, done: isDone }">
     <span class="tl-ic" aria-hidden="true">
       <Loader2 v-if="isActive" :size="14" class="tl-spin" />
-      <AlertCircle v-else-if="isError" :size="14" />
+      <Info v-else-if="isError" :size="14" />
       <Check v-else :size="14" />
     </span>
     <span class="tl-txt">{{ label }}</span>
@@ -64,7 +65,7 @@ const label = computed<string>(() => {
   align-items: center;
   gap: 9px;
   /* No background — a flat, fully transparent timeline. State is carried by the
-     leading icon (spinner / green check / red alert) + the dashed connector, not a
+     leading icon (spinner / green check / soft notice) + the dashed connector, not a
      tinted rectangle. Padding stays for vertical rhythm; left padding is 0 so the
      leading icon's left edge aligns with the answer markdown-body's left edge
      (issue3: tool timeline + thinking + answer all left-align to the same x).
@@ -99,7 +100,7 @@ const label = computed<string>(() => {
   align-items: center;
   justify-content: center;
   /* fallback icon color; the per-state rules below override it (active + done →
-     emerald, error → red), so this only shows if a state has no rule. */
+     emerald, error → soft amber), so this only shows if a state has no rule. */
   color: var(--text-muted, #8b90a0);
 }
 /* the currently-running line draws the eye in the brand accent (same emerald as
@@ -113,7 +114,7 @@ const label = computed<string>(() => {
   color: var(--primary, hsl(160, 72%, 40%));
 }
 .tl-line.error .tl-ic {
-  color: #ef4444;
+  color: #b7791f;
 }
 .tl-txt {
   color: var(--text, #1a1d26);
