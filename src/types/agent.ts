@@ -405,6 +405,8 @@ export interface RecentSession {
 // UploadResponse
 // ─────────────────────────────────────────
 
+export type UploadStatus = 'uploading' | 'success' | 'error'
+
 export interface UploadResponse {
   /** agent_attachment row id. Normal Agent runs send this as attachment_ids;
    *  zero means persistence failed and the URL compatibility path is used. */
@@ -418,4 +420,10 @@ export interface UploadResponse {
   mime_type: string
   /** ISO timestamp string when the upload completed */
   created_at: string
+  /** Frontend-only state used while the backend upload/parser request is in flight. */
+  status?: UploadStatus
+  /** Frontend-only stable id for pending/error chips before a server URL exists. */
+  client_id?: string
+  /** Frontend-only upload failure text for the input chip tooltip. */
+  error_message?: string
 }

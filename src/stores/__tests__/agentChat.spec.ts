@@ -696,6 +696,62 @@ describe('agentChat store', () => {
     expect(store.attachments.length).toBe(1)
   })
 
+  it('uploadAttachment shows a pending attachment immediately while upload is in flight', async () => {
+    let resolveUpload!: (value: Awaited<ReturnType<typeof api.uploadAttachment>>) => void
+    const uploadPromise = new Promise<Awaited<ReturnType<typeof api.uploadAttachment>>>((resolve) => {
+      resolveUpload = resolve
+    })
+    vi.mocked(api.uploadAttachment).mockReturnValueOnce(uploadPromise)
+
+    const store = useAgentChatStore()
+    const pending = store.uploadAttachment(new File(['x'], 'a.pdf', { type: 'application/pdf' }))
+
+    expect(store.attachments).toHaveLength(1)
+    expect(store.attachments[0]).toMatchObject({
+      filename: 'a.pdf',
+      size: 1,
+      mime_type: 'application/pdf',
+      status: 'uploading'
+    })
+
+    resolveUpload({
+      id: 1,
+      url: 'https://cos.example/agent-attachments/1/x-a.pdf',
+      filename: 'a.pdf',
+      size: 1,
+      mime_type: 'application/pdf',
+      created_at: '2026-05-22T10:00:00Z'
+    })
+    await pending
+
+    expect(store.attachments[0]).toMatchObject({
+      id: 1,
+      url: 'https://cos.example/agent-attachments/1/x-a.pdf',
+      status: 'success',
+      client_id: expect.stringMatching(/^upload-/)
+    })
+  })
+
+  it('uploadAttachment keeps a removable error attachment when upload fails', async () => {
+    vi.mocked(api.uploadAttachment).mockRejectedValueOnce(new Error('network down'))
+
+    const store = useAgentChatStore()
+    await expect(
+      store.uploadAttachment(new File(['x'], 'bad.pdf', { type: 'application/pdf' }))
+    ).rejects.toThrow('network down')
+
+    expect(store.attachments).toHaveLength(1)
+    expect(store.attachments[0]).toMatchObject({
+      filename: 'bad.pdf',
+      status: 'error',
+      error_message: 'network down',
+      client_id: expect.stringMatching(/^upload-/)
+    })
+
+    store.removeAttachment(store.attachments[0].client_id!)
+    expect(store.attachments).toHaveLength(0)
+  })
+
   it('startNewRun sends persisted attachment_ids in createRun payload', async () => {
     const store = useAgentChatStore()
 
@@ -786,6 +842,26 @@ describe('agentChat store', () => {
           size: 5,
           mime_type: 'text/plain',
           created_at: ''
+        },
+        {
+          id: 0,
+          url: 'upload-pending',
+          filename: 'pending.pdf',
+          size: 1,
+          mime_type: 'application/pdf',
+          created_at: '',
+          status: 'uploading',
+          client_id: 'upload-pending'
+        },
+        {
+          id: 0,
+          url: 'upload-error',
+          filename: 'failed.pdf',
+          size: 1,
+          mime_type: 'application/pdf',
+          created_at: '',
+          status: 'error',
+          client_id: 'upload-error'
         }
       ])
     ).toEqual({

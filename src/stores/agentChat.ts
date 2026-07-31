@@ -62,17 +62,21 @@ import { isOfficialFeishuActionURL } from '@/utils/feishuActionUrl'
 // 简易 uuid（避免新增依赖；够用于客户端 message id）
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
+const isAttachmentReady = (item: UploadResponse): boolean =>
+  item.status !== 'uploading' && item.status !== 'error'
+
 /** Build the rolling-safe attachment portion shared by stream and non-stream
  * Agent requests. Persisted uploads use IDs; only id=0 falls back to URL. */
 export const buildAttachmentRequestFields = (
   uploaded: UploadResponse[]
 ): Pick<CreateRunRequest, 'attachment_ids' | 'attachment_urls'> => {
+  const readyUploaded = uploaded.filter(isAttachmentReady)
   const hasPersistedID = (item: UploadResponse): boolean =>
     Number.isSafeInteger(item.id) && item.id > 0
-  const attachmentIds = uploaded.filter(hasPersistedID).map((item) => item.id)
+  const attachmentIds = readyUploaded.filter(hasPersistedID).map((item) => item.id)
   // Defensive rolling compatibility: a pre-ID/malformed response must retain
   // its URL instead of being silently omitted from both arrays.
-  const attachmentURLs = uploaded.filter((item) => !hasPersistedID(item)).map((item) => item.url)
+  const attachmentURLs = readyUploaded.filter((item) => !hasPersistedID(item)).map((item) => item.url)
   return {
     ...(attachmentIds.length > 0 ? { attachment_ids: attachmentIds } : {}),
     ...(attachmentURLs.length > 0 ? { attachment_urls: attachmentURLs } : {})
@@ -486,6 +490,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   const inputText = ref('')
   const attachments = ref<UploadResponse[]>([])
   const estimate = ref<EstimateResponse | null>(null)
+
+  const readyAttachments = (): UploadResponse[] => attachments.value.filter(isAttachmentReady)
 
   const isReadOnly = ref(false)
 
@@ -1079,7 +1085,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       const nextEstimate = await api.estimateRun({
         agent_skill_id: agentId,
         input_text: text,
-        attachment_meta: attachments.value.map((a) => ({
+        attachment_meta: readyAttachments().map((a) => ({
           filename: a.filename,
           size: a.size,
           mime_type: a.mime_type
@@ -1095,18 +1101,19 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     const epoch = activeSessionEpoch
     sendingMessage.value = true
     try {
+      const currentAttachments = readyAttachments()
       const res = await api.createRun({
         agent_skill_id: agentId,
         input_text: text,
         session_id: sessionId && sessionId !== 'new' ? sessionId : undefined,
-        ...buildAttachmentRequestFields(attachments.value)
+        ...buildAttachmentRequestFields(currentAttachments)
       })
       if (!isCurrentSessionEpoch(epoch)) return
       const userMsg: AgentMessage = {
         id: uuid(),
         type: 'user',
         text,
-        attachments: attachments.value.map((a) => ({ url: a.url, filename: a.filename })),
+        attachments: currentAttachments.map((a) => ({ url: a.url, filename: a.filename })),
         timestamp: new Date().toISOString()
       }
       messages.value.push(userMsg)
@@ -1823,12 +1830,41 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const uploadAttachment = async (file: File): Promise<void> => {
     const epoch = activeSessionEpoch
-    const res = await api.uploadAttachment(file)
-    if (isCurrentSessionEpoch(epoch)) attachments.value.push(res)
+    const clientID = `upload-${uuid()}`
+    const pendingAttachment: UploadResponse = {
+      id: 0,
+      url: clientID,
+      filename: file.name,
+      size: file.size,
+      mime_type: file.type || 'application/octet-stream',
+      created_at: new Date().toISOString(),
+      status: 'uploading',
+      client_id: clientID
+    }
+    attachments.value.push(pendingAttachment)
+
+    try {
+      const res = await api.uploadAttachment(file)
+      if (!isCurrentSessionEpoch(epoch)) return
+      attachments.value = attachments.value.map((item) =>
+        item.client_id === clientID ? { ...res, status: 'success', client_id: clientID } : item
+      )
+    } catch (error) {
+      if (!isCurrentSessionEpoch(epoch)) throw error
+      const message = error instanceof Error && error.message ? error.message : '上传失败'
+      attachments.value = attachments.value.map((item) =>
+        item.client_id === clientID
+          ? { ...pendingAttachment, status: 'error', error_message: message }
+          : item
+      )
+      throw error
+    }
   }
 
-  const removeAttachment = (url: string): void => {
-    attachments.value = attachments.value.filter((a) => a.url !== url)
+  const removeAttachment = (attachmentKey: string): void => {
+    attachments.value = attachments.value.filter(
+      (a) => a.url !== attachmentKey && a.client_id !== attachmentKey
+    )
   }
 
   /**
@@ -2285,11 +2321,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
    */
   const appendUserMessage = (req: CreateRunRequest, expectedEpoch?: number): void => {
     if (expectedEpoch !== undefined && !isCurrentSessionEpoch(expectedEpoch)) return
+    const currentAttachments = readyAttachments()
     const userMsg: AgentMessage = {
       id: uuid(),
       type: 'user',
       text: req.input_text,
-      attachments: attachments.value.map((a) => ({ url: a.url, filename: a.filename })),
+      attachments: currentAttachments.map((a) => ({ url: a.url, filename: a.filename })),
       timestamp: new Date().toISOString()
     }
     messages.value.push(userMsg)

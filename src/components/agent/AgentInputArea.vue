@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { UploadResponse } from '@/types/agent'
-import { Paperclip, ArrowUp, X, FileText, Square } from 'lucide-vue-next'
+import { Paperclip, ArrowUp, X, FileText, Square, LoaderCircle } from 'lucide-vue-next'
 import { getInputBudgetState } from '@/utils/inputBudget'
 
 interface Props {
@@ -40,9 +40,22 @@ const REJECT_MIME = ['application/x-msdownload', 'application/x-executable']
 
 const canSend = computed(() => {
   const hasText = text.value.trim().length > 0
-  const hasUploads = props.attachments.length > 0
-  return (hasText || hasUploads) && !props.sending && !props.disabled
+  const hasReadyUploads = props.attachments.some(
+    (att) => att.status !== 'uploading' && att.status !== 'error'
+  )
+  const hasUnreadyUploads = props.attachments.some(
+    (att) => att.status === 'uploading' || att.status === 'error'
+  )
+  return (hasText || hasReadyUploads) && !hasUnreadyUploads && !props.sending && !props.disabled
 })
+
+const attachmentKey = (att: UploadResponse): string => att.client_id || att.url
+
+const attachmentStatusLabel = (att: UploadResponse): string => {
+  if (att.status === 'uploading') return '处理中...'
+  if (att.status === 'error') return '上传失败'
+  return ''
+}
 
 const inputBudget = computed(() => getInputBudgetState(text.value))
 
@@ -158,10 +171,32 @@ onMounted(() => {
 
       <!-- Attachment preview strip -->
       <div v-if="attachments.length > 0" class="attachment-strip">
-        <div v-for="att in attachments" :key="att.url" class="attachment-item success">
-          <FileText :size="14" class="attachment-icon" />
+        <div
+          v-for="att in attachments"
+          :key="attachmentKey(att)"
+          class="attachment-item"
+          :class="`attachment-item--${att.status ?? 'success'}`"
+        >
+          <LoaderCircle
+            v-if="att.status === 'uploading'"
+            :size="14"
+            class="attachment-icon attachment-icon--spin"
+          />
+          <FileText v-else :size="14" class="attachment-icon" />
           <span class="attachment-name" :title="att.filename">{{ att.filename }}</span>
-          <button class="attachment-remove" @click="emit('remove-attachment', att.url)">
+          <span
+            v-if="attachmentStatusLabel(att)"
+            class="attachment-status"
+            :class="{ 'attachment-status--error': att.status === 'error' }"
+            :title="att.error_message || attachmentStatusLabel(att)"
+          >
+            {{ attachmentStatusLabel(att) }}
+          </span>
+          <button
+            class="attachment-remove"
+            :aria-label="`移除 ${att.filename}`"
+            @click="emit('remove-attachment', attachmentKey(att))"
+          >
             <X :size="12" />
           </button>
         </div>
@@ -302,12 +337,34 @@ onMounted(() => {
   border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 8px;
   padding: 4px 8px;
-  max-width: 200px;
+  max-width: min(280px, 100%);
+}
+
+.attachment-item--uploading {
+  background: rgba(37, 167, 105, 0.08);
+  border-color: rgba(37, 167, 105, 0.24);
+}
+
+.attachment-item--error {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.24);
 }
 
 .attachment-icon {
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.attachment-item--uploading .attachment-icon {
+  color: var(--primary);
+}
+
+.attachment-item--error .attachment-icon {
+  color: #ef4444;
+}
+
+.attachment-icon--spin {
+  animation: attachment-spin 0.9s linear infinite;
 }
 
 .attachment-name {
@@ -316,6 +373,19 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.attachment-status {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.attachment-status--error {
+  color: #ef4444;
 }
 
 .attachment-remove {
@@ -334,6 +404,15 @@ onMounted(() => {
 .attachment-remove:hover {
   background: rgba(0, 0, 0, 0.08);
   color: var(--text);
+}
+
+@keyframes attachment-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== Toolbar ===== */
