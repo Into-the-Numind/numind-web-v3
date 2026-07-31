@@ -1066,3 +1066,108 @@ test.describe('Customer regression — post-card realtime continuation', () => {
     await expect(page.getByText(/搜索/).last()).toBeVisible({ timeout: 2000 })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Customer regression: long live reasoning must keep showing its newest tail
+// ---------------------------------------------------------------------------
+
+test.describe('Customer regression — long reasoning overflow', () => {
+  const runId = 92
+
+  test.beforeEach(async ({ page }) => {
+    await setupStreamingBootstrap(page, runId)
+
+    await page.addInitScript((id) => {
+      const nativeFetch = window.fetch.bind(window)
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (!url.includes('/v1/agent-runs/stream')) return nativeFetch(input, init)
+
+        const encoder = new TextEncoder()
+        const now = new Date().toISOString()
+        const frame = (event: Record<string, unknown>): Uint8Array =>
+          encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
+        const reasoningLines = Array.from({ length: 180 }, (_, index) => {
+          const marker = index === 179 ? 'TAIL_VISIBLE_MARKER' : `reasoning-line-${index + 1}`
+          return `\n\n${marker}: 第 ${index + 1} 段推理内容，用来模拟真实深度思考持续变长后的显示区域。`
+        })
+
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              frame({
+                type: 'stream_start',
+                seq: 1,
+                ts: now,
+                run_id: id,
+                data: { run_id: id, session_id: `sess-${id}` }
+              })
+            )
+
+            reasoningLines.forEach((text, index) => {
+              window.setTimeout(() => {
+                controller.enqueue(
+                  frame({
+                    type: 'reasoning_delta',
+                    seq: index + 2,
+                    ts: now,
+                    run_id: id,
+                    data: { message_id: 'long-reasoning-message', text }
+                  })
+                )
+              }, index * 4)
+            })
+
+            window.setTimeout(() => {
+              document.documentElement.dataset.longReasoningDone = 'true'
+            }, reasoningLines.length * 4 + 60)
+
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                controller.error(new DOMException('aborted by test', 'AbortError'))
+              },
+              { once: true }
+            )
+          }
+        })
+
+        return new Response(body, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream; charset=utf-8' }
+        })
+      }
+    }, runId)
+  })
+
+  test('live reasoning panel keeps the newest paragraph visible while it exceeds its viewport', async ({
+    page
+  }) => {
+    await page.goto('/agent/chat/new?agent_id=1')
+
+    const textarea = page.locator('textarea').first()
+    await textarea.fill('请持续展示一段很长的深度思考')
+    await textarea.press('Enter')
+
+    await expect(page.locator('html')).toHaveAttribute('data-long-reasoning-done', 'true')
+    await expect(page.getByText('TAIL_VISIBLE_MARKER')).toBeAttached()
+
+    const metrics = await page.locator('.thinking-content').first().evaluate((element) => {
+      const lastParagraph = element.querySelector('p:last-child')
+      const contentRect = element.getBoundingClientRect()
+      const tailRect = lastParagraph?.getBoundingClientRect()
+      return {
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+        tailBottom: tailRect?.bottom ?? 0,
+        contentBottom: contentRect.bottom,
+        tailClipped: tailRect ? tailRect.bottom > contentRect.bottom + 1 : true
+      }
+    })
+
+    console.log('long reasoning metrics', metrics)
+    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
+    expect(metrics.tailClipped).toBe(false)
+  })
+})
