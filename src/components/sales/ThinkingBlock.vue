@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { ChevronRight } from 'lucide-vue-next'
 import { useMarkdown } from '@/composables/useMarkdown'
 
@@ -21,6 +21,15 @@ const { render } = useMarkdown()
 // Start collapsed only when we should auto-collapse AND it's already finished
 // (e.g. a reloaded/historical thinking block). While streaming it stays open.
 const collapsed = ref(props.autoCollapse && props.finished)
+const contentEl = ref<HTMLDivElement | null>(null)
+
+const scrollLiveContentToTail = async (): Promise<void> => {
+  if (props.finished || collapsed.value) return
+  await nextTick()
+  const el = contentEl.value
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+}
 
 // Auto-collapse the moment thinking finishes (the answer begins / run completes),
 // so the completed transcript shows folded thinking with the answer below.
@@ -33,10 +42,26 @@ watch(
     if (props.autoCollapse && fin) collapsed.value = true
   }
 )
+
+watch(
+  () => props.content,
+  () => {
+    void scrollLiveContentToTail()
+  },
+  { flush: 'post' }
+)
+
+watch(
+  collapsed,
+  (isCollapsed) => {
+    if (!isCollapsed) void scrollLiveContentToTail()
+  },
+  { flush: 'post' }
+)
 </script>
 
 <template>
-  <div class="thinking-container" :class="{ collapsed, finished }">
+  <div class="thinking-container" :class="{ collapsed, finished, 'auto-collapse': autoCollapse }">
     <div
       class="thinking-header"
       role="button"
@@ -48,7 +73,7 @@ watch(
       <ChevronRight :size="14" class="thinking-icon" aria-hidden="true" />
       <span>{{ finished ? '思考过程' : '思考中...' }}</span>
     </div>
-    <div class="thinking-content" v-html="render(content)"></div>
+    <div ref="contentEl" class="thinking-content" v-html="render(content)"></div>
   </div>
 </template>
 
@@ -97,6 +122,24 @@ watch(
   max-height: 4000px;
   overflow: hidden;
   opacity: 0.9;
+}
+
+.thinking-container.auto-collapse:not(.collapsed) .thinking-content {
+  max-height: min(48vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border, #e2e4ea) transparent;
+}
+
+.thinking-container.auto-collapse:not(.collapsed) .thinking-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thinking-container.auto-collapse:not(.collapsed) .thinking-content::-webkit-scrollbar-thumb {
+  background: var(--border, #e2e4ea);
+  border-radius: 999px;
 }
 
 .thinking-container.collapsed .thinking-content {
