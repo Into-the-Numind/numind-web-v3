@@ -59,6 +59,7 @@ vi.mock('@/api/agent', () => ({
   fetchNarrationEvents: vi.fn(async () => []),
   cancelRun: vi.fn(async () => ({ run_id: 999, status: 'cancelled' as const })),
   uploadAttachment: vi.fn(),
+  getAttachmentStatus: vi.fn(async () => ({ id: 1, fallback_ready: true })),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 999,
     agent_skill_id: 1,

@@ -405,7 +405,7 @@ export interface RecentSession {
 // UploadResponse
 // ─────────────────────────────────────────
 
-export type UploadStatus = 'uploading' | 'success' | 'error'
+export type UploadStatus = 'uploading' | 'processing' | 'success' | 'error'
 
 export interface UploadResponse {
   /** agent_attachment row id. Normal Agent runs send this as attachment_ids;
@@ -426,4 +426,14 @@ export interface UploadResponse {
   client_id?: string
   /** Frontend-only upload failure text for the input chip tooltip. */
   error_message?: string
+  /** Backend attachment parser status. Upload usually returns false first. */
+  fallback_ready?: boolean
+  fallback_error?: string
+}
+
+export interface AttachmentStatusResponse {
+  id: number
+  fallback_ready: boolean
+  modality?: string
+  fallback_error?: string
 }

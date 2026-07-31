@@ -474,6 +474,74 @@ async function installOpenStream(page: import('@playwright/test').Page, runId: n
 }
 
 // ---------------------------------------------------------------------------
+// Attachment readiness: upload chip waits for fallback parser completion
+// ---------------------------------------------------------------------------
+
+test.describe('Attachment readiness', () => {
+  test('PDF upload keeps only the spinner until fallback_ready is true', async ({ page }) => {
+    await setupStreamingBootstrap(page, 31)
+
+    let statusReady = false
+    let statusPollCount = 0
+
+    await page.route('**/v1/agent-attachments', async (route) => {
+      expect(route.request().method()).toBe('POST')
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: 9001,
+            filename: '爆款素材打标结果.pdf',
+            url: 'https://cos.example/agent-attachments/9001.pdf',
+            mime_type: 'application/pdf',
+            size: 2035264,
+            fallback_ready: false
+          }
+        })
+      })
+    })
+
+    await page.route('**/v1/agent-attachments/9001/status', async (route) => {
+      statusPollCount += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: { id: 9001, fallback_ready: statusReady }
+        })
+      })
+    })
+
+    await page.goto('/agent/chat/new?agent_id=1')
+    await expect(page.locator('textarea').first()).toBeVisible({ timeout: 10_000 })
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: '爆款素材打标结果.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 test pdf')
+    })
+
+    const attachment = page.locator('.attachment-item', { hasText: '爆款素材打标结果.pdf' })
+    await expect(attachment).toBeVisible({ timeout: 5_000 })
+    await expect(attachment.locator('.attachment-icon--spin')).toBeVisible({ timeout: 5_000 })
+    await expect(attachment.getByText('处理中')).toHaveCount(0)
+    await expect(page.locator('button[aria-label="发送"]').first()).toBeDisabled()
+
+    statusReady = true
+
+    await expect(attachment).toHaveClass(/attachment-item--success/, { timeout: 5_000 })
+    await expect(attachment.locator('.attachment-icon--spin')).toHaveCount(0)
+    await expect(page.locator('button[aria-label="发送"]').first()).toBeEnabled()
+    await expect.poll(() => statusPollCount).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Scenario 1: Happy stream
 // ---------------------------------------------------------------------------
 

@@ -32,6 +32,7 @@ vi.mock('@/api/agent', () => ({
   cancelRun: vi.fn(),
   postAgentAnswer: vi.fn(),
   uploadAttachment: vi.fn(),
+  getAttachmentStatus: vi.fn(async () => ({ id: 1, fallback_ready: true })),
   getSessionSnapshot: vi.fn(async () => ({
     session_id: 'sess-resume',
     agent_skill_id: 1,

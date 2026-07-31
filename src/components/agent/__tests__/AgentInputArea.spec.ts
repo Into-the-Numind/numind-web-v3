@@ -16,7 +16,9 @@ describe('AgentInputArea', () => {
     expect(wrapper.emitted('estimate-request')).toBeUndefined()
   })
 
-  it('shows a pending attachment chip and blocks send while it is processing', async () => {
+  it.each(['uploading', 'processing'] as const)(
+    'shows a spinning attachment chip and blocks send while status is %s',
+    async (status) => {
     const wrapper = mount(AgentInputArea, {
       props: {
         attachments: [
@@ -27,7 +29,7 @@ describe('AgentInputArea', () => {
             size: 1,
             mime_type: 'application/pdf',
             created_at: '',
-            status: 'uploading',
+            status,
             client_id: 'upload-1'
           }
         ]
@@ -35,7 +37,7 @@ describe('AgentInputArea', () => {
     })
 
     expect(wrapper.text()).toContain('a.pdf')
-    expect(wrapper.text()).toContain('处理中...')
+    expect(wrapper.find('.attachment-icon--spin').exists()).toBe(true)
 
     await wrapper.find('textarea').setValue('总结这份文档')
 
@@ -43,5 +45,6 @@ describe('AgentInputArea', () => {
 
     await wrapper.find('.attachment-remove').trigger('click')
     expect(wrapper.emitted('remove-attachment')?.[0]).toEqual(['upload-1'])
-  })
+    }
+  )
 })

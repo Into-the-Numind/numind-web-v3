@@ -63,7 +63,13 @@ import { isOfficialFeishuActionURL } from '@/utils/feishuActionUrl'
 const uuid = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 const isAttachmentReady = (item: UploadResponse): boolean =>
-  item.status !== 'uploading' && item.status !== 'error'
+  item.status == null || item.status === 'success'
+
+const ATTACHMENT_STATUS_POLL_INTERVAL_MS = 1_000
+const ATTACHMENT_STATUS_MAX_ATTEMPTS = 120
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => globalThis.setTimeout(resolve, ms))
 
 /** Build the rolling-safe attachment portion shared by stream and non-stream
  * Agent requests. Persisted uploads use IDs; only id=0 falls back to URL. */
@@ -1846,9 +1852,33 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     try {
       const res = await api.uploadAttachment(file)
       if (!isCurrentSessionEpoch(epoch)) return
+      const needsProcessing = Number.isSafeInteger(res.id) && res.id > 0 && !res.fallback_ready
       attachments.value = attachments.value.map((item) =>
-        item.client_id === clientID ? { ...res, status: 'success', client_id: clientID } : item
+        item.client_id === clientID
+          ? { ...res, status: needsProcessing ? 'processing' : 'success', client_id: clientID }
+          : item
       )
+      if (!needsProcessing) return
+
+      for (let attempt = 0; attempt < ATTACHMENT_STATUS_MAX_ATTEMPTS; attempt += 1) {
+        if (!isCurrentSessionEpoch(epoch)) return
+        if (!attachments.value.some((item) => item.client_id === clientID)) return
+
+        const status = await api.getAttachmentStatus(res.id)
+        if (status.fallback_ready) {
+          if (status.fallback_error) {
+            throw new Error(status.fallback_error)
+          }
+          if (!isCurrentSessionEpoch(epoch)) return
+          attachments.value = attachments.value.map((item) =>
+            item.client_id === clientID ? { ...item, status: 'success' } : item
+          )
+          return
+        }
+        await sleep(ATTACHMENT_STATUS_POLL_INTERVAL_MS)
+      }
+
+      throw new Error('附件处理超时')
     } catch (error) {
       if (!isCurrentSessionEpoch(epoch)) throw error
       const message = error instanceof Error && error.message ? error.message : '上传失败'
