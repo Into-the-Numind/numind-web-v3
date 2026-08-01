@@ -839,7 +839,7 @@ onMounted(() => {
 
 /* ===== Feature Cards (已上线) ===== */
 .feature-cards {
-  --feature-card-width: 360px;
+  --feature-card-width: 300px;
   display: grid;
   grid-template-columns: repeat(auto-fill, var(--feature-card-width));
   justify-content: flex-start;
@@ -988,7 +988,7 @@ onMounted(() => {
 }
 
 .feature-card-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: #1e2130;
   margin-bottom: 0;
@@ -1284,7 +1284,7 @@ onMounted(() => {
   }
 
   .feature-card-title {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .feature-card-desc {
