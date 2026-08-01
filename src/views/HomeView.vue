@@ -839,8 +839,10 @@ onMounted(() => {
 
 /* ===== Feature Cards (已上线) ===== */
 .feature-cards {
+  --feature-card-width: 360px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, var(--feature-card-width));
+  justify-content: flex-start;
   gap: 20px;
 }
 
@@ -851,9 +853,10 @@ onMounted(() => {
   flex-direction: column;
   align-items: stretch;
   text-align: left;
-  padding: var(--space-xl);
-  min-height: 220px;
-  gap: 22px;
+  inline-size: var(--feature-card-width);
+  padding: var(--space-lg);
+  min-height: 180px;
+  gap: var(--space-md);
   background: #ffffff;
   /* Default: green border to match hover color, signalling "runnable".
      Denied cards override back to neutral gray below. */
@@ -899,7 +902,7 @@ onMounted(() => {
 .feature-card-header {
   display: flex;
   align-items: center;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   min-width: 0;
 }
 
@@ -908,8 +911,8 @@ onMounted(() => {
   --avatar-accent: hsl(160 72% 40%);
   --avatar-shirt: hsl(160 50% 34%);
   --avatar-face: #f1bd8c;
-  width: 60px;
-  height: 60px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid var(--border-light);
@@ -970,7 +973,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 102px;
+  min-height: 84px;
 }
 
 /* Lock badge */
@@ -985,7 +988,7 @@ onMounted(() => {
 }
 
 .feature-card-title {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   color: #1e2130;
   margin-bottom: 0;
@@ -999,12 +1002,12 @@ onMounted(() => {
 .feature-card-desc {
   font-size: 15px;
   color: #6b7085;
-  line-height: 1.65;
+  line-height: 1.55;
   flex: 1;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
 }
 
 .feature-card-tags {
@@ -1013,13 +1016,13 @@ onMounted(() => {
   justify-content: flex-start;
   gap: var(--space-sm);
   margin-top: auto;
-  padding-top: var(--space-xl);
+  padding-top: var(--space-md);
 }
 
 .feature-card-tag {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   background: #f0f1f3;
@@ -1232,7 +1235,7 @@ onMounted(() => {
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
   .feature-cards {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, var(--feature-card-width));
   }
 }
 
@@ -1254,15 +1257,17 @@ onMounted(() => {
   }
 
   .feature-cards {
+    --feature-card-width: 100%;
     grid-template-columns: 1fr;
     gap: 12px;
   }
 
   .feature-card {
-    gap: 18px;
+    inline-size: 100%;
+    gap: var(--space-md);
     padding: var(--space-lg);
     border-radius: 16px;
-    min-height: 196px;
+    min-height: 172px;
   }
 
   .feature-card-header {
@@ -1270,12 +1275,12 @@ onMounted(() => {
   }
 
   .feature-card-avatar {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
   }
 
   .feature-card-body {
-    min-height: 104px;
+    min-height: 82px;
   }
 
   .feature-card-title {
@@ -1284,11 +1289,11 @@ onMounted(() => {
 
   .feature-card-desc {
     font-size: 14px;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 2;
   }
 
   .feature-card-tags {
-    padding-top: var(--space-lg);
+    padding-top: var(--space-md);
     gap: 6px;
   }
 
