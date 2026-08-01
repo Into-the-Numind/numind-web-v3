@@ -107,7 +107,7 @@
         <div class="section-label">AI 工作流</div>
         <div class="feature-cards">
           <button
-            v-for="(workflow, index) in sopWorkflows"
+            v-for="workflow in sopWorkflows"
             :key="workflow.key"
             type="button"
             class="feature-card"
@@ -142,62 +142,48 @@
                 stroke-linecap="round"
               />
             </svg>
-            <div class="card-left">
-              <div class="feature-card-title">{{ workflow.title }}</div>
-              <div class="feature-card-desc">{{ workflow.subtitle }}</div>
-            </div>
-            <div class="card-right">
-              <div class="feature-card-icon" :class="'icon-variant-' + (index % 3)">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect
-                    x="4"
-                    y="6"
-                    width="10"
-                    height="10"
-                    rx="2"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
+            <div class="feature-card-header">
+              <div
+                class="feature-card-avatar"
+                :class="`feature-card-avatar--${workflow.avatar.variant}`"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
+                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
+                  <path
+                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
+                    fill="var(--avatar-shirt)"
                   />
                   <path
-                    d="M14 11H18M18 11C18 13.2091 19.7909 15 22 15C24.2091 15 26 13.2091 26 11C26 8.79086 24.2091 7 22 7C19.7909 7 18 8.79086 18 11Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
+                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
+                    fill="#27303d"
+                  />
+                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
+                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
+                  <path
+                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
+                    stroke="#7a4a2f"
+                    stroke-width="1.8"
                     stroke-linecap="round"
                   />
                   <path
-                    d="M22 11H26"
-                    stroke="currentColor"
-                    stroke-width="1.5"
+                    d="M14 23h6M44 18h6M45 43h7"
+                    stroke="var(--avatar-accent)"
+                    stroke-width="2"
                     stroke-linecap="round"
-                  />
-                  <circle
-                    cx="7"
-                    cy="25"
-                    r="3"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                  <path
-                    d="M10 25H14"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                  <rect
-                    x="14"
-                    y="22"
-                    width="10"
-                    height="6"
-                    rx="1"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">AI 工作流</div>
+              <div class="feature-card-title">{{ workflow.name }}</div>
+            </div>
+            <div class="feature-card-body">
+              <div class="feature-card-desc">{{ workflow.description }}</div>
+              <div class="feature-card-tags" aria-label="能力标签">
+                <span v-for="tag in workflow.tags" :key="tag" class="feature-card-tag">
+                  {{ tag }}
+                </span>
+              </div>
             </div>
           </button>
         </div>
@@ -243,37 +229,48 @@
                 stroke-linecap="round"
               />
             </svg>
-            <div class="card-left">
-              <div class="feature-card-title">{{ card.title }}</div>
-              <div class="feature-card-desc">{{ card.subtitle }}</div>
-            </div>
-            <div class="card-right">
-              <div class="feature-card-icon icon-variant-1">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle
-                    cx="16"
-                    cy="10"
-                    r="4"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
+            <div class="feature-card-header">
+              <div
+                class="feature-card-avatar"
+                :class="`feature-card-avatar--${card.avatar.variant}`"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
+                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
+                  <path
+                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
+                    fill="var(--avatar-shirt)"
                   />
                   <path
-                    d="M10 22C10 18.6863 12.6863 16 16 16C19.3137 16 22 18.6863 22 22"
-                    stroke="currentColor"
-                    stroke-width="1.5"
+                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
+                    fill="#27303d"
+                  />
+                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
+                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
+                  <path
+                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
+                    stroke="#7a4a2f"
+                    stroke-width="1.8"
                     stroke-linecap="round"
                   />
                   <path
-                    d="M20 10L24 6M24 6L28 10M24 6V14"
-                    stroke="currentColor"
-                    stroke-width="1.5"
+                    d="M14 23h6M44 18h6M45 43h7"
+                    stroke="var(--avatar-accent)"
+                    stroke-width="2"
                     stroke-linecap="round"
-                    stroke-linejoin="round"
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">AI 助手</div>
+              <div class="feature-card-title">{{ card.name }}</div>
+            </div>
+            <div class="feature-card-body">
+              <div class="feature-card-desc">{{ card.description }}</div>
+              <div class="feature-card-tags" aria-label="能力标签">
+                <span v-for="tag in card.tags" :key="tag" class="feature-card-tag">
+                  {{ tag }}
+                </span>
+              </div>
             </div>
           </button>
         </div>
@@ -284,63 +281,54 @@
         <div class="section-label">AI 智能体</div>
         <div class="feature-cards">
           <button
-            v-for="agent in agentChatStore.availableAgents"
-            :key="agent.id"
+            v-for="agent in availableAgentCards"
+            :key="agent.key"
             type="button"
             class="feature-card"
             @click="handleAgentClick(agent.id)"
           >
-            <div class="card-left">
-              <div class="feature-card-title">{{ agent.name }}</div>
-              <div class="feature-card-desc">{{ agent.description || '多步骤自主任务' }}</div>
-            </div>
-            <div class="card-right">
-              <div class="feature-card-icon icon-variant-2">
-                <span v-if="agent.emoji" class="agent-emoji">{{ agent.emoji }}</span>
-                <svg v-else viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect
-                    x="4"
-                    y="13"
-                    width="24"
-                    height="14"
-                    rx="3"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                  <circle
-                    cx="16"
-                    cy="6"
-                    r="3"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
+            <div class="feature-card-header">
+              <div
+                class="feature-card-avatar"
+                :class="`feature-card-avatar--${agent.avatar.variant}`"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
+                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
+                  <path
+                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
+                    fill="var(--avatar-shirt)"
                   />
                   <path
-                    d="M16 9v4"
-                    stroke="currentColor"
-                    stroke-width="1.5"
+                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
+                    fill="#27303d"
+                  />
+                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
+                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
+                  <path
+                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
+                    stroke="#7a4a2f"
+                    stroke-width="1.8"
                     stroke-linecap="round"
                   />
-                  <circle
-                    cx="10"
-                    cy="21"
-                    r="2"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
-                  />
-                  <circle
-                    cx="22"
-                    cy="21"
-                    r="2"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    fill="none"
+                  <path
+                    d="M14 23h6M44 18h6M45 43h7"
+                    stroke="var(--avatar-accent)"
+                    stroke-width="2"
+                    stroke-linecap="round"
                   />
                 </svg>
               </div>
-              <div class="feature-card-label">AI 智能体</div>
+              <div class="feature-card-title">{{ agent.name }}</div>
+            </div>
+            <div class="feature-card-body">
+              <div class="feature-card-desc">{{ agent.description }}</div>
+              <div class="feature-card-tags" aria-label="能力标签">
+                <span v-for="tag in agent.tags" :key="tag" class="feature-card-tag">
+                  {{ tag }}
+                </span>
+              </div>
             </div>
           </button>
         </div>
@@ -415,24 +403,39 @@ interface SopTemplate {
   has_permission?: boolean
 }
 
-interface OnlineWorkflow {
+type WorkspaceCardType = 'sop' | 'sales' | 'chatbot' | 'agent'
+type WorkspaceAvatarVariant = 'workflow' | 'sales' | 'knowledge' | 'content' | 'ops' | 'data' | 'agent'
+
+interface WorkspaceCardDisplay {
+  avatar: {
+    variant: WorkspaceAvatarVariant
+    seed: string
+  }
+  name: string
+  description: string
+  tags: string[]
+}
+
+interface OnlineWorkflow extends WorkspaceCardDisplay {
   key: string
   type: 'sop'
-  title: string
-  subtitle: string
   templateId?: number
   /** Mirror of template.has_permission for UI lock badge. */
   hasPermission: boolean
 }
 
-interface AgentCard {
+interface AgentCard extends WorkspaceCardDisplay {
   key: string
   type: 'sales' | 'chatbot'
-  title: string
-  subtitle: string
   hasPermission: boolean
   /** Original ChatbotConfig kept so the click handler can route by id. */
   chatbot?: ChatbotConfig
+}
+
+interface AgentSkillCard extends WorkspaceCardDisplay {
+  key: string
+  type: 'agent'
+  id: number
 }
 
 const router = useRouter()
@@ -468,6 +471,92 @@ const greeting = computed(() => {
 
 const sopWorkflows = computed<OnlineWorkflow[]>(() => templateWorkflows.value)
 
+const tagRules: Array<{ keywords: string[]; tags: string[] }> = [
+  {
+    keywords: ['销售', '客户', '拜访', '话术', '跟进', '商机'],
+    tags: ['销售话术', '客户跟进', '拜访准备']
+  },
+  {
+    keywords: ['知识', '问答', '客服', 'RAG', '检索', '引用'],
+    tags: ['知识检索', '引用来源', '客服回复']
+  },
+  {
+    keywords: ['方案', '报告', '文档', '内容', '创作', '润色', '写作'],
+    tags: ['方案结构', '内容润色', '报告整理']
+  },
+  {
+    keywords: ['运营', '增长', '周报', '复盘', '行动'],
+    tags: ['运营复盘', '行动清单', '增长切口']
+  },
+  {
+    keywords: ['数据', '分析', '预测', '统计', '报表'],
+    tags: ['数据分析', '指标解读', '报表整理']
+  },
+  {
+    keywords: ['项目', '流程', 'SOP', '任务', '自动化'],
+    tags: ['流程执行', '任务推进', '标准步骤']
+  }
+]
+
+const fallbackTags: Record<WorkspaceCardType, string[]> = {
+  sop: ['流程执行', '标准步骤', '自动生成'],
+  sales: ['销售话术', '知识库', '客户跟进'],
+  chatbot: ['智能问答', '知识检索', '助手'],
+  agent: ['自主任务', '多步骤', '工具执行']
+}
+
+const fallbackDescription: Record<WorkspaceCardType, string> = {
+  sop: '帮你把重复工作整理成可执行步骤。',
+  sales: '围绕客户问题生成话术、建议和后续行动。',
+  chatbot: '基于配置和知识库，回答日常业务问题。',
+  agent: '把复杂任务拆成多步骤执行，并持续推进结果。'
+}
+
+function uniqueFirstThree(tags: string[]): string[] {
+  return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 3)
+}
+
+function inferWorkspaceTags(type: WorkspaceCardType, name: string, description: string): string[] {
+  const text = `${name} ${description}`
+  const matched = tagRules.find((rule) =>
+    rule.keywords.some((keyword) => text.toLowerCase().includes(keyword.toLowerCase()))
+  )
+  return uniqueFirstThree(matched?.tags ?? fallbackTags[type])
+}
+
+function resolveAvatarVariant(
+  type: WorkspaceCardType,
+  name: string,
+  description: string
+): WorkspaceAvatarVariant {
+  const text = `${name} ${description}`
+  if (/销售|客户|拜访|话术|跟进|商机/.test(text)) return 'sales'
+  if (/知识|问答|客服|RAG|检索|引用/.test(text)) return 'knowledge'
+  if (/方案|报告|文档|内容|创作|润色|写作/.test(text)) return 'content'
+  if (/运营|增长|周报|复盘|行动/.test(text)) return 'ops'
+  if (/数据|分析|预测|统计|报表/.test(text)) return 'data'
+  if (type === 'sop') return 'workflow'
+  return 'agent'
+}
+
+function buildCardDisplay(
+  type: WorkspaceCardType,
+  name: string,
+  description: string
+): WorkspaceCardDisplay {
+  const cleanName = name.trim()
+  const cleanDescription = description.trim() || fallbackDescription[type]
+  return {
+    avatar: {
+      variant: resolveAvatarVariant(type, cleanName, cleanDescription),
+      seed: `${type}:${cleanName}`
+    },
+    name: cleanName,
+    description: cleanDescription,
+    tags: inferWorkspaceTags(type, cleanName, cleanDescription)
+  }
+}
+
 // agentCards 合并"销售智能体"和普通 chatbot 成同构数组，一起按 hasPermission 排序
 // （销售智能体本质上也是一种 chatbot，不应永远占位 index 0）。
 // Stable sort 保留组内原始顺序：sales 先于 chatbot（初始），chatbots 内部按后端返回顺序。
@@ -484,8 +573,7 @@ const agentCards = computed<AgentCard[]>(() => {
     all.push({
       key: 'agent-sales',
       type: 'sales',
-      title: '销售智能体',
-      subtitle: 'AI驱动的智能销售助手',
+      ...buildCardDisplay('sales', '销售智能体', 'AI驱动的智能销售助手'),
       hasPermission: true
     })
   }
@@ -494,8 +582,7 @@ const agentCards = computed<AgentCard[]>(() => {
     ...chatbots.value.map<AgentCard>((bot) => ({
       key: `chatbot-${bot.id}`,
       type: 'chatbot',
-      title: bot.name,
-      subtitle: bot.description || '智能对话助手',
+      ...buildCardDisplay('chatbot', bot.name, bot.description || '智能对话助手'),
       hasPermission: bot.has_permission ?? true,
       chatbot: bot
     }))
@@ -505,13 +592,22 @@ const agentCards = computed<AgentCard[]>(() => {
   return all
 })
 
+const availableAgentCards = computed<AgentSkillCard[]>(() =>
+  agentChatStore.availableAgents.map((agent) => ({
+    key: `agent-${agent.id}`,
+    type: 'agent',
+    id: agent.id,
+    ...buildCardDisplay('agent', agent.name, agent.description || '多步骤自主任务')
+  }))
+)
+
 // 工作台完全空 (两个 section 都 0 条) -> 渲染 empty state 而不是孤立的 section 标签.
 // loading 阶段由 pageLoading 提前 short-circuit, 这里只看派生数据.
 const isWorkspaceEmpty = computed(
   () =>
     sopWorkflows.value.length === 0 &&
     agentCards.value.length === 0 &&
-    agentChatStore.availableAgents.length === 0
+    availableAgentCards.value.length === 0
 )
 
 const getTemplateId = (template: SopTemplate): number | null => {
@@ -555,8 +651,7 @@ const fetchTemplates = async () => {
       workflows.push({
         key: `sop-${templateId}`,
         type: 'sop',
-        title: template.name || '未命名SOP',
-        subtitle: template.description || '',
+        ...buildCardDisplay('sop', template.name || '未命名SOP', template.description || ''),
         templateId,
         // fallback true when backend doesn't send field yet (old API) — click-time
         // checkTemplatePermission still enforces gate so a missed lock won't let
@@ -753,18 +848,20 @@ onMounted(() => {
   appearance: none;
   position: relative;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: stretch;
   text-align: left;
-  padding: 20px 20px 20px 22px;
-  min-height: 0;
-  gap: 16px;
+  padding: var(--space-xl);
+  min-height: 220px;
+  gap: 22px;
   background: #ffffff;
   /* Default: green border to match hover color, signalling "runnable".
      Denied cards override back to neutral gray below. */
-  border: 1px solid hsl(158, 50%, 78%);
+  border: 1px solid hsl(158 42% 82% / 0.86);
   border-radius: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 18px 44px rgba(20, 28, 38, 0.045),
+    0 1px 2px rgba(20, 28, 38, 0.025);
   cursor: pointer;
   font-family: var(--font-sans);
   transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
@@ -775,9 +872,9 @@ onMounted(() => {
   transform: translateY(-3px);
   background: #ffffff;
   box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.08),
-    0 0 0 1px hsl(158 40% 80% / 0.5);
-  border-color: hsl(158, 50%, 78%);
+    0 22px 58px rgba(20, 28, 38, 0.075),
+    0 0 0 1px hsl(160 55% 84% / 0.54);
+  border-color: hsl(160 40% 78% / 0.86);
 }
 
 .feature-card.loading {
@@ -799,47 +896,81 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
-/* Card layout */
-.card-left {
-  flex: 1;
+.feature-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.feature-card-avatar {
+  --avatar-bg: hsl(160 60% 94%);
+  --avatar-accent: hsl(160 72% 40%);
+  --avatar-shirt: hsl(160 50% 34%);
+  --avatar-face: #f1bd8c;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 7px 20px rgba(20, 28, 38, 0.06);
+  flex: 0 0 auto;
+}
+
+.feature-card-avatar svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.feature-card-avatar--workflow {
+  --avatar-bg: hsl(160 62% 94%);
+  --avatar-accent: hsl(160 72% 40%);
+  --avatar-shirt: hsl(160 48% 35%);
+}
+
+.feature-card-avatar--sales {
+  --avatar-bg: hsl(154 68% 93%);
+  --avatar-accent: hsl(160 75% 38%);
+  --avatar-shirt: hsl(160 50% 32%);
+}
+
+.feature-card-avatar--knowledge {
+  --avatar-bg: #f5f8fb;
+  --avatar-accent: hsl(160 68% 42%);
+  --avatar-shirt: hsl(166 40% 36%);
+}
+
+.feature-card-avatar--content {
+  --avatar-bg: #f8f3e9;
+  --avatar-accent: hsl(160 70% 38%);
+  --avatar-shirt: #3b7a69;
+}
+
+.feature-card-avatar--ops {
+  --avatar-bg: #eef7f4;
+  --avatar-accent: hsl(160 72% 40%);
+  --avatar-shirt: #327967;
+}
+
+.feature-card-avatar--data {
+  --avatar-bg: #edf4f7;
+  --avatar-accent: hsl(160 70% 36%);
+  --avatar-shirt: #2f6f63;
+}
+
+.feature-card-avatar--agent {
+  --avatar-bg: #f1f4f8;
+  --avatar-accent: hsl(160 65% 42%);
+  --avatar-shirt: #3a6f66;
+}
+
+.feature-card-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-}
-
-.card-right {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-/* Card icon */
-.feature-card-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: hsl(160, 50%, 62%);
-}
-
-.feature-card-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.agent-emoji {
-  font-size: 26px;
-  line-height: 1;
-}
-
-.feature-card-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: hsl(160, 45%, 58%);
-  white-space: nowrap;
+  flex: 1;
+  min-height: 102px;
 }
 
 /* Lock badge */
@@ -854,18 +985,53 @@ onMounted(() => {
 }
 
 .feature-card-title {
-  font-size: 17px;
-  font-weight: 650;
+  font-size: 21px;
+  font-weight: 800;
   color: #1e2130;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .feature-card-desc {
-  font-size: 13.5px;
+  font-size: 15px;
   color: #6b7085;
-  line-height: 1.55;
+  line-height: 1.65;
   flex: 1;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.feature-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  margin-top: auto;
+  padding-top: var(--space-xl);
+}
+
+.feature-card-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: #f0f1f3;
+  color: #5b606c;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.feature-card-tag:first-child {
+  background: var(--accent-soft);
+  color: var(--primary-hover);
 }
 
 /* ===== Empty Workspace =====
@@ -1093,15 +1259,42 @@ onMounted(() => {
   }
 
   .feature-card {
-    padding: 16px;
+    gap: 18px;
+    padding: var(--space-lg);
     border-radius: 16px;
+    min-height: 196px;
+  }
+
+  .feature-card-header {
+    gap: var(--space-md);
+  }
+
+  .feature-card-avatar {
+    width: 56px;
+    height: 56px;
+  }
+
+  .feature-card-body {
+    min-height: 104px;
   }
 
   .feature-card-title {
-    font-size: 15px;
+    font-size: 18px;
   }
 
   .feature-card-desc {
+    font-size: 14px;
+    -webkit-line-clamp: 4;
+  }
+
+  .feature-card-tags {
+    padding-top: var(--space-lg);
+    gap: 6px;
+  }
+
+  .feature-card-tag {
+    min-height: 28px;
+    padding: 0 10px;
     font-size: 13px;
   }
 
