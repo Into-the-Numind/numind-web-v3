@@ -142,24 +142,42 @@
                 stroke-linecap="round"
               />
             </svg>
-            <div
-              class="feature-card-avatar"
-              :class="`feature-card-avatar--${workflow.avatar.variant}`"
-              aria-hidden="true"
-            >
-              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
-                <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
-                <path d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z" fill="var(--avatar-shirt)" />
-                <path d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z" fill="#27303d" />
-                <circle cx="28" cy="29" r="1.5" fill="#27303d" />
-                <circle cx="36" cy="29" r="1.5" fill="#27303d" />
-                <path d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0" stroke="#7a4a2f" stroke-width="1.8" stroke-linecap="round" />
-                <path d="M14 23h6M44 18h6M45 43h7" stroke="var(--avatar-accent)" stroke-width="2" stroke-linecap="round" />
-              </svg>
+            <div class="feature-card-header">
+              <div
+                class="feature-card-avatar"
+                :class="`feature-card-avatar--${workflow.avatar.variant}`"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
+                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
+                  <path
+                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
+                    fill="var(--avatar-shirt)"
+                  />
+                  <path
+                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
+                    fill="#27303d"
+                  />
+                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
+                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
+                  <path
+                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
+                    stroke="#7a4a2f"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M14 23h6M44 18h6M45 43h7"
+                    stroke="var(--avatar-accent)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-title">{{ workflow.name }}</div>
             </div>
             <div class="feature-card-body">
-              <div class="feature-card-title">{{ workflow.name }}</div>
               <div class="feature-card-desc">{{ workflow.description }}</div>
               <div class="feature-card-tags" aria-label="能力标签">
                 <span v-for="tag in workflow.tags" :key="tag" class="feature-card-tag">
@@ -211,24 +229,42 @@
                 stroke-linecap="round"
               />
             </svg>
-            <div
-              class="feature-card-avatar"
-              :class="`feature-card-avatar--${card.avatar.variant}`"
-              aria-hidden="true"
-            >
-              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
-                <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
-                <path d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z" fill="var(--avatar-shirt)" />
-                <path d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z" fill="#27303d" />
-                <circle cx="28" cy="29" r="1.5" fill="#27303d" />
-                <circle cx="36" cy="29" r="1.5" fill="#27303d" />
-                <path d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0" stroke="#7a4a2f" stroke-width="1.8" stroke-linecap="round" />
-                <path d="M14 23h6M44 18h6M45 43h7" stroke="var(--avatar-accent)" stroke-width="2" stroke-linecap="round" />
-              </svg>
+            <div class="feature-card-header">
+              <div
+                class="feature-card-avatar"
+                :class="`feature-card-avatar--${card.avatar.variant}`"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
+                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
+                  <path
+                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
+                    fill="var(--avatar-shirt)"
+                  />
+                  <path
+                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
+                    fill="#27303d"
+                  />
+                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
+                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
+                  <path
+                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
+                    stroke="#7a4a2f"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M14 23h6M44 18h6M45 43h7"
+                    stroke="var(--avatar-accent)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-title">{{ card.name }}</div>
             </div>
             <div class="feature-card-body">
-              <div class="feature-card-title">{{ card.name }}</div>
               <div class="feature-card-desc">{{ card.description }}</div>
               <div class="feature-card-tags" aria-label="能力标签">
                 <span v-for="tag in card.tags" :key="tag" class="feature-card-tag">
@@ -251,24 +287,42 @@
             class="feature-card"
             @click="handleAgentClick(agent.id)"
           >
-            <div
-              class="feature-card-avatar"
-              :class="`feature-card-avatar--${agent.avatar.variant}`"
-              aria-hidden="true"
-            >
-              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
-                <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
-                <path d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z" fill="var(--avatar-shirt)" />
-                <path d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z" fill="#27303d" />
-                <circle cx="28" cy="29" r="1.5" fill="#27303d" />
-                <circle cx="36" cy="29" r="1.5" fill="#27303d" />
-                <path d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0" stroke="#7a4a2f" stroke-width="1.8" stroke-linecap="round" />
-                <path d="M14 23h6M44 18h6M45 43h7" stroke="var(--avatar-accent)" stroke-width="2" stroke-linecap="round" />
-              </svg>
+            <div class="feature-card-header">
+              <div
+                class="feature-card-avatar"
+                :class="`feature-card-avatar--${agent.avatar.variant}`"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
+                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
+                  <path
+                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
+                    fill="var(--avatar-shirt)"
+                  />
+                  <path
+                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
+                    fill="#27303d"
+                  />
+                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
+                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
+                  <path
+                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
+                    stroke="#7a4a2f"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M14 23h6M44 18h6M45 43h7"
+                    stroke="var(--avatar-accent)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="feature-card-title">{{ agent.name }}</div>
             </div>
             <div class="feature-card-body">
-              <div class="feature-card-title">{{ agent.name }}</div>
               <div class="feature-card-desc">{{ agent.description }}</div>
               <div class="feature-card-tags" aria-label="能力标签">
                 <span v-for="tag in agent.tags" :key="tag" class="feature-card-tag">
@@ -793,13 +847,13 @@ onMounted(() => {
 .feature-card {
   appearance: none;
   position: relative;
-  display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   text-align: left;
   padding: var(--space-xl);
   min-height: 220px;
-  gap: var(--space-lg);
+  gap: 22px;
   background: #ffffff;
   /* Default: green border to match hover color, signalling "runnable".
      Denied cards override back to neutral gray below. */
@@ -840,6 +894,13 @@ onMounted(() => {
 .feature-card.no-permission:hover {
   transform: none;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.feature-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  min-width: 0;
 }
 
 .feature-card-avatar {
@@ -908,7 +969,8 @@ onMounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  min-height: 172px;
+  flex: 1;
+  min-height: 102px;
 }
 
 /* Lock badge */
@@ -926,8 +988,9 @@ onMounted(() => {
   font-size: 21px;
   font-weight: 800;
   color: #1e2130;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   line-height: 1.3;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -947,8 +1010,10 @@ onMounted(() => {
 .feature-card-tags {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: var(--space-sm);
-  margin-top: var(--space-xl);
+  margin-top: auto;
+  padding-top: var(--space-xl);
 }
 
 .feature-card-tag {
@@ -1194,11 +1259,14 @@ onMounted(() => {
   }
 
   .feature-card {
-    grid-template-columns: 56px minmax(0, 1fr);
-    gap: var(--space-lg);
+    gap: 18px;
     padding: var(--space-lg);
     border-radius: 16px;
     min-height: 196px;
+  }
+
+  .feature-card-header {
+    gap: var(--space-md);
   }
 
   .feature-card-avatar {
@@ -1207,7 +1275,7 @@ onMounted(() => {
   }
 
   .feature-card-body {
-    min-height: 158px;
+    min-height: 104px;
   }
 
   .feature-card-title {
@@ -1220,7 +1288,7 @@ onMounted(() => {
   }
 
   .feature-card-tags {
-    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
     gap: 6px;
   }
 

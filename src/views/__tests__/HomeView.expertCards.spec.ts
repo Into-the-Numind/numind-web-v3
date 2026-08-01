@@ -108,8 +108,12 @@ describe('HomeView expert-style workspace cards', () => {
     expect(cards.length).toBeGreaterThanOrEqual(4)
 
     const firstCard = cards[0]
-    expect(firstCard.find('.feature-card-avatar').exists()).toBe(true)
-    expect(firstCard.find('.feature-card-title').text()).toBe('客户拜访顾问')
+    const header = firstCard.find('.feature-card-header')
+    const body = firstCard.find('.feature-card-body')
+
+    expect(header.find('.feature-card-avatar').exists()).toBe(true)
+    expect(header.find('.feature-card-title').text()).toBe('客户拜访顾问')
+    expect(body.find('.feature-card-title').exists()).toBe(false)
     expect(firstCard.find('.feature-card-desc').text()).toContain('根据客户背景')
 
     const tags = firstCard.findAll('.feature-card-tag')
