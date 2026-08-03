@@ -639,6 +639,98 @@ describe('agentChat store', () => {
     expect(store.lastNarrationTs).toBe('2026-05-21T09:00:00Z')
   })
 
+  it('loadSessionSnapshot restores an ordinary running run as currentRun', async () => {
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-running',
+      agent_skill_id: 1,
+      messages: [],
+      run: {
+        id: 51,
+        session_id: 'sess-running',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'running',
+        state_reason: 'running',
+        created_at: '',
+        updated_at: '2026-05-21T09:10:00Z'
+      } as AgentRun,
+      agent_run_ids: [51],
+      last_active_at: '',
+      status: 'running'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot('sess-running', false)
+    expect(store.currentRun).toMatchObject({
+      id: 51,
+      session_id: 'sess-running',
+      status: 'running'
+    })
+    expect(store.lastNarrationTs).toBe('2026-05-21T09:10:00Z')
+  })
+
+  it('loadSessionSnapshot restores an ordinary pending run as currentRun', async () => {
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-pending',
+      agent_skill_id: 1,
+      messages: [],
+      run: {
+        id: 52,
+        session_id: 'sess-pending',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'pending',
+        state_reason: 'pending',
+        created_at: '',
+        updated_at: '2026-05-21T09:20:00Z'
+      } as AgentRun,
+      agent_run_ids: [52],
+      last_active_at: '',
+      status: 'running'
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot('sess-pending', false)
+    expect(store.currentRun).toMatchObject({
+      id: 52,
+      session_id: 'sess-pending',
+      status: 'pending'
+    })
+    expect(store.lastNarrationTs).toBe('2026-05-21T09:20:00Z')
+  })
+
+  it('loadSessionSnapshot keeps terminal runs inactive', async () => {
+    const terminalStatuses: AgentRun['status'][] = [
+      'completed',
+      'failed',
+      'cancelled',
+      'timeout',
+      'budget_exhausted'
+    ]
+    for (const status of terminalStatuses) {
+      setActivePinia(createPinia())
+      vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+        session_id: `sess-${status}`,
+        agent_skill_id: 1,
+        messages: [],
+        run: {
+          id: 53,
+          session_id: `sess-${status}`,
+          user_id: 1,
+          agent_skill_id: 1,
+          status,
+          state_reason: status,
+          created_at: '',
+          updated_at: '2026-05-21T09:30:00Z'
+        } as AgentRun,
+        agent_run_ids: [53],
+        last_active_at: ''
+      })
+      const store = useAgentChatStore()
+      await store.loadSessionSnapshot(`sess-${status}`, false)
+      expect(store.currentRun).toBeNull()
+      expect(store.lastNarrationTs).toBe('')
+    }
+  })
+
   it('ensureCurrentRun hydrates currentRun from getRun when unset', async () => {
     vi.mocked(api.getRun).mockResolvedValueOnce({ id: 77, status: 'running' } as AgentRun)
     const store = useAgentChatStore()
