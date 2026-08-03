@@ -3,7 +3,8 @@
  *
  * Refs: docs/agent-mode/feature-11-spec.md §7.0 / §7.2
  */
-import { onUnmounted } from 'vue'
+import { onUnmounted, ref } from 'vue'
+import type { Ref } from 'vue'
 import { useAgentChatStore } from '@/stores/agentChat'
 
 export interface UseAgentRunApi {
@@ -12,11 +13,13 @@ export interface UseAgentRunApi {
   refresh: () => Promise<void>
   startStatusPolling: () => void
   stopStatusPolling: () => void
+  isStatusPolling: Ref<boolean>
 }
 
 export function useAgentRun(): UseAgentRunApi {
   const store = useAgentChatStore()
   let statusTimer: ReturnType<typeof setInterval> | null = null
+  const isStatusPolling = ref(false)
 
   const start = async (agentId: number, text: string, sessionId?: string): Promise<void> => {
     await store.startNewRun(agentId, text, sessionId)
@@ -31,8 +34,12 @@ export function useAgentRun(): UseAgentRunApi {
   }
 
   const startStatusPolling = (): void => {
-    if (statusTimer !== null) return
+    if (statusTimer !== null) {
+      isStatusPolling.value = true
+      return
+    }
     statusTimer = setInterval(refresh, 5000)
+    isStatusPolling.value = true
   }
 
   const stopStatusPolling = (): void => {
@@ -40,9 +47,10 @@ export function useAgentRun(): UseAgentRunApi {
       clearInterval(statusTimer)
       statusTimer = null
     }
+    isStatusPolling.value = false
   }
 
   onUnmounted(stopStatusPolling)
 
-  return { start, cancel, refresh, startStatusPolling, stopStatusPolling }
+  return { start, cancel, refresh, startStatusPolling, stopStatusPolling, isStatusPolling }
 }

@@ -45,6 +45,7 @@ const {
   isStreaming,
   fallbackPolling,
   startResume,
+  attachRunEvents,
   attachContinuation
 } = useAgentStream()
 const documentsStore = useDocumentsStore()
@@ -57,6 +58,7 @@ const docPanelOpen = computed(
 const showLowBalance = ref(false)
 const sidebarOpen = ref(false)
 const observedExternalContinuationRunId = ref<number | null>(null)
+const observedOrdinaryActiveRunId = ref<number | null>(null)
 
 const isNewSession = computed(() => props.sessionId === 'new')
 const isLoadingSnapshot = computed(() => store.loadingSnapshot)
@@ -446,6 +448,56 @@ watch(
     // replays only continuation events after that exact semantic boundary.
     observedExternalContinuationRunId.value = runId
     void attachContinuation(runId)
+  }
+)
+
+// Reloaded ordinary active runs have no creator tab left to own their SSE. Join
+// as a passive observer unless another local stream/polling path already owns
+// this run, and remember the run id so stream close does not immediately reattach.
+watch(
+  () =>
+    [
+      store.currentRun?.id ?? null,
+      store.currentRun?.status ?? null,
+      isStreaming.value,
+      fallbackPolling.value,
+      runCtrl.isStatusPolling.value,
+      store.isWaitingForUser,
+      store.isWaitingForAuth || store.isQueuedExternalContinuationActive
+    ] as const,
+  ([
+    runId,
+    status,
+    hasLiveStream,
+    hasPollingFallback,
+    hasStatusPolling,
+    waitingForUser,
+    waitingForExternalContinuation
+  ]) => {
+    if (!runId) {
+      observedOrdinaryActiveRunId.value = null
+      return
+    }
+    if (
+      observedOrdinaryActiveRunId.value !== null &&
+      observedOrdinaryActiveRunId.value !== runId
+    ) {
+      observedOrdinaryActiveRunId.value = null
+    }
+    const active = status === 'running' || status === 'pending'
+    if (
+      !active ||
+      hasLiveStream ||
+      hasPollingFallback ||
+      hasStatusPolling ||
+      waitingForUser ||
+      waitingForExternalContinuation ||
+      observedOrdinaryActiveRunId.value === runId
+    ) {
+      return
+    }
+    observedOrdinaryActiveRunId.value = runId
+    void attachRunEvents(runId)
   }
 )
 
