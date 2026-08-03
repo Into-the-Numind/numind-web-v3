@@ -668,6 +668,44 @@ describe('agentChat store', () => {
     expect(store.lastNarrationTs).toBe('2026-05-21T09:10:00Z')
   })
 
+  it('loadSessionSnapshot does not carry local user messages across historical sessions', async () => {
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'session-b',
+      agent_skill_id: 1,
+      messages: [],
+      run: {
+        id: 54,
+        session_id: 'session-b',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'running',
+        state_reason: 'running',
+        created_at: '',
+        updated_at: '2026-05-21T09:12:00Z'
+      } as AgentRun,
+      agent_run_ids: [54],
+      last_active_at: '',
+      status: 'running'
+    })
+    const store = useAgentChatStore()
+    store.beginSession('session-a')
+    store.messages = [
+      {
+        id: 'local-user-a',
+        type: 'user',
+        text: 'from session A',
+        timestamp: '2026-05-21T09:11:00Z'
+      } as never
+    ]
+    await store.loadSessionSnapshot('session-b', false)
+    expect(store.messages).not.toContainEqual(expect.objectContaining({ text: 'from session A' }))
+    expect(store.currentRun).toMatchObject({
+      id: 54,
+      session_id: 'session-b',
+      status: 'running'
+    })
+  })
+
   it('loadSessionSnapshot restores an ordinary pending run as currentRun', async () => {
     vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
       session_id: 'sess-pending',
@@ -730,6 +768,61 @@ describe('agentChat store', () => {
       expect(store.lastNarrationTs).toBe('')
     }
   })
+
+  it('loadSessionSnapshot keeps a terminal run inactive even with stale waiting reason', async () => {
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-stale-waiting-terminal',
+      agent_skill_id: 1,
+      messages: [],
+      run: {
+        id: 55,
+        session_id: 'sess-stale-waiting-terminal',
+        user_id: 1,
+        agent_skill_id: 1,
+        status: 'completed',
+        state_reason: 'waiting_for_user_choice',
+        created_at: '',
+        updated_at: '2026-05-21T09:40:00Z'
+      } as AgentRun,
+      agent_run_ids: [55],
+      last_active_at: ''
+    })
+    const store = useAgentChatStore()
+    await store.loadSessionSnapshot('sess-stale-waiting-terminal', false)
+    expect(store.currentRun).toBeNull()
+    expect(store.lastNarrationTs).toBe('')
+  })
+
+  it.each(['external_resume_ready', 'ext_resume:lease-55'])(
+    'loadSessionSnapshot keeps terminal queued external continuation locally running: %s',
+    async (stateReason) => {
+      vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+        session_id: `sess-${stateReason}`,
+        agent_skill_id: 1,
+        messages: [],
+        run: {
+          id: 56,
+          session_id: `sess-${stateReason}`,
+          user_id: 1,
+          agent_skill_id: 1,
+          status: 'completed',
+          state_reason: stateReason,
+          created_at: '',
+          updated_at: '2026-05-21T09:50:00Z'
+        } as AgentRun,
+        agent_run_ids: [56],
+        last_active_at: ''
+      })
+      const store = useAgentChatStore()
+      await store.loadSessionSnapshot(`sess-${stateReason}`, false)
+      expect(store.currentRun).toMatchObject({
+        id: 56,
+        status: 'running',
+        state_reason: stateReason
+      })
+      expect(store.lastNarrationTs).toBe('2026-05-21T09:50:00Z')
+    }
+  )
 
   it('ensureCurrentRun hydrates currentRun from getRun when unset', async () => {
     vi.mocked(api.getRun).mockResolvedValueOnce({ id: 77, status: 'running' } as AgentRun)
