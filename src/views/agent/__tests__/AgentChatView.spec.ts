@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { buildAttachmentRequestFields, useAgentChatStore } from '@/stores/agentChat'
@@ -421,6 +421,55 @@ describe('Feishu queued continuation reload', () => {
 
     expect(useAgentChatStore().currentRun).toBeNull()
     expect(api.getRun).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('does not reattach the same waiting continuation when the observer stream closes normally', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    mockAttachContinuation.mockImplementationOnce(async () => {})
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-queued',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: '',
+      status: 'running',
+      run: {
+        id: 148,
+        session_id: 'sess-queued',
+        status: 'running',
+        state_reason: 'external_resume_ready',
+        created_at: '',
+        updated_at: now.toISOString()
+      },
+      messages: [
+        {
+          id: 'external-action-148',
+          type: 'external_action',
+          run_id: 148,
+          operation_id: 'op-queued',
+          session_id: 'session-queued',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 60_000).toISOString(),
+          provider: 'feishu'
+        }
+      ]
+    } as never)
+
+    const wrapper = shallowMount(AgentChatView, {
+      props: { sessionId: 'sess-queued', agentId: null, readOnly: false }
+    })
+    await flushPromises()
+    expect(mockAttachContinuation).toHaveBeenCalledTimes(1)
+
+    mockIsStreaming.value = true
+    await nextTick()
+    mockIsStreaming.value = false
+    await nextTick()
+    await flushPromises()
+
+    expect(mockAttachContinuation).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 })

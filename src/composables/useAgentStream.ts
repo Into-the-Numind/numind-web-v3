@@ -156,7 +156,7 @@ export function useAgentStream(): UseAgentStreamApi {
       if (event.type === 'terminal') {
         state.anyTerminalSeen = true
         state.finalTerminalSeen = !isWaitingTerminal(event)
-        store.clearTransportCursor(event.run_id)
+        if (state.finalTerminalSeen) store.clearTransportCursor(event.run_id)
       }
       store.applyStreamEvent(event, sessionEpoch)
     }
@@ -245,6 +245,9 @@ export function useAgentStream(): UseAgentStreamApi {
       if (initialStreamError instanceof AgentStreamConflict || isAbortError(initialStreamError)) {
         throw initialStreamError
       }
+      if (initialStreamError && !streamState.anyTerminalSeen) {
+        throw initialStreamError
+      }
 
       const runId = store.currentRun?.id
       if (
@@ -265,8 +268,6 @@ export function useAgentStream(): UseAgentStreamApi {
         isCurrentRunActive(runId)
       ) {
         await attachRunEventsCore(runId, undefined, sessionEpoch, abort.value.signal)
-      } else if (initialStreamError && !streamState.anyTerminalSeen) {
-        throw initialStreamError
       }
     } catch (err) {
       if (!store.isCurrentSessionEpoch(sessionEpoch)) return
@@ -312,10 +313,11 @@ export function useAgentStream(): UseAgentStreamApi {
       if (resumeStreamError instanceof AgentStreamConflict || isAbortError(resumeStreamError)) {
         throw resumeStreamError
       }
+      if (resumeStreamError && !streamState.anyTerminalSeen) {
+        throw resumeStreamError
+      }
       if (!streamState.anyTerminalSeen && isCurrentRunActive(opts.runId)) {
         await attachRunEventsCore(opts.runId, undefined, sessionEpoch, abort.value.signal)
-      } else if (resumeStreamError && !streamState.anyTerminalSeen) {
-        throw resumeStreamError
       }
     } catch (err) {
       if (!store.isCurrentSessionEpoch(sessionEpoch)) return

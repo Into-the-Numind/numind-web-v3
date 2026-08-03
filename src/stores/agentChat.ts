@@ -123,8 +123,11 @@ function parseStreamStartPayload(
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
   const record = payload as Record<string, unknown>
   const keys = Object.keys(record)
+  const allowedKeys = new Set(['session_id', 'run_id', 'observer_fallback'])
   if (
-    keys.length !== 2 ||
+    keys.length < 2 ||
+    keys.length > 3 ||
+    !keys.every((key) => allowedKeys.has(key)) ||
     !keys.includes('session_id') ||
     !keys.includes('run_id') ||
     !Number.isSafeInteger(envelopeRunID) ||
@@ -143,7 +146,13 @@ function parseStreamStartPayload(
   ) {
     return null
   }
-  return { session_id: sessionID, run_id: runID }
+  const observerFallback = record.observer_fallback
+  if (observerFallback !== undefined && typeof observerFallback !== 'boolean') {
+    return null
+  }
+  return observerFallback === undefined
+    ? { session_id: sessionID, run_id: runID }
+    : { session_id: sessionID, run_id: runID, observer_fallback: observerFallback }
 }
 
 /**

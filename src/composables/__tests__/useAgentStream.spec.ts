@@ -413,6 +413,40 @@ describe('useAgentStream', () => {
     expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('5-0')
   })
 
+  it('attachRunEvents explicit after takes precedence over baseline', async () => {
+    mockStore.transportCursorForRun.mockReturnValue('5-0')
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, after, onEvent) => {
+      expect(after).toBe('cursor-a')
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: 'cursor-z',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachRunEvents } = useAgentStream()
+    await attachRunEvents(42, { after: 'cursor-a', baseline: 'from_start' })
+
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('cursor-a')
+  })
+
+  it("attachRunEvents baseline 'from_start' ignores saved cursor", async () => {
+    mockStore.transportCursorForRun.mockReturnValue('5-0')
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, after, onEvent) => {
+      expect(after).toBe('')
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '10-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachRunEvents } = useAgentStream()
+    await attachRunEvents(42, { baseline: 'from_start' })
+
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('')
+  })
+
   it('attachContinuation still defaults to pause when no cursor or after exists', async () => {
     mockStore.transportCursorForRun.mockReturnValueOnce('')
     mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, after, onEvent) => {
@@ -491,6 +525,22 @@ describe('useAgentStream', () => {
     }
   })
 
+  it('start does not mask a real stream error after non-terminal frames', async () => {
+    const streamError = new Error('stream rejected')
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '1-0' })
+      throw streamError
+    })
+
+    const { start } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).not.toHaveBeenCalled()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+    expect(mockApplyError).toHaveBeenCalledWith(streamError, 7)
+  })
+
   it('terminal clears cursor and duplicate stale cursor events are ignored', async () => {
     mockStore.transportCursorForRun.mockReturnValue('b')
     mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
@@ -526,7 +576,8 @@ describe('useAgentStream', () => {
     expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
     expect(mockStartStatusPolling).not.toHaveBeenCalled()
     expect(mockApplyError).not.toHaveBeenCalled()
-    expect(mockStore.clearTransportCursor).toHaveBeenCalledWith(42)
+    expect(mockStore.recordTransportCursor).toHaveBeenCalledWith(42, '10-0')
+    expect(mockStore.clearTransportCursor).not.toHaveBeenCalledWith(42)
   })
 
   it('StreamStartPayload accepts observer_fallback for synthetic observer fallback starts', () => {
@@ -592,6 +643,19 @@ describe('useAgentStream — startResume (issue4: stream answer-resume)', () => 
     mockAnswerAndResumeStream.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
     const stream = useAgentStream()
     await expect(stream.startResume({ runId: 42, answers })).resolves.toBeUndefined()
+  })
+
+  it('startResume rethrows validation errors without attach or polling while run remains active', async () => {
+    const validationError = new Error('answers are invalid')
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockAnswerAndResumeStream.mockRejectedValueOnce(validationError)
+
+    const stream = useAgentStream()
+    await expect(stream.startResume({ runId: 42, answers })).rejects.toBe(validationError)
+
+    expect(mockStreamAgentRunEvents).not.toHaveBeenCalled()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+    expect(mockApplyError).not.toHaveBeenCalled()
   })
 
   it('startResume early-ended stream and attach failure starts polling instead of applyError', async () => {

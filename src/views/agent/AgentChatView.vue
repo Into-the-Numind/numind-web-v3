@@ -56,6 +56,7 @@ const docPanelOpen = computed(
 
 const showLowBalance = ref(false)
 const sidebarOpen = ref(false)
+const observedExternalContinuationRunId = ref<number | null>(null)
 
 const isNewSession = computed(() => props.sessionId === 'new')
 const isLoadingSnapshot = computed(() => store.loadingSnapshot)
@@ -433,10 +434,17 @@ watch(
       store.currentRun?.id
     ] as const,
   ([shouldObserve, hasLiveStream, hasPollingFallback, runId]) => {
-    if (!shouldObserve || hasLiveStream || hasPollingFallback || !runId) return
+    if (!shouldObserve || !runId) {
+      observedExternalContinuationRunId.value = null
+      return
+    }
+    if (hasLiveStream || hasPollingFallback || observedExternalContinuationRunId.value === runId) {
+      return
+    }
     // A reloaded route or second tab joins at its own saved cursor. Without one,
     // the backend derives the cursor of the latest persisted external pause and
     // replays only continuation events after that exact semantic boundary.
+    observedExternalContinuationRunId.value = runId
     void attachContinuation(runId)
   }
 )
