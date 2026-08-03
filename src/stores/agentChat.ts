@@ -2755,6 +2755,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           auth_url: payload.auth_url
         }
         messages.value.push(promptMsg)
+        if (currentRun.value?.id === e.run_id) {
+          currentRun.value = {
+            ...currentRun.value,
+            status: 'running',
+            state_reason: 'waiting_for_user_choice',
+            updated_at: e.ts
+          }
+        }
         break
       }
 

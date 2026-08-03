@@ -35,6 +35,7 @@ interface StreamObserverState {
   anyTerminalSeen: boolean
   finalTerminalSeen: boolean
   detachedContinuationExpected: boolean
+  inAppQuestionPromptSeen: boolean
 }
 
 export interface UseAgentStreamApi {
@@ -119,8 +120,12 @@ export function useAgentStream(): UseAgentStreamApi {
     lastCursor,
     anyTerminalSeen: false,
     finalTerminalSeen: false,
-    detachedContinuationExpected: false
+    detachedContinuationExpected: false,
+    inAppQuestionPromptSeen: false
   })
+
+  const isInAppPauseBoundary = (state: StreamObserverState): boolean =>
+    state.inAppQuestionPromptSeen || store.isWaitingForUser
 
   const createApplyEvent = (
     sessionEpoch: number,
@@ -144,14 +149,16 @@ export function useAgentStream(): UseAgentStreamApi {
         store.recordTransportCursor(event.run_id, cursor)
       }
       if (event.type === 'external_action') state.detachedContinuationExpected = true
-      if (
-        event.type === 'question_prompt' &&
-        event.data &&
-        typeof event.data === 'object' &&
-        !Array.isArray(event.data) &&
-        (event.data as Record<string, unknown>).pause_type === 'auth'
-      ) {
-        state.detachedContinuationExpected = true
+      if (event.type === 'question_prompt') {
+        const pauseType =
+          event.data && typeof event.data === 'object' && !Array.isArray(event.data)
+            ? (event.data as Record<string, unknown>).pause_type
+            : undefined
+        if (pauseType === 'auth') {
+          state.detachedContinuationExpected = true
+        } else {
+          state.inAppQuestionPromptSeen = true
+        }
       }
       if (event.type === 'terminal') {
         state.anyTerminalSeen = true
@@ -265,7 +272,8 @@ export function useAgentStream(): UseAgentStreamApi {
       } else if (
         runId &&
         !streamState.anyTerminalSeen &&
-        isCurrentRunActive(runId)
+        isCurrentRunActive(runId) &&
+        !isInAppPauseBoundary(streamState)
       ) {
         await attachRunEventsCore(runId, undefined, sessionEpoch, abort.value.signal)
       }
@@ -316,7 +324,11 @@ export function useAgentStream(): UseAgentStreamApi {
       if (resumeStreamError && !streamState.anyTerminalSeen) {
         throw resumeStreamError
       }
-      if (!streamState.anyTerminalSeen && isCurrentRunActive(opts.runId)) {
+      if (
+        !streamState.anyTerminalSeen &&
+        isCurrentRunActive(opts.runId) &&
+        !isInAppPauseBoundary(streamState)
+      ) {
         await attachRunEventsCore(opts.runId, undefined, sessionEpoch, abort.value.signal)
       }
     } catch (err) {

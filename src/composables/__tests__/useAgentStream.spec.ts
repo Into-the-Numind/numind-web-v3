@@ -56,6 +56,7 @@ const mockStore = {
   currentSessionEpoch: mockCurrentSessionEpoch,
   isCurrentSessionEpoch: mockIsCurrentSessionEpoch,
   currentRun: { id: 42 } as { id: number; status?: string; updated_at?: string } | null,
+  isWaitingForUser: false,
   sendingMessage: false,
   setRealtimeContinuationRun: vi.fn(),
   transportCursorForRun: vi.fn(() => ''),
@@ -105,6 +106,7 @@ beforeEach(() => {
   mockCurrentSessionEpoch.mockReturnValue(7)
   mockIsCurrentSessionEpoch.mockReturnValue(true)
   mockStore.currentRun = { id: 42 }
+  mockStore.isWaitingForUser = false
   mockStore.sendingMessage = false
 })
 
@@ -513,6 +515,44 @@ describe('useAgentStream', () => {
     expect(mockStreamAgentRunEvents).not.toHaveBeenCalled()
     expect(mockStartStatusPolling).not.toHaveBeenCalled()
     expect(mockApplyError).not.toHaveBeenCalled()
+  })
+
+  it('start treats question_prompt EOF as an in-app pause and allows answer resume', async () => {
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({
+        ...makeEvent('question_prompt'),
+        transport_cursor: '1-0',
+        data: {
+          questions: [
+            {
+              id: 'choice',
+              prompt: '请选择',
+              options: [],
+              multi_select: false
+            }
+          ]
+        }
+      })
+    })
+    mockAnswerAndResumeStream.mockImplementationOnce(async (_runId, _answers, onEvent) => {
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '2-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { start, startResume, isStreaming } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).not.toHaveBeenCalled()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+    expect(isStreaming.value).toBe(false)
+
+    await startResume({ runId: 42, answers: {} })
+
+    expect(mockAnswerAndResumeStream).toHaveBeenCalledOnce()
   })
 
   it('start stream early-ended and attach failure starts polling instead of applyError', async () => {
