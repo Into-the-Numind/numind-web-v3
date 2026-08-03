@@ -336,6 +336,41 @@ describe('useAgentStream', () => {
     expect(mockStartStatusPolling).not.toHaveBeenCalled()
   })
 
+  it('auth question_prompt terminal attaches from the last cursor and forwards continuation events', async () => {
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '1000-0' })
+      onEvent({
+        ...makeEvent('question_prompt'),
+        transport_cursor: '1001-0',
+        data: { pause_type: 'auth', questions: [] }
+      })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '1002-0',
+        data: { reason: 'waiting_for_user_choice' }
+      })
+    })
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({ ...makeEvent('reasoning_delta'), transport_cursor: '2000-0' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '2001-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { start } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
+    expect(mockStreamAgentRunEvents.mock.calls[0][0]).toBe(42)
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('1002-0')
+    expect(mockApplyStreamEvent.mock.calls.map(([event]) => event.type)).toContain(
+      'reasoning_delta'
+    )
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+  })
+
   it('reconnects from the confirmed cursor when the initial SSE rejects after the card', async () => {
     mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
       onEvent({ ...makeEvent('stream_start'), transport_cursor: '1000-0' })
@@ -628,6 +663,26 @@ describe('useAgentStream', () => {
     expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
     expect(mockStartStatusPolling).not.toHaveBeenCalled()
     expect(mockApplyError).not.toHaveBeenCalled()
+    expect(mockStore.recordTransportCursor).toHaveBeenCalledWith(42, '10-0')
+    expect(mockStore.clearTransportCursor).not.toHaveBeenCalledWith(42)
+  })
+
+  it('attachRunEvents treats ordinary question_prompt EOF as an observer pause boundary', async () => {
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({
+        ...makeEvent('question_prompt'),
+        transport_cursor: '10-0',
+        data: { questions: [] }
+      })
+    })
+
+    const { attachRunEvents, isStreaming } = useAgentStream()
+    await attachRunEvents(42)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+    expect(mockApplyError).not.toHaveBeenCalled()
+    expect(isStreaming.value).toBe(false)
     expect(mockStore.recordTransportCursor).toHaveBeenCalledWith(42, '10-0')
     expect(mockStore.clearTransportCursor).not.toHaveBeenCalledWith(42)
   })

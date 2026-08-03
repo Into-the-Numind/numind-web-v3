@@ -187,14 +187,18 @@ export function useAgentStream(): UseAgentStreamApi {
 
     store.setRealtimeContinuationRun(runId)
     try {
-      for (let attempt = 0; !state.anyTerminalSeen; attempt++) {
+      for (
+        let attempt = 0;
+        !state.anyTerminalSeen && !state.inAppQuestionPromptSeen;
+        attempt++
+      ) {
         try {
           await streamAgentRunEvents(runId, requestAfter, applyEvent, signal)
-          if (state.anyTerminalSeen) break
+          if (state.anyTerminalSeen || state.inAppQuestionPromptSeen) break
           throw new Error('Agent 实时事件流提前断开')
         } catch (err) {
           if (isAbortError(err)) throw err
-          if (state.anyTerminalSeen) break
+          if (state.anyTerminalSeen || state.inAppQuestionPromptSeen) break
           if (!store.isCurrentSessionEpoch(sessionEpoch)) return state
           if (attempt >= retryDelays.length) {
             store.setRealtimeContinuationRun(null)
