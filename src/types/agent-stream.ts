@@ -63,6 +63,8 @@ export interface StreamStartPayload {
   session_id: string
   /** Must match the envelope run_id; protects the route/session ownership bind. */
   run_id: number
+  /** True when the server emitted a synthetic observer fallback start frame. */
+  observer_fallback?: boolean
 }
 
 /** token_delta — LLM text increment (highest-frequency event) */

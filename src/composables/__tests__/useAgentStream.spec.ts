@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import type { AgentStreamEvent } from '@/types/agent-stream'
 import { AgentStreamConflict } from '@/types/agent-stream'
+import type { StreamStartPayload } from '@/types/agent-stream'
 import type { CreateRunRequest } from '@/types/agent'
 
 // ---------------------------------------------------------------------------
@@ -54,7 +55,7 @@ const mockStore = {
   appendUserMessage: mockAppendUserMessage,
   currentSessionEpoch: mockCurrentSessionEpoch,
   isCurrentSessionEpoch: mockIsCurrentSessionEpoch,
-  currentRun: { id: 42 } as { id: number; updated_at?: string } | null,
+  currentRun: { id: 42 } as { id: number; status?: string; updated_at?: string } | null,
   sendingMessage: false,
   setRealtimeContinuationRun: vi.fn(),
   transportCursorForRun: vi.fn(() => ''),
@@ -96,6 +97,13 @@ function makeEvent(type: AgentStreamEvent['type']): AgentStreamEvent {
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
+  mockStreamAgentRun.mockReset()
+  mockAnswerAndResumeStream.mockReset()
+  mockStreamAgentRunEvents.mockReset()
+  mockStore.transportCursorForRun.mockReset()
+  mockStore.transportCursorForRun.mockReturnValue('')
+  mockCurrentSessionEpoch.mockReturnValue(7)
+  mockIsCurrentSessionEpoch.mockReturnValue(true)
   mockStore.currentRun = { id: 42 }
   mockStore.sendingMessage = false
 })
@@ -244,6 +252,7 @@ describe('useAgentStream', () => {
   it('reproduce: start() must append user message to store before opening SSE', async () => {
     // streamAgentRun resolves immediately (we are not testing the stream itself)
     mockStreamAgentRun.mockResolvedValueOnce(undefined)
+    mockStore.currentRun = null
 
     const { start } = useAgentStream()
     await start({
@@ -277,6 +286,7 @@ describe('useAgentStream', () => {
 
     // Now a successful stream
     mockStreamAgentRun.mockResolvedValueOnce(undefined)
+    mockStore.currentRun = null
     await start(baseReq)
     expect(fallbackPolling.value).toBe(false)
   })
@@ -364,6 +374,171 @@ describe('useAgentStream', () => {
     expect(mockStore.clearTransportCursor).toHaveBeenCalledWith(42)
   })
 
+  it('attachRunEvents attaches ordinary active run from the beginning when no cursor exists', async () => {
+    mockStore.transportCursorForRun.mockReturnValueOnce('')
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, after, onEvent) => {
+      expect(after).toBe('')
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '10-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachRunEvents } = useAgentStream()
+    await attachRunEvents(42)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledWith(
+      42,
+      '',
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
+
+  it('attachRunEvents uses saved cursor when present', async () => {
+    mockStore.transportCursorForRun.mockReturnValueOnce('5-0')
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, after, onEvent) => {
+      expect(after).toBe('5-0')
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '6-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachRunEvents } = useAgentStream()
+    await attachRunEvents(42)
+
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('5-0')
+  })
+
+  it('attachContinuation still defaults to pause when no cursor or after exists', async () => {
+    mockStore.transportCursorForRun.mockReturnValueOnce('')
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, after, onEvent) => {
+      expect(after).toBe('pause')
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '10-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachContinuation } = useAgentStream()
+    await attachContinuation(42)
+
+    expect(mockStreamAgentRunEvents.mock.calls[0][1]).toBe('pause')
+  })
+
+  it('start falls back to attachRunEvents when initial stream ends before terminal', async () => {
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '1-0' })
+    })
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '2-0',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { start } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalled()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+  })
+
+  it('start treats waiting_for_user_choice terminal as a normal pause boundary', async () => {
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '1-0',
+        data: { reason: 'waiting_for_user_choice' }
+      })
+      throw new Error('observer closed after pause')
+    })
+
+    const { start } = useAgentStream()
+    await start(baseReq)
+
+    expect(mockStreamAgentRunEvents).not.toHaveBeenCalled()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+    expect(mockApplyError).not.toHaveBeenCalled()
+  })
+
+  it('start stream early-ended and attach failure starts polling instead of applyError', async () => {
+    vi.useFakeTimers()
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockStreamAgentRun.mockImplementationOnce(async (_req, onEvent) => {
+      onEvent({ ...makeEvent('stream_start'), transport_cursor: '1-0' })
+    })
+    mockStreamAgentRunEvents.mockRejectedValue(new Error('events unavailable'))
+
+    try {
+      const { start, fallbackPolling } = useAgentStream()
+      const promise = start(baseReq)
+      await vi.advanceTimersByTimeAsync(2000)
+      await promise
+
+      expect(fallbackPolling.value).toBe(true)
+      expect(mockStartStatusPolling).toHaveBeenCalledOnce()
+      expect(mockApplyError).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('terminal clears cursor and duplicate stale cursor events are ignored', async () => {
+    mockStore.transportCursorForRun.mockReturnValue('b')
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({ ...makeEvent('token_delta'), transport_cursor: 'a' })
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: 'c',
+        data: { reason: 'completed' }
+      })
+    })
+
+    const { attachRunEvents } = useAgentStream()
+    await attachRunEvents(42)
+
+    expect(mockApplyStreamEvent).toHaveBeenCalledTimes(1)
+    expect(mockApplyStreamEvent.mock.calls[0][0].type).toBe('terminal')
+    expect(mockStore.recordTransportCursor).not.toHaveBeenCalledWith(42, 'a')
+    expect(mockStore.clearTransportCursor).toHaveBeenCalledWith(42)
+  })
+
+  it('attachRunEvents treats waiting_for_user_choice terminal as a normal observer end', async () => {
+    mockStreamAgentRunEvents.mockImplementationOnce(async (_runId, _after, onEvent) => {
+      onEvent({
+        ...makeEvent('terminal'),
+        transport_cursor: '10-0',
+        data: { reason: 'waiting_for_user_choice' }
+      })
+    })
+
+    const { attachRunEvents } = useAgentStream()
+    await attachRunEvents(42)
+
+    expect(mockStreamAgentRunEvents).toHaveBeenCalledOnce()
+    expect(mockStartStatusPolling).not.toHaveBeenCalled()
+    expect(mockApplyError).not.toHaveBeenCalled()
+    expect(mockStore.clearTransportCursor).toHaveBeenCalledWith(42)
+  })
+
+  it('StreamStartPayload accepts observer_fallback for synthetic observer fallback starts', () => {
+    const payload: StreamStartPayload = {
+      session_id: 'sess-1',
+      run_id: 42,
+      observer_fallback: true
+    }
+
+    expect(payload.observer_fallback).toBe(true)
+  })
+
 })
 
 // ─── issue4 (dev): no narration prose after answering (poll-only resume) ──────
@@ -417,5 +592,26 @@ describe('useAgentStream — startResume (issue4: stream answer-resume)', () => 
     mockAnswerAndResumeStream.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
     const stream = useAgentStream()
     await expect(stream.startResume({ runId: 42, answers })).resolves.toBeUndefined()
+  })
+
+  it('startResume early-ended stream and attach failure starts polling instead of applyError', async () => {
+    vi.useFakeTimers()
+    mockStore.currentRun = { id: 42, status: 'running' }
+    mockAnswerAndResumeStream.mockImplementationOnce(async (_runId, _answers, onEvent) => {
+      onEvent({ ...makeEvent('token_delta'), transport_cursor: '1-0' })
+    })
+    mockStreamAgentRunEvents.mockRejectedValue(new Error('events unavailable'))
+
+    try {
+      const stream = useAgentStream()
+      const promise = stream.startResume({ runId: 42, answers })
+      await vi.advanceTimersByTimeAsync(2000)
+      await promise
+
+      expect(mockStartStatusPolling).toHaveBeenCalledOnce()
+      expect(mockApplyError).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
