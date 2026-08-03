@@ -364,6 +364,7 @@ export function useAgentStream(): UseAgentStreamApi {
 
   const stop = (): void => {
     store.setRealtimeContinuationRun(null)
+    fallbackPolling.value = false
     abort.value?.abort()
   }
 

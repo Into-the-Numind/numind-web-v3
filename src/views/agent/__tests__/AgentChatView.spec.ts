@@ -155,6 +155,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockAttachRunEvents.mockImplementation(async () => {})
   mockAttachContinuation.mockImplementation(emitAttachedTerminal)
+  mockStreamStop.mockImplementation(() => {
+    mockFallbackPolling.value = false
+  })
 })
 
 afterEach(() => {
@@ -570,6 +573,44 @@ describe('Restored ordinary active-run observer', () => {
     const wrapper = await mountRestoredRunView(restoredRun())
 
     expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('clears stale fallback polling on session switch so the next active run can attach', async () => {
+    mockFallbackPolling.value = true
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-old',
+      agent_skill_id: 1,
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'completed',
+      messages: []
+    } as never)
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-active',
+      agent_skill_id: 1,
+      agent_run_ids: [777],
+      last_active_at: '',
+      status: 'running',
+      run: restoredRun(),
+      messages: []
+    } as never)
+
+    const wrapper = shallowMount(AgentChatView, {
+      props: { sessionId: 'sess-old', agentId: null, readOnly: false }
+    })
+    await flushPromises()
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+
+    await wrapper.setProps({ sessionId: 'sess-active' })
+    await flushPromises()
+    await nextTick()
+    await flushPromises()
+
+    expect(mockStreamStop).toHaveBeenCalled()
+    expect(mockFallbackPolling.value).toBe(false)
+    expect(mockAttachRunEvents).toHaveBeenCalledOnce()
+    expect(mockAttachRunEvents).toHaveBeenCalledWith(777)
     wrapper.unmount()
   })
 

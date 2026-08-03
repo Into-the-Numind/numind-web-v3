@@ -150,6 +150,18 @@ describe('useAgentStream', () => {
     expect(mockApplyError).not.toHaveBeenCalled()
   })
 
+  it('stop clears fallbackPolling after a 409 polling fallback', async () => {
+    mockStreamAgentRun.mockRejectedValueOnce(new AgentStreamConflict(99))
+
+    const { start, stop, fallbackPolling } = useAgentStream()
+    await start(baseReq)
+    expect(fallbackPolling.value).toBe(true)
+
+    stop()
+
+    expect(fallbackPolling.value).toBe(false)
+  })
+
   // 3. Other error (non-409)
   it('network error: calls store.applyError with the thrown error', async () => {
     const boom = new Error('connection reset')

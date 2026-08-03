@@ -509,6 +509,7 @@ watch(
   (running) => {
     if (!running) {
       narration.stop()
+      stopStream()
       runCtrl.stopStatusPolling()
     }
   }
