@@ -16,10 +16,12 @@ export interface UseAgentRunApi {
   isStatusPolling: Ref<boolean>
 }
 
+const isStatusPolling = ref(false)
+let statusTimer: ReturnType<typeof setInterval> | null = null
+let sharedRefresh: (() => Promise<void>) | null = null
+
 export function useAgentRun(): UseAgentRunApi {
   const store = useAgentChatStore()
-  let statusTimer: ReturnType<typeof setInterval> | null = null
-  const isStatusPolling = ref(false)
 
   const start = async (agentId: number, text: string, sessionId?: string): Promise<void> => {
     await store.startNewRun(agentId, text, sessionId)
@@ -34,11 +36,14 @@ export function useAgentRun(): UseAgentRunApi {
   }
 
   const startStatusPolling = (): void => {
+    sharedRefresh = refresh
     if (statusTimer !== null) {
       isStatusPolling.value = true
       return
     }
-    statusTimer = setInterval(refresh, 5000)
+    statusTimer = setInterval(() => {
+      void sharedRefresh?.()
+    }, 5000)
     isStatusPolling.value = true
   }
 
@@ -47,6 +52,7 @@ export function useAgentRun(): UseAgentRunApi {
       clearInterval(statusTimer)
       statusTimer = null
     }
+    sharedRefresh = null
     isStatusPolling.value = false
   }
 

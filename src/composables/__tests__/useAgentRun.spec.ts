@@ -49,4 +49,43 @@ describe('useAgentRun', () => {
     expect(ctrl.isStatusPolling.value).toBe(false)
     expect(vi.getTimerCount()).toBe(0)
   })
+
+  it('shares status polling state and timer across instances', () => {
+    vi.useFakeTimers()
+    const Harness = defineComponent({
+      setup() {
+        return {
+          first: useAgentRun(),
+          second: useAgentRun()
+        }
+      },
+      template: '<div />'
+    })
+
+    const wrapper = mount(Harness)
+    const { first, second } = wrapper.vm as unknown as {
+      first: UseAgentRunApi
+      second: UseAgentRunApi
+    }
+
+    expect(first.isStatusPolling.value).toBe(false)
+    expect(second.isStatusPolling.value).toBe(false)
+
+    first.startStatusPolling()
+    expect(first.isStatusPolling.value).toBe(true)
+    expect(second.isStatusPolling.value).toBe(true)
+    expect(vi.getTimerCount()).toBe(1)
+
+    second.startStatusPolling()
+    expect(first.isStatusPolling.value).toBe(true)
+    expect(second.isStatusPolling.value).toBe(true)
+    expect(vi.getTimerCount()).toBe(1)
+
+    second.stopStatusPolling()
+    expect(first.isStatusPolling.value).toBe(false)
+    expect(second.isStatusPolling.value).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+
+    wrapper.unmount()
+  })
 })

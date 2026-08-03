@@ -544,6 +544,23 @@ describe('Restored ordinary active-run observer', () => {
     wrapper.unmount()
   })
 
+  it('attaches a restored pending run through attachRunEvents', async () => {
+    const wrapper = await mountRestoredRunView(restoredRun({ status: 'pending' }))
+
+    expect(mockAttachRunEvents).toHaveBeenCalledOnce()
+    expect(mockAttachRunEvents).toHaveBeenCalledWith(777)
+    wrapper.unmount()
+  })
+
+  it('does not attach while a live stream is active', async () => {
+    mockIsStreaming.value = true
+
+    const wrapper = await mountRestoredRunView(restoredRun())
+
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it.each([
     ['fallback polling', () => (mockFallbackPolling.value = true)],
     ['status polling', () => (mockRunIsStatusPolling.value = true)]
@@ -571,8 +588,20 @@ describe('Restored ordinary active-run observer', () => {
         } as AgentMessage
       ]
     ],
-    [
-      'auth pause',
+    ['external continuation', restoredRun({ state_reason: 'external_resume_ready' }), []]
+  ])('does not use the ordinary observer for %s state', async (_label, run, messages) => {
+    mockAttachContinuation.mockImplementationOnce(async () => {})
+
+    const wrapper = await mountRestoredRunView(run, messages)
+
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('uses the continuation observer for auth pause instead of the ordinary observer', async () => {
+    mockAttachContinuation.mockImplementationOnce(async () => {})
+
+    const wrapper = await mountRestoredRunView(
       restoredRun({ state_reason: 'waiting_for_user_choice' }),
       [
         {
@@ -586,13 +615,10 @@ describe('Restored ordinary active-run observer', () => {
           timestamp: ''
         } as AgentMessage
       ]
-    ],
-    ['external continuation', restoredRun({ state_reason: 'external_resume_ready' }), []]
-  ])('does not use the ordinary observer for %s state', async (_label, run, messages) => {
-    mockAttachContinuation.mockImplementationOnce(async () => {})
+    )
 
-    const wrapper = await mountRestoredRunView(run, messages)
-
+    expect(mockAttachContinuation).toHaveBeenCalledOnce()
+    expect(mockAttachContinuation).toHaveBeenCalledWith(777)
     expect(mockAttachRunEvents).not.toHaveBeenCalled()
     wrapper.unmount()
   })
