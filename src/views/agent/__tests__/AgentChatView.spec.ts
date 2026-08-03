@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { buildAttachmentRequestFields, useAgentChatStore } from '@/stores/agentChat'
 import AgentChatView from '../AgentChatView.vue'
 import * as api from '@/api/agent'
+import type { AgentMessage, AgentRun } from '@/types/agent'
 
 // ─── vue-router mock ───────────────────────────────────────────────────────
 // AgentChatView calls useRouter() at the top level — must be mocked before
@@ -71,6 +72,26 @@ vi.mock('@/api/agent', () => ({
   }))
 }))
 
+// ─── useAgentRun mock ──────────────────────────────────────────────────────
+const mockRunIsStatusPolling = { value: false }
+const mockRunStartStatusPolling = vi.fn(() => {
+  mockRunIsStatusPolling.value = true
+})
+const mockRunStopStatusPolling = vi.fn(() => {
+  mockRunIsStatusPolling.value = false
+})
+
+vi.mock('@/composables/useAgentRun', () => ({
+  useAgentRun: () => ({
+    start: vi.fn(),
+    cancel: vi.fn(),
+    refresh: vi.fn(),
+    startStatusPolling: mockRunStartStatusPolling,
+    stopStatusPolling: mockRunStopStatusPolling,
+    isStatusPolling: mockRunIsStatusPolling
+  })
+}))
+
 // ─── useAgentStream mock ───────────────────────────────────────────────────
 const mockStreamStart = vi.fn(async () => {})
 const mockStreamStartResume = vi.fn(async () => {})
@@ -102,6 +123,7 @@ const emitAttachedTerminal = async (runId: number): Promise<void> => {
     epoch
   )
 }
+const mockAttachRunEvents = vi.fn(async () => {})
 const mockAttachContinuation = vi.fn(emitAttachedTerminal)
 const mockStreamStop = vi.fn()
 const mockIsStreaming = ref(false)
@@ -111,6 +133,7 @@ vi.mock('@/composables/useAgentStream', () => ({
   useAgentStream: () => ({
     start: mockStreamStart,
     startResume: mockStreamStartResume,
+    attachRunEvents: mockAttachRunEvents,
     attachContinuation: mockAttachContinuation,
     stop: mockStreamStop,
     isStreaming: mockIsStreaming,
@@ -128,14 +151,54 @@ beforeEach(() => {
   sessionStorage.clear()
   mockIsStreaming.value = false
   mockFallbackPolling.value = false
+  mockRunIsStatusPolling.value = false
   vi.clearAllMocks()
+  mockAttachRunEvents.mockImplementation(async () => {})
   mockAttachContinuation.mockImplementation(emitAttachedTerminal)
+  mockStreamStop.mockImplementation(() => {
+    mockFallbackPolling.value = false
+  })
 })
 
 afterEach(() => {
   vi.clearAllMocks()
   vi.useRealTimers()
 })
+
+const restoredRun = (overrides: Partial<AgentRun> = {}): AgentRun => ({
+  id: 777,
+  session_id: 'sess-active',
+  user_id: 1,
+  agent_skill_id: 1,
+  status: 'running',
+  credits_used: 0,
+  created_at: '',
+  updated_at: '',
+  ...overrides
+})
+
+const mountRestoredRunView = async (
+  run: AgentRun = restoredRun(),
+  messages: AgentMessage[] = []
+) => {
+  vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+    session_id: run.session_id,
+    agent_skill_id: run.agent_skill_id,
+    agent_run_ids: [run.id],
+    last_active_at: '',
+    status: run.status,
+    run,
+    messages
+  } as never)
+
+  const wrapper = shallowMount(AgentChatView, {
+    props: { sessionId: run.session_id, agentId: null, readOnly: false }
+  })
+  await flushPromises()
+  await nextTick()
+  await flushPromises()
+  return wrapper
+}
 
 describe('AgentChatView 6 状态分支', () => {
   it('isNewSession + 空 messages → showFirstRun', () => {
@@ -421,6 +484,197 @@ describe('Feishu queued continuation reload', () => {
 
     expect(useAgentChatStore().currentRun).toBeNull()
     expect(api.getRun).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('does not reattach the same waiting continuation when the observer stream closes normally', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-07-14T10:00:00Z')
+    vi.setSystemTime(now)
+    mockAttachContinuation.mockImplementationOnce(async () => {})
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-queued',
+      agent_skill_id: 1,
+      agent_run_ids: [148],
+      last_active_at: '',
+      status: 'running',
+      run: {
+        id: 148,
+        session_id: 'sess-queued',
+        status: 'running',
+        state_reason: 'external_resume_ready',
+        created_at: '',
+        updated_at: now.toISOString()
+      },
+      messages: [
+        {
+          id: 'external-action-148',
+          type: 'external_action',
+          run_id: 148,
+          operation_id: 'op-queued',
+          session_id: 'session-queued',
+          phase: 'user_auth',
+          expires_at: new Date(now.getTime() + 60_000).toISOString(),
+          provider: 'feishu'
+        }
+      ]
+    } as never)
+
+    const wrapper = shallowMount(AgentChatView, {
+      props: { sessionId: 'sess-queued', agentId: null, readOnly: false }
+    })
+    await flushPromises()
+    expect(mockAttachContinuation).toHaveBeenCalledTimes(1)
+
+    mockIsStreaming.value = true
+    await nextTick()
+    mockIsStreaming.value = false
+    await nextTick()
+    await flushPromises()
+
+    expect(mockAttachContinuation).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+})
+
+describe('Restored ordinary active-run observer', () => {
+  it('attaches a restored active run through attachRunEvents', async () => {
+    const wrapper = await mountRestoredRunView(restoredRun())
+
+    expect(mockAttachRunEvents).toHaveBeenCalledOnce()
+    expect(mockAttachRunEvents).toHaveBeenCalledWith(777)
+    expect(mockAttachContinuation).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('attaches a restored pending run through attachRunEvents', async () => {
+    const wrapper = await mountRestoredRunView(restoredRun({ status: 'pending' }))
+
+    expect(mockAttachRunEvents).toHaveBeenCalledOnce()
+    expect(mockAttachRunEvents).toHaveBeenCalledWith(777)
+    wrapper.unmount()
+  })
+
+  it('does not attach while a live stream is active', async () => {
+    mockIsStreaming.value = true
+
+    const wrapper = await mountRestoredRunView(restoredRun())
+
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['fallback polling', () => (mockFallbackPolling.value = true)],
+    ['status polling', () => (mockRunIsStatusPolling.value = true)]
+  ])('does not attach while %s is active', async (_label, activatePolling) => {
+    activatePolling()
+
+    const wrapper = await mountRestoredRunView(restoredRun())
+
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('clears stale fallback polling on session switch so the next active run can attach', async () => {
+    mockFallbackPolling.value = true
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-old',
+      agent_skill_id: 1,
+      agent_run_ids: [],
+      last_active_at: '',
+      status: 'completed',
+      messages: []
+    } as never)
+    vi.mocked(api.getSessionSnapshot).mockResolvedValueOnce({
+      session_id: 'sess-active',
+      agent_skill_id: 1,
+      agent_run_ids: [777],
+      last_active_at: '',
+      status: 'running',
+      run: restoredRun(),
+      messages: []
+    } as never)
+
+    const wrapper = shallowMount(AgentChatView, {
+      props: { sessionId: 'sess-old', agentId: null, readOnly: false }
+    })
+    await flushPromises()
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+
+    await wrapper.setProps({ sessionId: 'sess-active' })
+    await flushPromises()
+    await nextTick()
+    await flushPromises()
+
+    expect(mockStreamStop).toHaveBeenCalled()
+    expect(mockFallbackPolling.value).toBe(false)
+    expect(mockAttachRunEvents).toHaveBeenCalledOnce()
+    expect(mockAttachRunEvents).toHaveBeenCalledWith(777)
+    wrapper.unmount()
+  })
+
+  it.each([
+    [
+      'in-app user question',
+      restoredRun({ state_reason: 'waiting_for_user_choice' }),
+      [
+        {
+          id: 'question-777',
+          type: 'question_prompt',
+          run_id: 777,
+          questions: [],
+          answer_status: 'pending',
+          timestamp: ''
+        } as AgentMessage
+      ]
+    ],
+    ['external continuation', restoredRun({ state_reason: 'external_resume_ready' }), []]
+  ])('does not use the ordinary observer for %s state', async (_label, run, messages) => {
+    mockAttachContinuation.mockImplementationOnce(async () => {})
+
+    const wrapper = await mountRestoredRunView(run, messages)
+
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('uses the continuation observer for auth pause instead of the ordinary observer', async () => {
+    mockAttachContinuation.mockImplementationOnce(async () => {})
+
+    const wrapper = await mountRestoredRunView(
+      restoredRun({ state_reason: 'waiting_for_user_choice' }),
+      [
+        {
+          id: 'auth-777',
+          type: 'question_prompt',
+          run_id: 777,
+          questions: [],
+          answer_status: 'pending',
+          pause_type: 'auth',
+          auth_url: 'https://safe.example/auth',
+          timestamp: ''
+        } as AgentMessage
+      ]
+    )
+
+    expect(mockAttachContinuation).toHaveBeenCalledOnce()
+    expect(mockAttachContinuation).toHaveBeenCalledWith(777)
+    expect(mockAttachRunEvents).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('does not duplicate attach for the same run after the first observer settles', async () => {
+    const wrapper = await mountRestoredRunView(restoredRun())
+    expect(mockAttachRunEvents).toHaveBeenCalledTimes(1)
+
+    mockIsStreaming.value = true
+    await nextTick()
+    mockIsStreaming.value = false
+    await nextTick()
+    await flushPromises()
+
+    expect(mockAttachRunEvents).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 })

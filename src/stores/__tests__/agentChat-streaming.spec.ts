@@ -700,6 +700,9 @@ describe('applyStreamEvent', () => {
   it('question_prompt: pushes question_prompt message', () => {
     const store = useAgentChatStore()
     store.applyStreamEvent(
+      makeEvent('stream_start', { run_id: 999, session_id: 'sess-999' }, { run_id: 999 })
+    )
+    store.applyStreamEvent(
       makeEvent('question_prompt', {
         questions: [
           {
@@ -718,6 +721,12 @@ describe('applyStreamEvent', () => {
     expect(p.type === 'question_prompt' && p.questions[0].options.length).toBe(2)
     expect(p.type === 'question_prompt' && p.answer_status).toBe('pending')
     expect(p.type === 'question_prompt' && p.questions[0].multi_select).toBe(false)
+    expect(store.currentRun).toMatchObject({
+      id: 999,
+      status: 'running',
+      state_reason: 'waiting_for_user_choice'
+    })
+    expect(store.isWaitingForUser).toBe(true)
   })
 
   it('question_prompt: pushes ALL questions for a multi-question yield', () => {

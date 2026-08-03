@@ -25,6 +25,19 @@ import { useAgentRun } from '@/composables/useAgentRun'
 import type { CreateRunRequest } from '@/types/agent'
 import type { AnswerItemPayload } from '@/api/agent'
 
+export interface AttachRunEventsOptions {
+  after?: string
+  baseline?: 'cursor' | 'from_start' | 'pause'
+}
+
+interface StreamObserverState {
+  lastCursor: string
+  anyTerminalSeen: boolean
+  finalTerminalSeen: boolean
+  detachedContinuationExpected: boolean
+  inAppQuestionPromptSeen: boolean
+}
+
 export interface UseAgentStreamApi {
   /** Start streaming for the given run request. Resolves when stream ends. */
   start: (req: CreateRunRequest) => Promise<void>
@@ -38,6 +51,8 @@ export interface UseAgentStreamApi {
     runId: number
     answers: Record<string, AnswerItemPayload>
   }) => Promise<void>
+  /** Attach this tab to realtime events for an ordinary active run. */
+  attachRunEvents: (runId: number, opts?: AttachRunEventsOptions) => Promise<void>
   /** Attach a loaded/rebuilt tab to an existing external continuation. */
   attachContinuation: (runId: number, after?: string) => Promise<void>
   /** Abort the in-flight stream (safe to call when not streaming). */
@@ -73,6 +88,134 @@ export function useAgentStream(): UseAgentStreamApi {
       )
     })
 
+  const retryDelays = [250, 500, 1000]
+
+  const isAbortError = (err: unknown): err is DOMException =>
+    err instanceof DOMException && err.name === 'AbortError'
+
+  const terminalReason = (event: AgentStreamEvent): unknown =>
+    event.data && typeof event.data === 'object' && !Array.isArray(event.data)
+      ? (event.data as Record<string, unknown>).reason
+      : undefined
+
+  const isWaitingTerminal = (event: AgentStreamEvent): boolean =>
+    event.type === 'terminal' && terminalReason(event) === 'waiting_for_user_choice'
+
+  const isCurrentRunActive = (runId: number): boolean => {
+    const run = store.currentRun
+    return (
+      run?.id === runId &&
+      (run.status === 'running' || run.status === 'pending')
+    )
+  }
+
+  const resolveAttachAfter = (runId: number, opts?: AttachRunEventsOptions): string => {
+    if (opts?.after !== undefined) return opts.after
+    if (opts?.baseline === 'pause') return 'pause'
+    if (opts?.baseline === 'from_start') return ''
+    return store.transportCursorForRun(runId) || ''
+  }
+
+  const createObserverState = (lastCursor = ''): StreamObserverState => ({
+    lastCursor,
+    anyTerminalSeen: false,
+    finalTerminalSeen: false,
+    detachedContinuationExpected: false,
+    inAppQuestionPromptSeen: false
+  })
+
+  const isInAppPauseBoundary = (state: StreamObserverState): boolean =>
+    state.inAppQuestionPromptSeen || store.isWaitingForUser
+
+  const createApplyEvent = (
+    sessionEpoch: number,
+    state: StreamObserverState,
+    opts: { runId?: number; ignoreSavedCursor?: boolean } = {}
+  ): ((event: AgentStreamEvent) => void) => {
+    return (event: AgentStreamEvent): void => {
+      if (!store.isCurrentSessionEpoch(sessionEpoch)) return
+      if (opts.runId !== undefined && event.run_id !== opts.runId) return
+
+      const cursor = event.transport_cursor
+      const savedCursor = opts.ignoreSavedCursor
+        ? ''
+        : store.transportCursorForRun(event.run_id)
+      const comparisonCursor = state.lastCursor || savedCursor
+      if (cursor && comparisonCursor && compareAgentStreamCursor(cursor, comparisonCursor) <= 0) {
+        return
+      }
+      if (cursor) {
+        state.lastCursor = cursor
+        store.recordTransportCursor(event.run_id, cursor)
+      }
+      if (event.type === 'external_action') state.detachedContinuationExpected = true
+      if (event.type === 'question_prompt') {
+        const pauseType =
+          event.data && typeof event.data === 'object' && !Array.isArray(event.data)
+            ? (event.data as Record<string, unknown>).pause_type
+            : undefined
+        if (pauseType === 'auth') {
+          state.detachedContinuationExpected = true
+        } else {
+          state.inAppQuestionPromptSeen = true
+        }
+      }
+      if (event.type === 'terminal') {
+        state.anyTerminalSeen = true
+        state.finalTerminalSeen = !isWaitingTerminal(event)
+        if (state.finalTerminalSeen) store.clearTransportCursor(event.run_id)
+      }
+      store.applyStreamEvent(event, sessionEpoch)
+    }
+  }
+
+  const attachRunEventsCore = async (
+    runId: number,
+    opts: AttachRunEventsOptions | undefined,
+    sessionEpoch: number,
+    signal: AbortSignal
+  ): Promise<StreamObserverState> => {
+    const initialAfter = resolveAttachAfter(runId, opts)
+    let requestAfter = initialAfter
+    const state = createObserverState(initialAfter && initialAfter !== 'pause' ? initialAfter : '')
+    const ignoreSavedCursor =
+      opts?.after !== undefined || opts?.baseline === 'from_start' || opts?.baseline === 'pause'
+    const applyEvent = createApplyEvent(sessionEpoch, state, {
+      runId,
+      ignoreSavedCursor
+    })
+
+    store.setRealtimeContinuationRun(runId)
+    try {
+      for (
+        let attempt = 0;
+        !state.anyTerminalSeen && !state.inAppQuestionPromptSeen;
+        attempt++
+      ) {
+        try {
+          await streamAgentRunEvents(runId, requestAfter, applyEvent, signal)
+          if (state.anyTerminalSeen || state.inAppQuestionPromptSeen) break
+          throw new Error('Agent 实时事件流提前断开')
+        } catch (err) {
+          if (isAbortError(err)) throw err
+          if (state.anyTerminalSeen || state.inAppQuestionPromptSeen) break
+          if (!store.isCurrentSessionEpoch(sessionEpoch)) return state
+          if (attempt >= retryDelays.length) {
+            store.setRealtimeContinuationRun(null)
+            fallbackPolling.value = true
+            startStatusPolling()
+            break
+          }
+          requestAfter = state.lastCursor || requestAfter
+          await waitBeforeReconnect(retryDelays[attempt], signal)
+        }
+      }
+      return state
+    } finally {
+      store.setRealtimeContinuationRun(null)
+    }
+  }
+
   const start = async (req: CreateRunRequest): Promise<void> => {
     // Guard: prevent concurrent streams
     if (isStreaming.value) return
@@ -93,39 +236,8 @@ export function useAgentStream(): UseAgentStreamApi {
     store.appendUserMessage(req, sessionEpoch)
 
     try {
-      let lastCursor = ''
-      let detachedContinuationExpected = false
-      let finalTerminalSeen = false
-      const applyEvent = (e: AgentStreamEvent): void => {
-        const cursor = e.transport_cursor
-        const savedCursor = store.transportCursorForRun(e.run_id)
-        const comparisonCursor = lastCursor || savedCursor
-        if (cursor && comparisonCursor && compareAgentStreamCursor(cursor, comparisonCursor) <= 0) {
-          return
-        }
-        if (cursor) {
-          lastCursor = cursor
-          store.recordTransportCursor(e.run_id, cursor)
-        }
-        if (e.type === 'external_action') detachedContinuationExpected = true
-        if (
-          e.type === 'question_prompt' &&
-          e.data &&
-          typeof e.data === 'object' &&
-          !Array.isArray(e.data) &&
-          (e.data as Record<string, unknown>).pause_type === 'auth'
-        ) {
-          detachedContinuationExpected = true
-        }
-        if (e.type === 'terminal') {
-          const reason =
-            e.data && typeof e.data === 'object' && !Array.isArray(e.data)
-              ? (e.data as Record<string, unknown>).reason
-              : undefined
-          finalTerminalSeen = reason !== 'waiting_for_user_choice'
-        }
-        store.applyStreamEvent(e, sessionEpoch)
-      }
+      const streamState = createObserverState()
+      const applyEvent = createApplyEvent(sessionEpoch, streamState)
 
       // A proxy can reject the original response after the browser has already
       // received the external-action card and waiting terminal. Preserve that
@@ -141,38 +253,33 @@ export function useAgentStream(): UseAgentStreamApi {
       // the detached leg without showing a minutes-long optimistic send state.
       if (store.isCurrentSessionEpoch(sessionEpoch)) store.sendingMessage = false
 
-      if (detachedContinuationExpected && !finalTerminalSeen && lastCursor) {
-        const runId = store.currentRun?.id
-        if (runId) {
-          store.setRealtimeContinuationRun(runId)
-          const retryDelays = [250, 500, 1000]
-          for (let attempt = 0; !finalTerminalSeen; attempt++) {
-            try {
-              await streamAgentRunEvents(runId, lastCursor, applyEvent, abort.value.signal)
-              if (finalTerminalSeen) break
-              throw new Error('Agent 实时事件流提前断开')
-            } catch (err) {
-              if (err instanceof DOMException && err.name === 'AbortError') throw err
-              if (!store.isCurrentSessionEpoch(sessionEpoch)) return
-              if (attempt >= retryDelays.length) {
-                store.setRealtimeContinuationRun(null)
-                fallbackPolling.value = true
-                startStatusPolling()
-                break
-              }
-              await waitBeforeReconnect(retryDelays[attempt], abort.value.signal)
-            }
-          }
-          if (finalTerminalSeen) {
-            store.setRealtimeContinuationRun(null)
-            store.clearTransportCursor(runId)
-          }
-        }
-      } else if (initialStreamError && !finalTerminalSeen) {
+      if (initialStreamError instanceof AgentStreamConflict || isAbortError(initialStreamError)) {
         throw initialStreamError
       }
-      if (finalTerminalSeen && store.currentRun?.id) {
-        store.clearTransportCursor(store.currentRun.id)
+      if (initialStreamError && !streamState.anyTerminalSeen) {
+        throw initialStreamError
+      }
+
+      const runId = store.currentRun?.id
+      if (
+        runId &&
+        streamState.detachedContinuationExpected &&
+        !streamState.finalTerminalSeen &&
+        streamState.lastCursor
+      ) {
+        await attachRunEventsCore(
+          runId,
+          { after: streamState.lastCursor },
+          sessionEpoch,
+          abort.value.signal
+        )
+      } else if (
+        runId &&
+        !streamState.anyTerminalSeen &&
+        isCurrentRunActive(runId) &&
+        !isInAppPauseBoundary(streamState)
+      ) {
+        await attachRunEventsCore(runId, undefined, sessionEpoch, abort.value.signal)
       }
     } catch (err) {
       if (!store.isCurrentSessionEpoch(sessionEpoch)) return
@@ -180,7 +287,7 @@ export function useAgentStream(): UseAgentStreamApi {
         // R4: Another subscriber is already attached — fall back to polling
         fallbackPolling.value = true
         startStatusPolling()
-      } else if (err instanceof DOMException && err.name === 'AbortError') {
+      } else if (isAbortError(err)) {
         // User-initiated stop via stop() — not an error, no UI message
       } else {
         store.applyError(err, sessionEpoch)
@@ -207,17 +314,32 @@ export function useAgentStream(): UseAgentStreamApi {
     // No appendUserMessage: the answers are not a user chat bubble — the
     // question_prompt card flips to "answered" in place (markQuestionAnswered).
     try {
-      await answerAndResumeStream(
-        opts.runId,
-        opts.answers,
-        (e) => store.applyStreamEvent(e, sessionEpoch),
-        abort.value.signal
-      )
+      const streamState = createObserverState()
+      const applyEvent = createApplyEvent(sessionEpoch, streamState, { runId: opts.runId })
+      let resumeStreamError: unknown = null
+      try {
+        await answerAndResumeStream(opts.runId, opts.answers, applyEvent, abort.value.signal)
+      } catch (err) {
+        resumeStreamError = err
+      }
+      if (resumeStreamError instanceof AgentStreamConflict || isAbortError(resumeStreamError)) {
+        throw resumeStreamError
+      }
+      if (resumeStreamError && !streamState.anyTerminalSeen) {
+        throw resumeStreamError
+      }
+      if (
+        !streamState.anyTerminalSeen &&
+        isCurrentRunActive(opts.runId) &&
+        !isInAppPauseBoundary(streamState)
+      ) {
+        await attachRunEventsCore(opts.runId, undefined, sessionEpoch, abort.value.signal)
+      }
     } catch (err) {
       if (!store.isCurrentSessionEpoch(sessionEpoch)) return
       // User-initiated stop via stop() — not an error, and the run is still
       // resuming server-side; no fallback (re-opening would 409).
-      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (isAbortError(err)) return
       // AgentStreamConflict / network — rethrow so the caller can fall back to
       // the poll-based resume.
       throw err
@@ -226,64 +348,22 @@ export function useAgentStream(): UseAgentStreamApi {
     }
   }
 
-  const attachContinuation = async (runId: number, after?: string): Promise<void> => {
+  const attachRunEvents = async (
+    runId: number,
+    opts?: AttachRunEventsOptions
+  ): Promise<void> => {
     if (isStreaming.value || runId <= 0) return
 
     isStreaming.value = true
     fallbackPolling.value = false
     abort.value = new AbortController()
-    const signal = abort.value.signal
     const sessionEpoch = store.currentSessionEpoch()
-    let lastCursor = after || store.transportCursorForRun(runId)
-    let requestAfter = lastCursor || 'pause'
-    let finalTerminalSeen = false
 
-    const applyEvent = (event: AgentStreamEvent): void => {
-      if (!store.isCurrentSessionEpoch(sessionEpoch) || event.run_id !== runId) return
-      const cursor = event.transport_cursor
-      const savedCursor = store.transportCursorForRun(runId)
-      const comparisonCursor = lastCursor || savedCursor
-      if (cursor && comparisonCursor && compareAgentStreamCursor(cursor, comparisonCursor) <= 0) {
-        return
-      }
-      if (cursor) {
-        lastCursor = cursor
-        requestAfter = cursor
-        store.recordTransportCursor(runId, cursor)
-      }
-      if (event.type === 'terminal') {
-        const reason =
-          event.data && typeof event.data === 'object' && !Array.isArray(event.data)
-            ? (event.data as Record<string, unknown>).reason
-            : undefined
-        finalTerminalSeen = reason !== 'waiting_for_user_choice'
-      }
-      store.applyStreamEvent(event, sessionEpoch)
-    }
-
-    store.setRealtimeContinuationRun(runId)
-    const retryDelays = [250, 500, 1000]
     try {
-      for (let attempt = 0; !finalTerminalSeen; attempt++) {
-        try {
-          await streamAgentRunEvents(runId, requestAfter, applyEvent, signal)
-          if (finalTerminalSeen) break
-          throw new Error('Agent 实时事件流提前断开')
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') throw err
-          if (!store.isCurrentSessionEpoch(sessionEpoch)) return
-          if (attempt >= retryDelays.length) {
-            store.setRealtimeContinuationRun(null)
-            fallbackPolling.value = true
-            startStatusPolling()
-            break
-          }
-          await waitBeforeReconnect(retryDelays[attempt], signal)
-        }
-      }
-      if (finalTerminalSeen) store.clearTransportCursor(runId)
+      await attachRunEventsCore(runId, opts, sessionEpoch, abort.value.signal)
     } catch (err) {
-      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+      if (!store.isCurrentSessionEpoch(sessionEpoch)) return
+      if (!isAbortError(err)) {
         store.applyError(err, sessionEpoch)
       }
     } finally {
@@ -292,10 +372,25 @@ export function useAgentStream(): UseAgentStreamApi {
     }
   }
 
+  const attachContinuation = async (runId: number, after?: string): Promise<void> => {
+    const opts: AttachRunEventsOptions =
+      after === undefined ? { baseline: 'pause' } : { after, baseline: 'pause' }
+    await attachRunEvents(runId, opts)
+  }
+
   const stop = (): void => {
     store.setRealtimeContinuationRun(null)
+    fallbackPolling.value = false
     abort.value?.abort()
   }
 
-  return { start, startResume, attachContinuation, stop, isStreaming, fallbackPolling }
+  return {
+    start,
+    startResume,
+    attachRunEvents,
+    attachContinuation,
+    stop,
+    isStreaming,
+    fallbackPolling
+  }
 }

@@ -123,8 +123,11 @@ function parseStreamStartPayload(
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
   const record = payload as Record<string, unknown>
   const keys = Object.keys(record)
+  const allowedKeys = new Set(['session_id', 'run_id', 'observer_fallback'])
   if (
-    keys.length !== 2 ||
+    keys.length < 2 ||
+    keys.length > 3 ||
+    !keys.every((key) => allowedKeys.has(key)) ||
     !keys.includes('session_id') ||
     !keys.includes('run_id') ||
     !Number.isSafeInteger(envelopeRunID) ||
@@ -143,7 +146,13 @@ function parseStreamStartPayload(
   ) {
     return null
   }
-  return { session_id: sessionID, run_id: runID }
+  const observerFallback = record.observer_fallback
+  if (observerFallback !== undefined && typeof observerFallback !== 'boolean') {
+    return null
+  }
+  return observerFallback === undefined
+    ? { session_id: sessionID, run_id: runID }
+    : { session_id: sessionID, run_id: runID, observer_fallback: observerFallback }
 }
 
 /**
@@ -1947,7 +1956,12 @@ export const useAgentChatStore = defineStore('agentChat', () => {
   }
 
   const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
-    const epoch = beginSession(sessionId)
+    const requestedSessionID = String(sessionId)
+    const previousSessionID = activeSessionID === null ? null : String(activeSessionID)
+    const previousRunSessionID = currentRun.value?.session_id
+      ? String(currentRun.value.session_id)
+      : null
+    const epoch = beginSession(requestedSessionID)
     loadingSnapshot.value = true
     sessionError.value = null
     // Snapshot loads are also the session-switch boundary for historical routes.
@@ -1981,23 +1995,34 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         }
         snapMsgs.push({ ...message, timestamp })
       }
-      // 边界防御：如果后端传回的快照里还没有任何用户消息，而我们本地正好有刚发的用户消息
-      if (snapMsgs.filter((m) => m.type === 'user').length === 0 && localUserMsgs.length > 0) {
+      const snapshotSessionID = String(snap.session_id ?? snap.run?.session_id ?? requestedSessionID)
+      const canPreserveLocalUserMsgs =
+        previousSessionID === snapshotSessionID || previousRunSessionID === snapshotSessionID
+      // 边界防御：如果同一会话的后端快照还没有用户消息，而本地正好有刚发的
+      // user bubble，保留它；普通历史会话切换不能把旧会话的本地消息搬进来。
+      if (
+        canPreserveLocalUserMsgs &&
+        snapMsgs.filter((m) => m.type === 'user').length === 0 &&
+        localUserMsgs.length > 0
+      ) {
         snapMsgs.unshift(...localUserMsgs)
       }
       messages.value = snapMsgs
       isReadOnly.value = readOnly
-      // yield-session-reload: a session paused at ask_user_question restores
-      // with a synthesized question_prompt card. Set currentRun from the
-      // snapshot so answer submission can poll the run to completion — without
-      // it, refreshRunStatus's null guard silently stalls the resume.
+      // yield-session-reload: a live snapshot run must restore currentRun so
+      // polling, cancellation, answer submission, and continuation observers can
+      // keep operating after a route reload. Terminal snapshot runs remain
+      // inactive, except for the durable external-continuation handoff below.
       const restoredQueuedExternalContinuation = Boolean(
         snap.run && isQueuedExternalContinuation(snap.run.state_reason)
       )
-      if (
+      const restoredActiveRun = Boolean(
         snap.run &&
-        (snap.run.state_reason === 'waiting_for_user_choice' || restoredQueuedExternalContinuation)
-      ) {
+          (snap.run.status === 'running' ||
+            snap.run.status === 'pending' ||
+            restoredQueuedExternalContinuation)
+      )
+      if (snap.run && restoredActiveRun) {
         // Task 11 can retain a legacy terminal DB status while the durable
         // continuation is queued/claimed. Treat only its two exact states as
         // active locally until normal polling reads the real terminal result.
@@ -2730,6 +2755,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
           auth_url: payload.auth_url
         }
         messages.value.push(promptMsg)
+        if (currentRun.value?.id === e.run_id) {
+          currentRun.value = {
+            ...currentRun.value,
+            status: 'running',
+            state_reason: 'waiting_for_user_choice',
+            updated_at: e.ts
+          }
+        }
         break
       }
 

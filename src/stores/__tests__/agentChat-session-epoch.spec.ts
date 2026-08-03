@@ -127,6 +127,14 @@ describe('agentChat session epoch', () => {
       },
       'extra data'
     ],
+    [
+      {
+        run_id: 101,
+        session_id: '42e277c7-6471-4d39-8866-e65bbbd7e016',
+        observer_fallback: 'yes'
+      },
+      'malformed observer_fallback'
+    ],
     [{ run_id: 101, session_id: 'new' }, 'unstable placeholder session']
   ])('fails closed for a malformed stream_start payload: %s', (data) => {
     const store = useAgentChatStore()
@@ -136,6 +144,25 @@ describe('agentChat session epoch', () => {
     store.applyStreamEvent(streamEvent('stream_start', 101, data), epoch)
 
     expect(store.currentRun).toBeNull()
+    expect(store.currentSessionEpoch()).toBe(epoch)
+  })
+
+  it('accepts a synthetic observer fallback stream_start payload', () => {
+    const store = useAgentChatStore()
+    store.beginSession('new')
+    const epoch = store.currentSessionEpoch()
+    const sessionID = '42e277c7-6471-4d39-8866-e65bbbd7e016'
+
+    store.applyStreamEvent(
+      streamEvent('stream_start', 101, {
+        run_id: 101,
+        session_id: sessionID,
+        observer_fallback: true
+      }),
+      epoch
+    )
+
+    expect(store.currentRun).toMatchObject({ id: 101, session_id: sessionID, status: 'running' })
     expect(store.currentSessionEpoch()).toBe(epoch)
   })
 
