@@ -7,7 +7,8 @@
  *  - 解析手法移植自 plugin3.2.1：
  *      列表卡片 section.note-item / a.cover.mask.ld / .like-wrapper .count
  *      详情 .note-detail-container / .note-content .note-text span / .comment-item
- *      视频直链 __INITIAL_STATE__.note.noteDetailMap[noteId].note.video.media.stream.h264[0].master_url
+ *      视频直链 __INITIAL_STATE__.note.noteDetailMap[noteId].note.video/media/video_info_v2
+ *      下的 stream codec master_url
  *  - 学手法不照搬业务（飞书 / 卖家后端 / 抖音 / 识别码全部移除）。
  *
  * 同时挂在 globalThis（content.js 以普通脚本引用 window.YouShuXhsParse）和
@@ -110,7 +111,13 @@
       'originUrl',
       'origin_url',
       'playUrl',
-      'play_url'
+      'play_url',
+      'default_screencast_stream',
+      'defaultScreencastStream',
+      'hd_screencast_stream',
+      'hdScreencastStream',
+      'hd_screencast_stream_basic',
+      'hdScreencastStreamBasic'
     ];
     for (const key of preferredKeys) {
       if (Object.prototype.hasOwnProperty.call(value, key)) {
@@ -128,17 +135,8 @@
     return '';
   }
 
-  /**
-   * 从一条 note 对象里取视频直链。
-   * 优先路径：note.video.media.stream.h264/h265/h266/av1[*].master_url；
-   * 兜底兼容小红书页面偶发的 video/media/stream 扁平字段变化。
-   */
-  function pickVideoUrlFromNote(note) {
-    if (!note || typeof note !== 'object' || !note.video) return '';
-    const media = note.video.media;
-    const stream = media && media.stream;
-    const direct = pickFirstDirectUrl(note.video);
-    if (!stream) return direct;
+  function pickVideoUrlFromStream(stream) {
+    if (!stream) return '';
     const tryCodec = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '';
       for (const item of arr) {
@@ -152,9 +150,44 @@
       tryCodec(stream.h265) ||
       tryCodec(stream.h266) ||
       tryCodec(stream.av1) ||
-      direct ||
       pickFirstDirectUrl(stream)
     );
+  }
+
+  function pickVideoUrlFromContainer(container) {
+    if (!container || typeof container !== 'object') return '';
+    const media = container.media || container;
+    const mediaVideo = media && media.video;
+    return (
+      pickVideoUrlFromStream(media && media.stream) ||
+      pickVideoUrlFromStream(container.stream) ||
+      pickFirstDirectUrl(mediaVideo && mediaVideo.opaque1) ||
+      pickFirstDirectUrl(container.opaque1) ||
+      pickFirstDirectUrl(container)
+    );
+  }
+
+  /**
+   * 从一条 note 对象里取视频直链。
+   * 候选池只增不删：旧版 note.video.media.stream 继续保留；
+   * 新版 video_info_v2/videoInfoV2 作为额外容器加入，降低平台字段漂移造成的单点失效。
+   */
+  function pickVideoUrlFromNote(note) {
+    if (!note || typeof note !== 'object') return '';
+    const containers = [
+      note.video,
+      note.video_info_v2,
+      note.videoInfoV2,
+      note.video_info,
+      note.videoInfo,
+      note.video_data,
+      note.videoData
+    ];
+    for (const container of containers) {
+      const u = pickVideoUrlFromContainer(container);
+      if (u) return u;
+    }
+    return '';
   }
 
   function noteFromStateWrapper(wrapper) {
