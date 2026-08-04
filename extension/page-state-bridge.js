@@ -44,7 +44,13 @@
       'originUrl',
       'origin_url',
       'playUrl',
-      'play_url'
+      'play_url',
+      'default_screencast_stream',
+      'defaultScreencastStream',
+      'hd_screencast_stream',
+      'hdScreencastStream',
+      'hd_screencast_stream_basic',
+      'hdScreencastStreamBasic'
     ];
     for (let i = 0; i < preferred.length; i++) {
       const key = preferred[i];
@@ -62,9 +68,8 @@
     return '';
   }
 
-  function pickVideoUrlFromNote(note) {
-    if (!note || typeof note !== 'object' || !note.video) return '';
-    const stream = note.video.media && note.video.media.stream;
+  function pickVideoUrlFromStream(stream) {
+    if (!stream) return '';
     const tryCodec = (items) => {
       if (!Array.isArray(items)) return '';
       for (let i = 0; i < items.length; i++) {
@@ -74,9 +79,43 @@
       return '';
     };
     return (
-      (stream && (tryCodec(stream.h264) || tryCodec(stream.h265) || tryCodec(stream.av1) || tryCodec(stream.h266))) ||
-      pickFirstDirectUrl(note.video)
+      tryCodec(stream.h264) ||
+      tryCodec(stream.h265) ||
+      tryCodec(stream.h266) ||
+      tryCodec(stream.av1) ||
+      pickFirstDirectUrl(stream)
     );
+  }
+
+  function pickVideoUrlFromContainer(container) {
+    if (!container || typeof container !== 'object') return '';
+    const media = container.media || container;
+    const mediaVideo = media && media.video;
+    return (
+      pickVideoUrlFromStream(media && media.stream) ||
+      pickVideoUrlFromStream(container.stream) ||
+      pickFirstDirectUrl(mediaVideo && mediaVideo.opaque1) ||
+      pickFirstDirectUrl(container.opaque1) ||
+      pickFirstDirectUrl(container)
+    );
+  }
+
+  function pickVideoUrlFromNote(note) {
+    if (!note || typeof note !== 'object') return '';
+    const containers = [
+      note.video,
+      note.video_info_v2,
+      note.videoInfoV2,
+      note.video_info,
+      note.videoInfo,
+      note.video_data,
+      note.videoData
+    ];
+    for (let i = 0; i < containers.length; i++) {
+      const u = pickVideoUrlFromContainer(containers[i]);
+      if (u) return u;
+    }
+    return '';
   }
 
   function cloneLimited(value, depth, seen) {
@@ -115,7 +154,8 @@
       time: note.time || note.publishTime || note.publish_time || note.lastUpdateTime || '',
       cover: cloneLimited(note.cover || {}, 4),
       imageList: cloneLimited(note.imageList || note.image_list || [], 4),
-      video: cloneLimited(note.video || {}, 7)
+      video: cloneLimited(note.video || {}, 7),
+      video_info_v2: cloneLimited(note.video_info_v2 || note.videoInfoV2 || note.video_info || note.videoInfo || {}, 7)
     };
   }
 
