@@ -331,6 +331,36 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
 })
 
 describe('lib/parse.js — 视频地址兜底解析', () => {
+  it('state 视频流迁移到 video_info_v2 时仍可取到直链', () => {
+    const state = {
+      note: {
+        currentNoteId: 'vidinfov2',
+        noteDetailMap: {
+          vidinfov2: {
+            note: {
+              noteId: 'vidinfov2',
+              type: 'video',
+              video_info_v2: {
+                media: {
+                  stream: {
+                    h264: [
+                      {
+                        master_url: 'https://sns-video.xhscdn.com/vidinfov2_258.mp4?sign=current'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(Parse.extractVideoUrlFromState(state, 'vidinfov2')).toBe(
+      'https://sns-video.xhscdn.com/vidinfov2_258.mp4?sign=current'
+    )
+  })
+
   it('state 视频流字段新增 h266 时仍可取到直链', () => {
     const state = {
       note: {
