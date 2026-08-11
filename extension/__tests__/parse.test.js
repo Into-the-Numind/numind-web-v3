@@ -349,7 +349,10 @@ describe('lib/parse.js — 视频地址兜底解析', () => {
                     EF4: [
                       {
                         master_url:
+                          'https://sns-img.xhscdn.com/current-note-cover.webp',
+                        backup_urls: [
                           'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+                        ]
                       }
                     ]
                   }
@@ -361,8 +364,48 @@ describe('lib/parse.js — 视频地址兜底解析', () => {
       }
     }
 
-    expect(Parse.extractVideoUrlFromState(state, '6a7993e60000000028032339')).toBe(
-      'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+    const expectedVideoUrl = 'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+    expect(Parse.extractVideoUrlFromState(state, '6a7993e60000000028032339')).toBe(expectedVideoUrl)
+
+    const container = document.createElement('div')
+    container.className = 'note-detail-container'
+    const payload = Parse.parseNoteDetail({
+      container,
+      state,
+      url: 'https://www.xiaohongshu.com/explore/6a7993e60000000028032339'
+    })
+    expect(payload.video_url).toBe(expectedVideoUrl)
+    expect(payload.video_url).not.toMatch(/\.(?:jpg|jpeg|png|webp)(?:[?#].*)?$/i)
+  })
+
+  it('EF5 视频流分组也能返回 MP4', () => {
+    const state = {
+      note: {
+        currentNoteId: 'vid-ef5',
+        noteDetailMap: {
+          'vid-ef5': {
+            note: {
+              noteId: 'vid-ef5',
+              type: 'video',
+              video: {
+                media: {
+                  stream: {
+                    EF5: [
+                      {
+                        master_url: 'https://sns-video-qc.xhscdn.com/current-note-ef5.mp4?sign=current'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(Parse.extractVideoUrlFromState(state, 'vid-ef5')).toBe(
+      'https://sns-video-qc.xhscdn.com/current-note-ef5.mp4?sign=current'
     )
   })
 

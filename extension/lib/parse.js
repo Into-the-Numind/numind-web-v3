@@ -88,12 +88,12 @@
   // __INITIAL_STATE__ 解析（视频直链 + 结构化字段）
   // ---------------------------------------------------------------------------
 
-  function pickFirstDirectUrl(value, seen) {
+  function pickFirstDirectUrl(value, seen, acceptUrl) {
     if (!value) return '';
     const visited = seen || new Set();
     if (typeof value === 'string') {
       const u = normalizeHttpUrl(decodeJsonUrlEscapes(value));
-      return isDirectStreamUrl(u) ? u : '';
+      return isDirectStreamUrl(u) && (!acceptUrl || acceptUrl(u)) ? u : '';
     }
     if (typeof value !== 'object') return '';
     if (visited.has(value)) return '';
@@ -121,13 +121,13 @@
     ];
     for (const key of preferredKeys) {
       if (Object.prototype.hasOwnProperty.call(value, key)) {
-        const u = pickFirstDirectUrl(value[key], visited);
+        const u = pickFirstDirectUrl(value[key], visited, acceptUrl);
         if (u) return u;
       }
     }
     if (Array.isArray(value)) {
       for (const item of value) {
-        const u = pickFirstDirectUrl(item, visited);
+        const u = pickFirstDirectUrl(item, visited, acceptUrl);
         if (u) return u;
       }
       return '';
@@ -140,7 +140,7 @@
     const tryStreamGroup = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '';
       for (const item of arr) {
-        const u = pickFirstDirectUrl(item);
+        const u = pickFirstDirectUrl(item, undefined, isLikelyVideoResourceUrl);
         if (u) return u;
       }
       return '';
@@ -157,7 +157,7 @@
       const u = tryStreamGroup(stream[key]);
       if (u) return u;
     }
-    return pickFirstDirectUrl(stream);
+    return pickFirstDirectUrl(stream, undefined, isLikelyVideoResourceUrl);
   }
 
   function pickVideoUrlFromContainer(container) {
@@ -167,9 +167,9 @@
     return (
       pickVideoUrlFromStream(media && media.stream) ||
       pickVideoUrlFromStream(container.stream) ||
-      pickFirstDirectUrl(mediaVideo && mediaVideo.opaque1) ||
-      pickFirstDirectUrl(container.opaque1) ||
-      pickFirstDirectUrl(container)
+      pickFirstDirectUrl(mediaVideo && mediaVideo.opaque1, undefined, isLikelyVideoResourceUrl) ||
+      pickFirstDirectUrl(container.opaque1, undefined, isLikelyVideoResourceUrl) ||
+      pickFirstDirectUrl(container, undefined, isLikelyVideoResourceUrl)
     );
   }
 
