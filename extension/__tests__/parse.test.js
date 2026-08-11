@@ -331,6 +331,41 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
 })
 
 describe('lib/parse.js — 视频地址兜底解析', () => {
+  it('当前小红书 EF4 视频流分组应优先返回 MP4，而不是封面图', () => {
+    const state = {
+      note: {
+        currentNoteId: '6a7993e60000000028032339',
+        noteDetailMap: {
+          '6a7993e60000000028032339': {
+            note: {
+              noteId: '6a7993e60000000028032339',
+              type: 'video',
+              video: {
+                image: {
+                  thumbnailFileid: 'https://sns-img.xhscdn.com/current-note-cover.webp'
+                },
+                media: {
+                  stream: {
+                    EF4: [
+                      {
+                        master_url:
+                          'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(Parse.extractVideoUrlFromState(state, '6a7993e60000000028032339')).toBe(
+      'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+    )
+  })
+
   it('state 视频流迁移到 video_info_v2 时仍可取到直链', () => {
     const state = {
       note: {
