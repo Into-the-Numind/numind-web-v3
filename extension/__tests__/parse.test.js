@@ -331,6 +331,104 @@ describe('lib/parse.js — 视频直链 HTML 文本扫描（CSP 安全）', () =
 })
 
 describe('lib/parse.js — 视频地址兜底解析', () => {
+  it('当前小红书 EF4 视频流分组应优先返回 MP4，而不是封面图', () => {
+    const state = {
+      note: {
+        currentNoteId: '6a7993e60000000028032339',
+        noteDetailMap: {
+          '6a7993e60000000028032339': {
+            note: {
+              noteId: '6a7993e60000000028032339',
+              type: 'video',
+              video: {
+                image: {
+                  thumbnailFileid: 'https://sns-img.xhscdn.com/current-note-cover.webp'
+                },
+                media: {
+                  stream: {
+                    EF4: [
+                      {
+                        master_url:
+                          'https://sns-img.xhscdn.com/current-note-cover.webp',
+                        backup_urls: [
+                          'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const expectedVideoUrl = 'https://sns-video-qc.xhscdn.com/current-note-ef4.mp4?sign=current'
+    expect(Parse.extractVideoUrlFromState(state, '6a7993e60000000028032339')).toBe(expectedVideoUrl)
+
+    const container = document.createElement('div')
+    container.className = 'note-detail-container'
+    const payload = Parse.parseNoteDetail({
+      container,
+      state,
+      url: 'https://www.xiaohongshu.com/explore/6a7993e60000000028032339'
+    })
+    expect(payload.video_url).toBe(expectedVideoUrl)
+    expect(payload.video_url).not.toMatch(/\.(?:jpg|jpeg|png|webp)(?:[?#].*)?$/i)
+  })
+
+  it('EF5 视频流分组也能返回 MP4', () => {
+    const state = {
+      note: {
+        currentNoteId: 'vid-ef5',
+        noteDetailMap: {
+          'vid-ef5': {
+            note: {
+              noteId: 'vid-ef5',
+              type: 'video',
+              video: {
+                media: {
+                  stream: {
+                    EF5: [
+                      {
+                        master_url: 'https://sns-video-qc.xhscdn.com/current-note-ef5.mp4?sign=current'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(Parse.extractVideoUrlFromState(state, 'vid-ef5')).toBe(
+      'https://sns-video-qc.xhscdn.com/current-note-ef5.mp4?sign=current'
+    )
+  })
+
+  it('HTML 文本兜底和最终 payload 都拒绝封面 URL', () => {
+    const noteId = 'html-cover-fallback'
+    const html = `
+      <a href="/explore/${noteId}"></a>
+      <script>{"master_url":"https://sns-img.xhscdn.com/fallback-cover.webp"}</script>`
+    const htmlVideoUrl = Parse.extractVideoUrlFromHtmlText(html, noteId)
+    expect(htmlVideoUrl).toBe('')
+
+    const container = document.createElement('div')
+    container.className = 'note-detail-container'
+    container.innerHTML = '<video src="blob:https://www.xiaohongshu.com/current-note"></video>'
+    const payload = Parse.parseNoteDetail({
+      container,
+      state: null,
+      url: `https://www.xiaohongshu.com/explore/${noteId}`,
+      videoUrl: 'https://sns-img.xhscdn.com/fallback-cover.webp'
+    })
+    expect(payload.video_url).toBe('')
+  })
+
   it('state 视频流迁移到 video_info_v2 时仍可取到直链', () => {
     const state = {
       note: {

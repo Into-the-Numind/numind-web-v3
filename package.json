@@ -14,8 +14,9 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run && vitest run --config extension/vitest.config.ts",
     "test:unit:watch": "vitest",
+    "test:xhs-extension": "vitest run --config extension/vitest.config.ts",
     "check:xhs-extension": "bash scripts/check_xhs_extension_package.sh"
   },
   "dependencies": {
