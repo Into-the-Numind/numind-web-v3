@@ -409,6 +409,26 @@ describe('lib/parse.js — 视频地址兜底解析', () => {
     )
   })
 
+  it('HTML 文本兜底和最终 payload 都拒绝封面 URL', () => {
+    const noteId = 'html-cover-fallback'
+    const html = `
+      <a href="/explore/${noteId}"></a>
+      <script>{"master_url":"https://sns-img.xhscdn.com/fallback-cover.webp"}</script>`
+    const htmlVideoUrl = Parse.extractVideoUrlFromHtmlText(html, noteId)
+    expect(htmlVideoUrl).toBe('')
+
+    const container = document.createElement('div')
+    container.className = 'note-detail-container'
+    container.innerHTML = '<video src="blob:https://www.xiaohongshu.com/current-note"></video>'
+    const payload = Parse.parseNoteDetail({
+      container,
+      state: null,
+      url: `https://www.xiaohongshu.com/explore/${noteId}`,
+      videoUrl: 'https://sns-img.xhscdn.com/fallback-cover.webp'
+    })
+    expect(payload.video_url).toBe('')
+  })
+
   it('state 视频流迁移到 video_info_v2 时仍可取到直链', () => {
     const state = {
       note: {

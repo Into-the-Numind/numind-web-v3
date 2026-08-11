@@ -536,7 +536,8 @@
       const m =
         seg.match(/"master_url"\s*:\s*"([^"]+)"/) ||
         seg.match(/"masterUrl"\s*:\s*"([^"]+)"/);
-      return m ? decodeJsonUrlEscapes(m[1]) : '';
+      const u = m ? normalizeHttpUrl(decodeJsonUrlEscapes(m[1])) : '';
+      return isLikelyVideoResourceUrl(u) ? u : '';
     };
     const i264 = text.indexOf('"h264"');
     const i265 = text.indexOf('"h265"');
@@ -558,7 +559,9 @@
 
   function pickPreferredVideoUrl(urls) {
     if (!urls || !urls.length) return '';
-    const usable = urls.map((u) => normalizeHttpUrl(decodeJsonUrlEscapes(u))).filter(isDirectStreamUrl);
+    const usable = urls
+      .map((u) => normalizeHttpUrl(decodeJsonUrlEscapes(u)))
+      .filter(isLikelyVideoResourceUrl);
     if (!usable.length) return '';
     const mp4s = usable.filter((u) => /\.mp4(?:[?#]|$)/i.test(u));
     const pool = mp4s.length ? mp4s : usable;
@@ -573,7 +576,7 @@
       let match;
       while ((match = regex.exec(text)) !== null) {
         const u = normalizeHttpUrl(decodeJsonUrlEscapes(match[1]));
-        if (isDirectStreamUrl(u)) urls.push(u);
+        if (isLikelyVideoResourceUrl(u)) urls.push(u);
       }
     };
     scan(/"master_url"\s*:\s*"([^"]+)"/g);
@@ -695,14 +698,14 @@
             } catch (_) {}
           }
           const u = pickPreferredVideoUrl(extractVideoUrlsFromText(segment)) || extractVideoStreamUrlFromText(segment);
-          if (u && /^https?:\/\//i.test(u)) return u;
+          if (isLikelyVideoResourceUrl(u)) return u;
           pos = idx + anchor.length;
         }
       }
       return ''; // 有 noteId 但其片段内无视频 → 图文笔记，绝不回落整页(否则抓到别的笔记的视频)
     }
     const u = pickPreferredVideoUrl(extractVideoUrlsFromText(html)) || extractVideoStreamUrlFromText(html);
-    return u && /^https?:\/\//i.test(u) ? u : '';
+    return isLikelyVideoResourceUrl(u) ? u : '';
   }
 
   function isLikelyVideoResourceUrl(u) {
@@ -949,9 +952,9 @@
     // 视频直链只在确认是视频笔记时才采用（图文笔记一律不塞 video_url）。
     let videoUrl = '';
     if (isVideo) {
-      if (isDirectStreamUrl(o.videoUrl)) videoUrl = o.videoUrl;
-      else if (isDirectStreamUrl(stateVideo)) videoUrl = stateVideo;
-      else if (isDirectStreamUrl(domVideo)) videoUrl = domVideo;
+      if (isLikelyVideoResourceUrl(o.videoUrl)) videoUrl = o.videoUrl;
+      else if (isLikelyVideoResourceUrl(stateVideo)) videoUrl = stateVideo;
+      else if (isLikelyVideoResourceUrl(domVideo)) videoUrl = domVideo;
     }
     const normalizedImages = normalizeVideoImages(noteType, domCover, domImages, sf.cover_url || '');
 
