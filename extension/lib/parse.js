@@ -137,7 +137,7 @@
 
   function pickVideoUrlFromStream(stream) {
     if (!stream) return '';
-    const tryCodec = (arr) => {
+    const tryStreamGroup = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '';
       for (const item of arr) {
         const u = pickFirstDirectUrl(item);
@@ -145,13 +145,19 @@
       }
       return '';
     };
-    return (
-      tryCodec(stream.h264) ||
-      tryCodec(stream.h265) ||
-      tryCodec(stream.h266) ||
-      tryCodec(stream.av1) ||
-      pickFirstDirectUrl(stream)
-    );
+    const knownGroupKeys = ['h264', 'h265', 'h266', 'av1'];
+    for (const key of knownGroupKeys) {
+      const u = tryStreamGroup(stream[key]);
+      if (u) return u;
+    }
+    // Xiaohongshu may use opaque stream group keys (for example EF4 / EF5)
+    // instead of a codec name. Each group still contains the usual MP4 URLs.
+    for (const key of Object.keys(stream)) {
+      if (knownGroupKeys.includes(key)) continue;
+      const u = tryStreamGroup(stream[key]);
+      if (u) return u;
+    }
+    return pickFirstDirectUrl(stream);
   }
 
   function pickVideoUrlFromContainer(container) {
