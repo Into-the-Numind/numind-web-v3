@@ -74,10 +74,16 @@ export const generateAgentSessionTitle = async (
 
 // 4. 会话快照（历史恢复）
 // sessionId is the UUID string from agent_run.session_id (backend varchar).
-export const getSessionSnapshot = async (sessionId: string): Promise<SessionSnapshot> => {
-  if (useMock()) return mock.getSessionSnapshot(sessionId)
+export const getSessionSnapshot = async (
+  sessionId: string,
+  offset = 0,
+  limit = 100
+): Promise<SessionSnapshot> => {
+  if (useMock()) return mock.getSessionSnapshot(sessionId, offset, limit)
+  const config = offset === 0 && limit === 100 ? undefined : { params: { offset, limit } }
   const { data } = await request.get<SessionSnapshot>(
-    `/v1/sessions/${encodeURIComponent(sessionId)}/snapshot`
+    `/v1/sessions/${encodeURIComponent(sessionId)}/snapshot`,
+    config
   )
   return data
 }

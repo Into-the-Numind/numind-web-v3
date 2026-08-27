@@ -10,9 +10,19 @@ import { ChevronDown } from 'lucide-vue-next'
 interface Props {
   messages: AgentMessage[]
   readOnly?: boolean
+  hasOlder?: boolean
+  loadingOlder?: boolean
+  olderError?: string | null
+  loadOlder?: () => Promise<boolean>
 }
 
-const props = withDefaults(defineProps<Props>(), { readOnly: false })
+const props = withDefaults(defineProps<Props>(), {
+  readOnly: false,
+  hasOlder: false,
+  loadingOlder: false,
+  olderError: null,
+  loadOlder: undefined
+})
 
 // One continuous process timeline: consecutive agent-flow messages (thinking,
 // tool lines, plan, artifacts, final answer) render under a SINGLE avatar with
@@ -28,6 +38,54 @@ defineEmits<{ 'answer-submitted': [runId: number, answers: Record<string, Answer
 
 const scroller = ref<HTMLDivElement | null>(null)
 const scrollFollow = useScrollFollow()
+const isPrependingHistory = ref(false)
+const LOAD_OLDER_THRESHOLD = 80
+
+const loadOlderFromTop = async (): Promise<void> => {
+  const element = scroller.value
+  if (
+    !element ||
+    !props.loadOlder ||
+    !props.hasOlder ||
+    props.loadingOlder ||
+    isPrependingHistory.value
+  ) {
+    return
+  }
+
+  isPrependingHistory.value = true
+  const previousScrollHeight = element.scrollHeight
+  const previousScrollTop = element.scrollTop
+  const viewportTop = element.getBoundingClientRect().top
+  const visibleAnchor = Array.from(
+    element.querySelectorAll<HTMLElement>('.messages-container > :not(.history-state):not(.history-retry)')
+  ).find((candidate) => candidate.getBoundingClientRect().bottom > viewportTop)
+  const visibleAnchorTop = visibleAnchor?.getBoundingClientRect().top
+  const previousInlineScrollBehavior = element.style.scrollBehavior
+  try {
+    const loaded = await props.loadOlder()
+    await nextTick()
+    if (loaded && scroller.value === element) {
+      // History prepending is position preservation, not navigation. Disable
+      // the container's normal smooth scrolling for these corrective writes.
+      element.style.scrollBehavior = 'auto'
+      element.scrollTop = previousScrollTop + (element.scrollHeight - previousScrollHeight)
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      if (visibleAnchor?.isConnected && visibleAnchorTop !== undefined) {
+        element.scrollTop += visibleAnchor.getBoundingClientRect().top - visibleAnchorTop
+      }
+    }
+  } finally {
+    element.style.scrollBehavior = previousInlineScrollBehavior
+    isPrependingHistory.value = false
+  }
+}
+
+const handleScroll = (): void => {
+  if (scroller.value && scroller.value.scrollTop <= LOAD_OLDER_THRESHOLD) {
+    void loadOlderFromTop()
+  }
+}
 
 // 精准计算当前处于 streaming 状态的助理消息文本长度（合并思考过程 reasoning 与回答 markdown）
 const streamingMessageText = computed<string>(() => {
@@ -76,6 +134,7 @@ watch(
   () => props.messages.length,
   async () => {
     await nextTick()
+    if (isPrependingHistory.value) return
     if (scroller.value) {
       scrollFollow.resume(scroller.value)
     }
@@ -98,8 +157,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="message-list">
-    <div ref="scroller" class="scroller">
+    <div ref="scroller" class="scroller" @scroll.passive="handleScroll">
       <div class="messages-container">
+        <div v-if="loadingOlder || isPrependingHistory" class="history-state" role="status">
+          正在加载更早记录…
+        </div>
+        <button
+          v-else-if="olderError && hasOlder"
+          class="history-retry"
+          type="button"
+          @click="loadOlderFromTop"
+        >
+          更早记录加载失败，点击重试
+        </button>
         <AgentMessageItem
           v-for="(msg, i) in messages"
           :key="msg.id"
@@ -148,6 +218,25 @@ onBeforeUnmount(() => {
   gap: 24px;
   max-width: 800px;
   margin: 0 auto;
+}
+
+.history-state,
+.history-retry {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.history-retry {
+  border: 0;
+  background: transparent;
+  color: var(--accent-link);
+  cursor: pointer;
+}
+
+.history-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 @media (max-width: 768px) {

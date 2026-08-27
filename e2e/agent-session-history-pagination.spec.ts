@@ -106,6 +106,7 @@ test('scrolling upward loads the next 100 older runs without moving the viewport
       container = container.parentElement
     }
     if (!container) throw new Error('No scrollable ancestor found for the Agent message')
+    container.style.scrollBehavior = 'auto'
     container.scrollTop = 0
     const anchorTop = element.getBoundingClientRect().top
     container.dispatchEvent(new Event('scroll', { bubbles: true }))
@@ -122,6 +123,13 @@ test('scrolling upward loads the next 100 older runs without moving the viewport
   }
 
   expect(snapshotOffsets).toEqual([0, PAGE_SIZE])
+  await expect(page.getByText('正在加载更早记录…', { exact: true })).toHaveCount(0)
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+  )
   const anchorTopAfter = await anchor.evaluate((element) => element.getBoundingClientRect().top)
   expect(Math.abs(anchorTopAfter - anchorTopBefore)).toBeLessThanOrEqual(2)
 })

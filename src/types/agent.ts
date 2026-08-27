@@ -340,6 +340,11 @@ export interface SessionSnapshot {
   compact_summary?: string
   /** returned by backend; #11 does not render */
   agent_run_ids?: number[]
+  /** Run-page pagination. Optional during rolling backend/frontend deploys. */
+  offset?: number
+  next_offset?: number
+  has_more?: boolean
+  total_runs?: number
   last_active_at?: string
   status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout'
 }
