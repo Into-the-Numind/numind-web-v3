@@ -39,7 +39,22 @@ defineEmits<{ 'answer-submitted': [runId: number, answers: Record<string, Answer
 const scroller = ref<HTMLDivElement | null>(null)
 const scrollFollow = useScrollFollow()
 const isPrependingHistory = ref(false)
+const canLoadOlderFromScroll = ref(false)
 const LOAD_OLDER_THRESHOLD = 80
+
+const positionAtLatest = (): void => {
+  const element = scroller.value
+  if (!element) return
+
+  // CSS smooth scrolling would spend several frames passing through the
+  // top-pagination threshold. Initial history positioning is restoration, not
+  // an animated navigation, so make this one write immediate.
+  const previousInlineScrollBehavior = element.style.scrollBehavior
+  element.style.scrollBehavior = 'auto'
+  scrollFollow.resume(element)
+  element.style.scrollBehavior = previousInlineScrollBehavior
+  canLoadOlderFromScroll.value = element.scrollTop > LOAD_OLDER_THRESHOLD
+}
 
 const loadOlderFromTop = async (): Promise<void> => {
   const element = scroller.value
@@ -82,7 +97,22 @@ const loadOlderFromTop = async (): Promise<void> => {
 }
 
 const handleScroll = (): void => {
-  if (scroller.value && scroller.value.scrollTop <= LOAD_OLDER_THRESHOLD) {
+  const element = scroller.value
+  if (!element) return
+
+  // A newly rendered scroll container starts at scrollTop=0 before the initial
+  // snapshot watcher moves it to the newest message. Do not interpret that
+  // browser default as an upward-scroll request. Once the viewport has first
+  // been positioned away from the top, a later return to the threshold is a
+  // genuine navigation event and may page older history.
+  if (!canLoadOlderFromScroll.value) {
+    if (element.scrollTop > LOAD_OLDER_THRESHOLD) {
+      canLoadOlderFromScroll.value = true
+    }
+    return
+  }
+
+  if (element.scrollTop <= LOAD_OLDER_THRESHOLD) {
     void loadOlderFromTop()
   }
 }
@@ -141,12 +171,29 @@ watch(
   }
 )
 
+watch(
+  () => props.hasOlder,
+  async (hasOlder, hadOlder) => {
+    if (!hasOlder) {
+      canLoadOlderFromScroll.value = false
+      return
+    }
+    if (hadOlder) return
+
+    // Session snapshots set messages and hasOlder in the same render batch.
+    // Hold pagination closed until that batch is painted at the newest edge.
+    canLoadOlderFromScroll.value = false
+    await nextTick()
+    positionAtLatest()
+  }
+)
+
 onMounted(async () => {
   await nextTick()
   if (scroller.value) {
     scrollFollow.install(scroller.value)
     // 首次挂载时直接无动画瞬间滚动到最下方
-    scrollFollow.resume(scroller.value)
+    positionAtLatest()
   }
 })
 
