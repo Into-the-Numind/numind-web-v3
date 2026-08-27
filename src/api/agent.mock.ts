@@ -300,7 +300,12 @@ export const listAllHistorySessions = async (): Promise<RecentSession[]> => {
   return DEMO_RECENT
 }
 
-export const getSessionSnapshot = async (sessionId: string): Promise<SessionSnapshot> => {
+export const getSessionSnapshot = async (
+  sessionId: string,
+  offset = 0,
+  _limit = 100
+): Promise<SessionSnapshot> => {
+  void _limit
   await delay(200)
   const recent = DEMO_RECENT.find((s) => s.session_id === sessionId)
   return {
@@ -312,6 +317,10 @@ export const getSessionSnapshot = async (sessionId: string): Promise<SessionSnap
       : undefined,
     agent_run_ids: [],
     last_active_at: recent?.last_active_at ?? new Date().toISOString(),
+    offset,
+    next_offset: offset,
+    has_more: false,
+    total_runs: 0,
     status: (recent?.status ?? 'completed') as
       | 'running'
       | 'completed'

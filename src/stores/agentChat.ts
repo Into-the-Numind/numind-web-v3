@@ -512,11 +512,15 @@ export const useAgentChatStore = defineStore('agentChat', () => {
 
   const loadingAgents = ref(false)
   const loadingSnapshot = ref(false)
+  const loadingOlderMessages = ref(false)
   const sendingMessage = ref(false)
   const cancelling = ref(false)
 
   const agentsError = ref<string | null>(null)
   const sessionError = ref<string | null>(null)
+  const olderMessagesError = ref<string | null>(null)
+  const hasOlderMessages = ref(false)
+  const nextSnapshotOffset = ref(0)
 
   // An external authorization may finish without another SSE frame. Poll the
   // original run only until the server-owned action expiry, never while the
@@ -718,6 +722,10 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     stopExternalActionPolling()
     sendingMessage.value = false
     cancelling.value = false
+    loadingOlderMessages.value = false
+    olderMessagesError.value = null
+    hasOlderMessages.value = false
+    nextSnapshotOffset.value = 0
     return activeSessionEpoch
   }
 
@@ -1955,6 +1963,28 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     messages.value[idx] = { ...existing, tool_calls: groups }
   }
 
+  const normalizeSnapshotMessages = (snapshotMessages: AgentMessage[]): AgentMessage[] => {
+    const now = new Date().toISOString()
+    const normalized: AgentMessage[] = []
+    for (const message of snapshotMessages) {
+      const timestamp = message.timestamp ?? now
+      if (message.type === 'external_action') {
+        // Snapshot authorization URLs are deliberately not trusted/restored.
+        const externalAction = externalActionMessage(
+          message,
+          message.run_id,
+          timestamp,
+          message.id,
+          false
+        )
+        if (externalAction) normalized.push(externalAction)
+        continue
+      }
+      normalized.push({ ...message, timestamp })
+    }
+    return normalized
+  }
+
   const loadSessionSnapshot = async (sessionId: string, readOnly: boolean): Promise<void> => {
     const requestedSessionID = String(sessionId)
     const previousSessionID = activeSessionID === null ? null : String(activeSessionID)
@@ -1972,29 +2002,8 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     try {
       const snap = await api.getSessionSnapshot(sessionId)
       if (!isCurrentSessionEpoch(epoch)) return
-      // Defensive: backend may omit timestamp on restored messages; fill with
-      // a stable fallback so BaseMessage.timestamp is always a valid string.
-      const now = new Date().toISOString()
       const localUserMsgs = messages.value.filter((m) => m.type === 'user')
-      const snapMsgs: AgentMessage[] = []
-      for (const message of snap.messages ?? []) {
-        const timestamp = message.timestamp ?? now
-        if (message.type === 'external_action') {
-          // Rebuild rather than spread the server object. Snapshot payloads are
-          // flat and include provider routing metadata at runtime; only the card
-          // allowlist may enter browser state, and snapshots never restore URLs.
-          const externalAction = externalActionMessage(
-            message,
-            message.run_id,
-            timestamp,
-            message.id,
-            false
-          )
-          if (externalAction) snapMsgs.push(externalAction)
-          continue
-        }
-        snapMsgs.push({ ...message, timestamp })
-      }
+      const snapMsgs = normalizeSnapshotMessages(snap.messages ?? [])
       const snapshotSessionID = String(snap.session_id ?? snap.run?.session_id ?? requestedSessionID)
       const canPreserveLocalUserMsgs =
         previousSessionID === snapshotSessionID || previousRunSessionID === snapshotSessionID
@@ -2008,6 +2017,9 @@ export const useAgentChatStore = defineStore('agentChat', () => {
         snapMsgs.unshift(...localUserMsgs)
       }
       messages.value = snapMsgs
+      nextSnapshotOffset.value = snap.next_offset ?? snap.agent_run_ids?.length ?? 0
+      hasOlderMessages.value = snap.has_more ?? false
+      olderMessagesError.value = null
       isReadOnly.value = readOnly
       // yield-session-reload: a live snapshot run must restore currentRun so
       // polling, cancellation, answer submission, and continuation observers can
@@ -2079,6 +2091,47 @@ export const useAgentChatStore = defineStore('agentChat', () => {
       }
     } finally {
       if (isCurrentSessionEpoch(epoch)) loadingSnapshot.value = false
+    }
+  }
+
+  const loadOlderSessionMessages = async (): Promise<boolean> => {
+    if (
+      !activeSessionID ||
+      activeSessionID === 'new' ||
+      !hasOlderMessages.value ||
+      loadingOlderMessages.value
+    ) {
+      return false
+    }
+
+    const requestedSessionID = activeSessionID
+    const requestedOffset = nextSnapshotOffset.value
+    const epoch = currentSessionEpoch()
+    loadingOlderMessages.value = true
+    olderMessagesError.value = null
+    try {
+      const snap = await api.getSessionSnapshot(requestedSessionID, requestedOffset, 100)
+      if (!isCurrentSessionEpoch(epoch) || activeSessionID !== requestedSessionID) return false
+
+      const existingMessageIDs = new Set(messages.value.map((message) => message.id))
+      const olderMessages = normalizeSnapshotMessages(snap.messages ?? []).filter(
+        (message) => !existingMessageIDs.has(message.id)
+      )
+      if (olderMessages.length > 0) {
+        messages.value = [...olderMessages, ...messages.value]
+      }
+
+      nextSnapshotOffset.value =
+        snap.next_offset ?? requestedOffset + (snap.agent_run_ids?.length ?? 0)
+      hasOlderMessages.value = snap.has_more ?? false
+      return olderMessages.length > 0
+    } catch (err) {
+      if (isCurrentSessionEpoch(epoch)) {
+        olderMessagesError.value = (err as Error).message ?? '更早的聊天记录加载失败'
+      }
+      return false
+    } finally {
+      if (isCurrentSessionEpoch(epoch)) loadingOlderMessages.value = false
     }
   }
 
@@ -2977,10 +3030,14 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isReadOnly.value = false
     loadingAgents.value = false
     loadingSnapshot.value = false
+    loadingOlderMessages.value = false
     sendingMessage.value = false
     cancelling.value = false
     agentsError.value = null
     sessionError.value = null
+    olderMessagesError.value = null
+    hasOlderMessages.value = false
+    nextSnapshotOffset.value = 0
     realtimeContinuationRunID.value = null
     transportCursorByRun.clear()
     erroredRuns.clear()
@@ -3013,10 +3070,13 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     isReadOnly,
     loadingAgents,
     loadingSnapshot,
+    loadingOlderMessages,
     sendingMessage,
     cancelling,
     agentsError,
     sessionError,
+    olderMessagesError,
+    hasOlderMessages,
     isRunning,
     isWaitingForUser,
     isWaitingForAuth,
@@ -3036,6 +3096,7 @@ export const useAgentChatStore = defineStore('agentChat', () => {
     uploadAttachment,
     removeAttachment,
     loadSessionSnapshot,
+    loadOlderSessionMessages,
     pinSession,
     renameSession,
     deleteSession,

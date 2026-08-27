@@ -21,7 +21,8 @@ export default defineConfig({
     {
       name: 'e2e',
       dependencies: ['setup'],
-      testIgnore: /(feishu-personal-workspace|agent-streaming)\.spec\.ts/,
+      testIgnore:
+        /(feishu-personal-workspace|agent-streaming|agent-session-history-pagination)\.spec\.ts/,
       use: {
         storageState: 'e2e/.auth/user.json',
       },
@@ -31,7 +32,8 @@ export default defineConfig({
     // in-browser test token themselves and therefore deliberately skip auth.setup.
     {
       name: 'mocked',
-      testMatch: /(feishu-personal-workspace|agent-tool-recovery|agent-streaming)\.spec\.ts/,
+      testMatch:
+        /(feishu-personal-workspace|agent-tool-recovery|agent-streaming|agent-session-history-pagination)\.spec\.ts/,
       use: {
         baseURL: 'http://localhost:5174',
       },

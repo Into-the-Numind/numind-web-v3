@@ -683,6 +683,10 @@ const handleRetrySnapshot = async (): Promise<void> => {
             <AgentMessageList
               :messages="store.messages"
               :read-only="readOnly"
+              :has-older="store.hasOlderMessages"
+              :loading-older="store.loadingOlderMessages"
+              :older-error="store.olderMessagesError"
+              :load-older="store.loadOlderSessionMessages"
               @answer-submitted="handleAnswerSubmitted"
             />
           </div>
