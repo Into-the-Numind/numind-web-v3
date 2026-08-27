@@ -24,9 +24,7 @@ function makeMessages(prefix: string, count: number, startMinute: number) {
   }))
 }
 
-test('scrolling upward loads the next 100 older runs without moving the viewport', async ({
-  page
-}) => {
+test('initial load stays on the newest 100 runs until the user scrolls upward', async ({ page }) => {
   const diagnostics = createDiagnostics(page)
   const snapshotOffsets: number[] = []
 
@@ -93,6 +91,34 @@ test('scrolling upward loads the next 100 older runs without moving the viewport
 
   await page.goto(`/agent/chat/${SESSION_ID}?agent_id=1`)
   await expect(page.getByText('LATEST_MARKER_99', { exact: false })).toBeAttached()
+
+  // Mounting starts the scroll container at scrollTop=0. That browser default
+  // must not be mistaken for a user request to load older history before the
+  // component has positioned the newest page at the bottom.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+  )
+  await page.waitForTimeout(100)
+  expect(snapshotOffsets).toEqual([0])
+  await expect(page.getByText('OLDER_MARKER_0', { exact: false })).toHaveCount(0)
+
+  const latest = page.getByText('LATEST_MARKER_99', { exact: false })
+  const initialDistanceFromBottom = await latest.evaluate((element) => {
+    let container: HTMLElement | null = element as HTMLElement
+    while (container) {
+      const style = window.getComputedStyle(container)
+      if (/auto|scroll/.test(style.overflowY) && container.scrollHeight > container.clientHeight) {
+        break
+      }
+      container = container.parentElement
+    }
+    if (!container) throw new Error('No scrollable ancestor found for the Agent message')
+    return container.scrollHeight - container.clientHeight - container.scrollTop
+  })
+  expect(initialDistanceFromBottom).toBeLessThanOrEqual(2)
 
   const anchor = page.getByText('LATEST_MARKER_0', { exact: false })
   await expect(anchor).toBeAttached()
