@@ -7,7 +7,8 @@ import { listVisibleChatbots } from '@/api/chatbot'
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
-  fetchAvailableAgents: vi.fn()
+  fetchAvailableAgents: vi.fn(),
+  availableAgents: [] as Array<{ id: number; name: string; description?: string }>
 }))
 
 vi.mock('vue-router', () => ({
@@ -23,13 +24,7 @@ vi.mock('@/stores/user', () => ({
 
 vi.mock('@/stores/agentChat', () => ({
   useAgentChatStore: () => ({
-    availableAgents: [
-      {
-        id: 21,
-        name: '项目推进专家',
-        description: '把复杂任务拆成多步骤执行，并持续推进结果。'
-      }
-    ],
+    availableAgents: mocks.availableAgents,
     fetchAvailableAgents: mocks.fetchAvailableAgents
   })
 }))
@@ -64,6 +59,7 @@ describe('HomeView expert-style workspace cards', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.fetchAvailableAgents.mockResolvedValue(undefined)
+    mocks.availableAgents = [{ id: 21, name: '项目推进专家' }]
 
     vi.mocked(request.get).mockResolvedValue({
       data: {
@@ -153,6 +149,49 @@ describe('HomeView expert-style workspace cards', () => {
       const avatar = card?.get('.feature-card-avatar')
       expect(avatar?.attributes('aria-hidden'), title).toBe('true')
       expect(avatar?.find(`svg.lucide-${icon}`).exists(), title).toBe(true)
+    }
+  })
+
+  it('assigns a distinct icon to each card observed in the production workspace', async () => {
+    const workflows = [
+      ['小红书图文生成智能体', 'images'],
+      ['AI文稿创作：流量选题口播稿', 'mic'],
+      ['AI朋友圈：深度思考文案', 'lightbulb']
+    ]
+    const chatbots = [
+      ['AI写封面标题（流量/营销脚本）', 'type'],
+      ['靚靚镜像大脑', 'brain'],
+      ['钩子话术调整', 'magnet'],
+      ['引流话术调整', 'funnel'],
+      ['会议记录批量生成朋友圈', 'files'],
+      ['会议记录沉淀', 'archive'],
+      ['营销脚本改稿', 'file-pen-line'],
+      ['流量脚本改稿', 'trending-up']
+    ]
+    const agents = [
+      ['选题规划智能体', 'calendar-days'],
+      ['黄金人设信息卡提炼', 'id-card'],
+      ['爆款素材加工打标', 'tags']
+    ]
+
+    vi.mocked(request.get).mockResolvedValue({
+      data: { templates: workflows.map(([name], index) => ({ id: index + 1, name })) }
+    })
+    vi.mocked(listVisibleChatbots).mockResolvedValue({
+      data: chatbots.map(([name], index) => ({ id: index + 1, name }))
+    })
+    mocks.availableAgents = agents.map(([name], index) => ({ id: index + 1, name }))
+
+    const wrapper = mountHomeView()
+    await flushPromises()
+
+    const cards = wrapper.findAll('.feature-card')
+    const expectedCards = [...workflows, ['销售智能体', 'briefcase-business'], ...chatbots, ...agents]
+    expect(cards.map((card) => card.get('.feature-card-title').text())).toEqual(
+      expectedCards.map(([name]) => name)
+    )
+    for (const [index, [name, icon]] of expectedCards.entries()) {
+      expect(cards[index].find(`.feature-card-avatar svg.lucide-${icon}`).exists(), name).toBe(true)
     }
   })
 })
