@@ -145,35 +145,10 @@
             <div class="feature-card-header">
               <div
                 class="feature-card-avatar"
-                :class="`feature-card-avatar--${workflow.avatar.variant}`"
+                :class="`feature-card-avatar--${workflow.avatarVariant}`"
                 aria-hidden="true"
               >
-                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
-                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
-                  <path
-                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
-                    fill="var(--avatar-shirt)"
-                  />
-                  <path
-                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
-                    fill="#27303d"
-                  />
-                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
-                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
-                  <path
-                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
-                    stroke="#7a4a2f"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M14 23h6M44 18h6M45 43h7"
-                    stroke="var(--avatar-accent)"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                </svg>
+                <component :is="workspaceAvatarIcons[workflow.avatarVariant]" :stroke-width="1.75" />
               </div>
               <div class="feature-card-title">{{ workflow.name }}</div>
             </div>
@@ -232,35 +207,10 @@
             <div class="feature-card-header">
               <div
                 class="feature-card-avatar"
-                :class="`feature-card-avatar--${card.avatar.variant}`"
+                :class="`feature-card-avatar--${card.avatarVariant}`"
                 aria-hidden="true"
               >
-                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
-                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
-                  <path
-                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
-                    fill="var(--avatar-shirt)"
-                  />
-                  <path
-                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
-                    fill="#27303d"
-                  />
-                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
-                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
-                  <path
-                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
-                    stroke="#7a4a2f"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M14 23h6M44 18h6M45 43h7"
-                    stroke="var(--avatar-accent)"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                </svg>
+                <component :is="workspaceAvatarIcons[card.avatarVariant]" :stroke-width="1.75" />
               </div>
               <div class="feature-card-title">{{ card.name }}</div>
             </div>
@@ -290,35 +240,10 @@
             <div class="feature-card-header">
               <div
                 class="feature-card-avatar"
-                :class="`feature-card-avatar--${agent.avatar.variant}`"
+                :class="`feature-card-avatar--${agent.avatarVariant}`"
                 aria-hidden="true"
               >
-                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="32" cy="32" r="31.5" fill="var(--avatar-bg)" />
-                  <circle cx="32" cy="27" r="11" fill="var(--avatar-face)" />
-                  <path
-                    d="M20 56c2.4-11 7-16 12-16s9.6 5 12 16H20Z"
-                    fill="var(--avatar-shirt)"
-                  />
-                  <path
-                    d="M22 27c3-12 18-12 21 0-6-3.3-14-3.3-21 0Z"
-                    fill="#27303d"
-                  />
-                  <circle cx="28" cy="29" r="1.5" fill="#27303d" />
-                  <circle cx="36" cy="29" r="1.5" fill="#27303d" />
-                  <path
-                    d="M28.5 34.5c2.4 1.8 4.6 1.8 7 0"
-                    stroke="#7a4a2f"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M14 23h6M44 18h6M45 43h7"
-                    stroke="var(--avatar-accent)"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                </svg>
+                <component :is="workspaceAvatarIcons[agent.avatarVariant]" :stroke-width="1.75" />
               </div>
               <div class="feature-card-title">{{ agent.name }}</div>
             </div>
@@ -380,6 +305,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  ChartNoAxesColumnIncreasing,
+  ClipboardList,
+  FilePenLine,
+  ListChecks,
+  MessageSquare,
+  Workflow
+} from 'lucide-vue-next'
 import request from '@/api/request'
 import { checkSalesPermission } from '@/api/sales'
 import { listVisibleChatbots, checkChatbotPermission } from '@/api/chatbot'
@@ -404,13 +339,22 @@ interface SopTemplate {
 }
 
 type WorkspaceCardType = 'sop' | 'sales' | 'chatbot' | 'agent'
-type WorkspaceAvatarVariant = 'workflow' | 'sales' | 'knowledge' | 'content' | 'ops' | 'data' | 'agent'
+
+const workspaceAvatarIcons = {
+  workflow: Workflow,
+  sales: BriefcaseBusiness,
+  knowledge: BookOpen,
+  content: FilePenLine,
+  ops: ClipboardList,
+  data: ChartNoAxesColumnIncreasing,
+  chatbot: MessageSquare,
+  agent: ListChecks
+}
+
+type WorkspaceAvatarVariant = keyof typeof workspaceAvatarIcons
 
 interface WorkspaceCardDisplay {
-  avatar: {
-    variant: WorkspaceAvatarVariant
-    seed: string
-  }
+  avatarVariant: WorkspaceAvatarVariant
   name: string
   description: string
   tags: string[]
@@ -524,19 +468,14 @@ function inferWorkspaceTags(type: WorkspaceCardType, name: string, description: 
   return uniqueFirstThree(matched?.tags ?? fallbackTags[type])
 }
 
-function resolveAvatarVariant(
-  type: WorkspaceCardType,
-  name: string,
-  description: string
-): WorkspaceAvatarVariant {
-  const text = `${name} ${description}`
+function matchAvatarVariant(text: string): WorkspaceAvatarVariant | undefined {
+  if (/分析|预测|统计|报表/.test(text)) return 'data'
+  if (/知识|问答|客服|RAG|检索|引用/i.test(text)) return 'knowledge'
+  if (/方案|报告|文档|内容创作|润色|写作/.test(text)) return 'content'
+  if (/运营|增长|周报|复盘/.test(text)) return 'ops'
   if (/销售|客户|拜访|话术|跟进|商机/.test(text)) return 'sales'
-  if (/知识|问答|客服|RAG|检索|引用/.test(text)) return 'knowledge'
-  if (/方案|报告|文档|内容|创作|润色|写作/.test(text)) return 'content'
-  if (/运营|增长|周报|复盘|行动/.test(text)) return 'ops'
-  if (/数据|分析|预测|统计|报表/.test(text)) return 'data'
-  if (type === 'sop') return 'workflow'
-  return 'agent'
+  if (/数据/.test(text)) return 'data'
+  return undefined
 }
 
 function buildCardDisplay(
@@ -547,10 +486,10 @@ function buildCardDisplay(
   const cleanName = name.trim()
   const cleanDescription = description.trim() || fallbackDescription[type]
   return {
-    avatar: {
-      variant: resolveAvatarVariant(type, cleanName, cleanDescription),
-      seed: `${type}:${cleanName}`
-    },
+    avatarVariant:
+      matchAvatarVariant(cleanName) ??
+      matchAvatarVariant(cleanDescription) ??
+      (type === 'sop' ? 'workflow' : type),
     name: cleanName,
     description: cleanDescription,
     tags: inferWorkspaceTags(type, cleanName, cleanDescription)
@@ -907,65 +846,46 @@ onMounted(() => {
 }
 
 .feature-card-avatar {
-  --avatar-bg: hsl(160 60% 94%);
-  --avatar-accent: hsl(160 72% 40%);
-  --avatar-shirt: hsl(160 50% 34%);
-  --avatar-face: #f1bd8c;
+  display: grid;
+  place-items: center;
   width: 52px;
   height: 52px;
-  border-radius: 50%;
-  overflow: hidden;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-light);
-  box-shadow: 0 7px 20px rgba(20, 28, 38, 0.06);
+  background: var(--avatar-bg, var(--accent-soft));
+  color: var(--avatar-ink, var(--primary-hover));
   flex: 0 0 auto;
 }
 
-.feature-card-avatar svg {
-  display: block;
-  width: 100%;
-  height: 100%;
+.feature-card-avatar :deep(svg) {
+  width: 24px;
+  height: 24px;
 }
 
-.feature-card-avatar--workflow {
-  --avatar-bg: hsl(160 62% 94%);
-  --avatar-accent: hsl(160 72% 40%);
-  --avatar-shirt: hsl(160 48% 35%);
-}
-
-.feature-card-avatar--sales {
-  --avatar-bg: hsl(154 68% 93%);
-  --avatar-accent: hsl(160 75% 38%);
-  --avatar-shirt: hsl(160 50% 32%);
-}
-
-.feature-card-avatar--knowledge {
-  --avatar-bg: #f5f8fb;
-  --avatar-accent: hsl(160 68% 42%);
-  --avatar-shirt: hsl(166 40% 36%);
+.feature-card-avatar--knowledge,
+.feature-card-avatar--chatbot {
+  --avatar-bg: #eaf3f3;
+  --avatar-ink: #346d70;
 }
 
 .feature-card-avatar--content {
-  --avatar-bg: #f8f3e9;
-  --avatar-accent: hsl(160 70% 38%);
-  --avatar-shirt: #3b7a69;
+  --avatar-bg: #faf0df;
+  --avatar-ink: #8c5f21;
 }
 
 .feature-card-avatar--ops {
-  --avatar-bg: #eef7f4;
-  --avatar-accent: hsl(160 72% 40%);
-  --avatar-shirt: #327967;
+  --avatar-bg: #edf3e7;
+  --avatar-ink: #516b36;
 }
 
 .feature-card-avatar--data {
-  --avatar-bg: #edf4f7;
-  --avatar-accent: hsl(160 70% 36%);
-  --avatar-shirt: #2f6f63;
+  --avatar-bg: #eaf1f8;
+  --avatar-ink: #3c6588;
 }
 
 .feature-card-avatar--agent {
-  --avatar-bg: #f1f4f8;
-  --avatar-accent: hsl(160 65% 42%);
-  --avatar-shirt: #3a6f66;
+  --avatar-bg: #f0f2f4;
+  --avatar-ink: var(--text-secondary);
 }
 
 .feature-card-body {

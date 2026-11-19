@@ -73,6 +73,16 @@ describe('HomeView expert-style workspace cards', () => {
             name: '客户拜访顾问',
             description: '根据客户背景生成开场话术、痛点判断和跟进待办。',
             has_permission: true
+          },
+          {
+            id: 2,
+            name: '方案润色专家',
+            description: '把粗糙材料整理成客户可读的方案结构。'
+          },
+          {
+            id: 3,
+            name: '销售预测复盘',
+            description: '汇总团队机会点、成交阻力和预测偏差。'
           }
         ]
       }
@@ -123,5 +133,26 @@ describe('HomeView expert-style workspace cards', () => {
     expect(firstCard.find('.card-right').exists()).toBe(false)
     expect(firstCard.find('.feature-card-label').exists()).toBe(false)
     expect(firstCard.find('.feature-card-icon').exists()).toBe(false)
+  })
+
+  it('shows distinct decorative icons based on the card purpose', async () => {
+    const wrapper = mountHomeView()
+    await flushPromises()
+
+    const cards = wrapper.findAll('.feature-card')
+    const expectedIcons = {
+      客户拜访顾问: 'briefcase-business',
+      方案润色专家: 'file-pen-line',
+      销售预测复盘: 'chart-no-axes-column-increasing',
+      知识库问答专家: 'book-open',
+      项目推进专家: 'list-checks'
+    }
+
+    for (const [title, icon] of Object.entries(expectedIcons)) {
+      const card = cards.find((item) => item.get('.feature-card-title').text() === title)
+      const avatar = card?.get('.feature-card-avatar')
+      expect(avatar?.attributes('aria-hidden'), title).toBe('true')
+      expect(avatar?.find(`svg.lucide-${icon}`).exists(), title).toBe(true)
+    }
   })
 })
