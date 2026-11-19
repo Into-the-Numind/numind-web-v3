@@ -145,10 +145,10 @@
             <div class="feature-card-header">
               <div
                 class="feature-card-avatar"
-                :class="`feature-card-avatar--${workflow.avatarVariant}`"
+                :class="`feature-card-avatar--${workflow.avatar.variant}`"
                 aria-hidden="true"
               >
-                <component :is="workspaceAvatarIcons[workflow.avatarVariant]" :stroke-width="1.75" />
+                <component :is="workspaceAvatarIcons[workflow.avatar.icon]" :stroke-width="1.75" />
               </div>
               <div class="feature-card-title">{{ workflow.name }}</div>
             </div>
@@ -207,10 +207,10 @@
             <div class="feature-card-header">
               <div
                 class="feature-card-avatar"
-                :class="`feature-card-avatar--${card.avatarVariant}`"
+                :class="`feature-card-avatar--${card.avatar.variant}`"
                 aria-hidden="true"
               >
-                <component :is="workspaceAvatarIcons[card.avatarVariant]" :stroke-width="1.75" />
+                <component :is="workspaceAvatarIcons[card.avatar.icon]" :stroke-width="1.75" />
               </div>
               <div class="feature-card-title">{{ card.name }}</div>
             </div>
@@ -240,10 +240,10 @@
             <div class="feature-card-header">
               <div
                 class="feature-card-avatar"
-                :class="`feature-card-avatar--${agent.avatarVariant}`"
+                :class="`feature-card-avatar--${agent.avatar.variant}`"
                 aria-hidden="true"
               >
-                <component :is="workspaceAvatarIcons[agent.avatarVariant]" :stroke-width="1.75" />
+                <component :is="workspaceAvatarIcons[agent.avatar.icon]" :stroke-width="1.75" />
               </div>
               <div class="feature-card-title">{{ agent.name }}</div>
             </div>
@@ -306,13 +306,26 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  Archive,
   BookOpen,
+  Brain,
   BriefcaseBusiness,
+  CalendarDays,
   ChartNoAxesColumnIncreasing,
   ClipboardList,
   FilePenLine,
+  Files,
+  Funnel,
+  IdCard,
+  Images,
+  Lightbulb,
   ListChecks,
+  Magnet,
   MessageSquare,
+  Mic,
+  Tags,
+  TrendingUp,
+  Type,
   Workflow
 } from 'lucide-vue-next'
 import request from '@/api/request'
@@ -340,7 +353,7 @@ interface SopTemplate {
 
 type WorkspaceCardType = 'sop' | 'sales' | 'chatbot' | 'agent'
 
-const workspaceAvatarIcons = {
+const defaultWorkspaceAvatarIcons = {
   workflow: Workflow,
   sales: BriefcaseBusiness,
   knowledge: BookOpen,
@@ -351,10 +364,50 @@ const workspaceAvatarIcons = {
   agent: ListChecks
 }
 
-type WorkspaceAvatarVariant = keyof typeof workspaceAvatarIcons
+const workspaceAvatarIcons = {
+  ...defaultWorkspaceAvatarIcons,
+  archive: Archive,
+  brain: Brain,
+  calendar: CalendarDays,
+  files: Files,
+  funnel: Funnel,
+  id: IdCard,
+  images: Images,
+  lightbulb: Lightbulb,
+  magnet: Magnet,
+  microphone: Mic,
+  tags: Tags,
+  trend: TrendingUp,
+  type: Type
+}
+
+type WorkspaceAvatarVariant = keyof typeof defaultWorkspaceAvatarIcons
+
+interface WorkspaceCardAvatar {
+  icon: keyof typeof workspaceAvatarIcons
+  variant: WorkspaceAvatarVariant
+}
+
+// Match published card titles before using the shared keyword fallback.
+const workspaceAvatarOverrides = new Map<string, WorkspaceCardAvatar>([
+  ['小红书图文生成智能体', { icon: 'images', variant: 'content' }],
+  ['AI文稿创作：流量选题口播稿', { icon: 'microphone', variant: 'knowledge' }],
+  ['AI朋友圈：深度思考文案', { icon: 'lightbulb', variant: 'content' }],
+  ['AI写封面标题（流量/营销脚本）', { icon: 'type', variant: 'content' }],
+  ['靚靚镜像大脑', { icon: 'brain', variant: 'knowledge' }],
+  ['钩子话术调整', { icon: 'magnet', variant: 'sales' }],
+  ['引流话术调整', { icon: 'funnel', variant: 'data' }],
+  ['会议记录批量生成朋友圈', { icon: 'files', variant: 'content' }],
+  ['会议记录沉淀', { icon: 'archive', variant: 'knowledge' }],
+  ['营销脚本改稿', { icon: 'content', variant: 'content' }],
+  ['流量脚本改稿', { icon: 'trend', variant: 'data' }],
+  ['选题规划智能体', { icon: 'calendar', variant: 'ops' }],
+  ['黄金人设信息卡提炼', { icon: 'id', variant: 'knowledge' }],
+  ['爆款素材加工打标', { icon: 'tags', variant: 'data' }]
+])
 
 interface WorkspaceCardDisplay {
-  avatarVariant: WorkspaceAvatarVariant
+  avatar: WorkspaceCardAvatar
   name: string
   description: string
   tags: string[]
@@ -478,6 +531,19 @@ function matchAvatarVariant(text: string): WorkspaceAvatarVariant | undefined {
   return undefined
 }
 
+function resolveWorkspaceAvatar(
+  type: WorkspaceCardType,
+  name: string,
+  description: string
+): WorkspaceCardAvatar {
+  const override = workspaceAvatarOverrides.get(name)
+  if (override) return override
+
+  const variant =
+    matchAvatarVariant(name) ?? matchAvatarVariant(description) ?? (type === 'sop' ? 'workflow' : type)
+  return { icon: variant, variant }
+}
+
 function buildCardDisplay(
   type: WorkspaceCardType,
   name: string,
@@ -486,10 +552,7 @@ function buildCardDisplay(
   const cleanName = name.trim()
   const cleanDescription = description.trim() || fallbackDescription[type]
   return {
-    avatarVariant:
-      matchAvatarVariant(cleanName) ??
-      matchAvatarVariant(cleanDescription) ??
-      (type === 'sop' ? 'workflow' : type),
+    avatar: resolveWorkspaceAvatar(type, cleanName, cleanDescription),
     name: cleanName,
     description: cleanDescription,
     tags: inferWorkspaceTags(type, cleanName, cleanDescription)
